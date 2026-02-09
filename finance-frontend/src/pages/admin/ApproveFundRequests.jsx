@@ -4,10 +4,18 @@ import { Button } from '../../components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
 import { Badge } from '../../components/ui/badge';
 import { Textarea } from '../../components/ui/textarea';
-import { CheckCircle, XCircle, DollarSign, FileText } from 'lucide-react';
-import Navbar from '../../components/shared/Navbar';
+import { CheckCircle, XCircle, Banknote, FileText, ArrowRight, Wallet } from 'lucide-react';
+import { useLayout } from '../../contexts/LayoutContext';
+import DateFilter from '../../components/shared/DateFilter';
+import { RESEARCH_CENTRES } from '../../constants/researchCentres';
+import { FUND_SOURCES } from '../../constants/fundSources';
 
 const ApproveFundRequests = () => {
+    const { setLayout } = useLayout();
+    const [selectedDate, setSelectedDate] = useState(null);
+    const [selectedCentre, setSelectedCentre] = useState('All');
+    const [selectedSource, setSelectedSource] = useState('All');
+
     const [fundRequests, setFundRequests] = useState([
         {
             id: 1,
@@ -16,7 +24,11 @@ const ApproveFundRequests = () => {
             requestedAmount: 1500000,
             purpose: 'Equipment purchase and software licenses',
             submittedDate: '2024-01-25',
-            status: 'PENDING'
+            status: 'PENDING',
+            chequeStatus: 'Pending', // Default for Pending requests, but really N/A until Approved
+            department: 'CSE',
+            centre: 'Centre for Nano Science and Nanotechnology',
+            source: 'PFMS'
         },
         {
             id: 2,
@@ -25,168 +37,320 @@ const ApproveFundRequests = () => {
             requestedAmount: 2000000,
             purpose: 'Hardware components and field testing',
             submittedDate: '2024-01-22',
-            status: 'PENDING'
+            status: 'PENDING',
+            chequeStatus: 'Pending',
+            department: 'ECE',
+            centre: 'Centre for Climate Studies',
+            source: "Director's Innovation"
         },
         {
             id: 3,
             projectTitle: 'Renewable Energy Grid Optimization',
             faculty: 'Dr. Bharti',
-            requestedAmount: 3000000,
+            requestedAmount: 300000,
             purpose: 'Research equipment and data collection',
             submittedDate: '2024-01-20',
-            status: 'APPROVED'
+            status: 'APPROVED',
+            chequeStatus: 'Pending', // Approved but Cheque Pending
+            department: 'EEE',
+            centre: 'Centre of Excellence for Energy Research',
+            source: 'PFMS'
         },
+        {
+            id: 4,
+            projectTitle: 'Waste to Energy Conversion',
+            faculty: 'Dr. Anita Desai',
+            requestedAmount: 500000,
+            purpose: 'Lab Setup',
+            submittedDate: '2024-01-10',
+            status: 'APPROVED',
+            chequeStatus: 'Approved', // Cheque Approved, waiting disbursement
+            department: 'CHEM',
+            centre: 'Centre for Waste Management',
+            source: "Director's Innovation"
+        },
+        {
+            id: 5,
+            projectTitle: 'Ocean Data Buoys',
+            faculty: 'Dr. R. Kumar',
+            requestedAmount: 1200000,
+            purpose: 'Field deployment',
+            submittedDate: '2024-01-05',
+            status: 'APPROVED',
+            chequeStatus: 'Disbursed', // Money sent
+            department: 'OCEAN',
+            centre: 'Centre for Ocean Research',
+            source: 'PFMS'
+        }
     ]);
 
     const [selectedRequest, setSelectedRequest] = useState(null);
     const [approvalNotes, setApprovalNotes] = useState('');
+    const [rejectionModal, setRejectionModal] = useState({ isOpen: false, requestId: null, remarks: '' });
+
+    React.useEffect(() => {
+        setLayout(
+            "Approve Fund Requests",
+            selectedDate ? `Requests for ${new Date(selectedDate).toLocaleDateString()}` : "Manage fund approvals and cheque disbursements"
+        );
+    }, [selectedDate, setLayout]);
 
     const handleApprove = (requestId) => {
         setFundRequests(fundRequests.map(r =>
-            r.id === requestId ? { ...r, status: 'APPROVED' } : r
+            r.id === requestId ? { ...r, status: 'APPROVED', chequeStatus: 'Pending' } : r
         ));
         setSelectedRequest(null);
         setApprovalNotes('');
     };
 
-    const handleReject = (requestId) => {
+    const handleRejectClick = (requestId) => {
+        setRejectionModal({ isOpen: true, requestId, remarks: '' });
+    };
+
+    const handleConfirmReject = () => {
+        const { requestId, remarks } = rejectionModal;
         setFundRequests(fundRequests.map(r =>
-            r.id === requestId ? { ...r, status: 'REJECTED' } : r
+            r.id === requestId ? { ...r, status: 'REJECTED', rejectionRemarks: remarks } : r
         ));
+        setRejectionModal({ isOpen: false, requestId: null, remarks: '' });
         setSelectedRequest(null);
         setApprovalNotes('');
     };
 
-    const pendingRequests = fundRequests.filter(r => r.status === 'PENDING');
-    const totalPendingAmount = pendingRequests.reduce((sum, r) => sum + r.requestedAmount, 0);
+    // Cheque Logic Handlers
+    const handleApproveCheque = (requestId) => {
+        setFundRequests(fundRequests.map(r =>
+            r.id === requestId ? { ...r, chequeStatus: 'Approved' } : r
+        ));
+        // Update local selected request to reflect change immediately in modal
+        setSelectedRequest(prev => ({ ...prev, chequeStatus: 'Approved' }));
+    };
+
+    const handleDisburseCheque = (requestId) => {
+        setFundRequests(fundRequests.map(r =>
+            r.id === requestId ? { ...r, chequeStatus: 'Disbursed' } : r
+        ));
+        setSelectedRequest(prev => ({ ...prev, chequeStatus: 'Disbursed' }));
+    };
+
+    const filteredRequests = fundRequests.filter(r => {
+        const matchesDate = !selectedDate || r.submittedDate === selectedDate;
+        const matchesCentre = selectedCentre === 'All' || r.centre === selectedCentre;
+        const matchesSource = selectedSource === 'All' || r.source === selectedSource;
+        return matchesDate && matchesCentre && matchesSource;
+    });
+
+    // Stats Calculation
+    const approvedAmount = filteredRequests
+        .filter(r => r.status === 'APPROVED')
+        .reduce((sum, r) => sum + r.requestedAmount, 0);
+
+    const pendingChequesCount = filteredRequests
+        .filter(r => r.status === 'APPROVED' && r.chequeStatus === 'Pending')
+        .length;
+
+    const disbursedAmount = filteredRequests
+        .filter(r => r.chequeStatus === 'Disbursed')
+        .reduce((sum, r) => sum + r.requestedAmount, 0);
+
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-gray-50 to-green-50">
-            <Navbar />
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-                <div className="mb-8">
-                    <h1 className="text-4xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent">
-                        Approve Fund Requests
-                    </h1>
-                    <p className="text-gray-600 mt-2 text-lg">Review and approve funding requests from faculty</p>
-                </div>
+        <div className="flex-1 overflow-y-auto overflow-x-hidden">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-8 pt-6">
 
-                {/* Stats */}
+                {/* Polished Summary Cards */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                    <Card className="border-0 shadow-lg bg-gradient-to-br from-orange-500 to-red-600 text-white">
-                        <CardContent className="pt-6">
-                            <div className="flex items-center justify-between">
+                    <Card className="border-0 bg-blue-50/50 dark:bg-blue-900/10 text-blue-700 dark:text-blue-400 ring-1 ring-blue-100 dark:ring-blue-900/30">
+                        <CardContent className="p-6">
+                            <div className="flex items-start justify-between">
                                 <div>
-                                    <p className="text-sm opacity-90">Pending Requests</p>
-                                    <p className="text-3xl font-bold mt-1">{pendingRequests.length}</p>
+                                    <p className="text-xs font-bold uppercase tracking-wider opacity-70">Approved Amount</p>
+                                    <p className="text-3xl font-bold mt-2">₹{(approvedAmount / 100000).toFixed(1)}L</p>
+                                    <p className="text-[10px] mt-1 opacity-60">Total Sanctioned</p>
                                 </div>
-                                <div className="w-12 h-12 bg-white/20 rounded-lg flex items-center justify-center">
+                                <div className="w-12 h-12 bg-blue-100/50 dark:bg-blue-800/20 rounded-xl flex items-center justify-center">
+                                    <CheckCircle className="w-6 h-6" />
+                                </div>
+                            </div>
+                        </CardContent>
+                    </Card>
+
+                    <Card className="border-0 bg-amber-50/50 dark:bg-amber-900/10 text-amber-700 dark:text-amber-400 ring-1 ring-amber-100 dark:ring-amber-900/30">
+                        <CardContent className="p-6">
+                            <div className="flex items-start justify-between">
+                                <div>
+                                    <p className="text-xs font-bold uppercase tracking-wider opacity-70">Pending Cheques</p>
+                                    <p className="text-3xl font-bold mt-2">{pendingChequesCount}</p>
+                                    <p className="text-[10px] mt-1 opacity-60">Approved but not Issued</p>
+                                </div>
+                                <div className="w-12 h-12 bg-amber-100/50 dark:bg-amber-800/20 rounded-xl flex items-center justify-center">
                                     <FileText className="w-6 h-6" />
                                 </div>
                             </div>
                         </CardContent>
                     </Card>
 
-                    <Card className="border-0 shadow-lg bg-gradient-to-br from-green-500 to-emerald-600 text-white">
-                        <CardContent className="pt-6">
-                            <div className="flex items-center justify-between">
+                    <Card className="border-0 bg-emerald-50/50 dark:bg-emerald-900/10 text-emerald-700 dark:text-emerald-400 ring-1 ring-emerald-100 dark:ring-emerald-900/30">
+                        <CardContent className="p-6">
+                            <div className="flex items-start justify-between">
                                 <div>
-                                    <p className="text-sm opacity-90">Total Pending Amount</p>
-                                    <p className="text-3xl font-bold mt-1">₹{(totalPendingAmount / 10000000).toFixed(1)}Cr</p>
+                                    <p className="text-xs font-bold uppercase tracking-wider opacity-70">Disbursed Amount</p>
+                                    <p className="text-3xl font-bold mt-2">₹{(disbursedAmount / 100000).toFixed(1)}L</p>
+                                    <p className="text-[10px] mt-1 opacity-60">Funds Released</p>
                                 </div>
-                                <div className="w-12 h-12 bg-white/20 rounded-lg flex items-center justify-center">
-                                    <DollarSign className="w-6 h-6" />
-                                </div>
-                            </div>
-                        </CardContent>
-                    </Card>
-
-                    <Card className="border-0 shadow-lg bg-gradient-to-br from-blue-500 to-indigo-600 text-white">
-                        <CardContent className="pt-6">
-                            <div className="flex items-center justify-between">
-                                <div>
-                                    <p className="text-sm opacity-90">Approved This Month</p>
-                                    <p className="text-3xl font-bold mt-1">
-                                        {fundRequests.filter(r => r.status === 'APPROVED').length}
-                                    </p>
-                                </div>
-                                <div className="w-12 h-12 bg-white/20 rounded-lg flex items-center justify-center">
-                                    <CheckCircle className="w-6 h-6" />
+                                <div className="w-12 h-12 bg-emerald-100/50 dark:bg-emerald-800/20 rounded-xl flex items-center justify-center">
+                                    <Banknote className="w-6 h-6" />
                                 </div>
                             </div>
                         </CardContent>
                     </Card>
                 </div>
 
+                {/* Unified Filter Bar */}
+                <div className="mb-6 mt-8 flex flex-col xl:flex-row items-start xl:items-center justify-between bg-white dark:bg-slate-900 p-4 rounded-xl border border-gray-100 dark:border-slate-800 shadow-sm gap-4">
+                    <div className="flex flex-wrap items-center gap-4 w-full">
+                        <div className="flex items-center space-x-2">
+                            <span className="text-sm text-gray-500 dark:text-gray-400 font-medium">Source:</span>
+                            <select
+                                className="bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 text-gray-900 dark:text-white text-sm rounded-lg focus:ring-maroon-500 focus:border-maroon-500 block w-40 p-2.5 outline-none font-medium"
+                                value={selectedSource}
+                                onChange={(e) => setSelectedSource(e.target.value)}
+                            >
+                                <option value="All">All Sources</option>
+                                {FUND_SOURCES.map(source => (
+                                    <option key={source} value={source}>{source}</option>
+                                ))}
+                            </select>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                            <span className="text-sm text-gray-500 dark:text-gray-400 font-medium">Research Centre:</span>
+                            <select
+                                className="bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 text-gray-900 dark:text-white text-sm rounded-lg focus:ring-maroon-500 focus:border-maroon-500 block w-full md:w-64 p-2.5 outline-none font-medium"
+                                value={selectedCentre}
+                                onChange={(e) => setSelectedCentre(e.target.value)}
+                            >
+                                <option value="All">All Research Centres</option>
+                                {RESEARCH_CENTRES.map(centre => (
+                                    <option key={centre} value={centre}>{centre}</option>
+                                ))}
+                            </select>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                            <div className="w-full md:w-48">
+                                <DateFilter
+                                    selectedDate={selectedDate}
+                                    onChange={setSelectedDate}
+                                    placeholder="Filter by Date"
+                                />
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="flex items-center justify-end w-full md:w-auto shrink-0">
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-gray-400 hover:text-maroon-600 dark:hover:text-maroon-400 transition-colors"
+                            onClick={() => {
+                                setSelectedCentre('All');
+                                setSelectedSource('All');
+                                setSelectedDate(null);
+                            }}
+                        >
+                            <XCircle className="w-4 h-4 mr-2" />
+                            Reset
+                        </Button>
+                    </div>
+                </div>
+
                 {/* Fund Requests Table */}
-                <Card className="border-0 shadow-lg">
-                    <CardHeader>
-                        <CardTitle className="text-xl">Fund Requests</CardTitle>
-                        <CardDescription>Review funding requests and take action</CardDescription>
+                <Card className="border-0 shadow-lg dark:bg-slate-900">
+                    <CardHeader className="border-b dark:border-slate-800">
+                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                            <div>
+                                <CardTitle className="text-xl dark:text-white">Fund Requests</CardTitle>
+                                <CardDescription className="dark:text-gray-400">Review funding requests and manage disbursements</CardDescription>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                                {selectedDate && (
+                                    <Badge variant="outline" className="dark:text-gray-400 border-dashed animate-pulse">
+                                        {new Date(selectedDate).toLocaleDateString()}
+                                    </Badge>
+                                )}
+                            </div>
+                        </div>
                     </CardHeader>
                     <CardContent>
                         <Table>
                             <TableHeader>
-                                <TableRow>
-                                    <TableHead>Project</TableHead>
-                                    <TableHead>Faculty</TableHead>
-                                    <TableHead>Amount</TableHead>
-                                    <TableHead>Purpose</TableHead>
-                                    <TableHead>Submitted</TableHead>
-                                    <TableHead>Status</TableHead>
-                                    <TableHead className="text-right">Actions</TableHead>
+                                <TableRow className="dark:border-slate-800">
+                                    <TableHead className="dark:text-gray-400">Project</TableHead>
+                                    <TableHead className="dark:text-gray-400">Source</TableHead>
+                                    <TableHead className="dark:text-gray-400">Amount</TableHead>
+                                    <TableHead className="dark:text-gray-400">Purpose</TableHead>
+                                    <TableHead className="dark:text-gray-400">Submitted</TableHead>
+                                    <TableHead className="dark:text-gray-400">Status</TableHead>
+                                    <TableHead className="text-right dark:text-gray-400">Actions</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
-                                {fundRequests.map((request) => (
-                                    <TableRow key={request.id} className="hover:bg-gray-50">
-                                        <TableCell className="font-semibold">{request.projectTitle}</TableCell>
-                                        <TableCell>{request.faculty}</TableCell>
-                                        <TableCell className="font-bold text-green-600">
-                                            ₹{(request.requestedAmount / 100000).toFixed(1)}L
+                                {filteredRequests.map((request) => (
+                                    <TableRow key={request.id} className="hover:bg-gray-50 dark:hover:bg-slate-800/50 dark:border-slate-800">
+                                        <TableCell className="font-semibold dark:text-gray-200">
+                                            {request.projectTitle}
+                                            <div className="text-xs text-gray-400 font-normal mt-0.5">{request.faculty}</div>
                                         </TableCell>
-                                        <TableCell className="max-w-xs truncate">{request.purpose}</TableCell>
-                                        <TableCell>{new Date(request.submittedDate).toLocaleDateString()}</TableCell>
                                         <TableCell>
-                                            <Badge
-                                                variant={
-                                                    request.status === 'APPROVED' ? 'success' :
-                                                        request.status === 'REJECTED' ? 'destructive' :
-                                                            'default'
-                                                }
-                                            >
-                                                {request.status}
+                                            <Badge variant="outline" className={`${request.source === 'PFMS' ? 'text-blue-600 border-blue-200 bg-blue-50 dark:bg-blue-900/20' : 'text-purple-600 border-purple-200 bg-purple-50 dark:bg-purple-900/20'}`}>
+                                                {request.source}
                                             </Badge>
                                         </TableCell>
-                                        <TableCell className="text-right">
+                                        <TableCell className="font-bold text-green-600 dark:text-green-400">
+                                            ₹{(request.requestedAmount / 100000).toFixed(1)}L
+                                        </TableCell>
+                                        <TableCell className="max-w-xs truncate dark:text-gray-400">{request.purpose}</TableCell>
+                                        <TableCell className="dark:text-gray-300">{new Date(request.submittedDate).toLocaleDateString()}</TableCell>
+                                        <TableCell>
+                                            <div className="flex flex-col gap-1">
+                                                <Badge
+                                                    variant={
+                                                        request.status === 'APPROVED' ? 'success' :
+                                                            request.status === 'REJECTED' ? 'destructive' :
+                                                                'default'
+                                                    }
+                                                    className={request.status === 'PENDING' ? 'dark:bg-slate-800 dark:text-gray-300 border-0' : 'border-0 w-fit'}
+                                                >
+                                                    {request.status}
+                                                </Badge>
+                                                {request.status === 'APPROVED' && (
+                                                    <Badge className={`w-fit text-[10px] px-1.5 py-0 ${request.chequeStatus === 'Disbursed' ? 'bg-green-100 text-green-700' :
+                                                        request.chequeStatus === 'Approved' ? 'bg-blue-100 text-blue-700' :
+                                                            'bg-yellow-100 text-yellow-700'
+                                                        }`}>
+                                                        Cheque: {request.chequeStatus}
+                                                    </Badge>
+                                                )}
+                                            </div>
+                                        </TableCell>
+                                        <TableCell>
                                             <div className="flex justify-end space-x-2">
                                                 <Button
                                                     variant="outline"
                                                     size="sm"
+                                                    className="dark:border-slate-700 dark:hover:bg-slate-800"
                                                     onClick={() => setSelectedRequest(request)}
                                                 >
-                                                    View Details
+                                                    View
                                                 </Button>
                                                 {request.status === 'PENDING' && (
-                                                    <>
-                                                        <Button
-                                                            variant="default"
-                                                            size="sm"
-                                                            className="bg-green-600 hover:bg-green-700"
-                                                            onClick={() => handleApprove(request.id)}
-                                                        >
-                                                            <CheckCircle className="w-4 h-4 mr-1" />
-                                                            Approve
-                                                        </Button>
-                                                        <Button
-                                                            variant="destructive"
-                                                            size="sm"
-                                                            onClick={() => handleReject(request.id)}
-                                                        >
-                                                            <XCircle className="w-4 h-4 mr-1" />
-                                                            Reject
-                                                        </Button>
-                                                    </>
+                                                    <Button
+                                                        variant="default"
+                                                        size="sm"
+                                                        className="bg-green-600 hover:bg-green-700 text-white font-medium shadow-sm px-4"
+                                                        onClick={() => handleApprove(request.id)}
+                                                    >
+                                                        Approve
+                                                    </Button>
                                                 )}
                                             </div>
                                         </TableCell>
@@ -199,42 +363,116 @@ const ApproveFundRequests = () => {
 
                 {/* Request Details Modal */}
                 {selectedRequest && (
-                    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-                        <Card className="max-w-2xl w-full border-0 shadow-2xl">
-                            <CardHeader>
-                                <CardTitle className="text-2xl">Fund Request Details</CardTitle>
-                                <CardDescription>{selectedRequest.projectTitle}</CardDescription>
-                            </CardHeader>
-                            <CardContent className="space-y-4">
-                                <div className="grid grid-cols-2 gap-4">
+                    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+                        <Card className="max-w-2xl w-full border-0 shadow-2xl dark:bg-slate-900">
+                            <CardHeader className="border-b dark:border-slate-800">
+                                <div className="flex justify-between items-start">
                                     <div>
-                                        <p className="text-sm font-semibold text-gray-500">Faculty</p>
-                                        <p className="text-base font-semibold mt-1">{selectedRequest.faculty}</p>
+                                        <div className="flex items-center gap-2 mb-1">
+                                            <Badge variant="outline" className={`${selectedRequest.source === 'PFMS' ? 'text-blue-600 border-blue-200 bg-blue-50' : 'text-purple-600 border-purple-200 bg-purple-50'}`}>
+                                                {selectedRequest.source}
+                                            </Badge>
+                                            {selectedRequest.status === 'APPROVED' && (
+                                                <Badge className={`text-[10px] px-1.5 py-0 ${selectedRequest.chequeStatus === 'Disbursed' ? 'bg-green-100 text-green-700' :
+                                                    selectedRequest.chequeStatus === 'Approved' ? 'bg-blue-100 text-blue-700' :
+                                                        'bg-yellow-100 text-yellow-700'
+                                                    }`}>
+                                                    Cheque: {selectedRequest.chequeStatus}
+                                                </Badge>
+                                            )}
+                                        </div>
+                                        <CardTitle className="text-2xl dark:text-white">{selectedRequest.projectTitle}</CardTitle>
+                                        <CardDescription className="dark:text-gray-400 mt-1">Request Funds for: {selectedRequest.purpose}</CardDescription>
                                     </div>
-                                    <div>
-                                        <p className="text-sm font-semibold text-gray-500">Requested Amount</p>
-                                        <p className="text-base font-semibold mt-1 text-green-600">
-                                            ₹{(selectedRequest.requestedAmount / 100000).toFixed(1)} Lakhs
+                                    <div className="text-right">
+                                        <p className="text-sm font-semibold text-gray-500 dark:text-gray-400">Amount</p>
+                                        <p className="text-2xl font-bold text-green-600 dark:text-green-400">
+                                            ₹{(selectedRequest.requestedAmount / 100000).toFixed(1)}L
                                         </p>
                                     </div>
-                                    <div className="col-span-2">
-                                        <p className="text-sm font-semibold text-gray-500">Purpose</p>
-                                        <p className="text-base mt-1">{selectedRequest.purpose}</p>
+                                </div>
+                            </CardHeader>
+                            <CardContent className="space-y-6 pt-6">
+                                <div className="grid grid-cols-2 gap-6">
+                                    <div>
+                                        <p className="text-sm font-semibold text-gray-500 dark:text-gray-400">Principal Investigator</p>
+                                        <p className="text-base font-semibold mt-1 dark:text-white">{selectedRequest.faculty}</p>
+                                        <p className="text-xs text-gray-400">{selectedRequest.department}</p>
+                                    </div>
+                                    <div>
+                                        <p className="text-sm font-semibold text-gray-500 dark:text-gray-400">Research Centre</p>
+                                        <p className="text-base font-semibold mt-1 dark:text-white">{selectedRequest.centre}</p>
+                                    </div>
+                                    <div>
+                                        <p className="text-sm font-semibold text-gray-500 dark:text-gray-400">Submitted On</p>
+                                        <p className="text-base font-semibold mt-1 dark:text-white">
+                                            {new Date(selectedRequest.submittedDate).toLocaleDateString()}
+                                        </p>
+                                    </div>
+                                    <div>
+                                        <p className="text-sm font-semibold text-gray-500 dark:text-gray-400">Request Status</p>
+                                        <Badge className="mt-1" variant={selectedRequest.status === 'APPROVED' ? 'success' : selectedRequest.status === 'REJECTED' ? 'destructive' : 'secondary'}>
+                                            {selectedRequest.status}
+                                        </Badge>
                                     </div>
                                 </div>
 
-                                <div>
-                                    <p className="text-sm font-semibold text-gray-500 mb-2">Approval Notes (Optional)</p>
-                                    <Textarea
-                                        placeholder="Add any notes or conditions for this approval..."
-                                        value={approvalNotes}
-                                        onChange={(e) => setApprovalNotes(e.target.value)}
-                                        rows={4}
-                                    />
-                                </div>
+                                {selectedRequest.status === 'APPROVED' && (
+                                    <div className="bg-gray-50 dark:bg-slate-800/50 p-4 rounded-lg border border-gray-100 dark:border-slate-800">
+                                        <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3 flex items-center">
+                                            <Wallet className="w-4 h-4 mr-2" />
+                                            Cheque Processing
+                                        </h4>
+                                        <div className="flex items-center gap-2">
+                                            {/* Status Steps */}
+                                            <div className={`flex-1 h-2 rounded-full ${selectedRequest.chequeStatus !== null ? 'bg-green-500' : 'bg-gray-200'}`}></div>
+                                            <div className={`flex-1 h-2 rounded-full ${['Approved', 'Disbursed'].includes(selectedRequest.chequeStatus) ? 'bg-blue-500' : 'bg-gray-200'}`}></div>
+                                            <div className={`flex-1 h-2 rounded-full ${selectedRequest.chequeStatus === 'Disbursed' ? 'bg-emerald-500' : 'bg-gray-200'}`}></div>
+                                        </div>
+                                        <div className="flex justify-between text-xs text-gray-500 mt-2 px-1">
+                                            <span>Pending</span>
+                                            <span>Cheque Approved</span>
+                                            <span>Disbursed</span>
+                                        </div>
 
-                                <div className="flex justify-end space-x-3 pt-4">
-                                    <Button variant="outline" onClick={() => {
+                                        <div className="flex justify-end gap-3 mt-4">
+                                            {selectedRequest.chequeStatus === 'Pending' && (
+                                                <Button size="sm" className="bg-blue-600 hover:bg-blue-700 text-white" onClick={() => handleApproveCheque(selectedRequest.id)}>
+                                                    Approve Cheque
+                                                    <ArrowRight className="w-3 h-3 ml-2" />
+                                                </Button>
+                                            )}
+                                            {selectedRequest.chequeStatus === 'Approved' && (
+                                                <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white" onClick={() => handleDisburseCheque(selectedRequest.id)}>
+                                                    Mark Disbursed
+                                                    <CheckCircle className="w-3 h-3 ml-2" />
+                                                </Button>
+                                            )}
+                                            {selectedRequest.chequeStatus === 'Disbursed' && (
+                                                <div className="text-sm font-medium text-emerald-600 flex items-center">
+                                                    <CheckCircle className="w-4 h-4 mr-1" />
+                                                    Disbursement Complete
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {selectedRequest.status === 'PENDING' && (
+                                    <div>
+                                        <p className="text-sm font-semibold text-gray-500 dark:text-gray-400 mb-2">Approval Notes (Optional)</p>
+                                        <Textarea
+                                            placeholder="Add specific instructions for the cheque issuance..."
+                                            value={approvalNotes}
+                                            onChange={(e) => setApprovalNotes(e.target.value)}
+                                            rows={2}
+                                            className="dark:bg-slate-800 dark:border-slate-700 dark:text-white"
+                                        />
+                                    </div>
+                                )}
+
+                                <div className="flex justify-end space-x-3 pt-4 border-t dark:border-slate-800">
+                                    <Button variant="outline" className="dark:border-slate-700 dark:hover:bg-slate-800" onClick={() => {
                                         setSelectedRequest(null);
                                         setApprovalNotes('');
                                     }}>
@@ -243,21 +481,76 @@ const ApproveFundRequests = () => {
                                     {selectedRequest.status === 'PENDING' && (
                                         <>
                                             <Button
-                                                className="bg-green-600 hover:bg-green-700"
+                                                className="bg-green-600 hover:bg-green-700 text-white shadow-md"
                                                 onClick={() => handleApprove(selectedRequest.id)}
                                             >
                                                 <CheckCircle className="w-4 h-4 mr-2" />
                                                 Approve Request
                                             </Button>
                                             <Button
-                                                variant="destructive"
-                                                onClick={() => handleReject(selectedRequest.id)}
+                                                variant="outline"
+                                                className="text-red-500 border-red-100 hover:bg-red-50 hover:text-red-600"
+                                                onClick={() => handleRejectClick(selectedRequest.id)}
                                             >
                                                 <XCircle className="w-4 h-4 mr-2" />
                                                 Reject Request
                                             </Button>
                                         </>
                                     )}
+                                </div>
+                            </CardContent>
+                        </Card>
+                    </div>
+                )}
+
+                {/* Mandatory Reject Remarks Modal */}
+                {rejectionModal.isOpen && (
+                    <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-[60] p-4 transition-all animate-in fade-in">
+                        <Card className="max-w-md w-full border-0 shadow-2xl dark:bg-slate-900 transform animate-in zoom-in-95 duration-200">
+                            <CardHeader className="border-b dark:border-slate-800 pb-4">
+                                <div className="flex items-center space-x-2 text-red-500">
+                                    <XCircle className="w-6 h-6" />
+                                    <CardTitle className="text-xl">Reject Request</CardTitle>
+                                </div>
+                                <CardDescription className="dark:text-gray-400 mt-2">
+                                    Please provide a detailed reason for rejecting this fund request. This will be shared with the faculty.
+                                </CardDescription>
+                            </CardHeader>
+                            <CardContent className="pt-6 space-y-4">
+                                <div className="space-y-2">
+                                    <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Rejection Remarks</label>
+                                    <textarea
+                                        className="w-full min-h-[120px] p-3 rounded-lg border border-gray-200 dark:border-slate-800 dark:bg-slate-950 dark:text-white focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none transition-all placeholder:text-gray-400"
+                                        placeholder="Enter rejection remarks (e.g., incomplete justification, budget mismatch, policy issues)..."
+                                        value={rejectionModal.remarks}
+                                        onChange={(e) => setRejectionModal({ ...rejectionModal, remarks: e.target.value })}
+                                        onKeyDown={(e) => {
+                                            if (e.key === 'Escape') setRejectionModal({ ...rejectionModal, isOpen: false });
+                                        }}
+                                        autoFocus
+                                    />
+                                    <p className="text-[10px] text-gray-400 flex items-center italic">
+                                        <CheckCircle className={`w-3 h-3 mr-1 ${rejectionModal.remarks.trim().length > 5 ? 'text-green-500' : 'text-gray-300'}`} />
+                                        Justification is mandatory for audit purposes
+                                    </p>
+                                </div>
+
+                                <div className="flex space-x-3 pt-2">
+                                    <Button
+                                        variant="outline"
+                                        className="flex-1 dark:border-slate-800 dark:hover:bg-slate-800"
+                                        onClick={() => setRejectionModal({ ...rejectionModal, isOpen: false })}
+                                    >
+                                        Cancel
+                                    </Button>
+                                    <Button
+                                        variant="destructive"
+                                        className={`flex-1 transition-all duration-300 ${!rejectionModal.remarks.trim() ? 'opacity-50 cursor-not-allowed grayscale' : 'shadow-lg shadow-red-500/20'}`}
+                                        disabled={!rejectionModal.remarks.trim()}
+                                        onClick={handleConfirmReject}
+                                    >
+                                        Confirm Reject
+                                    </Button>
                                 </div>
                             </CardContent>
                         </Card>

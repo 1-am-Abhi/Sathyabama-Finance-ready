@@ -4,7 +4,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { ROLES } from '../../constants/roles';
 import { Button } from '../ui/button';
 import {
-    LogOut, Home, FileText, DollarSign, Users, Building2,
+    LogOut, Home, FileText, IndianRupee, Users, Building2,
     Settings, CheckCircle, UserPlus, BarChart3, Clock
 } from 'lucide-react';
 
@@ -12,6 +12,7 @@ const Sidebar = () => {
     const { user, logout } = useAuth();
     const navigate = useNavigate();
     const location = useLocation();
+    const profilePhoto = localStorage.getItem('profile_photo');
 
     const handleLogout = () => {
         logout();
@@ -23,22 +24,23 @@ const Sidebar = () => {
             case ROLES.ADMIN:
                 return [
                     { label: 'Dashboard', path: '/admin/dashboard', icon: Home },
-                    { label: 'Approve Projects', path: '/admin/approve-projects', icon: CheckCircle },
-                    { label: 'Assign Faculty', path: '/admin/assign-faculty', icon: UserPlus },
-                    { label: 'Fund Requests', path: '/admin/fund-requests', icon: DollarSign },
+                    { label: 'Projects', path: '/admin/approve-projects', icon: CheckCircle },
+                    { label: 'Manage Faculty / Projects', path: '/admin/assign-faculty', icon: Users },
+                    { label: 'Fund Requests', path: '/admin/fund-requests', icon: IndianRupee },
+                    { label: 'OD Requests', path: '/admin/od-requests', icon: Clock },
                     { label: 'Reports', path: '/admin/reports', icon: BarChart3 },
                 ];
             case ROLES.FACULTY:
                 return [
                     { label: 'Dashboard', path: '/faculty/dashboard', icon: Home },
                     { label: 'My Projects', path: '/faculty/projects', icon: FileText },
-                    { label: 'Request Funds', path: '/faculty/request-funds', icon: DollarSign },
+                    { label: 'Request Funds', path: '/faculty/request-funds', icon: IndianRupee },
                     { label: 'Documents', path: '/faculty/documents', icon: FileText },
                 ];
             case ROLES.FINANCE_OFFICER:
                 return [
                     { label: 'Dashboard', path: '/finance/dashboard', icon: Home },
-                    { label: 'Fund Releases', path: '/finance/fund-flow', icon: DollarSign },
+                    { label: 'Fund Releases', path: '/finance/fund-flow', icon: IndianRupee },
                     { label: 'PFMS Tracking', path: '/finance/pfms', icon: FileText },
                     { label: 'Internship Fees', path: '/finance/internships', icon: Users },
                     { label: 'Settlement', path: '/finance/reports', icon: Clock },
@@ -49,29 +51,33 @@ const Sidebar = () => {
     };
 
     return (
-        <div className="w-64 bg-gradient-to-b from-[#1e3a8a] to-[#1e40af] text-white min-h-screen flex flex-col fixed left-0 top-0">
+        <div className="w-64 bg-gradient-to-b from-[#7d1935] to-[#a01d45] text-white min-h-screen flex flex-col fixed left-0 top-0">
             {/* Logo */}
-            <div className="p-6 border-b border-blue-700/50">
+            <div className="p-6 border-b border-maroon-700/50">
                 <div className="flex items-center space-x-3">
-                    <div className="w-10 h-10 bg-yellow-500 rounded-lg flex items-center justify-center">
+                    <div className="w-10 h-10 bg-amber-500 rounded-lg flex items-center justify-center shadow-lg">
                         <Building2 className="w-6 h-6 text-white" />
                     </div>
                     <div>
                         <h1 className="text-lg font-bold">Sathyabama</h1>
-                        <p className="text-xs text-blue-200">Research Portal</p>
+                        <p className="text-xs text-maroon-100">Research Portal</p>
                     </div>
                 </div>
             </div>
 
             {/* User Profile */}
-            <div className="p-6 border-b border-blue-700/50 bg-blue-900/30">
+            <div className="p-6 border-b border-maroon-700/50 bg-maroon-900/30">
                 <div className="flex items-center space-x-3">
-                    <div className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center font-bold">
-                        {user?.name?.split(' ').map(n => n[0]).join('').toUpperCase()}
+                    <div className="w-10 h-10 bg-maroon-600 rounded-full border-2 border-maroon-400 flex items-center justify-center font-bold overflow-hidden">
+                        {profilePhoto ? (
+                            <img src={profilePhoto} alt="Profile" className="w-full h-full object-cover" />
+                        ) : (
+                            user?.name?.split(' ').map(n => n[0]).join('').toUpperCase()
+                        )}
                     </div>
                     <div>
                         <p className="font-semibold text-sm">{user?.name}</p>
-                        <p className="text-xs text-blue-200">{user?.role?.replace('_', ' ')}</p>
+                        <p className="text-xs text-maroon-200">{user?.role?.replace('_', ' ')}</p>
                     </div>
                 </div>
             </div>
@@ -86,8 +92,8 @@ const Sidebar = () => {
                             key={item.path}
                             to={item.path}
                             className={`flex items-center space-x-3 px-6 py-3 transition-colors ${isActive
-                                    ? 'bg-blue-700 border-l-4 border-yellow-400'
-                                    : 'hover:bg-blue-800/50'
+                                ? 'bg-[#5c1227] border-l-4 border-amber-400'
+                                : 'hover:bg-maroon-800/50'
                                 }`}
                         >
                             <Icon className="w-5 h-5" />
@@ -98,16 +104,20 @@ const Sidebar = () => {
             </nav>
 
             {/* Settings & Logout */}
-            <div className="border-t border-blue-700/50">
-                <button
-                    className="flex items-center space-x-3 px-6 py-3 w-full hover:bg-blue-800/50 transition-colors"
+            <div className="border-t border-maroon-700/50">
+                <Link
+                    to="/admin/settings"
+                    className={`flex items-center space-x-3 px-6 py-3 w-full transition-colors ${location.pathname.includes('/settings')
+                        ? 'bg-[#5c1227] border-l-4 border-amber-400'
+                        : 'hover:bg-maroon-800/50'
+                        }`}
                 >
-                    <Settings className="w-5 h-5" />
+                    <Settings Icon className="w-5 h-5" />
                     <span className="text-sm font-medium">Settings</span>
-                </button>
+                </Link>
                 <button
                     onClick={handleLogout}
-                    className="flex items-center space-x-3 px-6 py-3 w-full hover:bg-blue-800/50 transition-colors text-red-300"
+                    className="flex items-center space-x-3 px-6 py-3 w-full hover:bg-maroon-800/50 transition-colors text-amber-200"
                 >
                     <LogOut className="w-5 h-5" />
                     <span className="text-sm font-medium">Logout</span>

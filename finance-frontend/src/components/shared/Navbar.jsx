@@ -47,9 +47,9 @@ const Navbar = () => {
     const getRoleBadgeColor = () => {
         switch (user?.role) {
             case ROLES.ADMIN:
-                return 'bg-gradient-to-r from-purple-500 to-pink-500';
+                return 'bg-gradient-to-r from-maroon-600 to-maroon-700';
             case ROLES.FACULTY:
-                return 'bg-gradient-to-r from-blue-500 to-cyan-500';
+                return 'bg-gradient-to-r from-maroon-500 to-maroon-600';
             case ROLES.FINANCE_OFFICER:
                 return 'bg-gradient-to-r from-green-500 to-emerald-500';
             default:
@@ -63,11 +63,11 @@ const Navbar = () => {
                 <div className="flex justify-between h-16">
                     <div className="flex items-center">
                         <div className="flex-shrink-0 flex items-center space-x-3">
-                            <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-md">
+                            <div className="w-10 h-10 bg-gradient-to-br from-maroon-600 to-maroon-800 rounded-xl flex items-center justify-center shadow-md">
                                 <Building2 className="w-6 h-6 text-white" />
                             </div>
                             <div>
-                                <h1 className="text-lg font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
+                                <h1 className="text-lg font-bold bg-gradient-to-r from-maroon-600 to-maroon-800 bg-clip-text text-transparent">
                                     Sathyabama Research Hub
                                 </h1>
                                 <p className="text-xs text-gray-500">Finance Management Portal</p>
@@ -80,7 +80,7 @@ const Navbar = () => {
                                     <Link
                                         key={item.path}
                                         to={item.path}
-                                        className="inline-flex items-center px-4 py-2 text-sm font-medium text-gray-700 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all duration-200"
+                                        className="inline-flex items-center px-4 py-2 text-sm font-medium text-gray-700 hover:text-maroon-600 hover:bg-maroon-50 rounded-lg transition-all duration-200"
                                     >
                                         <Icon className="w-4 h-4 mr-2" />
                                         {item.label}

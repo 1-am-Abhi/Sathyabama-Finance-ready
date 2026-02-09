@@ -1,17 +1,19 @@
 import React, { useState } from 'react';
-import Navbar from '../../components/shared/Navbar';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card';
-import { Input } from '../../components/ui/input';
+import { useLayout } from '../../contexts/LayoutContext';
+import { RESEARCH_CENTRES } from '../../constants/researchCentres';
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '../../components/ui/card';
 import { Label } from '../../components/ui/label';
+import { Input } from '../../components/ui/input';
 import { Textarea } from '../../components/ui/textarea';
 import { Button } from '../../components/ui/button';
 
 const CreateProject = () => {
+    const { setLayout } = useLayout();
     const [formData, setFormData] = useState({
         title: '',
         description: '',
         principalInvestigator: '',
-        department: '',
+        researchCentre: '',
         budget: '',
         duration: '',
         startDate: ''
@@ -31,36 +33,37 @@ const CreateProject = () => {
         });
     };
 
-    return (
-        <div className="min-h-screen bg-gray-50">
-            <Navbar />
-            <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-                <div className="mb-8">
-                    <h1 className="text-3xl font-bold text-gray-900">Create New Project</h1>
-                    <p className="text-gray-600 mt-2">Add a new research project to the system</p>
-                </div>
+    React.useEffect(() => {
+        setLayout("Create New Project", "Add a new research project to the system");
+    }, [setLayout]);
 
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Project Details</CardTitle>
-                        <CardDescription>Fill in the information below to create a new research project</CardDescription>
+    return (
+        <div className="flex-1 overflow-y-auto overflow-x-hidden">
+            <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+                {/* ... (rest of the content) */}
+
+                <Card className="dark:bg-slate-900 border-0 shadow-lg">
+                    <CardHeader className="border-b dark:border-slate-800">
+                        <CardTitle className="dark:text-white">Project Details</CardTitle>
+                        <CardDescription className="dark:text-gray-400">Fill in the information below to create a new research project</CardDescription>
                     </CardHeader>
                     <CardContent>
                         <form onSubmit={handleSubmit} className="space-y-6">
                             <div className="space-y-2">
-                                <Label htmlFor="title">Project Title *</Label>
+                                <Label htmlFor="title" className="dark:text-gray-300">Project Title *</Label>
                                 <Input
                                     id="title"
                                     name="title"
                                     value={formData.title}
                                     onChange={handleChange}
                                     placeholder="Enter project title"
+                                    className="dark:bg-slate-800 dark:border-slate-700 dark:text-white dark:placeholder-gray-500"
                                     required
                                 />
                             </div>
 
                             <div className="space-y-2">
-                                <Label htmlFor="description">Description *</Label>
+                                <Label htmlFor="description" className="dark:text-gray-300">Description *</Label>
                                 <Textarea
                                     id="description"
                                     name="description"
@@ -68,46 +71,46 @@ const CreateProject = () => {
                                     onChange={handleChange}
                                     placeholder="Describe the research project objectives and scope"
                                     rows={4}
+                                    className="dark:bg-slate-800 dark:border-slate-700 dark:text-white dark:placeholder-gray-500"
                                     required
                                 />
                             </div>
 
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <div className="space-y-2">
-                                    <Label htmlFor="principalInvestigator">Principal Investigator *</Label>
+                                    <Label htmlFor="principalInvestigator" className="dark:text-gray-300">Principal Investigator *</Label>
                                     <Input
                                         id="principalInvestigator"
                                         name="principalInvestigator"
                                         value={formData.principalInvestigator}
                                         onChange={handleChange}
                                         placeholder="Faculty name"
+                                        className="dark:bg-slate-800 dark:border-slate-700 dark:text-white dark:placeholder-gray-500"
                                         required
                                     />
                                 </div>
 
                                 <div className="space-y-2">
-                                    <Label htmlFor="department">Department *</Label>
+                                    <Label htmlFor="researchCentre" className="dark:text-gray-300">Research Centre *</Label>
                                     <select
-                                        id="department"
-                                        name="department"
-                                        value={formData.department}
+                                        id="researchCentre"
+                                        name="researchCentre"
+                                        value={formData.researchCentre}
                                         onChange={handleChange}
-                                        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                                        className="flex h-10 w-full rounded-md border border-input bg-background dark:bg-slate-800 dark:border-slate-700 dark:text-white px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-maroon-500 focus-visible:ring-offset-2"
                                         required
                                     >
-                                        <option value="">Select Department</option>
-                                        <option value="CSE">Computer Science & Engineering</option>
-                                        <option value="ECE">Electronics & Communication</option>
-                                        <option value="MECH">Mechanical Engineering</option>
-                                        <option value="CIVIL">Civil Engineering</option>
-                                        <option value="BIO">Biotechnology</option>
+                                        <option value="">Select Research Centre</option>
+                                        {RESEARCH_CENTRES.map((centre) => (
+                                            <option key={centre} value={centre}>{centre}</option>
+                                        ))}
                                     </select>
                                 </div>
                             </div>
 
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <div className="space-y-2">
-                                    <Label htmlFor="budget">Budget (₹) *</Label>
+                                    <Label htmlFor="budget" className="dark:text-gray-300">Budget (₹) *</Label>
                                     <Input
                                         id="budget"
                                         name="budget"
@@ -115,12 +118,13 @@ const CreateProject = () => {
                                         value={formData.budget}
                                         onChange={handleChange}
                                         placeholder="Enter budget amount"
+                                        className="dark:bg-slate-800 dark:border-slate-700 dark:text-white dark:placeholder-gray-500"
                                         required
                                     />
                                 </div>
 
                                 <div className="space-y-2">
-                                    <Label htmlFor="duration">Duration (months) *</Label>
+                                    <Label htmlFor="duration" className="dark:text-gray-300">Duration (months) *</Label>
                                     <Input
                                         id="duration"
                                         name="duration"
@@ -128,26 +132,28 @@ const CreateProject = () => {
                                         value={formData.duration}
                                         onChange={handleChange}
                                         placeholder="Project duration"
+                                        className="dark:bg-slate-800 dark:border-slate-700 dark:text-white dark:placeholder-gray-500"
                                         required
                                     />
                                 </div>
                             </div>
 
                             <div className="space-y-2">
-                                <Label htmlFor="startDate">Start Date *</Label>
+                                <Label htmlFor="startDate" className="dark:text-gray-300">Start Date *</Label>
                                 <Input
                                     id="startDate"
                                     name="startDate"
                                     type="date"
                                     value={formData.startDate}
                                     onChange={handleChange}
+                                    className="dark:bg-slate-800 dark:border-slate-700 dark:text-white"
                                     required
                                 />
                             </div>
 
-                            <div className="flex justify-end space-x-4 pt-4">
-                                <Button type="button" variant="outline">Cancel</Button>
-                                <Button type="submit">Create Project</Button>
+                            <div className="flex justify-end space-x-4 pt-4 border-t dark:border-slate-800">
+                                <Button type="button" variant="outline" className="dark:border-slate-700 dark:hover:bg-slate-800">Cancel</Button>
+                                <Button type="submit" className="bg-gradient-to-r from-maroon-600 to-maroon-700 hover:from-maroon-700 hover:to-maroon-800">Create Project</Button>
                             </div>
                         </form>
                     </CardContent>

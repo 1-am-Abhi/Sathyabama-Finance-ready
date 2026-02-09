@@ -2,11 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { ROLES } from '../../constants/roles';
-import { Button } from '../ui/button';
-import { Input } from '../ui/input';
-import { Label } from '../ui/label';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
-import { Building2, Lock, Mail } from 'lucide-react';
+import './LoginPage.css';
 
 const LoginPage = () => {
     const [email, setEmail] = useState('');
@@ -50,93 +46,82 @@ const LoginPage = () => {
     };
 
     return (
-        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-600 via-indigo-700 to-purple-800 p-4">
-            <div className="absolute inset-0 bg-black opacity-20"></div>
-            <div className="absolute inset-0 bg-grid-white/[0.05] bg-[size:20px_20px]"></div>
+        <div className="login-container">
+            {/* Left Panel - Branding */}
+            <div className="login-left-panel">
+                <div className="branding-header">
+                    <img
+                        src="/sathyabama_header.png"
+                        alt="Sathyabama Institute of Science and Technology"
+                        className="header-image"
+                    />
+                </div>
 
-            <Card className="w-full max-w-md relative z-10 shadow-2xl border-0">
-                <CardHeader className="space-y-3 pb-6">
-                    <div className="flex justify-center mb-2">
-                        <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl flex items-center justify-center shadow-lg">
-                            <Building2 className="w-9 h-9 text-white" />
-                        </div>
-                    </div>
-                    <CardTitle className="text-2xl font-bold text-center bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
-                        Sathyabama Research Hub
-                    </CardTitle>
-                    <CardDescription className="text-center text-base">
-                        Research & Finance Management Portal
-                    </CardDescription>
-                </CardHeader>
-                <CardContent>
-                    <form onSubmit={handleSubmit} className="space-y-5">
-                        <div className="space-y-2">
-                            <Label htmlFor="role" className="text-sm font-semibold">Login As</Label>
+                <div className="login-form-container">
+                    <form onSubmit={handleSubmit} className="login-form">
+                        <div className="form-group">
                             <select
                                 id="role"
                                 value={selectedRole}
                                 onChange={(e) => setSelectedRole(e.target.value)}
-                                className="flex h-11 w-full rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm shadow-sm transition-all focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                                className="form-select"
                             >
-                                <option value={ROLES.ADMIN}>🎓 Admin (Dean / Research Head)</option>
-                                <option value={ROLES.FACULTY}>👨‍🏫 Faculty</option>
-                                <option value={ROLES.FINANCE_OFFICER}>💼 Finance Officer</option>
+                                <option value={ROLES.ADMIN}>Admin</option>
+                                <option value={ROLES.FACULTY}>Faculty</option>
+                                <option value={ROLES.FINANCE_OFFICER}>Finance Officer</option>
                             </select>
                         </div>
 
-                        <div className="space-y-2">
-                            <Label htmlFor="email" className="text-sm font-semibold">Email Address</Label>
-                            <div className="relative">
-                                <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-                                <Input
-                                    id="email"
-                                    type="email"
-                                    placeholder="Enter your email"
-                                    value={email}
-                                    onChange={(e) => setEmail(e.target.value)}
-                                    className="pl-11 h-11 shadow-sm"
-                                    required
-                                />
-                            </div>
+                        <div className="form-group">
+                            <label htmlFor="email" className="form-label">Email</label>
+                            <input
+                                id="email"
+                                type="email"
+                                placeholder="Email"
+                                value={email}
+                                onChange={(e) => setEmail(e.target.value)}
+                                className="form-input"
+                                required
+                            />
                         </div>
 
-                        <div className="space-y-2">
-                            <Label htmlFor="password" className="text-sm font-semibold">Password</Label>
-                            <div className="relative">
-                                <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-                                <Input
-                                    id="password"
-                                    type="password"
-                                    placeholder="Enter your password"
-                                    value={password}
-                                    onChange={(e) => setPassword(e.target.value)}
-                                    className="pl-11 h-11 shadow-sm"
-                                    required
-                                />
-                            </div>
+                        <div className="form-group">
+                            <label htmlFor="password" className="form-label">Password</label>
+                            <input
+                                id="password"
+                                type="password"
+                                placeholder="Password"
+                                value={password}
+                                onChange={(e) => setPassword(e.target.value)}
+                                className="form-input"
+                                required
+                            />
                         </div>
 
                         {error && (
-                            <div className="text-sm text-red-600 bg-red-50 border border-red-200 p-3 rounded-lg">
+                            <div className="error-message">
                                 {error}
                             </div>
                         )}
 
-                        <Button
+                        <button
                             type="submit"
-                            className="w-full h-11 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 shadow-lg hover:shadow-xl transition-all duration-200"
+                            className="login-button"
                             disabled={loading}
                         >
-                            {loading ? 'Logging in...' : 'Login to Portal'}
-                        </Button>
+                            {loading ? 'LOGGING IN...' : 'LOGIN'}
+                        </button>
                     </form>
+                </div>
+            </div>
 
-                    <div className="mt-6 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-100 rounded-lg">
-                        <p className="font-semibold text-sm text-gray-800 mb-2">🎯 Demo Access</p>
-                        <p className="text-xs text-gray-600">Select a role and use any email/password to login and explore the portal</p>
-                    </div>
-                </CardContent>
-            </Card>
+            {/* Right Panel - Title */}
+            <div className="login-right-panel">
+                <div className="title-container">
+                    <h2 className="system-title">Sathyabama Finance</h2>
+                    <h2 className="system-title">Management System</h2>
+                </div>
+            </div>
         </div>
     );
 };
