@@ -6,12 +6,15 @@ import LoginPage from '../components/auth/LoginPage';
 import { ROLES } from '../constants/roles';
 
 // Admin Pages
+import AdminLayout from '../components/shared/AdminLayout';
 import AdminDashboard from '../pages/admin/AdminDashboard';
 import CreateProject from '../pages/admin/CreateProject';
 import ApproveProjects from '../pages/admin/ApproveProjects';
-import AssignFaculty from '../pages/admin/AssignFaculty';
+import ManageFaculty from '../pages/admin/AssignFaculty';
 import ApproveFundRequests from '../pages/admin/ApproveFundRequests';
+import ODRequests from '../pages/admin/ODRequests';
 import AdminReports from '../pages/admin/AdminReports';
+import Settings from '../components/shared/Settings';
 
 // Faculty Pages
 import FacultyDashboard from '../pages/faculty/FacultyDashboard';
@@ -23,6 +26,31 @@ import ManagePFMS from '../pages/finance/ManagePFMS';
 import VerifyInternshipFees from '../pages/finance/VerifyInternshipFees';
 
 const AppRoutes = () => {
+    // Apply theme on initial load
+    React.useEffect(() => {
+        const storedSettings = localStorage.getItem('appearance_settings');
+        const applyTheme = (theme) => {
+            if (theme === 'dark') {
+                document.documentElement.classList.add('dark');
+            } else if (theme === 'light') {
+                document.documentElement.classList.remove('dark');
+            } else if (theme === 'auto' || !theme) {
+                if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                    document.documentElement.classList.add('dark');
+                } else {
+                    document.documentElement.classList.remove('dark');
+                }
+            }
+        };
+
+        if (storedSettings) {
+            const { theme } = JSON.parse(storedSettings);
+            applyTheme(theme);
+        } else {
+            applyTheme('auto');
+        }
+    }, []);
+
     return (
         <AuthProvider>
             <Router>
@@ -31,52 +59,26 @@ const AppRoutes = () => {
                     <Route path="/login" element={<LoginPage />} />
                     <Route path="/" element={<Navigate to="/login" replace />} />
 
-                    {/* Admin Routes */}
+                    {/* Admin Routes wrapped in AdminLayout */}
                     <Route
-                        path="/admin/dashboard"
+                        path="/admin/*"
                         element={
                             <ProtectedRoute allowedRoles={[ROLES.ADMIN]}>
-                                <AdminDashboard />
-                            </ProtectedRoute>
-                        }
-                    />
-                    <Route
-                        path="/admin/projects"
-                        element={
-                            <ProtectedRoute allowedRoles={[ROLES.ADMIN]}>
-                                <CreateProject />
-                            </ProtectedRoute>
-                        }
-                    />
-                    <Route
-                        path="/admin/approve-projects"
-                        element={
-                            <ProtectedRoute allowedRoles={[ROLES.ADMIN]}>
-                                <ApproveProjects />
-                            </ProtectedRoute>
-                        }
-                    />
-                    <Route
-                        path="/admin/assign-faculty"
-                        element={
-                            <ProtectedRoute allowedRoles={[ROLES.ADMIN]}>
-                                <AssignFaculty />
-                            </ProtectedRoute>
-                        }
-                    />
-                    <Route
-                        path="/admin/fund-requests"
-                        element={
-                            <ProtectedRoute allowedRoles={[ROLES.ADMIN]}>
-                                <ApproveFundRequests />
-                            </ProtectedRoute>
-                        }
-                    />
-                    <Route
-                        path="/admin/reports"
-                        element={
-                            <ProtectedRoute allowedRoles={[ROLES.ADMIN]}>
-                                <AdminReports />
+                                <AdminLayout>
+                                    <Routes>
+                                        <Route path="dashboard" element={<AdminDashboard />} />
+                                        <Route path="projects" element={<CreateProject />} />
+                                        <Route path="approve-projects" element={<ApproveProjects />} />
+                                        <Route path="assign-faculty" element={<ManageFaculty />} />
+                                        <Route path="fund-requests" element={<ApproveFundRequests />} />
+                                        <Route path="od-requests" element={<ODRequests />} />
+                                        <Route path="reports" element={<AdminReports />} />
+                                        <Route
+                                            path="settings"
+                                            element={<ProtectedRoute allowedRoles={[ROLES.ADMIN, ROLES.FACULTY, ROLES.FINANCE_OFFICER]}><Settings /></ProtectedRoute>}
+                                        />
+                                    </Routes>
+                                </AdminLayout>
                             </ProtectedRoute>
                         }
                     />
