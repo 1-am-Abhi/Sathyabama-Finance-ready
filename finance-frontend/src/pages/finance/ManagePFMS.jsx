@@ -4,6 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../..
 import { Input } from '../../components/ui/input';
 import { Label } from '../../components/ui/label';
 import { Button } from '../../components/ui/button';
+import Sidebar from '../../components/shared/Sidebar';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
 
 const ManagePFMS = () => {
@@ -70,6 +71,7 @@ const ManagePFMS = () => {
     };
 
     return (
+
         <div className="min-h-screen bg-gray-50">
             <Navbar />
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -82,6 +84,7 @@ const ManagePFMS = () => {
                         {showForm ? 'Cancel' : 'Add PFMS Entry'}
                     </Button>
                 </div>
+
 
                 {showForm && (
                     <Card className="mb-8">
@@ -258,8 +261,8 @@ const ManagePFMS = () => {
                                         <TableCell>{new Date(entry.creditDate).toLocaleDateString('en-IN')}</TableCell>
                                         <TableCell>
                                             <span className={`text-xs px-2 py-1 rounded ${entry.ucStatus === 'APPROVED' ? 'bg-green-100 text-green-700' :
-                                                    entry.ucStatus === 'SUBMITTED' ? 'bg-blue-100 text-blue-700' :
-                                                        'bg-yellow-100 text-yellow-700'
+                                                entry.ucStatus === 'SUBMITTED' ? 'bg-blue-100 text-blue-700' :
+                                                    'bg-yellow-100 text-yellow-700'
                                                 }`}>
                                                 {entry.ucStatus}
                                             </span>
