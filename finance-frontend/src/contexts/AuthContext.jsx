@@ -50,6 +50,13 @@ export const AuthProvider = ({ children }) => {
         setUser(null);
     };
 
+    const updateUser = (userData) => {
+        const updatedUser = { ...user, ...userData };
+        setUser(updatedUser);
+        localStorage.setItem('user', JSON.stringify(updatedUser));
+        return { success: true };
+    };
+
     const hasRole = (role) => {
         return user?.role === role;
     };
@@ -64,6 +71,7 @@ export const AuthProvider = ({ children }) => {
         loading,
         login,
         logout,
+        updateUser,
         hasRole,
         hasAnyRole,
         isAuthenticated: !!user && !!token
