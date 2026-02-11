@@ -4,11 +4,12 @@ import { Button } from '../../components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
 import { Badge } from '../../components/ui/badge';
 import { Textarea } from '../../components/ui/textarea';
-import { CheckCircle, XCircle, Banknote, FileText, ArrowRight, Wallet } from 'lucide-react';
+import { CheckCircle, XCircle, Banknote, FileText, ArrowRight, Wallet, RefreshCw } from 'lucide-react';
 import { useLayout } from '../../contexts/LayoutContext';
 import DateFilter from '../../components/shared/DateFilter';
 import { RESEARCH_CENTRES } from '../../constants/researchCentres';
 import { FUND_SOURCES } from '../../constants/fundSources';
+import { FUND_REQUESTS_MOCK } from '../../data/dashboardData';
 
 const ApproveFundRequests = () => {
     const { setLayout } = useLayout();
@@ -16,77 +17,12 @@ const ApproveFundRequests = () => {
     const [selectedCentre, setSelectedCentre] = useState('All');
     const [selectedSource, setSelectedSource] = useState('All');
 
-    const [fundRequests, setFundRequests] = useState([
-        {
-            id: 1,
-            projectTitle: 'AI-Powered Medical Diagnosis System',
-            faculty: 'Dr. Priya Sharma',
-            requestedAmount: 1500000,
-            purpose: 'Equipment purchase and software licenses',
-            submittedDate: '2024-01-25',
-            status: 'PENDING',
-            chequeStatus: 'Pending', // Default for Pending requests, but really N/A until Approved
-            department: 'CSE',
-            centre: 'Centre for Nano Science and Nanotechnology',
-            source: 'PFMS'
-        },
-        {
-            id: 2,
-            projectTitle: 'Smart Traffic Management System',
-            faculty: 'Dr. Vikram Singh',
-            requestedAmount: 2000000,
-            purpose: 'Hardware components and field testing',
-            submittedDate: '2024-01-22',
-            status: 'PENDING',
-            chequeStatus: 'Pending',
-            department: 'ECE',
-            centre: 'Centre for Climate Studies',
-            source: "Director's Innovation"
-        },
-        {
-            id: 3,
-            projectTitle: 'Renewable Energy Grid Optimization',
-            faculty: 'Dr. Bharti',
-            requestedAmount: 300000,
-            purpose: 'Research equipment and data collection',
-            submittedDate: '2024-01-20',
-            status: 'APPROVED',
-            chequeStatus: 'Pending', // Approved but Cheque Pending
-            department: 'EEE',
-            centre: 'Centre of Excellence for Energy Research',
-            source: 'PFMS'
-        },
-        {
-            id: 4,
-            projectTitle: 'Waste to Energy Conversion',
-            faculty: 'Dr. Anita Desai',
-            requestedAmount: 500000,
-            purpose: 'Lab Setup',
-            submittedDate: '2024-01-10',
-            status: 'APPROVED',
-            chequeStatus: 'Approved', // Cheque Approved, waiting disbursement
-            department: 'CHEM',
-            centre: 'Centre for Waste Management',
-            source: "Director's Innovation"
-        },
-        {
-            id: 5,
-            projectTitle: 'Ocean Data Buoys',
-            faculty: 'Dr. R. Kumar',
-            requestedAmount: 1200000,
-            purpose: 'Field deployment',
-            submittedDate: '2024-01-05',
-            status: 'APPROVED',
-            chequeStatus: 'Disbursed', // Money sent
-            department: 'OCEAN',
-            centre: 'Centre for Ocean Research',
-            source: 'PFMS'
-        }
-    ]);
+    const [fundRequests, setFundRequests] = useState(FUND_REQUESTS_MOCK);
 
     const [selectedRequest, setSelectedRequest] = useState(null);
     const [approvalNotes, setApprovalNotes] = useState('');
     const [rejectionModal, setRejectionModal] = useState({ isOpen: false, requestId: null, remarks: '' });
+    const [revokeModal, setRevokeModal] = useState({ isOpen: false, request: null, remarks: '' });
 
     React.useEffect(() => {
         setLayout(
@@ -115,6 +51,15 @@ const ApproveFundRequests = () => {
         setRejectionModal({ isOpen: false, requestId: null, remarks: '' });
         setSelectedRequest(null);
         setApprovalNotes('');
+    };
+
+    const handleRevoke = () => {
+        const { request, remarks } = revokeModal;
+        setFundRequests(fundRequests.map(r =>
+            r.id === request.id ? { ...r, status: 'PENDING', chequeStatus: 'Pending', approvedAmount: null, revokeRemarks: remarks } : r
+        ));
+        setRevokeModal({ isOpen: false, request: null, remarks: '' });
+        setSelectedRequest(null); // Close details modal if open
     };
 
     // Cheque Logic Handlers
@@ -295,7 +240,11 @@ const ApproveFundRequests = () => {
                             </TableHeader>
                             <TableBody>
                                 {filteredRequests.map((request) => (
-                                    <TableRow key={request.id} className="hover:bg-gray-50 dark:hover:bg-slate-800/50 dark:border-slate-800">
+                                    <TableRow
+                                        key={request.id}
+                                        className="hover:bg-gray-50 dark:hover:bg-slate-800/50 dark:border-slate-800 cursor-pointer"
+                                        onClick={() => setSelectedRequest(request)}
+                                    >
                                         <TableCell className="font-semibold dark:text-gray-200">
                                             {request.projectTitle}
                                             <div className="text-xs text-gray-400 font-normal mt-0.5">{request.faculty}</div>
@@ -334,22 +283,44 @@ const ApproveFundRequests = () => {
                                         </TableCell>
                                         <TableCell>
                                             <div className="flex justify-end space-x-2">
-                                                <Button
-                                                    variant="outline"
-                                                    size="sm"
-                                                    className="dark:border-slate-700 dark:hover:bg-slate-800"
-                                                    onClick={() => setSelectedRequest(request)}
-                                                >
-                                                    View
-                                                </Button>
                                                 {request.status === 'PENDING' && (
+                                                    <>
+                                                        <Button
+                                                            variant="outline"
+                                                            size="sm"
+                                                            className="text-red-600 border-red-200 hover:bg-red-50 dark:hover:bg-red-900/20"
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                handleReject(request.id);
+                                                            }}
+                                                        >
+                                                            Reject
+                                                        </Button>
+                                                        <Button
+                                                            variant="default"
+                                                            size="sm"
+                                                            className="bg-green-600 hover:bg-green-700 text-white font-medium shadow-sm px-4"
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                handleApprove(request.id);
+                                                            }}
+                                                        >
+                                                            Approve
+                                                        </Button>
+                                                    </>
+                                                )}
+                                                {request.status === 'APPROVED' && (
                                                     <Button
-                                                        variant="default"
+                                                        variant="outline"
                                                         size="sm"
-                                                        className="bg-green-600 hover:bg-green-700 text-white font-medium shadow-sm px-4"
-                                                        onClick={() => handleApprove(request.id)}
+                                                        className="text-orange-600 border-orange-200 hover:bg-orange-50 dark:hover:bg-orange-900/20"
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            setSelectedRequest(request);
+                                                            setRevokeModal({ isOpen: true, request, remarks: '' });
+                                                        }}
                                                     >
-                                                        Approve
+                                                        Revoke
                                                     </Button>
                                                 )}
                                             </div>
@@ -497,6 +468,16 @@ const ApproveFundRequests = () => {
                                             </Button>
                                         </>
                                     )}
+                                    {selectedRequest.status === 'APPROVED' && (
+                                        <Button
+                                            variant="outline"
+                                            className="text-orange-600 border-orange-200 hover:bg-orange-50 dark:hover:bg-orange-900/20"
+                                            onClick={() => setRevokeModal({ isOpen: true, request: selectedRequest, remarks: '' })}
+                                        >
+                                            <RefreshCw className="w-4 h-4 mr-2" />
+                                            Revoke Approval
+                                        </Button>
+                                    )}
                                 </div>
                             </CardContent>
                         </Card>
@@ -550,6 +531,59 @@ const ApproveFundRequests = () => {
                                         onClick={handleConfirmReject}
                                     >
                                         Confirm Reject
+                                    </Button>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    </div>
+                )}
+
+                {/* Revoke Confirmation Modal */}
+                {revokeModal.isOpen && revokeModal.request && (
+                    <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-[60] p-4 transition-all animate-in fade-in">
+                        <Card className="max-w-md w-full border-0 shadow-2xl dark:bg-slate-900 transform animate-in zoom-in-95 duration-200">
+                            <CardHeader className="border-b dark:border-slate-800 pb-4">
+                                <div className="flex items-center space-x-2 text-orange-600">
+                                    <RefreshCw className="w-6 h-6" />
+                                    <CardTitle className="text-xl">Revoke Approval</CardTitle>
+                                </div>
+                                <CardDescription className="dark:text-gray-400 mt-2">
+                                    Are you sure you want to revoke approval for <strong>{revokeModal.request.projectTitle}</strong>?
+                                </CardDescription>
+                            </CardHeader>
+                            <CardContent className="pt-6 space-y-4">
+                                <p className="text-sm text-gray-600 dark:text-gray-300">
+                                    This will revert the status to <strong>PENDING</strong> and remove any cheque processing details.
+                                </p>
+
+                                <div className="space-y-2">
+                                    <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Reason for Revocation</label>
+                                    <Textarea
+                                        className="w-full min-h-[100px] p-3 rounded-lg border border-gray-200 dark:border-slate-800 dark:bg-slate-950 dark:text-white focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none transition-all placeholder:text-gray-400"
+                                        placeholder="Enter reason for revoking approval..."
+                                        value={revokeModal.remarks}
+                                        onChange={(e) => setRevokeModal({ ...revokeModal, remarks: e.target.value })}
+                                    />
+                                    <p className="text-[10px] text-gray-400 flex items-center italic">
+                                        <CheckCircle className={`w-3 h-3 mr-1 ${revokeModal.remarks.trim().length > 5 ? 'text-green-500' : 'text-gray-300'}`} />
+                                        Reason is mandatory
+                                    </p>
+                                </div>
+
+                                <div className="flex space-x-3 pt-2">
+                                    <Button
+                                        variant="outline"
+                                        className="flex-1 dark:border-slate-800 dark:hover:bg-slate-800"
+                                        onClick={() => setRevokeModal({ ...revokeModal, isOpen: false })}
+                                    >
+                                        Cancel
+                                    </Button>
+                                    <Button
+                                        className={`flex-1 bg-orange-600 hover:bg-orange-700 text-white ${!revokeModal.remarks.trim() ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                        onClick={handleRevoke}
+                                        disabled={!revokeModal.remarks.trim()}
+                                    >
+                                        Confirm Revoke
                                     </Button>
                                 </div>
                             </CardContent>

@@ -22,7 +22,7 @@ const LoginPage = () => {
         try {
             const mockUser = {
                 id: 1,
-                name: selectedRole === ROLES.ADMIN ? 'Dr. Bharti' :
+                name: selectedRole === ROLES.ADMIN ? 'Dr. Bharathi' :
                     selectedRole === ROLES.FACULTY ? 'Dr. Priya Sharma' : 'Mr. Arun Patel',
                 email: email,
                 role: selectedRole
@@ -47,79 +47,80 @@ const LoginPage = () => {
 
     return (
         <div className="login-container">
-            {/* Left Panel - Branding */}
+            {/* Left Panel - Header + Login Form */}
             <div className="login-left-panel">
-                <div className="branding-header">
-                    <img
-                        src="/sathyabama_header.png"
-                        alt="Sathyabama Institute of Science and Technology"
-                        className="header-image"
-                    />
-                </div>
+                <div className="left-panel-content">
+                    <div className="header-section">
+                        <img
+                            src="/sathyabama_header.png"
+                            alt="Sathyabama Institute of Science and Technology"
+                            className="header-image"
+                        />
+                    </div>
 
-                <div className="login-form-container">
-                    <form onSubmit={handleSubmit} className="login-form">
-                        <div className="form-group">
-                            <select
-                                id="role"
-                                value={selectedRole}
-                                onChange={(e) => setSelectedRole(e.target.value)}
-                                className="form-select"
-                            >
-                                <option value={ROLES.ADMIN}>Admin</option>
-                                <option value={ROLES.FACULTY}>Faculty</option>
-                                <option value={ROLES.FINANCE_OFFICER}>Finance Officer</option>
-                            </select>
-                        </div>
-
-                        <div className="form-group">
-                            <label htmlFor="email" className="form-label">Email</label>
-                            <input
-                                id="email"
-                                type="email"
-                                placeholder="Email"
-                                value={email}
-                                onChange={(e) => setEmail(e.target.value)}
-                                className="form-input"
-                                required
-                            />
-                        </div>
-
-                        <div className="form-group">
-                            <label htmlFor="password" className="form-label">Password</label>
-                            <input
-                                id="password"
-                                type="password"
-                                placeholder="Password"
-                                value={password}
-                                onChange={(e) => setPassword(e.target.value)}
-                                className="form-input"
-                                required
-                            />
-                        </div>
-
-                        {error && (
-                            <div className="error-message">
-                                {error}
+                    <div className="login-form-container">
+                        <form onSubmit={handleSubmit} className="login-form">
+                            <div className="form-group">
+                                <select
+                                    id="role"
+                                    value={selectedRole}
+                                    onChange={(e) => setSelectedRole(e.target.value)}
+                                    className="form-select"
+                                >
+                                    <option value={ROLES.ADMIN}>Admin</option>
+                                    <option value={ROLES.FACULTY}>Faculty</option>
+                                    <option value={ROLES.FINANCE_OFFICER}>Finance Officer</option>
+                                </select>
                             </div>
-                        )}
 
-                        <button
-                            type="submit"
-                            className="login-button"
-                            disabled={loading}
-                        >
-                            {loading ? 'LOGGING IN...' : 'LOGIN'}
-                        </button>
-                    </form>
+                            <div className="form-group">
+                                <label htmlFor="email" className="form-label">Email</label>
+                                <input
+                                    id="email"
+                                    type="email"
+                                    placeholder="Email"
+                                    value={email}
+                                    onChange={(e) => setEmail(e.target.value)}
+                                    className="form-input"
+                                    required
+                                />
+                            </div>
+
+                            <div className="form-group">
+                                <label htmlFor="password" className="form-label">Password</label>
+                                <input
+                                    id="password"
+                                    type="password"
+                                    placeholder="Password"
+                                    value={password}
+                                    onChange={(e) => setPassword(e.target.value)}
+                                    className="form-input"
+                                    required
+                                />
+                            </div>
+
+                            {error && (
+                                <div className="error-message">
+                                    {error}
+                                </div>
+                            )}
+
+                            <button
+                                type="submit"
+                                className="login-button"
+                                disabled={loading}
+                            >
+                                {loading ? 'LOGGING IN...' : 'LOGIN'}
+                            </button>
+                        </form>
+                    </div>
                 </div>
             </div>
 
-            {/* Right Panel - Title */}
-            <div className="login-right-panel">
+            {/* Right Panel - Welcome Message */}
+            <div className="login-right-panel hidden md:flex">
                 <div className="title-container">
-                    <h2 className="system-title">Sathyabama Finance</h2>
-                    <h2 className="system-title">Management System</h2>
+                    <h2 className="system-title">Welcome to Sathyabama Research Management System</h2>
                 </div>
             </div>
         </div>

@@ -100,7 +100,7 @@ const ManageFaculty = () => {
         },
         {
             id: 2,
-            name: 'Dr. Bharti',
+            name: 'Dr. Bharathi',
             username: 'bharti.research',
             email: 'bharti.r@sathyabama.ac.in',
             centre: 'Centre of Excellence for Energy Research',

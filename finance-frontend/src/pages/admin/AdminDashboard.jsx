@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
 import { Badge } from '../../components/ui/badge';
+import { Button } from '../../components/ui/button';
 import {
     FileText, Banknote, CheckCircle, Clock, TrendingUp, AlertCircle,
     UserPlus, BarChart3, Filter, ArrowRight, Wallet, Building2
@@ -13,7 +14,13 @@ import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
     PieChart, Pie, Cell, LineChart, Line, Sector
 } from 'recharts';
-import { RESEARCH_CENTRES } from '../../constants/researchCentres';
+import {
+    RESEARCH_CENTRES,
+    CENTRE_STATS_MOCK,
+    FUNDING_STATS,
+    FUND_REQUESTS_MOCK
+} from '../../data/dashboardData';
+import ResearchCentreDetail from './ResearchCentreDetail';
 
 const AdminDashboard = () => {
     const { setLayout } = useLayout();
@@ -24,6 +31,9 @@ const AdminDashboard = () => {
     const [selectedDate, setSelectedDate] = useState(null);
     const [selectedFY, setSelectedFY] = useState('2024-25');
     const [activeIndex, setActiveIndex] = useState(-1);
+    const [detailModalOpen, setDetailModalOpen] = useState(false);
+    const [selectedCentreDetail, setSelectedCentreDetail] = useState(null);
+    const [selectedProject, setSelectedProject] = useState(null);
 
     const centres = RESEARCH_CENTRES;
 
@@ -33,37 +43,6 @@ const AdminDashboard = () => {
         'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
         'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
     ];
-
-    // Mock data for project statistics - ensure this covers all centres in RESEARCH_CENTRES
-    const CENTRE_STATS_MOCK = {
-        'Centre for Nano Science and Nanotechnology': { total: 12, active: 8, completed: 3, budget: 35, disbursed: 25, faculty: 15 },
-        'Centre of Excellence for Energy Research': { total: 10, active: 7, completed: 2, budget: 28, disbursed: 20, faculty: 12 },
-        'Centre for Waste Management': { total: 8, active: 5, completed: 2, budget: 22, disbursed: 16, faculty: 10 },
-        'Centre for Climate Studies': { total: 10, active: 6, completed: 3, budget: 25, disbursed: 18, faculty: 11 },
-        'Centre for Molecular and Nanomedical Sciences': { total: 7, active: 4, completed: 2, budget: 20, disbursed: 14, faculty: 8 },
-        'Centre for Drug Discovery and Development': { total: 8, active: 5, completed: 2, budget: 17, disbursed: 12, faculty: 9 },
-        'Centre of Excellence for Additive Manufacturing': { total: 6, active: 4, completed: 1, budget: 15, disbursed: 10, faculty: 7 },
-        'Centre for Indian System of Medicine': { total: 5, active: 3, completed: 1, budget: 13, disbursed: 9, faculty: 6 },
-        'Centre for Advanced Communication Systems': { total: 9, active: 6, completed: 2, budget: 19, disbursed: 13, faculty: 10 },
-        'Centre for Automation and Robotics': { total: 11, active: 8, completed: 2, budget: 24, disbursed: 17, faculty: 12 },
-        'Centre for Bio-resource Management': { total: 7, active: 5, completed: 1, budget: 16, disbursed: 11, faculty: 8 },
-        'Centre for Data Science and AI': { total: 14, active: 10, completed: 3, budget: 29, disbursed: 21, faculty: 14 }
-    };
-
-    // Mock Data for Fund Overview
-    const FUNDING_STATS = {
-        pfms: {
-            sanctioned: 50000000, // 5 Cr
-            received: 35000000,   // 3.5 Cr
-            consumed: 21000000,   // 2.1 Cr
-            balance: 14000000     // 1.4 Cr
-        },
-        institutional: {
-            allocated: 20000000,  // 2 Cr
-            utilized: 12000000,   // 1.2 Cr
-            balance: 8000000      // 0.8 Cr
-        }
-    };
 
     const pfmsChartData = [
         { name: 'Consumed', value: FUNDING_STATS.pfms.consumed, color: '#6366f1' }, // Indigo
@@ -459,10 +438,9 @@ const AdminDashboard = () => {
 
             {/* Stats Cards - One Single Line on Desktop */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8 items-stretch">
-                {/* Total Projects - Clickable */}
+                {/* Total Projects */}
                 <Card
-                    className={`h-full border-0 bg-maroon-50 dark:bg-maroon-900/20 text-maroon-600 dark:text-maroon-400 transition-all duration-300 hover:shadow-lg cursor-pointer ${activeMetric === 'projects' ? 'ring-2 ring-maroon-500 scale-[1.02]' : ''}`}
-                    onClick={() => setActiveMetric('projects')}
+                    className="h-full border-0 bg-maroon-50 dark:bg-maroon-900/20 text-maroon-600 dark:text-maroon-400 transition-all duration-300 hover:shadow-lg"
                 >
                     <CardContent className="p-6 h-full flex flex-col justify-between">
                         <div className="flex items-start justify-between">
@@ -478,10 +456,9 @@ const AdminDashboard = () => {
                     </CardContent>
                 </Card>
 
-                {/* Total Budget - Clickable */}
+                {/* Total Budget */}
                 <Card
-                    className={`h-full border-0 bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400 transition-all duration-300 hover:shadow-lg cursor-pointer ${activeMetric === 'budget' ? 'ring-2 ring-green-500 scale-[1.02]' : ''}`}
-                    onClick={() => setActiveMetric('budget')}
+                    className="h-full border-0 bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400 transition-all duration-300 hover:shadow-lg"
                 >
                     <CardContent className="p-6 h-full flex flex-col justify-between">
                         <div className="flex items-start justify-between">
@@ -497,10 +474,9 @@ const AdminDashboard = () => {
                     </CardContent>
                 </Card>
 
-                {/* Total Disbursed - Clickable */}
+                {/* Total Disbursed */}
                 <Card
-                    className={`h-full border-0 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 transition-all duration-300 hover:shadow-lg cursor-pointer ${activeMetric === 'disbursed' ? 'ring-2 ring-indigo-500 scale-[1.02]' : ''}`}
-                    onClick={() => setActiveMetric('disbursed')}
+                    className="h-full border-0 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 transition-all duration-300 hover:shadow-lg"
                 >
                     <CardContent className="p-6 h-full flex flex-col justify-between">
                         <div className="flex items-start justify-between">
@@ -566,8 +542,8 @@ const AdminDashboard = () => {
 
             {/* Dashboard Filter Bar - Moved Below Stats */}
             <div className="mb-6 mt-8 flex flex-col md:flex-row items-center justify-between bg-white dark:bg-slate-900 p-4 rounded-xl border border-gray-100 dark:border-slate-800 shadow-sm gap-4">
-                <div className="flex items-center space-x-4 w-full md:w-auto">
-                    <div className="flex items-center space-x-2 bg-gray-50 dark:bg-slate-800 p-1 rounded-lg border border-gray-200 dark:border-slate-700">
+                <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
+                    <div className="flex items-center space-x-2 bg-gray-50 dark:bg-slate-800 p-1 rounded-lg border border-gray-200 dark:border-slate-700 flex-1 md:flex-none justify-between md:justify-start">
                         <span className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 px-2">Fin. Year</span>
                         <select
                             className="bg-transparent text-sm font-bold text-gray-700 dark:text-gray-200 outline-none cursor-pointer py-1 pr-2"
@@ -583,10 +559,10 @@ const AdminDashboard = () => {
                             ))}
                         </select>
                     </div>
-                    <div className="flex items-center space-x-2 bg-gray-50 dark:bg-slate-800 p-1 rounded-lg border border-gray-200 dark:border-slate-700">
+                    <div className="flex items-center space-x-2 bg-gray-50 dark:bg-slate-800 p-1 rounded-lg border border-gray-200 dark:border-slate-700 flex-1 md:flex-none justify-between md:justify-start">
                         <span className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 px-2">Centre</span>
                         <select
-                            className="bg-transparent text-sm font-bold text-gray-700 dark:text-gray-200 outline-none cursor-pointer py-1 pr-2 max-w-[150px] truncate"
+                            className="bg-transparent text-sm font-bold text-gray-700 dark:text-gray-200 outline-none cursor-pointer py-1 pr-2 max-w-[100px] md:max-w-[150px] truncate"
                             value={selectedCentre}
                             onChange={(e) => setSelectedCentre(e.target.value)}
                         >
@@ -596,7 +572,7 @@ const AdminDashboard = () => {
                             ))}
                         </select>
                     </div>
-                    <div className="flex items-center space-x-2 bg-gray-50 dark:bg-slate-800 p-1 rounded-lg border border-gray-200 dark:border-slate-700">
+                    <div className="flex items-center space-x-2 bg-gray-50 dark:bg-slate-800 p-1 rounded-lg border border-gray-200 dark:border-slate-700 flex-1 md:flex-none justify-between md:justify-start">
                         <span className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 px-2">Month</span>
                         <select
                             className="bg-transparent text-sm font-bold text-gray-700 dark:text-gray-200 outline-none cursor-pointer py-1 pr-2"
@@ -669,7 +645,14 @@ const AdminDashboard = () => {
                         </TableHeader>
                         <TableBody>
                             {filteredData.map((centre, index) => (
-                                <TableRow key={index} className="hover:bg-gray-50 dark:hover:bg-slate-800/50 dark:border-slate-800">
+                                <TableRow
+                                    key={index}
+                                    className="hover:bg-gray-50 dark:hover:bg-slate-800/50 dark:border-slate-800 cursor-pointer transition-colors"
+                                    onClick={() => {
+                                        setSelectedCentreDetail(centre.centre);
+                                        setDetailModalOpen(true);
+                                    }}
+                                >
                                     <TableCell className="font-semibold dark:text-gray-200">{centre.centre}</TableCell>
                                     <TableCell>
                                         <Badge variant="default" className="bg-maroon-100 dark:bg-maroon-900/30 text-maroon-700 dark:text-maroon-400 border-0">
@@ -746,13 +729,31 @@ const AdminDashboard = () => {
 
                                     {/* Dynamic Bar Rendering */}
                                     {activeMetric === 'projects' && (
-                                        <Bar dataKey={selectedCentre === 'ALL' ? "projects" : "val"} fill="#881337" radius={[4, 4, 0, 0]} name="Projects" />
+                                        <Bar
+                                            dataKey={selectedCentre === 'ALL' ? "projects" : "val"}
+                                            fill="rgba(136, 19, 55, 0.8)"
+                                            radius={[4, 4, 0, 0]}
+                                            name="Projects"
+                                            activeBar={{ fill: 'rgba(136, 19, 55, 0.95)' }}
+                                        />
                                     )}
                                     {activeMetric === 'budget' && (
-                                        <Bar dataKey="budget" fill="#16a34a" radius={[4, 4, 0, 0]} name="Budget (M)" />
+                                        <Bar
+                                            dataKey="budget"
+                                            fill="rgba(22, 163, 74, 0.8)"
+                                            radius={[4, 4, 0, 0]}
+                                            name="Budget (M)"
+                                            activeBar={{ fill: 'rgba(22, 163, 74, 0.95)' }}
+                                        />
                                     )}
                                     {activeMetric === 'disbursed' && (
-                                        <Bar dataKey="disbursed" fill="#6366f1" radius={[4, 4, 0, 0]} name="Disbursed (M)" />
+                                        <Bar
+                                            dataKey="disbursed"
+                                            fill="rgba(99, 102, 241, 0.8)"
+                                            radius={[4, 4, 0, 0]}
+                                            name="Disbursed (M)"
+                                            activeBar={{ fill: 'rgba(99, 102, 241, 0.95)' }}
+                                        />
                                     )}
                                 </BarChart>
                             </ResponsiveContainer>
@@ -902,6 +903,91 @@ const AdminDashboard = () => {
                 </CardContent>
             </Card>
 
+            {/* Recent Projects / Fund Requests Breakdown */}
+            <Card className="border-0 shadow-sm mb-8 dark:bg-slate-900">
+                <CardHeader className="border-b bg-gray-50 dark:bg-slate-800/50 dark:border-slate-800">
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <CardTitle className="text-lg font-semibold dark:text-white">Recent Project Proposals & Fund Status</CardTitle>
+                            <CardDescription className="dark:text-gray-400">Overview of recent project approvals and cheque statuses</CardDescription>
+                        </div>
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            className="hidden md:flex"
+                            onClick={() => navigate('/admin/projects')}
+                        >
+                            View All
+                        </Button>
+                    </div>
+                </CardHeader>
+                <CardContent className="p-0">
+                    <div className="overflow-x-auto">
+                        <Table>
+                            <TableHeader>
+                                <TableRow className="dark:border-slate-800">
+                                    <TableHead className="dark:text-gray-400">Project Title</TableHead>
+                                    <TableHead className="dark:text-gray-400">Principal Investigator</TableHead>
+                                    <TableHead className="dark:text-gray-400">Centre</TableHead>
+                                    <TableHead className="dark:text-gray-400">Amount</TableHead>
+                                    <TableHead className="dark:text-gray-400">Status</TableHead>
+                                    <TableHead className="dark:text-gray-400">Cheque Status</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {FUND_REQUESTS_MOCK.slice(0, 5).map((project) => (
+                                    <TableRow
+                                        key={project.id}
+                                        className="hover:bg-gray-50 dark:hover:bg-slate-800/50 dark:border-slate-800 border-b cursor-pointer"
+                                        onClick={() => setSelectedProject(project)}
+                                    >
+                                        <TableCell className="font-medium dark:text-gray-200">
+                                            {project.projectTitle}
+                                            <div className="text-xs text-gray-500 dark:text-gray-400 md:hidden">{project.department}</div>
+                                        </TableCell>
+                                        <TableCell className="dark:text-gray-300">{project.faculty}</TableCell>
+                                        <TableCell className="dark:text-gray-300">
+                                            <span className="truncate max-w-[150px] block" title={project.centre}>
+                                                {project.centre}
+                                            </span>
+                                        </TableCell>
+                                        <TableCell className="font-semibold text-gray-900 dark:text-white">
+                                            ₹{(project.requestedAmount / 100000).toFixed(1)}L
+                                        </TableCell>
+                                        <TableCell>
+                                            <Badge
+                                                variant={project.status === 'APPROVED' ? 'success' : project.status === 'REJECTED' ? 'destructive' : 'secondary'}
+                                                className={`
+                                                    ${project.status === 'APPROVED' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : ''}
+                                                    ${project.status === 'PENDING' ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400' : ''}
+                                                    ${project.status === 'REJECTED' ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' : ''}
+                                                `}
+                                            >
+                                                {project.status}
+                                            </Badge>
+                                        </TableCell>
+                                        <TableCell>
+                                            <div className="flex items-center space-x-2">
+                                                {project.chequeStatus === 'Disbursed' && <CheckCircle className="w-4 h-4 text-green-500" />}
+                                                {project.chequeStatus === 'Approved' && <Clock className="w-4 h-4 text-blue-500" />}
+                                                {project.chequeStatus === 'Pending' && <Clock className="w-4 h-4 text-gray-400" />}
+                                                <span className={`text-sm font-medium
+                                                    ${project.chequeStatus === 'Disbursed' ? 'text-green-600 dark:text-green-400' : ''}
+                                                    ${project.chequeStatus === 'Approved' ? 'text-blue-600 dark:text-blue-400' : ''}
+                                                    ${project.chequeStatus === 'Pending' ? 'text-gray-500 dark:text-gray-400' : ''}
+                                                `}>
+                                                    {project.chequeStatus}
+                                                </span>
+                                            </div>
+                                        </TableCell>
+                                    </TableRow>
+                                ))}
+                            </TableBody>
+                        </Table>
+                    </div>
+                </CardContent>
+            </Card>
+
             {/* Recent Activities */}
             <Card className="border-0 shadow-sm dark:bg-slate-900">
                 <CardHeader className="border-b bg-gray-50 dark:bg-slate-800/50 dark:border-slate-800">
@@ -927,6 +1013,134 @@ const AdminDashboard = () => {
                     </div>
                 </CardContent>
             </Card>
+
+            {/* Research Centre Detail Modal */}
+            <ResearchCentreDetail
+                isOpen={detailModalOpen}
+                onClose={() => setDetailModalOpen(false)}
+                centreName={selectedCentreDetail}
+                isDark={document.documentElement.classList.contains('dark')}
+            />
+
+            {/* Project Detail Modal */}
+            {selectedProject && (
+                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setSelectedProject(null)}>
+                    <Card className="max-w-3xl w-full border-0 shadow-2xl dark:bg-slate-900" onClick={(e) => e.stopPropagation()}>
+                        <CardHeader className="border-b dark:border-slate-800 bg-gradient-to-r from-maroon-50 to-gray-50 dark:from-maroon-900/20 dark:to-slate-800">
+                            <div className="flex justify-between items-start">
+                                <div>
+                                    <CardTitle className="text-xl font-bold dark:text-white mb-2">{selectedProject.projectTitle}</CardTitle>
+                                    <div className="flex items-center gap-3 flex-wrap">
+                                        <Badge variant="outline" className={`${selectedProject.source === 'PFMS' ? 'text-blue-600 border-blue-200 bg-blue-50 dark:bg-blue-900/30' : 'text-purple-600 border-purple-200 bg-purple-50 dark:bg-purple-900/30'}`}>
+                                            {selectedProject.source}
+                                        </Badge>
+                                        <Badge
+                                            variant={selectedProject.status === 'APPROVED' ? 'success' : selectedProject.status === 'REJECTED' ? 'destructive' : 'secondary'}
+                                            className={`
+                                                ${selectedProject.status === 'APPROVED' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : ''}
+                                                ${selectedProject.status === 'PENDING' ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400' : ''}
+                                                ${selectedProject.status === 'REJECTED' ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' : ''}
+                                            `}
+                                        >
+                                            {selectedProject.status}
+                                        </Badge>
+                                    </div>
+                                </div>
+                                <Button variant="ghost" size="sm" onClick={() => setSelectedProject(null)} className="dark:hover:bg-slate-800">
+                                    ✕
+                                </Button>
+                            </div>
+                        </CardHeader>
+                        <CardContent className="space-y-6 pt-6">
+                            {/* Project Information Grid */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div>
+                                    <p className="text-sm font-semibold text-gray-500 dark:text-gray-400">Principal Investigator</p>
+                                    <p className="text-base font-semibold mt-1 dark:text-white">{selectedProject.faculty}</p>
+                                    <p className="text-xs text-gray-400">{selectedProject.department}</p>
+                                </div>
+                                <div>
+                                    <p className="text-sm font-semibold text-gray-500 dark:text-gray-400">Research Centre</p>
+                                    <p className="text-base font-semibold mt-1 dark:text-white truncate" title={selectedProject.centre}>{selectedProject.centre}</p>
+                                </div>
+                                <div>
+                                    <p className="text-sm font-semibold text-gray-500 dark:text-gray-400">Requested Amount</p>
+                                    <p className="text-2xl font-bold mt-1 text-green-600 dark:text-green-400">₹{(selectedProject.requestedAmount / 100000).toFixed(1)}L</p>
+                                </div>
+                                <div>
+                                    <p className="text-sm font-semibold text-gray-500 dark:text-gray-400">Submitted Date</p>
+                                    <p className="text-base font-semibold mt-1 dark:text-white">
+                                        {new Date(selectedProject.submittedDate).toLocaleDateString('en-IN', { year: 'numeric', month: 'long', day: 'numeric' })}
+                                    </p>
+                                </div>
+                            </div>
+
+                            {/* Purpose */}
+                            <div>
+                                <p className="text-sm font-semibold text-gray-500 dark:text-gray-400 mb-2">Purpose</p>
+                                <p className="text-sm dark:text-gray-300 bg-gray-50 dark:bg-slate-800/50 p-3 rounded-lg">{selectedProject.purpose}</p>
+                            </div>
+
+                            {/* Cheque Information */}
+                            {selectedProject.status === 'APPROVED' && (
+                                <div className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 p-5 rounded-xl border border-blue-100 dark:border-blue-900/30">
+                                    <h4 className="text-sm font-bold text-gray-700 dark:text-gray-200 mb-4 flex items-center">
+                                        <Banknote className="w-5 h-5 mr-2 text-blue-600 dark:text-blue-400" />
+                                        Cheque Processing &amp; Disbursal Status
+                                    </h4>
+
+                                    {/* Progress Bar */}
+                                    <div className="mb-4">
+                                        <div className="flex items-center gap-2 mb-2">
+                                            <div className={`flex-1 h-2.5 rounded-full transition-all ${selectedProject.chequeStatus ? 'bg-green-500' : 'bg-gray-200 dark:bg-gray-700'}`}></div>
+                                            <div className={`flex-1 h-2.5 rounded-full transition-all ${selectedProject.chequeStatus === 'Approved' || selectedProject.chequeStatus === 'Disbursed' ? 'bg-blue-500' : 'bg-gray-200 dark:bg-gray-700'}`}></div>
+                                            <div className={`flex-1 h-2.5 rounded-full transition-all ${selectedProject.chequeStatus === 'Disbursed' ? 'bg-emerald-500' : 'bg-gray-200 dark:bg-gray-700'}`}></div>
+                                        </div>
+                                        <div className="flex justify-between text-xs text-gray-600 dark:text-gray-400 px-1">
+                                            <span className={selectedProject.chequeStatus ? 'font-semibold text-green-600 dark:text-green-400' : ''}>Pending</span>
+                                            <span className={selectedProject.chequeStatus === 'Approved' || selectedProject.chequeStatus === 'Disbursed' ? 'font-semibold text-blue-600 dark:text-blue-400' : ''}>Approved</span>
+                                            <span className={selectedProject.chequeStatus === 'Disbursed' ? 'font-semibold text-emerald-600 dark:text-emerald-400' : ''}>Disbursed</span>
+                                        </div>
+                                    </div>
+
+                                    {/* Current Status */}
+                                    <div className="bg-white dark:bg-slate-800 rounded-lg p-4 border border-gray-100 dark:border-slate-700">
+                                        <div className="flex items-center justify-between">
+                                            <div className="flex items-center space-x-3">
+                                                {selectedProject.chequeStatus === 'Disbursed' && <CheckCircle className="w-6 h-6 text-green-500" />}
+                                                {selectedProject.chequeStatus === 'Approved' && <Clock className="w-6 h-6 text-blue-500" />}
+                                                {selectedProject.chequeStatus === 'Pending' && <Clock className="w-6 h-6 text-gray-400" />}
+                                                <div>
+                                                    <p className="text-xs text-gray-500 dark:text-gray-400">Current Cheque Status</p>
+                                                    <p className={`text-lg font-bold
+                                                        ${selectedProject.chequeStatus === 'Disbursed' ? 'text-green-600 dark:text-green-400' : ''}
+                                                        ${selectedProject.chequeStatus === 'Approved' ? 'text-blue-600 dark:text-blue-400' : ''}
+                                                        ${selectedProject.chequeStatus === 'Pending' ? 'text-gray-500 dark:text-gray-400' : ''}
+                                                    `}>
+                                                        {selectedProject.chequeStatus || 'Pending'}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                            {selectedProject.chequeStatus === 'Disbursed' && (
+                                                <Badge className="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
+                                                    ✓ Complete
+                                                </Badge>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Action Button */}
+                            <div className="flex justify-end pt-4 border-t dark:border-slate-800">
+                                <Button variant="outline" onClick={() => setSelectedProject(null)} className="dark:border-slate-700 dark:hover:bg-slate-800">
+                                    Close
+                                </Button>
+                            </div>
+                        </CardContent>
+                    </Card>
+                </div>
+            )}
         </div>
     );
 };
