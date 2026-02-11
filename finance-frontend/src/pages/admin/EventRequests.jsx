@@ -851,7 +851,16 @@ const EventRequests = () => {
                                 onClick={(e) => { handleRevokeClick(selectedRequest, e); setDetailsModalOpen(false); }}
                             >
                                 <RefreshCw className="w-4 h-4 mr-2" />
-                                Revoke & Revert to Approved
+                                Revoke
+                            </Button>
+                        )}
+                        {selectedRequest?.status === 'REVOKED' && (
+                            <Button
+                                className="w-full bg-green-600 hover:bg-green-700 text-white"
+                                onClick={(e) => { handleApproveClick(selectedRequest, e); setDetailsModalOpen(false); }}
+                            >
+                                <CheckCircle className="w-4 h-4 mr-2" />
+                                Approve Request
                             </Button>
                         )}
                         <Button variant="outline" onClick={() => setDetailsModalOpen(false)}>Close</Button>
