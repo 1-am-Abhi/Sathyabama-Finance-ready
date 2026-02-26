@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import AppRoutes from './routes';
+import { seedAllData } from './utils/seedData';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -13,6 +14,10 @@ const queryClient = new QueryClient({
 });
 
 function App() {
+  useEffect(() => {
+    seedAllData();
+  }, []);
+
   return (
     <QueryClientProvider client={queryClient}>
       <AppRoutes />

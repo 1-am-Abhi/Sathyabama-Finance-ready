@@ -1,17 +1,24 @@
-import React from 'react';
-import { Link, useNavigate, useLocation } from 'react-router-dom';
+import React, { useState } from 'react';
+import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { ROLES } from '../../constants/roles';
 import { Button } from '../ui/button';
 import {
     LogOut, Home, FileText, DollarSign, Users, Building2,
-    Settings, CheckCircle, UserPlus, BarChart3, Clock
+    Settings, CheckCircle, UserPlus, BarChart3, Clock, TrendingUp, ChevronDown, ChevronRight, Briefcase, GraduationCap
 } from 'lucide-react';
 
 const Sidebar = () => {
     const { user, logout } = useAuth();
     const navigate = useNavigate();
     const location = useLocation();
+    const [expandedMenu, setExpandedMenu] = useState({});
+
+    const toggleMenu = (label) => {
+        setExpandedMenu(prev => ({ ...prev, [label]: !prev[label] }));
+    };
+
+    console.log('Sidebar render - User:', user?.role, 'Path:', location.pathname);
 
     const handleLogout = () => {
         logout();
@@ -27,13 +34,43 @@ const Sidebar = () => {
                     { label: 'Assign Faculty', path: '/admin/assign-faculty', icon: UserPlus },
                     { label: 'Fund Requests', path: '/admin/fund-requests', icon: DollarSign },
                     { label: 'Reports', path: '/admin/reports', icon: BarChart3 },
+                    {
+                        label: 'Equipment and Consumable',
+                        icon: Briefcase,
+                        path: '/admin/equipment/dashboard'
+                    },
+                    {
+                        label: 'Revenue Generated',
+                        icon: TrendingUp,
+                        path: '/admin/revenue/dashboard'
+                    },
+                    {
+                        label: 'Academic Support',
+                        icon: GraduationCap,
+                        path: '/academic-support'
+                    },
                 ];
             case ROLES.FACULTY:
                 return [
                     { label: 'Dashboard', path: '/faculty/dashboard', icon: Home },
                     { label: 'My Projects', path: '/faculty/projects', icon: FileText },
                     { label: 'Request Funds', path: '/faculty/request-funds', icon: DollarSign },
-                    { label: 'Documents', path: '/faculty/documents', icon: FileText },
+                    { label: 'OD Request', path: '/faculty/od-request', icon: Clock },
+                    {
+                        label: 'Equipment and Consumable',
+                        icon: Briefcase,
+                        path: '/faculty/equipment/dashboard'
+                    },
+                    {
+                        label: 'Revenue Generated',
+                        icon: TrendingUp,
+                        path: '/faculty/revenue/dashboard'
+                    },
+                    {
+                        label: 'Academic Support',
+                        icon: GraduationCap,
+                        path: '/academic-support'
+                    },
                 ];
             case ROLES.FINANCE_OFFICER:
                 return [
@@ -80,19 +117,54 @@ const Sidebar = () => {
             <nav className="flex-1 py-4">
                 {getNavItems().map((item) => {
                     const Icon = item.icon;
-                    const isActive = location.pathname === item.path;
+                    if (item.subItems) {
+                        return (
+                            <div key={item.label}>
+                                <button
+                                    onClick={() => toggleMenu(item.label)}
+                                    className={`flex items-center justify-between w-full px-6 py-3 transition-colors hover:bg-blue-800/50 text-white`}
+                                >
+                                    <div className="flex items-center space-x-3">
+                                        <Icon className="w-5 h-5" />
+                                        <span className="text-sm font-medium">{item.label}</span>
+                                    </div>
+                                    {expandedMenu[item.label] ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+                                </button>
+                                {expandedMenu[item.label] && (
+                                    <div className="bg-blue-900/40">
+                                        {item.subItems.map((subItem) => (
+                                            <NavLink
+                                                key={subItem.path}
+                                                to={subItem.path}
+                                                className={({ isActive }) =>
+                                                    `flex items-center space-x-3 pl-14 pr-6 py-2 transition-colors ${isActive
+                                                        ? 'text-yellow-400 font-medium'
+                                                        : 'text-blue-100 hover:text-white hover:bg-blue-800/30'
+                                                    }`
+                                                }
+                                            >
+                                                <span className="text-sm">{subItem.label}</span>
+                                            </NavLink>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        );
+                    }
                     return (
-                        <Link
+                        <NavLink
                             key={item.path}
                             to={item.path}
-                            className={`flex items-center space-x-3 px-6 py-3 transition-colors ${isActive
+                            className={({ isActive }) =>
+                                `flex items-center space-x-3 px-6 py-3 transition-colors ${isActive
                                     ? 'bg-blue-700 border-l-4 border-yellow-400'
                                     : 'hover:bg-blue-800/50'
-                                }`}
+                                }`
+                            }
                         >
                             <Icon className="w-5 h-5" />
                             <span className="text-sm font-medium">{item.label}</span>
-                        </Link>
+                        </NavLink>
                     );
                 })}
             </nav>

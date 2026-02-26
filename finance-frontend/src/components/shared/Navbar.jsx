@@ -1,5 +1,5 @@
 import React from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { ROLES } from '../../constants/roles';
 import { Button } from '../ui/button';
@@ -77,14 +77,19 @@ const Navbar = () => {
                             {getNavItems().map((item) => {
                                 const Icon = item.icon;
                                 return (
-                                    <Link
+                                    <NavLink
                                         key={item.path}
                                         to={item.path}
-                                        className="inline-flex items-center px-4 py-2 text-sm font-medium text-gray-700 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all duration-200"
+                                        className={({ isActive }) =>
+                                            `inline-flex items-center px-4 py-2 text-sm font-medium rounded-lg transition-all duration-200 ${isActive
+                                                ? 'text-blue-600 bg-blue-50'
+                                                : 'text-gray-700 hover:text-blue-600 hover:bg-blue-50'
+                                            }`
+                                        }
                                     >
                                         <Icon className="w-4 h-4 mr-2" />
                                         {item.label}
-                                    </Link>
+                                    </NavLink>
                                 );
                             })}
                         </div>
