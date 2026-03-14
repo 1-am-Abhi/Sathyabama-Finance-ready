@@ -37,21 +37,6 @@ const Sidebar = ({ isOpen, onClose }) => {
                     { label: 'OD Requests', path: '/admin/od-requests', icon: Clock },
                     { label: 'Event Requests', path: '/admin/event-requests', icon: Calendar },
                     { label: 'Reports', path: '/admin/reports', icon: BarChart3 },
-                    {
-                        label: 'Equipment and Consumable',
-                        icon: Briefcase,
-                        path: '/admin/equipment/dashboard'
-                    },
-                    {
-                        label: 'Revenue Generated',
-                        icon: TrendingUp,
-                        path: '/admin/revenue/dashboard'
-                    },
-                    {
-                        label: 'Academic Support',
-                        icon: GraduationCap,
-                        path: '/academic-support'
-                    },
                 ];
             case ROLES.FACULTY:
                 return [
