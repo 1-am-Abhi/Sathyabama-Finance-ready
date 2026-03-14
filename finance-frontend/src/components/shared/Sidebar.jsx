@@ -1,11 +1,11 @@
-import React from 'react';
-import { Link, useNavigate, useLocation } from 'react-router-dom';
+import React, { useState } from 'react';
+import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { ROLES } from '../../constants/roles';
 import { Button } from '../ui/button';
 import {
-    LogOut, Home, FileText, IndianRupee, Users, Building2,
-    Settings, CheckCircle, UserPlus, BarChart3, Clock, Calendar, X
+    LogOut, Home, FileText, IndianRupee, DollarSign, Users, Building2,
+    Settings, CheckCircle, UserPlus, BarChart3, Clock, Calendar, TrendingUp, ChevronDown, ChevronRight, Briefcase, GraduationCap, X
 } from 'lucide-react';
 
 const Sidebar = ({ isOpen, onClose }) => {
@@ -13,6 +13,13 @@ const Sidebar = ({ isOpen, onClose }) => {
     const navigate = useNavigate();
     const location = useLocation();
     const profilePhoto = localStorage.getItem('profile_photo');
+    const [expandedMenu, setExpandedMenu] = useState({});
+
+    const toggleMenu = (label) => {
+        setExpandedMenu(prev => ({ ...prev, [label]: !prev[label] }));
+    };
+
+    console.log('Sidebar render - User:', user?.role, 'Path:', location.pathname);
 
     const handleLogout = () => {
         logout();
@@ -30,6 +37,21 @@ const Sidebar = ({ isOpen, onClose }) => {
                     { label: 'OD Requests', path: '/admin/od-requests', icon: Clock },
                     { label: 'Event Requests', path: '/admin/event-requests', icon: Calendar },
                     { label: 'Reports', path: '/admin/reports', icon: BarChart3 },
+                    {
+                        label: 'Equipment and Consumable',
+                        icon: Briefcase,
+                        path: '/admin/equipment/dashboard'
+                    },
+                    {
+                        label: 'Revenue Generated',
+                        icon: TrendingUp,
+                        path: '/admin/revenue/dashboard'
+                    },
+                    {
+                        label: 'Academic Support',
+                        icon: GraduationCap,
+                        path: '/academic-support'
+                    },
                 ];
             case ROLES.FACULTY:
                 return [
@@ -37,6 +59,22 @@ const Sidebar = ({ isOpen, onClose }) => {
                     { label: 'My Projects', path: '/faculty/projects', icon: FileText },
                     { label: 'Request Funds', path: '/faculty/request-funds', icon: IndianRupee },
                     { label: 'Documents', path: '/faculty/documents', icon: FileText },
+                    { label: 'OD Request', path: '/faculty/od-request', icon: Clock },
+                    {
+                        label: 'Equipment and Consumable',
+                        icon: Briefcase,
+                        path: '/faculty/equipment/dashboard'
+                    },
+                    {
+                        label: 'Revenue Generated',
+                        icon: TrendingUp,
+                        path: '/faculty/revenue/dashboard'
+                    },
+                    {
+                        label: 'Academic Support',
+                        icon: GraduationCap,
+                        path: '/academic-support'
+                    },
                 ];
             case ROLES.FINANCE_OFFICER:
                 return [
@@ -109,20 +147,56 @@ const Sidebar = ({ isOpen, onClose }) => {
                 <nav className="flex-1 py-4">
                     {getNavItems().map((item) => {
                         const Icon = item.icon;
-                        const isActive = location.pathname === item.path;
+                        if (item.subItems) {
+                            return (
+                                <div key={item.label}>
+                                    <button
+                                        onClick={() => toggleMenu(item.label)}
+                                        className={`flex items-center justify-between w-full px-6 py-3 transition-colors hover:bg-maroon-800/50 text-white`}
+                                    >
+                                        <div className="flex items-center space-x-3">
+                                            <Icon className="w-5 h-5" />
+                                            <span className="text-sm font-medium">{item.label}</span>
+                                        </div>
+                                        {expandedMenu[item.label] ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+                                    </button>
+                                    {expandedMenu[item.label] && (
+                                        <div className="bg-maroon-900/40">
+                                            {item.subItems.map((subItem) => (
+                                                <NavLink
+                                                    key={subItem.path}
+                                                    to={subItem.path}
+                                                    onClick={onClose}
+                                                    className={({ isActive }) =>
+                                                        `flex items-center space-x-3 pl-14 pr-6 py-2 transition-colors ${isActive
+                                                            ? 'text-amber-400 font-medium'
+                                                            : 'text-maroon-100 hover:text-white hover:bg-maroon-800/30'
+                                                        }`
+                                                    }
+                                                >
+                                                    <span className="text-sm">{subItem.label}</span>
+                                                </NavLink>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            );
+                        }
                         return (
-                            <Link
+                            <NavLink
                                 key={item.path}
                                 to={item.path}
                                 onClick={onClose}
-                                className={`flex items-center space-x-3 px-6 py-3 transition-colors ${isActive
-                                    ? 'bg-[#5c1227] border-l-4 border-amber-400'
-                                    : 'hover:bg-maroon-800/50'
-                                    }`}
+                                className={({ isActive }) =>
+                                    `flex items-center space-x-3 px-6 py-3 transition-colors ${isActive
+                                        ? 'bg-[#5c1227] border-l-4 border-amber-400'
+                                        : 'hover:bg-maroon-800/50'
+                                    }`
+                                }
                             >
                                 <Icon className="w-5 h-5" />
                                 <span className="text-sm font-medium">{item.label}</span>
-                            </Link>
+                            </NavLink>
                         );
                     })}
                 </nav>

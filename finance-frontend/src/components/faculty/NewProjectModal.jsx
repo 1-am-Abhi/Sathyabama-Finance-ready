@@ -1,0 +1,653 @@
+import React, { useState, useEffect } from 'react';
+import { X, BookOpen, DollarSign, Briefcase, Calendar, Building, FileText, Plus, Trash2 } from 'lucide-react';
+import { Button } from '../ui/button';
+import { Badge } from '../ui/badge';
+
+const AcademicWorkModal = ({ isOpen, onClose, onSubmit, initialData = null, mode = 'create' }) => {
+    const [formData, setFormData] = useState({
+        // Common
+        mainType: 'PROJECT',
+        title: '',
+        year: new Date().getFullYear(),
+
+        // Project Specific
+        projectStatus: 'On-Going',
+        role: 'PI',
+        fundingAgency: '',
+        amount: '',
+        startDate: '',
+        endDate: '',
+        description: '',
+
+        // Project Resources
+        equipments: [], // Array of { name, quantity, cost, vendor, description }
+        consumables: [], // Array of { name, quantity, cost, usage }
+        patientDetails: {
+            count: '',
+            category: 'Adult',
+            ethicalApproval: false
+        },
+
+        // Publication Specific
+        publicationType: 'JOURNAL',
+        authorRole: 'First Author',
+        publisher: '', // Reused for Journal Name / Conference Name
+        doi: '', // DOI or ISBN
+        indexing: [], // Changed to array for multi-select
+        impactFactor: '',
+        abstract: ''
+    });
+
+    useEffect(() => {
+        if (initialData && mode === 'edit') {
+            setFormData({
+                ...formData,
+                ...initialData,
+                indexing: Array.isArray(initialData.indexing) ? initialData.indexing : (initialData.indexing ? [initialData.indexing] : [])
+            });
+        } else if (!initialData) {
+            // Reset form on open if no initial data
+            setFormData({
+                mainType: 'PROJECT',
+                title: '',
+                year: new Date().getFullYear(),
+                projectStatus: 'On-Going',
+                role: 'PI',
+                fundingAgency: '',
+                amount: '',
+                startDate: '',
+                endDate: '',
+                description: '',
+                equipments: [],
+                consumables: [],
+                patientDetails: { count: '', category: 'Adult', ethicalApproval: false },
+                publicationType: 'JOURNAL',
+                authorRole: 'First Author',
+                publisher: '',
+                doi: '',
+                indexing: [],
+                impactFactor: '',
+                abstract: ''
+            });
+        }
+    }, [initialData, mode, isOpen]);
+
+    if (!isOpen) return null;
+
+    const handleSubmit = (e) => {
+        e.preventDefault();
+        onSubmit({
+            ...formData,
+            id: mode === 'edit' ? initialData.id : `WORK-${Math.floor(Math.random() * 10000)}`
+        });
+        onClose();
+    };
+
+    const handleIndexingChange = (e) => {
+        const { value, checked } = e.target;
+        let updatedIndexing = [...formData.indexing];
+        if (checked) {
+            updatedIndexing.push(value);
+        } else {
+            updatedIndexing = updatedIndexing.filter(item => item !== value);
+        }
+        setFormData({ ...formData, indexing: updatedIndexing });
+    };
+
+    // Equipment Handlers
+    const addEquipment = () => {
+        setFormData({
+            ...formData,
+            equipments: [...formData.equipments, { name: '', quantity: '', cost: '', vendor: '', description: '' }]
+        });
+    };
+
+    const removeEquipment = (index) => {
+        const updated = formData.equipments.filter((_, i) => i !== index);
+        setFormData({ ...formData, equipments: updated });
+    };
+
+    const updateEquipment = (index, field, value) => {
+        const updated = formData.equipments.map((item, i) => {
+            if (i === index) return { ...item, [field]: value };
+            return item;
+        });
+        setFormData({ ...formData, equipments: updated });
+    };
+
+    // Consumable Handlers
+    const addConsumable = () => {
+        setFormData({
+            ...formData,
+            consumables: [...formData.consumables, { name: '', quantity: '', cost: '', usage: '' }]
+        });
+    };
+
+    const removeConsumable = (index) => {
+        const updated = formData.consumables.filter((_, i) => i !== index);
+        setFormData({ ...formData, consumables: updated });
+    };
+
+    const updateConsumable = (index, field, value) => {
+        const updated = formData.consumables.map((item, i) => {
+            if (i === index) return { ...item, [field]: value };
+            return item;
+        });
+        setFormData({ ...formData, consumables: updated });
+    };
+
+    const isJournal = formData.publicationType === 'JOURNAL';
+    const isConference = formData.publicationType === 'CONFERENCE';
+    const isBook = formData.publicationType === 'BOOK' || formData.publicationType === 'BOOK_CHAPTER';
+    const isOther = formData.publicationType === 'OTHERS';
+
+    const getPublisherLabel = () => {
+        if (isJournal) return 'Journal Name';
+        if (isConference) return 'Conference Name';
+        if (isBook) return 'Publisher';
+        return 'Publisher / Venue';
+    };
+
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+            <div className="bg-white rounded-2xl w-full max-w-2xl overflow-hidden shadow-xl max-h-[90vh] overflow-y-auto">
+                <div className="bg-blue-600 p-6 text-white flex justify-between items-center">
+                    <div>
+                        <h3 className="text-xl font-bold">{mode === 'edit' ? 'Edit Work' : 'Add New Work'}</h3>
+                        <p className="text-blue-100 text-xs mt-1">Fill in the details for your academic work</p>
+                    </div>
+                    <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-lg">
+                        <X className="w-5 h-5" />
+                    </button>
+                </div>
+
+                <form onSubmit={handleSubmit} className="p-6 space-y-6">
+                    <div className="grid grid-cols-2 gap-4">
+                        <Button
+                            type="button"
+                            onClick={() => setFormData({ ...formData, mainType: 'PROJECT' })}
+                            variant={formData.mainType === 'PROJECT' ? 'default' : 'outline'}
+                            className="h-12"
+                        >
+                            <Briefcase className="w-4 h-4 mr-2" /> Research Project
+                        </Button>
+                        <Button
+                            type="button"
+                            onClick={() => setFormData({ ...formData, mainType: 'PUBLICATION' })}
+                            variant={formData.mainType === 'PUBLICATION' ? 'default' : 'outline'}
+                            className="h-12"
+                        >
+                            <BookOpen className="w-4 h-4 mr-2" /> Publication
+                        </Button>
+                    </div>
+
+                    <div className="space-y-4">
+                        {/* Mandatory Fields */}
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="col-span-2">
+                                <label className="text-xs font-bold text-gray-500 uppercase">Title</label>
+                                <input
+                                    required
+                                    value={formData.title}
+                                    onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                                    className="w-full mt-1 px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-100 outline-none"
+                                    placeholder={formData.mainType === 'PROJECT' ? "Project Title" : "Paper/Book Title"}
+                                    title="Title is required"
+                                />
+                            </div>
+                        </div>
+
+                        {formData.mainType === 'PROJECT' ? (
+                            <>
+                                {/* Project Fields */}
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="text-xs font-bold text-gray-500 uppercase">Status</label>
+                                        <select
+                                            value={formData.projectStatus}
+                                            onChange={(e) => setFormData({ ...formData, projectStatus: e.target.value })}
+                                            className="w-full mt-1 px-4 py-2 border rounded-lg outline-none"
+                                        >
+                                            <option value="On-Going">On-Going</option>
+                                            <option value="Completed">Completed</option>
+                                            <option value="Approved">Approved</option>
+                                            <option value="Under Review">Under Review</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="text-xs font-bold text-gray-500 uppercase">Role</label>
+                                        <select
+                                            value={formData.role}
+                                            onChange={(e) => setFormData({ ...formData, role: e.target.value })}
+                                            className="w-full mt-1 px-4 py-2 border rounded-lg outline-none"
+                                        >
+                                            <option value="PI">Principal Investigator (PI)</option>
+                                            <option value="Co-PI">Co-PI</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="text-xs font-bold text-gray-500 uppercase">Funding Agency</label>
+                                        <input
+                                            value={formData.fundingAgency}
+                                            onChange={(e) => setFormData({ ...formData, fundingAgency: e.target.value })}
+                                            className="w-full mt-1 px-4 py-2 border rounded-lg outline-none"
+                                            placeholder="e.g. DST, AICTE"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="text-xs font-bold text-gray-500 uppercase">Amount (₹)</label>
+                                        <input
+                                            type="number"
+                                            value={formData.amount}
+                                            onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
+                                            className="w-full mt-1 px-4 py-2 border rounded-lg outline-none"
+                                            placeholder="Budget amount"
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-3 gap-4">
+                                    <div>
+                                        <label className="text-xs font-bold text-gray-500 uppercase">Start Date</label>
+                                        <input
+                                            type="date"
+                                            value={formData.startDate}
+                                            onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
+                                            className="w-full mt-1 px-4 py-2 border rounded-lg outline-none"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="text-xs font-bold text-gray-500 uppercase">End Date</label>
+                                        <input
+                                            type="date"
+                                            value={formData.endDate}
+                                            onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
+                                            className="w-full mt-1 px-4 py-2 border rounded-lg outline-none"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="text-xs font-bold text-gray-500 uppercase">Year</label>
+                                        <input
+                                            type="number"
+                                            required
+                                            value={formData.year}
+                                            onChange={(e) => setFormData({ ...formData, year: e.target.value })}
+                                            className="w-full mt-1 px-4 py-2 border rounded-lg outline-none"
+                                            placeholder="YYYY"
+                                        />
+                                    </div>
+                                </div>
+                                <div>
+                                    <label className="text-xs font-bold text-gray-500 uppercase">Description</label>
+                                    <textarea
+                                        value={formData.description}
+                                        onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                                        rows="3"
+                                        className="w-full mt-1 px-4 py-2 border rounded-lg outline-none"
+                                        placeholder="Project description..."
+                                    />
+                                </div>
+
+                                {/* Project Resources Section */}
+                                <div className="space-y-4 border-t pt-4">
+                                    <h4 className="text-sm font-bold text-gray-700 uppercase flex items-center gap-2">
+                                        <Briefcase className="w-4 h-4" /> Project Resources
+                                    </h4>
+
+                                    {/* Equipments */}
+                                    <div className="bg-gray-50 p-4 rounded-lg space-y-3">
+                                        <div className="flex justify-between items-center">
+                                            <h5 className="text-xs font-bold text-gray-600 uppercase">Equipments</h5>
+                                            <Button type="button" size="sm" onClick={addEquipment} className="h-7 text-xs">
+                                                <Plus className="w-3 h-3 mr-1" /> Add Equipment
+                                            </Button>
+                                        </div>
+                                        {formData.equipments.length === 0 && (
+                                            <p className="text-xs text-gray-400 italic">No equipment added.</p>
+                                        )}
+                                        {formData.equipments.map((item, index) => (
+                                            <div key={index} className="bg-white p-3 rounded border space-y-3 relative">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => removeEquipment(index)}
+                                                    className="absolute top-2 right-2 text-red-500 hover:text-red-700"
+                                                >
+                                                    <Trash2 className="w-4 h-4" />
+                                                </button>
+                                                <div className="grid grid-cols-2 gap-3">
+                                                    <div>
+                                                        <label className="text-[10px] font-bold text-gray-500 uppercase">Name *</label>
+                                                        <input
+                                                            required
+                                                            value={item.name}
+                                                            onChange={(e) => updateEquipment(index, 'name', e.target.value)}
+                                                            className="w-full mt-1 px-2 py-1 text-sm border rounded outline-none"
+                                                            placeholder="Equipment Name"
+                                                        />
+                                                    </div>
+                                                    <div>
+                                                        <label className="text-[10px] font-bold text-gray-500 uppercase">Vendor</label>
+                                                        <input
+                                                            value={item.vendor}
+                                                            onChange={(e) => updateEquipment(index, 'vendor', e.target.value)}
+                                                            className="w-full mt-1 px-2 py-1 text-sm border rounded outline-none"
+                                                            placeholder="Vendor Name"
+                                                        />
+                                                    </div>
+                                                </div>
+                                                <div className="grid grid-cols-2 gap-3">
+                                                    <div>
+                                                        <label className="text-[10px] font-bold text-gray-500 uppercase">Quantity *</label>
+                                                        <input
+                                                            type="number"
+                                                            required
+                                                            value={item.quantity}
+                                                            onChange={(e) => updateEquipment(index, 'quantity', e.target.value)}
+                                                            className="w-full mt-1 px-2 py-1 text-sm border rounded outline-none"
+                                                            placeholder="Qty"
+                                                        />
+                                                    </div>
+                                                    <div>
+                                                        <label className="text-[10px] font-bold text-gray-500 uppercase">Est. Cost</label>
+                                                        <input
+                                                            type="number"
+                                                            value={item.cost}
+                                                            onChange={(e) => updateEquipment(index, 'cost', e.target.value)}
+                                                            className="w-full mt-1 px-2 py-1 text-sm border rounded outline-none"
+                                                            placeholder="Amount"
+                                                        />
+                                                    </div>
+                                                </div>
+                                                <div>
+                                                    <label className="text-[10px] font-bold text-gray-500 uppercase">Description</label>
+                                                    <input
+                                                        value={item.description}
+                                                        onChange={(e) => updateEquipment(index, 'description', e.target.value)}
+                                                        className="w-full mt-1 px-2 py-1 text-sm border rounded outline-none"
+                                                        placeholder="Brief description..."
+                                                    />
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+
+                                    {/* Consumables */}
+                                    <div className="bg-gray-50 p-4 rounded-lg space-y-3">
+                                        <div className="flex justify-between items-center">
+                                            <h5 className="text-xs font-bold text-gray-600 uppercase">Consumables</h5>
+                                            <Button type="button" size="sm" onClick={addConsumable} className="h-7 text-xs">
+                                                <Plus className="w-3 h-3 mr-1" /> Add Consumable
+                                            </Button>
+                                        </div>
+                                        {formData.consumables.length === 0 && (
+                                            <p className="text-xs text-gray-400 italic">No consumables added.</p>
+                                        )}
+                                        {formData.consumables.map((item, index) => (
+                                            <div key={index} className="bg-white p-3 rounded border space-y-3 relative">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => removeConsumable(index)}
+                                                    className="absolute top-2 right-2 text-red-500 hover:text-red-700"
+                                                >
+                                                    <Trash2 className="w-4 h-4" />
+                                                </button>
+                                                <div className="grid grid-cols-2 gap-3">
+                                                    <div className="col-span-2">
+                                                        <label className="text-[10px] font-bold text-gray-500 uppercase">Item Name *</label>
+                                                        <input
+                                                            required
+                                                            value={item.name}
+                                                            onChange={(e) => updateConsumable(index, 'name', e.target.value)}
+                                                            className="w-full mt-1 px-2 py-1 text-sm border rounded outline-none"
+                                                            placeholder="Consumable Name"
+                                                        />
+                                                    </div>
+                                                </div>
+                                                <div className="grid grid-cols-2 gap-3">
+                                                    <div>
+                                                        <label className="text-[10px] font-bold text-gray-500 uppercase">Quantity</label>
+                                                        <input
+                                                            type="number"
+                                                            value={item.quantity}
+                                                            onChange={(e) => updateConsumable(index, 'quantity', e.target.value)}
+                                                            className="w-full mt-1 px-2 py-1 text-sm border rounded outline-none"
+                                                            placeholder="Qty"
+                                                        />
+                                                    </div>
+                                                    <div>
+                                                        <label className="text-[10px] font-bold text-gray-500 uppercase">Est. Cost</label>
+                                                        <input
+                                                            type="number"
+                                                            value={item.cost}
+                                                            onChange={(e) => updateConsumable(index, 'cost', e.target.value)}
+                                                            className="w-full mt-1 px-2 py-1 text-sm border rounded outline-none"
+                                                            placeholder="Amount"
+                                                        />
+                                                    </div>
+                                                </div>
+                                                <div>
+                                                    <label className="text-[10px] font-bold text-gray-500 uppercase">Usage Description</label>
+                                                    <input
+                                                        value={item.usage}
+                                                        onChange={(e) => updateConsumable(index, 'usage', e.target.value)}
+                                                        className="w-full mt-1 px-2 py-1 text-sm border rounded outline-none"
+                                                        placeholder="How will this be used?"
+                                                    />
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+
+                                    {/* Patient Details (Optional) */}
+                                    <div className="bg-gray-50 p-4 rounded-lg space-y-3">
+                                        <h5 className="text-xs font-bold text-gray-600 uppercase">Patient Details (Optional)</h5>
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div>
+                                                <label className="text-xs font-bold text-gray-500 uppercase">Number of Patients</label>
+                                                <input
+                                                    type="number"
+                                                    value={formData.patientDetails.count}
+                                                    onChange={(e) => setFormData({
+                                                        ...formData,
+                                                        patientDetails: { ...formData.patientDetails, count: e.target.value }
+                                                    })}
+                                                    className="w-full mt-1 px-4 py-2 border rounded-lg outline-none"
+                                                    placeholder="Count"
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="text-xs font-bold text-gray-500 uppercase">Category</label>
+                                                <select
+                                                    value={formData.patientDetails.category}
+                                                    onChange={(e) => setFormData({
+                                                        ...formData,
+                                                        patientDetails: { ...formData.patientDetails, category: e.target.value }
+                                                    })}
+                                                    className="w-full mt-1 px-4 py-2 border rounded-lg outline-none"
+                                                >
+                                                    <option value="Adult">Adult</option>
+                                                    <option value="Pediatric">Pediatric</option>
+                                                    <option value="Geriatric">Geriatric</option>
+                                                    <option value="Mixed">Mixed</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                        <div className="flex items-center space-x-2 mt-2">
+                                            <input
+                                                type="checkbox"
+                                                id="ethicalApproval"
+                                                checked={formData.patientDetails.ethicalApproval}
+                                                onChange={(e) => setFormData({
+                                                    ...formData,
+                                                    patientDetails: { ...formData.patientDetails, ethicalApproval: e.target.checked }
+                                                })}
+                                                className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                            />
+                                            <label htmlFor="ethicalApproval" className="text-sm text-gray-700">Ethical Approval Obtained?</label>
+                                        </div>
+                                    </div>
+                                </div>
+                            </>
+                        ) : (
+                            <>
+                                {/* Publication Fields */}
+                                <div className="grid grid-cols-3 gap-4">
+                                    <div>
+                                        <label className="text-xs font-bold text-gray-500 uppercase">Publication Type</label>
+                                        <select
+                                            value={formData.publicationType}
+                                            onChange={(e) => setFormData({ ...formData, publicationType: e.target.value })}
+                                            className="w-full mt-1 px-4 py-2 border rounded-lg outline-none"
+                                        >
+                                            <option value="JOURNAL">Journal Article</option>
+                                            <option value="CONFERENCE">Conference Paper</option>
+                                            <option value="BOOK">Book</option>
+                                            <option value="BOOK_CHAPTER">Book Chapter</option>
+                                            <option value="OTHERS">Other</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="text-xs font-bold text-gray-500 uppercase">Author Role</label>
+                                        <select
+                                            value={formData.authorRole}
+                                            onChange={(e) => setFormData({ ...formData, authorRole: e.target.value })}
+                                            className="w-full mt-1 px-4 py-2 border rounded-lg outline-none"
+                                        >
+                                            <option value="First Author">First Author</option>
+                                            <option value="Corresponding Author">Corresponding Author</option>
+                                            <option value="Co-Author">Co-Author</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="text-xs font-bold text-gray-500 uppercase">Year</label>
+                                        <input
+                                            type="number"
+                                            required
+                                            value={formData.year}
+                                            onChange={(e) => setFormData({ ...formData, year: e.target.value })}
+                                            className="w-full mt-1 px-4 py-2 border rounded-lg outline-none"
+                                        />
+                                    </div>
+                                </div>
+
+                                {/* Conditional Fields Based on Type */}
+                                {(isJournal || isConference || isBook) && (
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div className="col-span-2">
+                                            <label className="text-xs font-bold text-gray-500 uppercase">{getPublisherLabel()}</label>
+                                            <input
+                                                required
+                                                value={formData.publisher}
+                                                onChange={(e) => setFormData({ ...formData, publisher: e.target.value })}
+                                                className="w-full mt-1 px-4 py-2 border rounded-lg outline-none"
+                                                placeholder={`Enter ${getPublisherLabel().toLowerCase()}...`}
+                                            />
+                                        </div>
+                                    </div>
+                                )}
+
+                                {isJournal && (
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div className="col-span-2">
+                                            <label className="text-xs font-bold text-gray-500 uppercase mb-2 block">Indexing</label>
+                                            <div className="flex flex-wrap gap-3">
+                                                {['Scopus', 'SCI', 'Web of Science'].map((idx) => (
+                                                    <label key={idx} className="flex items-center space-x-2 text-sm">
+                                                        <input
+                                                            type="checkbox"
+                                                            value={idx}
+                                                            checked={formData.indexing.includes(idx)}
+                                                            onChange={handleIndexingChange}
+                                                            className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                                        />
+                                                        <span>{idx}</span>
+                                                    </label>
+                                                ))}
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <label className="text-xs font-bold text-gray-500 uppercase">Impact Factor</label>
+                                            <input
+                                                type="number"
+                                                step="0.01"
+                                                value={formData.impactFactor}
+                                                onChange={(e) => setFormData({ ...formData, impactFactor: e.target.value })}
+                                                className="w-full mt-1 px-4 py-2 border rounded-lg outline-none"
+                                                placeholder="e.g. 4.5"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="text-xs font-bold text-gray-500 uppercase">DOI</label>
+                                            <input
+                                                value={formData.doi}
+                                                onChange={(e) => setFormData({ ...formData, doi: e.target.value })}
+                                                className="w-full mt-1 px-4 py-2 border rounded-lg outline-none"
+                                                placeholder="DOI"
+                                            />
+                                        </div>
+                                    </div>
+                                )}
+
+                                {isConference && (
+                                    <div className="grid grid-cols-1 gap-4">
+                                        <div>
+                                            <label className="text-xs font-bold text-gray-500 uppercase">DOI / ISBN</label>
+                                            <input
+                                                value={formData.doi}
+                                                onChange={(e) => setFormData({ ...formData, doi: e.target.value })}
+                                                className="w-full mt-1 px-4 py-2 border rounded-lg outline-none"
+                                                placeholder="DOI or ISBN"
+                                            />
+                                        </div>
+                                    </div>
+                                )}
+
+                                {isBook && (
+                                    <div className="grid grid-cols-1 gap-4">
+                                        <div>
+                                            <label className="text-xs font-bold text-gray-500 uppercase">ISBN</label>
+                                            <input
+                                                value={formData.doi}
+                                                onChange={(e) => setFormData({ ...formData, doi: e.target.value })}
+                                                className="w-full mt-1 px-4 py-2 border rounded-lg outline-none"
+                                                placeholder="ISBN"
+                                            />
+                                        </div>
+                                    </div>
+                                )}
+
+                                {isOther && (
+                                    <div>
+                                        <label className="text-xs font-bold text-gray-500 uppercase">Description</label>
+                                        <textarea
+                                            required
+                                            value={formData.abstract}
+                                            onChange={(e) => setFormData({ ...formData, abstract: e.target.value })}
+                                            rows="3"
+                                            className="w-full mt-1 px-4 py-2 border rounded-lg outline-none"
+                                            placeholder="Enter brief details..."
+                                        />
+                                    </div>
+                                )}
+                            </>
+                        )}
+                    </div>
+
+                    <div className="flex gap-4 pt-4">
+                        <Button type="button" variant="ghost" onClick={onClose} className="flex-1">
+                            Cancel
+                        </Button>
+                        <Button type="submit" className="flex-1 bg-blue-600 hover:bg-blue-700">
+                            {mode === 'edit' ? 'Update' : 'Add Work'}
+                        </Button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    );
+};
+
+export default AcademicWorkModal;

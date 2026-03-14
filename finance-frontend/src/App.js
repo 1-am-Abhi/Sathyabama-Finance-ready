@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import AppRoutes from './routes';
 import { ProjectProvider } from './contexts/ProjectContext';
+import { seedAllData } from './utils/seedData';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -14,13 +15,16 @@ const queryClient = new QueryClient({
 });
 
 function App() {
-  React.useEffect(() => {
+  useEffect(() => {
     // Check system preference or stored theme
     if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
       document.documentElement.classList.add('dark');
     } else {
       document.documentElement.classList.remove('dark');
     }
+    
+    // Seed initial data
+    seedAllData();
   }, []);
 
   return (
