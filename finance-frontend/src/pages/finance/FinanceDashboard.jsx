@@ -7,7 +7,7 @@ import {
     AlertTriangle, ArrowRight, Calendar, Building
 } from 'lucide-react';
 import Sidebar from '../../components/shared/Sidebar';
-import TopBar from '../../components/shared/TopBar';
+// import TopBar from '../../components/shared/TopBar';
 import { useLayout } from '../../contexts/LayoutContext';
 
 const FinanceDashboard = () => {

@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { BookOpen, GraduationCap, Users, PenTool, Globe, Award, FileText, ChevronDown } from 'lucide-react';
-import { useAuth } from '../../../contexts/AuthContext';
+import { useAuth } from '../../contexts/AuthContext';
 
 const AcademicSupportDashboard = () => {
     const { user } = useAuth();

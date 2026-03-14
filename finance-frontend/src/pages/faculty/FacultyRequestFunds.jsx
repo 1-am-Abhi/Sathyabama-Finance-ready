@@ -5,12 +5,18 @@ import { Button } from '../../components/ui/button';
 import {
     History, ChevronRight, PlusCircle, Wallet, Activity, DollarSign
 } from 'lucide-react';
-import TopBar from '../../components/shared/TopBar';
+import { useLayout } from '../../contexts/LayoutContext';
 import InstallmentStepper from '../../components/faculty/InstallmentStepper';
 import FundRequestModal from '../../components/faculty/FundRequestModal';
 import InitialFundRequestModal from '../../components/faculty/InitialFundRequestModal';
 
 const FacultyRequestFunds = () => {
+    const { setLayout } = useLayout();
+
+    React.useEffect(() => {
+        setLayout("Fund & Asset Management", "Strategic disbursement of institutional grants");
+    }, [setLayout]);
+
     // 1. Mock Data for Projects
     // Only active projects (installments > 0) are tracked here for the 'Ongoing' section.
     // 'New Requests' will just go into history and hypothetically create new projects.
@@ -136,7 +142,6 @@ const FacultyRequestFunds = () => {
 
     return (
         <div className="min-h-full">
-            <TopBar title="Fund & Asset Management" subtitle="Strategic disbursement of institutional grants" />
 
             <div className="p-8 max-w-7xl mx-auto space-y-12">
 

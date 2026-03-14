@@ -9,10 +9,16 @@ import {
     Presentation, FolderOpen, CheckCircle,
     Briefcase, Filter
 } from 'lucide-react';
-import TopBar from '../../components/shared/TopBar';
+import { useLayout } from '../../contexts/LayoutContext';
 import AcademicWorkModal from '../../components/faculty/NewProjectModal';
 
 const FacultyProjects = () => {
+    const { setLayout } = useLayout();
+
+    useEffect(() => {
+        setLayout("My Academic Portfolio", "Manage your research projects and publications");
+    }, [setLayout]);
+
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [modalMode, setModalMode] = useState('create');
     const [selectedWork, setSelectedWork] = useState(null);
@@ -111,7 +117,6 @@ const FacultyProjects = () => {
 
     return (
         <div className="min-h-full">
-            <TopBar title="My Academic Portfolio" subtitle="Manage your research projects and publications" />
 
             <div className="p-8 max-w-7xl mx-auto space-y-8">
 

@@ -58,7 +58,7 @@ const Sidebar = ({ isOpen, onClose }) => {
                     {
                         label: 'Academic Support',
                         icon: GraduationCap,
-                        path: '/academic-support'
+                        path: '/faculty/academic-support'
                     },
                 ];
             case ROLES.FINANCE_OFFICER:
@@ -189,7 +189,7 @@ const Sidebar = ({ isOpen, onClose }) => {
                 {/* Settings & Logout */}
                 <div className="border-t border-maroon-700/50">
                     <Link
-                        to="/admin/settings"
+                        to={user?.role === 'ADMIN' ? '/admin/settings' : user?.role === 'FACULTY' ? '/faculty/settings' : '/finance/settings'}
                         onClick={onClose}
                         className={`flex items-center space-x-3 px-6 py-3 w-full transition-colors ${location.pathname.includes('/settings')
                             ? 'bg-[#5c1227] border-l-4 border-amber-400'

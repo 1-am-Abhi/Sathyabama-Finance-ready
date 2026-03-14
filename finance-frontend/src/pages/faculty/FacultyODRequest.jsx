@@ -21,11 +21,16 @@ import {
     TableRow,
 } from '../../components/ui/table';
 import { Calendar, Globe, BookOpen, Send, Clock, FileCheck, FileX, Upload, Plus } from 'lucide-react';
-import TopBar from '../../components/shared/TopBar';
+import { useLayout } from '../../contexts/LayoutContext';
 import { useAuth } from '../../contexts/AuthContext';
 
 const FacultyODRequest = () => {
+    const { setLayout } = useLayout();
     const { user } = useAuth();
+
+    useEffect(() => {
+        setLayout("OD Request Portal", "Formalize On-Duty requests for professional activities");
+    }, [setLayout]);
     const [odType, setOdType] = useState('ACADEMIC');
     const [startDate, setStartDate] = useState('');
     const [endDate, setEndDate] = useState('');
@@ -148,7 +153,6 @@ const FacultyODRequest = () => {
 
     return (
         <div className="min-h-full">
-            <TopBar title="OD Request Portal" subtitle="Formalize On-Duty requests for professional activities" />
 
             <div className="p-8 max-w-6xl mx-auto space-y-8 animate-fadeIn">
 

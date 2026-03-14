@@ -3,9 +3,15 @@ import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/ca
 import { Button } from '../../components/ui/button';
 import { Badge } from '../../components/ui/badge';
 import { Upload, FileText, CheckCircle2, Clock, Search, Filter, Download, MoreVertical, ShieldCheck, History, Database, ArrowRight, ExternalLink } from 'lucide-react';
-import TopBar from '../../components/shared/TopBar';
+import { useLayout } from '../../contexts/LayoutContext';
 
 const FacultyDocuments = () => {
+    const { setLayout } = useLayout();
+
+    React.useEffect(() => {
+        setLayout("Digital Archive Governance", "Immutable storage for institutional research compliance");
+    }, [setLayout]);
+
     const documents = [
         { id: 1, name: 'Project_Proposal_AI_Healthcare.pdf', project: 'AI Healthcare Diagnostics', type: 'PROPOSAL', date: '10 Jan 2024', size: '2.4 MB', status: 'VERIFIED' },
         { id: 2, name: 'Equipment_Invoice_098.pdf', project: 'AI Healthcare Diagnostics', type: 'INVOICE', date: '22 Jan 2024', size: '1.1 MB', status: 'PENDING' },
@@ -16,7 +22,6 @@ const FacultyDocuments = () => {
 
     return (
         <div className="min-h-full">
-            <TopBar title="Digital Archive Governance" subtitle="Immutable storage for institutional research compliance" />
 
             <div className="p-8 max-w-7xl mx-auto">
 

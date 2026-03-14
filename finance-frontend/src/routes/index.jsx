@@ -117,7 +117,9 @@ const AppRoutes = () => {
                                         <Route path="revenue/add" element={<AddRevenueRecord />} />
                                         <Route path="equipment/dashboard" element={<EquipmentMyRequests />} />
                                         <Route path="equipment/add" element={<EquipmentAddRequest />} />
-                                        <Route path="/academic-support" element={<AcademicSupportDashboard />} />
+                                        <Route path="academic-support" element={<AcademicSupportDashboard />} />
+                                        <Route path="settings" element={<Settings />} />
+                                        <Route path="profile" element={<Profile />} />
                                     </Routes>
                                 </DashboardLayout>
                             </ProtectedRoute>
@@ -136,6 +138,8 @@ const AppRoutes = () => {
                                         <Route path="pfms" element={<ManagePFMS />} />
                                         <Route path="internships" element={<VerifyInternshipFees />} />
                                         <Route path="reports" element={<FinanceDashboard />} />
+                                        <Route path="settings" element={<Settings />} />
+                                        <Route path="profile" element={<Profile />} />
                                     </Routes>
                                 </DashboardLayout>
                             </ProtectedRoute>

@@ -44,7 +44,7 @@ const TopBar = ({ title, subtitle, onMenuClick }) => {
             message: 'AI-Powered Medical Diagnosis System has been approved',
             timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000), // 2 hours ago
             read: false,
-            actionUrl: '/admin/approve-projects'
+            actionUrl: null
         },
         {
             id: 2,
@@ -53,7 +53,7 @@ const TopBar = ({ title, subtitle, onMenuClick }) => {
             message: 'Dr. Sharma requested ₹15L for equipment purchase',
             timestamp: new Date(Date.now() - 5 * 60 * 60 * 1000), // 5 hours ago
             read: false,
-            actionUrl: '/admin/fund-requests'
+            actionUrl: null
         },
         {
             id: 3,
@@ -62,7 +62,7 @@ const TopBar = ({ title, subtitle, onMenuClick }) => {
             message: 'Dr. Vikram Singh assigned to Smart Traffic Management',
             timestamp: new Date(Date.now() - 24 * 60 * 60 * 1000), // 1 day ago
             read: false,
-            actionUrl: '/admin/assign-faculty'
+            actionUrl: null
         }
     ]);
 
