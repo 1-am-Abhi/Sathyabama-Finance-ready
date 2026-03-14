@@ -1,6 +1,7 @@
 import React from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import AppRoutes from './routes';
+import { ProjectProvider } from './contexts/ProjectContext';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -24,7 +25,9 @@ function App() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <AppRoutes />
+      <ProjectProvider>
+        <AppRoutes />
+      </ProjectProvider>
     </QueryClientProvider>
   );
 }

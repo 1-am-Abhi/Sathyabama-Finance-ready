@@ -114,6 +114,7 @@ const Sidebar = ({ isOpen, onClose }) => {
                             <Link
                                 key={item.path}
                                 to={item.path}
+                                onClick={onClose}
                                 className={`flex items-center space-x-3 px-6 py-3 transition-colors ${isActive
                                     ? 'bg-[#5c1227] border-l-4 border-amber-400'
                                     : 'hover:bg-maroon-800/50'
@@ -130,6 +131,7 @@ const Sidebar = ({ isOpen, onClose }) => {
                 <div className="border-t border-maroon-700/50">
                     <Link
                         to="/admin/settings"
+                        onClick={onClose}
                         className={`flex items-center space-x-3 px-6 py-3 w-full transition-colors ${location.pathname.includes('/settings')
                             ? 'bg-[#5c1227] border-l-4 border-amber-400'
                             : 'hover:bg-maroon-800/50'

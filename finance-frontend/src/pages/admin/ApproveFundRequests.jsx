@@ -291,7 +291,7 @@ const ApproveFundRequests = () => {
                                                             className="text-red-600 border-red-200 hover:bg-red-50 dark:hover:bg-red-900/20"
                                                             onClick={(e) => {
                                                                 e.stopPropagation();
-                                                                handleReject(request.id);
+                                                                handleRejectClick(request.id);
                                                             }}
                                                         >
                                                             Reject
