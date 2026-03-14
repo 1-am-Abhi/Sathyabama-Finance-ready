@@ -25,7 +25,7 @@ export const AuthProvider = ({ children }) => {
             // Simulating login for now
             const mockUser = {
                 id: 1,
-                name: 'Admin User',
+                name: 'Dr. Bharathi',
                 email: email,
                 role: 'ADMIN' // Can be ADMIN, FACULTY, or FINANCE_OFFICER
             };

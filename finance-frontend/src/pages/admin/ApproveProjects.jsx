@@ -3,11 +3,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../..
 import { Button } from '../../components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
 import { Badge } from '../../components/ui/badge';
-import { CheckCircle, XCircle, Eye, Calendar, User, Clock, Info, ShieldAlert } from 'lucide-react';
+import { CheckCircle, XCircle, Eye, Calendar, User, Clock, Info, ShieldAlert, RefreshCw, Users } from 'lucide-react';
+import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend, ResponsiveContainer } from 'recharts';
 import { useLayout } from '../../contexts/LayoutContext';
 import DateFilter from '../../components/shared/DateFilter';
 import { RESEARCH_CENTRES } from '../../constants/researchCentres';
 import { AGENCIES } from '../../constants/agencies';
+import { FACULTY_MEMBERS } from '../../constants/facultyMembers';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../../components/ui/tooltip';
 
 const ApproveProjects = () => {
@@ -15,7 +17,7 @@ const ApproveProjects = () => {
     const [selectedDate, setSelectedDate] = useState(null);
     const [selectedCentre, setSelectedCentre] = useState('All');
     const [selectedAgency, setSelectedAgency] = useState('All');
-    const [projects] = useState([
+    const [projects, setProjects] = useState([
         {
             id: 1,
             title: 'AI-Powered Medical Diagnosis System',
@@ -25,18 +27,20 @@ const ApproveProjects = () => {
             submittedDate: '2024-01-15',
             status: 'PENDING',
             department: 'CSE',
-            agency: 'DST'
+            agency: 'DST',
+            chequeStatus: 'Pending'
         },
         {
             id: 2,
             title: 'Renewable Energy Grid Optimization',
-            faculty: 'Dr. Bharti',
+            faculty: 'Dr. Bharathi',
             centre: 'Centre of Excellence for Energy Research',
             budget: 7500000,
             submittedDate: '2024-01-18',
             status: 'PENDING',
             department: 'EEE',
-            agency: 'ICMR'
+            agency: 'ICMR',
+            chequeStatus: 'Pending'
         },
         {
             id: 3,
@@ -47,7 +51,8 @@ const ApproveProjects = () => {
             submittedDate: '2024-01-20',
             status: 'PENDING',
             department: 'MECH',
-            agency: 'AICTE'
+            agency: 'AICTE',
+            chequeStatus: 'Pending'
         },
         {
             id: 4,
@@ -58,7 +63,8 @@ const ApproveProjects = () => {
             submittedDate: '2024-01-10',
             status: 'APPROVED',
             department: 'OCEAN',
-            agency: 'Private Industry'
+            agency: 'Private Industry',
+            chequeStatus: 'Approved'
         },
         {
             id: 5,
@@ -69,11 +75,27 @@ const ApproveProjects = () => {
             submittedDate: '2024-02-01',
             status: 'REJECTED',
             department: 'OCEAN',
-            agency: 'University Fund'
+            agency: 'University Fund',
+            chequeStatus: 'Pending'
         }
     ]);
 
     const [selectedProject, setSelectedProject] = useState(null);
+    const [manageFacultyModal, setManageFacultyModal] = useState({ isOpen: false, project: null, selectedFaculty: '' });
+
+    const handleFacultyAssignment = () => {
+        if (!manageFacultyModal.selectedFaculty) return;
+
+        // Update the project's faculty in the projects array
+        setProjects(projects.map(p =>
+            p.id === manageFacultyModal.project.id
+                ? { ...p, faculty: manageFacultyModal.selectedFaculty }
+                : p
+        ));
+
+        // Close modal and reset
+        setManageFacultyModal({ isOpen: false, project: null, selectedFaculty: '' });
+    };
 
     React.useEffect(() => {
         setLayout(
@@ -219,12 +241,16 @@ const ApproveProjects = () => {
                                     <TableHead className="dark:text-gray-400">Budget</TableHead>
                                     <TableHead className="dark:text-gray-400">Submitted</TableHead>
                                     <TableHead className="dark:text-gray-400">Status</TableHead>
-                                    <TableHead className="dark:text-gray-400 text-right">Details</TableHead>
+                                    <TableHead className="dark:text-gray-400 text-center">Actions</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
                                 {filteredProjects.map((project) => (
-                                    <TableRow key={project.id} className="hover:bg-gray-50 dark:hover:bg-slate-800/50 dark:border-slate-800">
+                                    <TableRow
+                                        key={project.id}
+                                        className="hover:bg-gray-50 dark:hover:bg-slate-800/50 dark:border-slate-800 cursor-pointer"
+                                        onClick={() => setSelectedProject(project)}
+                                    >
                                         <TableCell className="font-semibold dark:text-gray-200">{project.title}</TableCell>
                                         <TableCell>
                                             <div className="flex items-center space-x-2">
@@ -251,15 +277,25 @@ const ApproveProjects = () => {
                                                 {project.status}
                                             </Badge>
                                         </TableCell>
-                                        <TableCell className="text-right">
-                                            <Button
-                                                variant="ghost"
-                                                size="sm"
-                                                className="hover:bg-slate-100 dark:hover:bg-slate-800"
-                                                onClick={() => setSelectedProject(project)}
-                                            >
-                                                <Eye className="w-4 h-4" />
-                                            </Button>
+                                        <TableCell className="text-center">
+                                            {project.status === 'APPROVED' && (
+                                                <Button
+                                                    variant="outline"
+                                                    size="sm"
+                                                    className="text-blue-600 border-blue-200 hover:bg-blue-50 dark:hover:bg-blue-900/20"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        setManageFacultyModal({
+                                                            isOpen: true,
+                                                            project: project,
+                                                            selectedFaculty: project.faculty
+                                                        });
+                                                    }}
+                                                >
+                                                    <Users className="w-4 h-4 mr-1" />
+                                                    Manage Faculty
+                                                </Button>
+                                            )}
                                         </TableCell>
                                     </TableRow>
                                 ))}
@@ -267,6 +303,95 @@ const ApproveProjects = () => {
                         </Table>
                     </CardContent>
                 </Card>
+
+                {/* Charts Section */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-8">
+                    {/* Projects by Status - Pie Chart */}
+                    <Card className="border-0 shadow-sm dark:bg-slate-900">
+                        <CardHeader className="border-b bg-gray-50 dark:bg-slate-800/50 dark:border-slate-800">
+                            <CardTitle className="text-lg dark:text-white">Projects by Status</CardTitle>
+                            <CardDescription className="dark:text-gray-400">Distribution of project approvals</CardDescription>
+                        </CardHeader>
+                        <CardContent className="pt-6">
+                            <div className="h-[300px]">
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <PieChart>
+                                        <Pie
+                                            data={[
+                                                { name: 'Pending', value: filteredProjects.filter(p => p.status === 'PENDING').length, color: '#f59e0b' },
+                                                { name: 'Approved', value: filteredProjects.filter(p => p.status === 'APPROVED').length, color: '#10b981' },
+                                                { name: 'Rejected', value: filteredProjects.filter(p => p.status === 'REJECTED').length, color: '#64748b' }
+                                            ]}
+                                            cx="50%"
+                                            cy="50%"
+                                            labelLine={false}
+                                            label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                                            outerRadius={80}
+                                            fill="#8884d8"
+                                            dataKey="value"
+                                        >
+                                            {[
+                                                { name: 'Pending', value: filteredProjects.filter(p => p.status === 'PENDING').length, color: '#f59e0b' },
+                                                { name: 'Approved', value: filteredProjects.filter(p => p.status === 'APPROVED').length, color: '#10b981' },
+                                                { name: 'Rejected', value: filteredProjects.filter(p => p.status === 'REJECTED').length, color: '#64748b' }
+                                            ].map((entry, index) => (
+                                                <Cell key={`cell-${index}`} fill={entry.color} />
+                                            ))}
+                                        </Pie>
+                                        <RechartsTooltip
+                                            contentStyle={{
+                                                backgroundColor: document.documentElement.classList.contains('dark') ? '#334155' : '#ffffff',
+                                                border: `1px solid ${document.documentElement.classList.contains('dark') ? '#475569' : '#e2e8f0'}`,
+                                                borderRadius: '8px'
+                                            }}
+                                        />
+                                        <Legend />
+                                    </PieChart>
+                                </ResponsiveContainer>
+                            </div>
+                        </CardContent>
+                    </Card>
+
+                    {/* Projects by Agency - Bar Chart */}
+                    <Card className="border-0 shadow-sm dark:bg-slate-900">
+                        <CardHeader className="border-b bg-gray-50 dark:bg-slate-800/50 dark:border-slate-800">
+                            <CardTitle className="text-lg dark:text-white">Projects by Agency</CardTitle>
+                            <CardDescription className="dark:text-gray-400">Funding agency distribution</CardDescription>
+                        </CardHeader>
+                        <CardContent className="pt-6">
+                            <div className="h-[300px]">
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <BarChart data={
+                                        AGENCIES.map(agency => ({
+                                            agency: agency.length > 15 ? agency.substring(0, 12) + '...' : agency,
+                                            count: filteredProjects.filter(p => p.agency === agency).length
+                                        })).filter(d => d.count > 0)
+                                    }>
+                                        <CartesianGrid strokeDasharray="3 3" stroke={document.documentElement.classList.contains('dark') ? '#334155' : '#e2e8f0'} />
+                                        <XAxis
+                                            dataKey="agency"
+                                            stroke={document.documentElement.classList.contains('dark') ? '#f8fafc' : '#0f172a'}
+                                            fontSize={11}
+                                            angle={-45}
+                                            textAnchor="end"
+                                            height={80}
+                                        />
+                                        <YAxis stroke={document.documentElement.classList.contains('dark') ? '#f8fafc' : '#0f172a'} fontSize={12} />
+                                        <RechartsTooltip
+                                            contentStyle={{
+                                                backgroundColor: document.documentElement.classList.contains('dark') ? '#334155' : '#ffffff',
+                                                border: `1px solid ${document.documentElement.classList.contains('dark') ? '#475569' : '#e2e8f0'}`,
+                                                borderRadius: '8px'
+                                            }}
+                                        />
+                                        <Legend />
+                                        <Bar dataKey="count" fill="#6366f1" name="Projects" />
+                                    </BarChart>
+                                </ResponsiveContainer>
+                            </div>
+                        </CardContent>
+                    </Card>
+                </div>
 
                 {/* Project Details Modal */}
                 {selectedProject && (
@@ -323,9 +448,173 @@ const ApproveProjects = () => {
                                     </p>
                                 </div>
 
+                                {/* Cheque Processing & Disbursal Status */}
+                                {selectedProject.status === 'APPROVED' && (
+                                    <div className="pt-4 border-t dark:border-slate-800">
+                                        <div className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-950/20 dark:to-indigo-950/20 rounded-lg p-5 border border-blue-100 dark:border-blue-900/30">
+                                            <div className="flex items-center gap-2 mb-4">
+                                                <Info className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                                                <h3 className="text-base font-semibold text-gray-900 dark:text-white">Cheque Processing & Disbursal Status</h3>
+                                            </div>
+
+                                            {/* Progress Bar */}
+                                            <div className="mb-4">
+                                                <div className="flex justify-between text-xs font-medium mb-2">
+                                                    <span className="text-green-600 dark:text-green-400">Pending</span>
+                                                    <span className={selectedProject.chequeStatus === 'Approved' || selectedProject.chequeStatus === 'Disbursed' ? 'text-blue-600 dark:text-blue-400' : 'text-gray-400'}>Approved</span>
+                                                    <span className={selectedProject.chequeStatus === 'Disbursed' ? 'text-purple-600 dark:text-purple-400' : 'text-gray-400'}>Disbursed</span>
+                                                </div>
+                                                <div className="relative w-full h-2 bg-gray-200 dark:bg-slate-700 rounded-full overflow-hidden">
+                                                    <div
+                                                        className="absolute h-full bg-gradient-to-r from-green-500 via-blue-500 to-purple-500 transition-all duration-500"
+                                                        style={{
+                                                            width: selectedProject.chequeStatus === 'Pending' ? '33%' :
+                                                                selectedProject.chequeStatus === 'Approved' ? '66%' : '100%'
+                                                        }}
+                                                    ></div>
+                                                </div>
+                                            </div>
+
+                                            {/* Current Status */}
+                                            <div className="bg-white dark:bg-slate-800/50 rounded-lg p-4 border border-blue-200 dark:border-blue-900/40">
+                                                <div className="flex items-center gap-3">
+                                                    <Clock className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                                                    <div>
+                                                        <p className="text-xs text-gray-500 dark:text-gray-400 font-medium">Current Cheque Status</p>
+                                                        <p className="text-lg font-bold text-blue-600 dark:text-blue-400 mt-0.5">{selectedProject.chequeStatus}</p>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+
                                 <div className="flex justify-end space-x-3 pt-4 border-t dark:border-slate-800">
                                     <Button variant="outline" className="dark:border-slate-700 dark:hover:bg-slate-800" onClick={() => setSelectedProject(null)}>
                                         Close Details
+                                    </Button>
+                                    {selectedProject.status === 'APPROVED' && (
+                                        <Button
+                                            variant="outline"
+                                            className="text-blue-600 border-blue-200 hover:bg-blue-50 dark:hover:bg-blue-900/20"
+                                            onClick={() => {
+                                                setManageFacultyModal({
+                                                    isOpen: true,
+                                                    project: selectedProject,
+                                                    selectedFaculty: selectedProject.faculty
+                                                });
+                                                setSelectedProject(null); // Close detail modal
+                                            }}
+                                        >
+                                            <Users className="w-4 h-4 mr-2" />
+                                            Manage Faculty
+                                        </Button>
+                                    )}
+                                </div>
+                            </CardContent>
+                        </Card>
+                    </div>
+                )}
+
+                {/* Manage Faculty Modal */}
+                {manageFacultyModal.isOpen && (
+                    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setManageFacultyModal({ isOpen: false, project: null, selectedFaculty: '' })}>
+                        <Card className="max-w-2xl w-full border-0 shadow-2xl dark:bg-slate-900" onClick={(e) => e.stopPropagation()}>
+                            <CardHeader className="border-b dark:border-slate-800 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20">
+                                <div className="flex justify-between items-start">
+                                    <div>
+                                        <CardTitle className="text-xl font-bold dark:text-white mb-2">Manage Faculty Assignment</CardTitle>
+                                        <CardDescription className="dark:text-gray-400">
+                                            Assign or reassign Principal Investigator for this project
+                                        </CardDescription>
+                                    </div>
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => setManageFacultyModal({ isOpen: false, project: null, selectedFaculty: '' })}
+                                        className="dark:hover:bg-slate-800"
+                                    >
+                                        ✕
+                                    </Button>
+                                </div>
+                            </CardHeader>
+                            <CardContent className="space-y-6 pt-6">
+                                {/* Project Info */}
+                                <div className="bg-gray-50 dark:bg-slate-800/50 p-4 rounded-lg">
+                                    <p className="text-sm font-semibold text-gray-500 dark:text-gray-400">Project</p>
+                                    <p className="text-lg font-bold mt-1 dark:text-white">{manageFacultyModal.project?.title}</p>
+                                    <div className="flex items-center gap-4 mt-2">
+                                        <div>
+                                            <p className="text-xs text-gray-500 dark:text-gray-400">Current PI</p>
+                                            <p className="text-sm font-semibold dark:text-gray-300">{manageFacultyModal.project?.faculty}</p>
+                                        </div>
+                                        <div>
+                                            <p className="text-xs text-gray-500 dark:text-gray-400">Budget</p>
+                                            <p className="text-sm font-semibold text-green-600 dark:text-green-400">₹{(manageFacultyModal.project?.budget / 100000).toFixed(1)}L</p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Faculty Selection */}
+                                <div>
+                                    <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">
+                                        Select New Principal Investigator
+                                    </label>
+                                    <select
+                                        className="w-full px-4 py-3 border border-gray-300 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-slate-800 dark:text-white"
+                                        value={manageFacultyModal.selectedFaculty}
+                                        onChange={(e) => setManageFacultyModal({ ...manageFacultyModal, selectedFaculty: e.target.value })}
+                                    >
+                                        <option value="">-- Select Faculty --</option>
+                                        {FACULTY_MEMBERS.map((faculty) => (
+                                            <option key={faculty.id} value={faculty.name}>
+                                                {faculty.name} ({faculty.department}) - {faculty.centre}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+
+                                {/* Available Faculty List */}
+                                <div>
+                                    <p className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Available Faculty Members</p>
+                                    <div className="max-h-64 overflow-y-auto border border-gray-200 dark:border-slate-700 rounded-lg">
+                                        {FACULTY_MEMBERS.map((faculty) => (
+                                            <div
+                                                key={faculty.id}
+                                                className={`p-3 border-b border-gray-100 dark:border-slate-700 last:border-b-0 cursor-pointer hover:bg-gray-50 dark:hover:bg-slate-800/50 transition-colors ${manageFacultyModal.selectedFaculty === faculty.name ? 'bg-blue-50 dark:bg-blue-900/20 border-l-4 border-l-blue-500' : ''
+                                                    }`}
+                                                onClick={() => setManageFacultyModal({ ...manageFacultyModal, selectedFaculty: faculty.name })}
+                                            >
+                                                <div className="flex items-center justify-between">
+                                                    <div>
+                                                        <p className="font-semibold text-sm dark:text-white">{faculty.name}</p>
+                                                        <p className="text-xs text-gray-500 dark:text-gray-400">{faculty.department} • {faculty.centre}</p>
+                                                    </div>
+                                                    {manageFacultyModal.selectedFaculty === faculty.name && (
+                                                        <CheckCircle className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                                                    )}
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                {/* Action Buttons */}
+                                <div className="flex gap-3 pt-4 border-t dark:border-slate-800">
+                                    <Button
+                                        variant="outline"
+                                        className="flex-1"
+                                        onClick={() => setManageFacultyModal({ isOpen: false, project: null, selectedFaculty: '' })}
+                                    >
+                                        Cancel
+                                    </Button>
+                                    <Button
+                                        className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold"
+                                        onClick={handleFacultyAssignment}
+                                        disabled={!manageFacultyModal.selectedFaculty || manageFacultyModal.selectedFaculty === manageFacultyModal.project?.faculty}
+                                    >
+                                        <Users className="w-4 h-4 mr-2" />
+                                        Assign Faculty
                                     </Button>
                                 </div>
                             </CardContent>
@@ -334,6 +623,7 @@ const ApproveProjects = () => {
                 )}
             </div>
         </div>
+
     );
 };
 

@@ -4,17 +4,19 @@ import { AuthProvider } from '../contexts/AuthContext';
 import ProtectedRoute from '../components/auth/ProtectedRoute';
 import LoginPage from '../components/auth/LoginPage';
 import { ROLES } from '../constants/roles';
+import DashboardLayout from '../components/shared/DashboardLayout';
 
 // Admin Pages
-import AdminLayout from '../components/shared/AdminLayout';
 import AdminDashboard from '../pages/admin/AdminDashboard';
 import CreateProject from '../pages/admin/CreateProject';
 import ApproveProjects from '../pages/admin/ApproveProjects';
 import ManageFaculty from '../pages/admin/AssignFaculty';
 import ApproveFundRequests from '../pages/admin/ApproveFundRequests';
 import ODRequests from '../pages/admin/ODRequests';
+import EventRequests from '../pages/admin/EventRequests';
 import AdminReports from '../pages/admin/AdminReports';
 import Settings from '../components/shared/Settings';
+import Profile from '../pages/shared/Profile';
 
 // Faculty Pages
 import FacultyDashboard from '../pages/faculty/FacultyDashboard';
@@ -47,7 +49,8 @@ const AppRoutes = () => {
             const { theme } = JSON.parse(storedSettings);
             applyTheme(theme);
         } else {
-            applyTheme('auto');
+            // Default to dark mode
+            applyTheme('dark');
         }
     }, []);
 
@@ -59,12 +62,12 @@ const AppRoutes = () => {
                     <Route path="/login" element={<LoginPage />} />
                     <Route path="/" element={<Navigate to="/login" replace />} />
 
-                    {/* Admin Routes wrapped in AdminLayout */}
+                    {/* Admin Routes wrapped in DashboardLayout */}
                     <Route
                         path="/admin/*"
                         element={
                             <ProtectedRoute allowedRoles={[ROLES.ADMIN]}>
-                                <AdminLayout>
+                                <DashboardLayout>
                                     <Routes>
                                         <Route path="dashboard" element={<AdminDashboard />} />
                                         <Route path="projects" element={<CreateProject />} />
@@ -72,89 +75,53 @@ const AppRoutes = () => {
                                         <Route path="assign-faculty" element={<ManageFaculty />} />
                                         <Route path="fund-requests" element={<ApproveFundRequests />} />
                                         <Route path="od-requests" element={<ODRequests />} />
+                                        <Route path="event-requests" element={<EventRequests />} />
                                         <Route path="reports" element={<AdminReports />} />
                                         <Route
                                             path="settings"
                                             element={<ProtectedRoute allowedRoles={[ROLES.ADMIN, ROLES.FACULTY, ROLES.FINANCE_OFFICER]}><Settings /></ProtectedRoute>}
                                         />
+                                        <Route
+                                            path="profile"
+                                            element={<Profile />}
+                                        />
                                     </Routes>
-                                </AdminLayout>
+                                </DashboardLayout>
                             </ProtectedRoute>
                         }
                     />
 
                     {/* Faculty Routes */}
                     <Route
-                        path="/faculty/dashboard"
+                        path="/faculty/*"
                         element={
                             <ProtectedRoute allowedRoles={[ROLES.FACULTY]}>
-                                <FacultyDashboard />
-                            </ProtectedRoute>
-                        }
-                    />
-                    <Route
-                        path="/faculty/projects"
-                        element={
-                            <ProtectedRoute allowedRoles={[ROLES.FACULTY]}>
-                                <FacultyDashboard />
-                            </ProtectedRoute>
-                        }
-                    />
-                    <Route
-                        path="/faculty/request-funds"
-                        element={
-                            <ProtectedRoute allowedRoles={[ROLES.FACULTY]}>
-                                <FacultyDashboard />
-                            </ProtectedRoute>
-                        }
-                    />
-                    <Route
-                        path="/faculty/documents"
-                        element={
-                            <ProtectedRoute allowedRoles={[ROLES.FACULTY]}>
-                                <FacultyDashboard />
+                                <DashboardLayout>
+                                    <Routes>
+                                        <Route path="dashboard" element={<FacultyDashboard />} />
+                                        <Route path="projects" element={<FacultyDashboard />} />
+                                        <Route path="request-funds" element={<FacultyDashboard />} />
+                                        <Route path="documents" element={<FacultyDashboard />} />
+                                    </Routes>
+                                </DashboardLayout>
                             </ProtectedRoute>
                         }
                     />
 
                     {/* Finance Officer Routes */}
                     <Route
-                        path="/finance/dashboard"
+                        path="/finance/*"
                         element={
                             <ProtectedRoute allowedRoles={[ROLES.FINANCE_OFFICER]}>
-                                <FinanceDashboard />
-                            </ProtectedRoute>
-                        }
-                    />
-                    <Route
-                        path="/finance/fund-flow"
-                        element={
-                            <ProtectedRoute allowedRoles={[ROLES.FINANCE_OFFICER]}>
-                                <ManageFundFlow />
-                            </ProtectedRoute>
-                        }
-                    />
-                    <Route
-                        path="/finance/pfms"
-                        element={
-                            <ProtectedRoute allowedRoles={[ROLES.FINANCE_OFFICER]}>
-                                <ManagePFMS />
-                            </ProtectedRoute>
-                        }
-                    />
-                    <Route
-                        path="/finance/internships"
-                        element={
-                            <ProtectedRoute allowedRoles={[ROLES.FINANCE_OFFICER]}>
-                                <VerifyInternshipFees />
-                            </ProtectedRoute>
-                        }
-                    />
-                    <Route
-                        path="/finance/reports"
-                        element={
-                            <ProtectedRoute allowedRoles={[ROLES.FINANCE_OFFICER]}>
-                                <FinanceDashboard />
+                                <DashboardLayout>
+                                    <Routes>
+                                        <Route path="dashboard" element={<FinanceDashboard />} />
+                                        <Route path="fund-flow" element={<ManageFundFlow />} />
+                                        <Route path="pfms" element={<ManagePFMS />} />
+                                        <Route path="internships" element={<VerifyInternshipFees />} />
+                                        <Route path="reports" element={<FinanceDashboard />} />
+                                    </Routes>
+                                </DashboardLayout>
                             </ProtectedRoute>
                         }
                     />

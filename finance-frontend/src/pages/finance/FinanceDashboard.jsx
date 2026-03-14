@@ -8,9 +8,15 @@ import {
 } from 'lucide-react';
 import Sidebar from '../../components/shared/Sidebar';
 import TopBar from '../../components/shared/TopBar';
+import { useLayout } from '../../contexts/LayoutContext';
 
 const FinanceDashboard = () => {
+    const { setLayout } = useLayout();
     const [selectedProject, setSelectedProject] = useState(null);
+
+    React.useEffect(() => {
+        setLayout("Finance Dashboard", "Fund releases, PFMS tracking & settlements");
+    }, [setLayout]);
 
     const stats = [
         {
@@ -113,10 +119,8 @@ const FinanceDashboard = () => {
 
     return (
         <div className="flex min-h-screen bg-gray-50">
-            <Sidebar />
+            <div className="flex-1">
 
-            <div className="flex-1 ml-64">
-                <TopBar title="Finance Dashboard" subtitle="Fund releases, PFMS tracking & settlements" />
 
                 <div className="p-8">
                     {/* Stats Cards */}
@@ -170,8 +174,8 @@ const FinanceDashboard = () => {
                                                         </p>
                                                     </div>
                                                     <Badge className={`${project.status === 'AMOUNT_DISBURSED' ? 'bg-green-100 text-green-700' :
-                                                            project.status === 'FUND_RELEASED' ? 'bg-blue-100 text-blue-700' :
-                                                                'bg-purple-100 text-purple-700'
+                                                        project.status === 'FUND_RELEASED' ? 'bg-blue-100 text-blue-700' :
+                                                            'bg-purple-100 text-purple-700'
                                                         }`}>
                                                         {project.statusLabel}
                                                     </Badge>

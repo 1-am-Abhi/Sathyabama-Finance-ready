@@ -6,7 +6,7 @@ import { Button } from '../../components/ui/button';
 import {
     BarChart3, Download, FileText, TrendingUp, Users,
     PieChart as PieIcon, Activity, Banknote, Wallet, ArrowUpRight,
-    FileSpreadsheet, Filter, Search
+    FileSpreadsheet, Filter, Search, CheckCircle, Clock
 } from 'lucide-react';
 import { useLayout } from '../../contexts/LayoutContext';
 import DateFilter from '../../components/shared/DateFilter';
@@ -17,15 +17,35 @@ import {
 } from 'recharts';
 import { AGENCIES } from '../../constants/agencies';
 import { FUND_SOURCES } from '../../constants/fundSources';
+import { useProjects } from '../../contexts/ProjectContext';
+import { FACULTY_MEMBERS } from '../../constants/facultyMembers';
+import ResearchCentreDetail from './ResearchCentreDetail';
 
 const AdminReports = () => {
     const { setLayout } = useLayout();
+    const { projects: FUND_REQUESTS_MOCK, updateProjectStatus } = useProjects();
     const [selectedReport, setSelectedReport] = useState('overview');
     const [selectedDate, setSelectedDate] = useState(null);
     const [selectedProject, setSelectedProject] = useState(null);
+    const [selectedCentreDetail, setSelectedCentreDetail] = useState(null);
     const [selectedAgency, setSelectedAgency] = useState('All');
     const [selectedStatus, setSelectedStatus] = useState('All');
     const [selectedSource, setSelectedSource] = useState('All');
+    const [manageFacultyModal, setManageFacultyModal] = useState({ isOpen: false, project: null, selectedFaculty: '' });
+
+    // Derive active project from context data to ensure updates are reflected
+    const activeProject = selectedProject ? FUND_REQUESTS_MOCK.find(p => p.id === selectedProject.id) : null;
+
+    const handleFacultyAssignment = () => {
+        if (!manageFacultyModal.selectedFaculty) return;
+
+        // Update happens in local state for demo
+        // In a real app, this would trigger an API call
+        console.log('Assigning faculty:', manageFacultyModal.selectedFaculty, 'to project:', manageFacultyModal.project?.projectTitle);
+
+        // Close modal and reset
+        setManageFacultyModal({ isOpen: false, project: null, selectedFaculty: '' });
+    };
 
     useEffect(() => {
         setLayout(
@@ -72,51 +92,14 @@ const AdminReports = () => {
         { centre: 'Centre for Molecular and Nanomedical Sciences', projects: selectedDate ? 1 : 8, budget: selectedDate ? 1700000 : 17000000, disbursed: 11900000 },
     ];
 
-    const recentProjectsData = [
-        {
-            id: 1, title: 'AI Medical Diagnosis', faculty: 'Dr. Priya Sharma', budget: 5000000, status: 'ACTIVE', progress: 65, date: '2024-02-01',
-            installments: [
-                { id: 1, amount: 2000000, date: '2024-02-05', status: 'Released' },
-                { id: 2, amount: 1500000, date: '2024-06-10', status: 'Pending' },
-                { id: 3, amount: 1500000, date: '2024-10-15', status: 'Scheduled' }
-            ]
-        },
-        {
-            id: 2, title: 'Smart Traffic System', faculty: 'Dr. Vikram Singh', budget: 6000000, status: 'ACTIVE', progress: 45, date: '2024-01-28',
-            installments: [
-                { id: 1, amount: 3000000, date: '2024-02-01', status: 'Released' },
-                { id: 2, amount: 3000000, date: '2024-07-01', status: 'Pending' }
-            ]
-        },
-        {
-            id: 3, title: 'Renewable Energy Grid', faculty: 'Dr. Bharti', budget: 7500000, status: 'ACTIVE', progress: 30, date: '2024-02-03',
-            installments: [
-                { id: 1, amount: 2500000, date: '2024-02-10', status: 'Released' },
-                { id: 2, amount: 2500000, date: '2024-08-10', status: 'Pending' },
-                { id: 3, amount: 2500000, date: '2025-02-10', status: 'Scheduled' }
-            ]
-        },
-        {
-            id: 4, title: 'Blockchain Supply Chain', faculty: 'Dr. Anita Desai', budget: 4000000, status: 'PENDING', progress: 10, date: '2024-02-02',
-            installments: []
-        },
-        {
-            id: 5, title: 'Nano-Sensors for Agri', faculty: 'Dr. R. Kumar', budget: 3500000, status: 'REJECTED', progress: 0, date: '2024-01-15',
-            installments: []
-        },
-    ];
 
     const facultyMockData = [
         { id: 1, name: 'Dr. Priya Sharma', centre: 'Centre for Nano Science', projects: 2, grants: 8500000 },
         { id: 2, name: 'Dr. Vikram Singh', centre: 'Centre for Energy Research', projects: 1, grants: 6000000 },
-        { id: 3, name: 'Dr. Bharti', centre: 'Centre for Climate Studies', projects: 3, grants: 7500000 },
+        { id: 3, name: 'Dr. Bharathi', centre: 'Centre for Climate Studies', projects: 3, grants: 7500000 },
         { id: 4, name: 'Dr. Anita Desai', centre: 'Centre for Molecular Sciences', projects: 1, grants: 4000000 },
         { id: 5, name: 'Dr. R. Kumar', centre: 'Centre for Waste Management', projects: 2, grants: 5500000 },
     ];
-
-    const recentProjects = selectedDate
-        ? recentProjectsData.filter(p => p.date === selectedDate)
-        : recentProjectsData;
 
     // --- Chart Data ---
 
@@ -656,7 +639,11 @@ const AdminReports = () => {
                                     </TableHeader>
                                     <TableBody>
                                         {projectsByCentre.map((dept, index) => (
-                                            <TableRow key={index} className="hover:bg-gray-50 dark:hover:bg-slate-800/50 dark:border-slate-800">
+                                            <TableRow
+                                                key={index}
+                                                className="hover:bg-gray-50 dark:hover:bg-slate-800/50 dark:border-slate-800 cursor-pointer"
+                                                onClick={() => setSelectedCentreDetail(dept.centre)}
+                                            >
                                                 <TableCell className="font-semibold dark:text-gray-200">{dept.centre}</TableCell>
                                                 <TableCell>
                                                     <Badge variant="default" className="dark:bg-slate-800 dark:text-gray-300 border-0">{dept.projects}</Badge>
@@ -696,7 +683,7 @@ const AdminReports = () => {
                             </CardHeader>
                             <CardContent>
                                 <div className="space-y-4">
-                                    {recentProjects.map((project) => (
+                                    {FUND_REQUESTS_MOCK.slice(0, 5).map((project) => (
                                         <div
                                             key={project.id}
                                             onClick={() => setSelectedProject(project)}
@@ -705,30 +692,33 @@ const AdminReports = () => {
                                             <div className="flex items-center justify-between mb-3">
                                                 <div>
                                                     <h3 className="font-bold text-gray-900 dark:text-white text-lg group-hover:text-maroon-600 dark:group-hover:text-maroon-400 transition-colors">
-                                                        {project.title}
+                                                        {project.projectTitle}
                                                     </h3>
                                                     <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                                                        PI: {project.faculty} | Budget: ₹{(project.budget / 100000).toFixed(1)}L
+                                                        PI: {project.faculty} | Amount: ₹{(project.requestedAmount / 100000).toFixed(1)}L
                                                     </p>
                                                 </div>
                                                 <Badge
-                                                    variant={project.status === 'ACTIVE' ? 'success' : 'default'}
-                                                    className={project.status === 'PENDING' ? 'dark:bg-slate-800 dark:text-gray-300 border-0' : 'border-0'}
+                                                    variant={project.status === 'APPROVED' ? 'success' : 'default'}
+                                                    className={`${project.status === 'PENDING' ? 'dark:bg-slate-800 dark:text-gray-300 border-0 bg-yellow-100 text-yellow-700' : 'border-0'} ${project.status === 'APPROVED' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : ''}`}
                                                 >
                                                     {project.status}
                                                 </Badge>
                                             </div>
-                                            <div>
-                                                <div className="flex items-center justify-between text-xs text-gray-600 dark:text-gray-400 mb-1">
-                                                    <span>Progress</span>
-                                                    <span className="font-semibold">{project.progress}%</span>
+                                            <div className="flex items-center justify-between">
+                                                <div className="flex items-center gap-2 text-sm">
+                                                    <span className="text-gray-600 dark:text-gray-400">Cheque:</span>
+                                                    <span className={`font-medium
+                                                        ${project.chequeStatus === 'Disbursed' ? 'text-green-600 dark:text-green-400' : ''}
+                                                        ${project.chequeStatus === 'Approved' ? 'text-blue-600 dark:text-blue-400' : ''}
+                                                        ${project.chequeStatus === 'Pending' ? 'text-gray-500 dark:text-gray-400' : ''}
+                                                    `}>
+                                                        {project.chequeStatus}
+                                                    </span>
                                                 </div>
-                                                <div className="w-full bg-gray-200 dark:bg-slate-700 rounded-full h-2">
-                                                    <div
-                                                        className="bg-gradient-to-r from-maroon-500 to-maroon-700 h-2 rounded-full transition-all"
-                                                        style={{ width: `${project.progress}%` }}
-                                                    ></div>
-                                                </div>
+                                                <span className="text-xs text-gray-500 dark:text-gray-400">
+                                                    {new Date(project.submittedDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+                                                </span>
                                             </div>
                                         </div>
                                     ))}
@@ -754,21 +744,59 @@ const AdminReports = () => {
                                     <TableRow>
                                         <TableHead>Project Title</TableHead>
                                         <TableHead>Principal Investigator</TableHead>
-                                        <TableHead>Budget</TableHead>
+                                        <TableHead>Amount</TableHead>
                                         <TableHead>Status</TableHead>
-                                        <TableHead>Progress</TableHead>
+                                        <TableHead>Cheque Status</TableHead>
+                                        <TableHead>Actions</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                    {recentProjectsData.map((project) => (
-                                        <TableRow key={project.id}>
-                                            <TableCell className="font-medium">{project.title}</TableCell>
+                                    {FUND_REQUESTS_MOCK.map((project) => (
+                                        <TableRow
+                                            key={project.id}
+                                            className="hover:bg-gray-50 dark:hover:bg-slate-800/50 cursor-pointer"
+                                            onClick={() => setSelectedProject(project)}
+                                        >
+                                            <TableCell className="font-medium">{project.projectTitle}</TableCell>
                                             <TableCell>{project.faculty}</TableCell>
-                                            <TableCell>₹{(project.budget / 100000).toFixed(1)}L</TableCell>
+                                            <TableCell>₹{(project.requestedAmount / 100000).toFixed(1)}L</TableCell>
                                             <TableCell>
-                                                <Badge variant={project.status === 'ACTIVE' ? 'success' : 'secondary'}>{project.status}</Badge>
+                                                <Badge variant={project.status === 'APPROVED' ? 'success' : 'secondary'}
+                                                    className={project.status === 'APPROVED' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : ''}>
+                                                    {project.status}
+                                                </Badge>
                                             </TableCell>
-                                            <TableCell>{project.progress}%</TableCell>
+                                            <TableCell>
+                                                <span className={`text-sm font-medium
+                                                    ${project.chequeStatus === 'Disbursed' ? 'text-green-600 dark:text-green-400' : ''}
+                                                    ${project.chequeStatus === 'Approved' ? 'text-blue-600 dark:text-blue-400' : ''}
+                                                    ${project.chequeStatus === 'Pending' ? 'text-gray-500 dark:text-gray-400' : ''}
+                                                `}>
+                                                    {project.chequeStatus}
+                                                </span>
+                                            </TableCell>
+                                            <TableCell>
+                                                <div className="flex space-x-2" onClick={(e) => e.stopPropagation()}>
+                                                    {(project.status === 'PENDING' || project.status === 'REJECTED') && (
+                                                        <Button
+                                                            size="sm"
+                                                            className="bg-green-600 hover:bg-green-700 text-white"
+                                                            onClick={() => updateProjectStatus(project.id, 'APPROVED')}
+                                                        >
+                                                            Approve
+                                                        </Button>
+                                                    )}
+                                                    {(project.status === 'PENDING' || project.status === 'APPROVED') && (
+                                                        <Button
+                                                            size="sm"
+                                                            variant="destructive"
+                                                            onClick={() => updateProjectStatus(project.id, 'REJECTED')}
+                                                        >
+                                                            Reject
+                                                        </Button>
+                                                    )}
+                                                </div>
+                                            </TableCell>
                                         </TableRow>
                                     ))}
                                 </TableBody>
@@ -778,7 +806,7 @@ const AdminReports = () => {
                 )}
 
                 {/* FINANCE MODE */}
-                {selectedReport === 'finance' && (
+                {selectedReport === 'finance' && (<>
                     <Card className="border-0 shadow-lg dark:bg-slate-900 animate-in fade-in slide-in-from-bottom-5">
                         <CardHeader className="border-b dark:border-slate-800">
                             <CardTitle className="text-xl flex items-center dark:text-white">
@@ -799,7 +827,11 @@ const AdminReports = () => {
                                 </TableHeader>
                                 <TableBody>
                                     {projectsByCentre.map((dept, index) => (
-                                        <TableRow key={index}>
+                                        <TableRow
+                                            key={index}
+                                            className="hover:bg-gray-50 dark:hover:bg-slate-800/50 cursor-pointer"
+                                            onClick={() => setSelectedCentreDetail(dept.centre)}
+                                        >
                                             <TableCell className="font-medium">{dept.centre}</TableCell>
                                             <TableCell className="text-green-600 font-bold">₹{(dept.budget / 10000000).toFixed(2)}Cr</TableCell>
                                             <TableCell>₹{(dept.disbursed / 10000000).toFixed(2)}Cr</TableCell>
@@ -817,7 +849,86 @@ const AdminReports = () => {
                             </Table>
                         </CardContent>
                     </Card>
-                )}
+
+                    {/* Check Disbursal Status Table */}
+                    <Card className="border-0 shadow-lg dark:bg-slate-900 animate-in fade-in slide-in-from-bottom-6 mt-8">
+                        <CardHeader className="border-b dark:border-slate-800">
+                            <CardTitle className="text-xl flex items-center dark:text-white">
+                                <FileText className="w-5 h-5 mr-2 text-blue-600 dark:text-blue-400" />
+                                Recent Cheque Disbursals & Fund Requests
+                            </CardTitle>
+                            <CardDescription className="dark:text-gray-400">Status of recent fund requests and cheque processing</CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            <Table>
+                                <TableHeader>
+                                    <TableRow>
+                                        <TableHead>Project Title</TableHead>
+                                        <TableHead>Principal Investigator</TableHead>
+                                        <TableHead>Amount</TableHead>
+                                        <TableHead>Approval Status</TableHead>
+                                        <TableHead>Cheque Status</TableHead>
+                                        <TableHead>Source</TableHead>
+                                        <TableHead className="text-center">Actions</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {FUND_REQUESTS_MOCK.map((request) => (
+                                        <TableRow
+                                            key={request.id}
+                                            className="hover:bg-gray-50 dark:hover:bg-slate-800/50 cursor-pointer"
+                                            onClick={() => setSelectedProject(request)}
+                                        >
+                                            <TableCell className="font-medium max-w-[200px] truncate" title={request.projectTitle}>
+                                                {request.projectTitle}
+                                            </TableCell>
+                                            <TableCell>{request.faculty}</TableCell>
+                                            <TableCell className="font-semibold">₹{(request.requestedAmount / 100000).toFixed(1)}L</TableCell>
+                                            <TableCell>
+                                                <Badge variant={request.status === 'APPROVED' ? 'success' : 'secondary'}
+                                                    className={request.status === 'APPROVED' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : ''}>
+                                                    {request.status}
+                                                </Badge>
+                                            </TableCell>
+                                            <TableCell>
+                                                <div className="flex items-center space-x-2">
+                                                    <span className={`text-sm font-medium
+                                                    ${request.chequeStatus === 'Disbursed' ? 'text-green-600 dark:text-green-400' : ''}
+                                                    ${request.chequeStatus === 'Approved' ? 'text-blue-600 dark:text-blue-400' : ''}
+                                                    ${request.chequeStatus === 'Pending' ? 'text-gray-500 dark:text-gray-400' : ''}
+                                                `}>
+                                                        {request.chequeStatus}
+                                                    </span>
+                                                </div>
+                                            </TableCell>
+                                            <TableCell className="text-sm text-gray-500">{request.source}</TableCell>
+                                            <TableCell className="text-center">
+                                                {request.status === 'APPROVED' && (
+                                                    <Button
+                                                        variant="outline"
+                                                        size="sm"
+                                                        className="text-blue-600 border-blue-200 hover:bg-blue-50 dark:hover:bg-blue-900/20"
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            setManageFacultyModal({
+                                                                isOpen: true,
+                                                                project: request,
+                                                                selectedFaculty: request.faculty
+                                                            });
+                                                        }}
+                                                    >
+                                                        <Users className="w-4 h-4 mr-1" />
+                                                        Manage Faculty
+                                                    </Button>
+                                                )}
+                                            </TableCell>
+                                        </TableRow>
+                                    ))}
+                                </TableBody>
+                            </Table>
+                        </CardContent>
+                    </Card>
+                </>)}
 
                 {/* FACULTY MODE */}
                 {selectedReport === 'faculty' && (
@@ -854,7 +965,263 @@ const AdminReports = () => {
                     </Card>
                 )}
             </div>
-        </div>
+
+            {/* Project Detail Modal */}
+            {
+                activeProject && (
+                    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setSelectedProject(null)}>
+                        <Card className="max-w-3xl w-full border-0 shadow-2xl dark:bg-slate-900" onClick={(e) => e.stopPropagation()}>
+                            <CardHeader className="border-b dark:border-slate-800 bg-gradient-to-r from-maroon-50 to-gray-50 dark:from-maroon-900/20 dark:to-slate-800">
+                                <div className="flex justify-between items-start">
+                                    <div>
+                                        <CardTitle className="text-xl font-bold dark:text-white mb-2">{activeProject.projectTitle}</CardTitle>
+                                        <div className="flex items-center gap-3 flex-wrap">
+                                            <Badge variant="outline" className={`${activeProject.source === 'PFMS' ? 'text-blue-600 border-blue-200 bg-blue-50 dark:bg-blue-900/30' : 'text-purple-600 border-purple-200 bg-purple-50 dark:bg-purple-900/30'}`}>
+                                                {activeProject.source}
+                                            </Badge>
+                                            <Badge
+                                                variant={activeProject.status === 'APPROVED' ? 'success' : activeProject.status === 'REJECTED' ? 'destructive' : 'secondary'}
+                                                className={`
+                                                ${activeProject.status === 'APPROVED' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : ''}
+                                                ${activeProject.status === 'PENDING' ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400' : ''}
+                                                ${activeProject.status === 'REJECTED' ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' : ''}
+                                            `}
+                                            >
+                                                {activeProject.status}
+                                            </Badge>
+                                        </div>
+                                    </div>
+                                    <Button variant="ghost" size="sm" onClick={() => setSelectedProject(null)} className="dark:hover:bg-slate-800">
+                                        ✕
+                                    </Button>
+                                </div>
+                            </CardHeader>
+                            <CardContent className="space-y-6 pt-6">
+                                {/* Project Information Grid */}
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    <div>
+                                        <p className="text-sm font-semibold text-gray-500 dark:text-gray-400">Principal Investigator</p>
+                                        <p className="text-base font-semibold mt-1 dark:text-white">{activeProject.faculty}</p>
+                                        <p className="text-xs text-gray-400">{activeProject.department}</p>
+                                    </div>
+                                    <div>
+                                        <p className="text-sm font-semibold text-gray-500 dark:text-gray-400">Research Centre</p>
+                                        <p className="text-base font-semibold mt-1 dark:text-white truncate" title={activeProject.centre}>{activeProject.centre}</p>
+                                    </div>
+                                    <div>
+                                        <p className="text-sm font-semibold text-gray-500 dark:text-gray-400">Requested Amount</p>
+                                        <p className="text-2xl font-bold mt-1 text-green-600 dark:text-green-400">₹{(activeProject.requestedAmount / 100000).toFixed(1)}L</p>
+                                    </div>
+                                    <div>
+                                        <p className="text-sm font-semibold text-gray-500 dark:text-gray-400">Submitted Date</p>
+                                        <p className="text-base font-semibold mt-1 dark:text-white">
+                                            {new Date(activeProject.submittedDate).toLocaleDateString('en-IN', { year: 'numeric', month: 'long', day: 'numeric' })}
+                                        </p>
+                                    </div>
+                                </div>
+
+                                {/* Purpose */}
+                                <div>
+                                    <p className="text-sm font-semibold text-gray-500 dark:text-gray-400 mb-2">Purpose</p>
+                                    <p className="text-sm dark:text-gray-300 bg-gray-50 dark:bg-slate-800/50 p-3 rounded-lg">{activeProject.purpose}</p>
+                                </div>
+
+                                {/* Cheque Information */}
+                                {activeProject.status === 'APPROVED' && (
+                                    <div className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 p-5 rounded-xl border border-blue-100 dark:border-blue-900/30">
+                                        <h4 className="text-sm font-bold text-gray-700 dark:text-gray-200 mb-4 flex items-center">
+                                            <Banknote className="w-5 h-5 mr-2 text-blue-600 dark:text-blue-400" />
+                                            Cheque Processing &amp; Disbursal Status
+                                        </h4>
+
+                                        {/* Progress Bar */}
+                                        <div className="mb-4">
+                                            <div className="flex items-center gap-2 mb-2">
+                                                <div className={`flex-1 h-2.5 rounded-full transition-all ${activeProject.chequeStatus ? 'bg-green-500' : 'bg-gray-200 dark:bg-gray-700'}`}></div>
+                                                <div className={`flex-1 h-2.5 rounded-full transition-all ${activeProject.chequeStatus === 'Approved' || activeProject.chequeStatus === 'Disbursed' ? 'bg-blue-500' : 'bg-gray-200 dark:bg-gray-700'}`}></div>
+                                                <div className={`flex-1 h-2.5 rounded-full transition-all ${activeProject.chequeStatus === 'Disbursed' ? 'bg-emerald-500' : 'bg-gray-200 dark:bg-gray-700'}`}></div>
+                                            </div>
+                                            <div className="flex justify-between text-xs text-gray-600 dark:text-gray-400 px-1">
+                                                <span className={activeProject.chequeStatus ? 'font-semibold text-green-600 dark:text-green-400' : ''}>Pending</span>
+                                                <span className={activeProject.chequeStatus === 'Approved' || activeProject.chequeStatus === 'Disbursed' ? 'font-semibold text-blue-600 dark:text-blue-400' : ''}>Approved</span>
+                                                <span className={activeProject.chequeStatus === 'Disbursed' ? 'font-semibold text-emerald-600 dark:text-emerald-400' : ''}>Disbursed</span>
+                                            </div>
+                                        </div>
+
+                                        {/* Current Status */}
+                                        <div className="bg-white dark:bg-slate-800 rounded-lg p-4 border border-gray-100 dark:border-slate-700">
+                                            <div className="flex items-center justify-between">
+                                                <div className="flex items-center space-x-3">
+                                                    {activeProject.chequeStatus === 'Disbursed' && <CheckCircle className="w-6 h-6 text-green-500" />}
+                                                    {activeProject.chequeStatus === 'Approved' && <Clock className="w-6 h-6 text-blue-500" />}
+                                                    {activeProject.chequeStatus === 'Pending' && <Clock className="w-6 h-6 text-gray-400" />}
+                                                    <div>
+                                                        <p className="text-xs text-gray-500 dark:text-gray-400">Current Cheque Status</p>
+                                                        <p className={`text-lg font-bold
+                                                        ${activeProject.chequeStatus === 'Disbursed' ? 'text-green-600 dark:text-green-400' : ''}
+                                                        ${activeProject.chequeStatus === 'Approved' ? 'text-blue-600 dark:text-blue-400' : ''}
+                                                        ${activeProject.chequeStatus === 'Pending' ? 'text-gray-500 dark:text-gray-400' : ''}
+                                                    `}>
+                                                            {activeProject.chequeStatus || 'Pending'}
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                                {activeProject.chequeStatus === 'Disbursed' && (
+                                                    <Badge className="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
+                                                        ✓ Complete
+                                                    </Badge>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Action Buttons */}
+                                <div className="flex justify-between items-center pt-4 border-t dark:border-slate-800">
+                                    <div className="flex space-x-2">
+                                        {(activeProject.status === 'PENDING' || activeProject.status === 'REJECTED') && (
+                                            <Button
+                                                className="bg-green-600 hover:bg-green-700 text-white"
+                                                onClick={() => updateProjectStatus(activeProject.id, 'APPROVED')}
+                                            >
+                                                Approve
+                                            </Button>
+                                        )}
+                                        {(activeProject.status === 'PENDING' || activeProject.status === 'APPROVED') && (
+                                            <Button
+                                                variant="destructive"
+                                                onClick={() => updateProjectStatus(activeProject.id, 'REJECTED')}
+                                            >
+                                                Reject
+                                            </Button>
+                                        )}
+                                    </div>
+                                    <Button variant="outline" onClick={() => setSelectedProject(null)} className="dark:border-slate-700 dark:hover:bg-slate-800">
+                                        Close
+                                    </Button>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    </div>
+                )
+            }
+
+            {/* Manage Faculty Modal */}
+            {
+                manageFacultyModal.isOpen && (
+                    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setManageFacultyModal({ isOpen: false, project: null, selectedFaculty: '' })}>
+                        <Card className="max-w-2xl w-full border-0 shadow-2xl dark:bg-slate-900" onClick={(e) => e.stopPropagation()}>
+                            <CardHeader className="border-b dark:border-slate-800 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20">
+                                <div className="flex justify-between items-start">
+                                    <div>
+                                        <CardTitle className="text-xl font-bold dark:text-white mb-2">Manage Faculty Assignment</CardTitle>
+                                        <CardDescription className="dark:text-gray-400">
+                                            Assign or reassign Principal Investigator for this project
+                                        </CardDescription>
+                                    </div>
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => setManageFacultyModal({ isOpen: false, project: null, selectedFaculty: '' })}
+                                        className="dark:hover:bg-slate-800"
+                                    >
+                                        ✕
+                                    </Button>
+                                </div>
+                            </CardHeader>
+                            <CardContent className="space-y-6 pt-6">
+                                {/* Project Info */}
+                                <div className="bg-gray-50 dark:bg-slate-800/50 p-4 rounded-lg">
+                                    <p className="text-sm font-semibold text-gray-500 dark:text-gray-400">Project</p>
+                                    <p className="text-lg font-bold mt-1 dark:text-white">{manageFacultyModal.project?.projectTitle}</p>
+                                    <div className="flex items-center gap-4 mt-2">
+                                        <div>
+                                            <p className="text-xs text-gray-500 dark:text-gray-400">Current PI</p>
+                                            <p className="text-sm font-semibold dark:text-gray-300">{manageFacultyModal.project?.faculty}</p>
+                                        </div>
+                                        <div>
+                                            <p className="text-xs text-gray-500 dark:text-gray-400">Amount</p>
+                                            <p className="text-sm font-semibold text-green-600 dark:text-green-400">₹{(manageFacultyModal.project?.requestedAmount / 100000).toFixed(1)}L</p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Faculty Selection */}
+                                <div>
+                                    <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">
+                                        Select New Principal Investigator
+                                    </label>
+                                    <select
+                                        className="w-full px-4 py-3 border border-gray-300 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-slate-800 dark:text-white"
+                                        value={manageFacultyModal.selectedFaculty}
+                                        onChange={(e) => setManageFacultyModal({ ...manageFacultyModal, selectedFaculty: e.target.value })}
+                                    >
+                                        <option value="">-- Select Faculty --</option>
+                                        {FACULTY_MEMBERS.map((faculty) => (
+                                            <option key={faculty.id} value={faculty.name}>
+                                                {faculty.name} ({faculty.department}) - {faculty.centre}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+
+                                {/* Available Faculty List */}
+                                <div>
+                                    <p className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Available Faculty Members</p>
+                                    <div className="max-h-64 overflow-y-auto border border-gray-200 dark:border-slate-700 rounded-lg">
+                                        {FACULTY_MEMBERS.map((faculty) => (
+                                            <div
+                                                key={faculty.id}
+                                                className={`p-3 border-b border-gray-100 dark:border-slate-700 last:border-b-0 cursor-pointer hover:bg-gray-50 dark:hover:bg-slate-800/50 transition-colors ${manageFacultyModal.selectedFaculty === faculty.name ? 'bg-blue-50 dark:bg-blue-900/20 border-l-4 border-l-blue-500' : ''
+                                                    }`}
+                                                onClick={() => setManageFacultyModal({ ...manageFacultyModal, selectedFaculty: faculty.name })}
+                                            >
+                                                <div className="flex items-center justify-between">
+                                                    <div>
+                                                        <p className="font-semibold text-sm dark:text-white">{faculty.name}</p>
+                                                        <p className="text-xs text-gray-500 dark:text-gray-400">{faculty.department} • {faculty.centre}</p>
+                                                    </div>
+                                                    {manageFacultyModal.selectedFaculty === faculty.name && (
+                                                        <CheckCircle className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                                                    )}
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                {/* Action Buttons */}
+                                <div className="flex gap-3 pt-4 border-t dark:border-slate-800">
+                                    <Button
+                                        variant="outline"
+                                        className="flex-1"
+                                        onClick={() => setManageFacultyModal({ isOpen: false, project: null, selectedFaculty: '' })}
+                                    >
+                                        Cancel
+                                    </Button>
+                                    <Button
+                                        className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold"
+                                        onClick={handleFacultyAssignment}
+                                        disabled={!manageFacultyModal.selectedFaculty || manageFacultyModal.selectedFaculty === manageFacultyModal.project?.faculty}
+                                    >
+                                        <Users className="w-4 h-4 mr-2" />
+                                        Assign Faculty
+                                    </Button>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    </div>
+                )
+            }
+
+            {/* Research Centre Detail Modal */}
+            <ResearchCentreDetail
+                isOpen={!!selectedCentreDetail}
+                onClose={() => setSelectedCentreDetail(null)}
+                centreName={selectedCentreDetail}
+                isDark={document.documentElement.classList.contains('dark')}
+            />
+        </div >
     );
 };
 

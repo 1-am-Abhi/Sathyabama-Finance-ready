@@ -3,10 +3,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../..
 import { Badge } from '../../components/ui/badge';
 import { Button } from '../../components/ui/button';
 import { FileText, DollarSign, Clock, TrendingUp, Upload, ArrowRight } from 'lucide-react';
-import Sidebar from '../../components/shared/Sidebar';
-import TopBar from '../../components/shared/TopBar';
+import { useLayout } from '../../contexts/LayoutContext';
 
 const FacultyDashboard = () => {
+    const { setLayout } = useLayout();
+
+    React.useEffect(() => {
+        setLayout("Faculty Dashboard", "Manage your research projects and funding");
+    }, [setLayout]);
     const stats = [
         {
             title: 'My Projects',
@@ -83,10 +87,7 @@ const FacultyDashboard = () => {
 
     return (
         <div className="flex min-h-screen bg-gray-50">
-            <Sidebar />
-
-            <div className="flex-1 ml-64">
-                <TopBar title="Faculty Dashboard" subtitle="Manage your research projects and funding" />
+            <div className="flex-1">
 
                 <div className="p-8">
                     {/* Stats Cards */}

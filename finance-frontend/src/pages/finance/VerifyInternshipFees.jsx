@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import Navbar from '../../components/shared/Navbar';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card';
 import { Input } from '../../components/ui/input';
 import { Label } from '../../components/ui/label';
@@ -7,9 +6,14 @@ import { Button } from '../../components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
 import { Badge } from '../../components/ui/badge';
 import { AlertCircle } from 'lucide-react';
-import Sidebar from '../../components/shared/Sidebar';
+import { useLayout } from '../../contexts/LayoutContext';
 
 const VerifyInternshipFees = () => {
+    const { setLayout } = useLayout();
+
+    React.useEffect(() => {
+        setLayout("Internship Fee Verification", "Verify and update internship fee payment status");
+    }, [setLayout]);
     const [selectedInternship, setSelectedInternship] = useState(null);
     const [paymentData, setPaymentData] = useState({
         paymentMode: '',
@@ -74,13 +78,10 @@ const VerifyInternshipFees = () => {
 
     return (
         <div className="flex min-h-screen bg-gray-50">
-            <Sidebar />
-            <div className="flex-1 ml-64">
-                <Navbar />
+            <div className="flex-1">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
                     <div className="mb-8">
-                        <h1 className="text-3xl font-bold text-gray-900">Internship Fee Verification</h1>
-                        <p className="text-gray-600 mt-2">Verify and update internship fee payment status</p>
+                        {/* Title handled by Layout */}
                     </div>
 
                     {/* Alert for pending verifications */}
@@ -246,6 +247,7 @@ const VerifyInternshipFees = () => {
                 </div>
             </div>
         </div>
+
     );
 };
 

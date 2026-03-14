@@ -1,13 +1,18 @@
-import React, { useState } from 'react';
-import Navbar from '../../components/shared/Navbar';
+
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card';
 import { Input } from '../../components/ui/input';
 import { Label } from '../../components/ui/label';
 import { Button } from '../../components/ui/button';
-import Sidebar from '../../components/shared/Sidebar';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
+import { useLayout } from '../../contexts/LayoutContext';
 
 const ManagePFMS = () => {
+    const { setLayout } = useLayout();
+
+    React.useEffect(() => {
+        setLayout("PFMS Management", "Public Financial Management System data");
+    }, [setLayout]);
     const [showForm, setShowForm] = useState(false);
     const [formData, setFormData] = useState({
         projectId: '',
@@ -71,14 +76,11 @@ const ManagePFMS = () => {
     };
 
     return (
-
         <div className="min-h-screen bg-gray-50">
-            <Navbar />
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
                 <div className="mb-8 flex justify-between items-center">
                     <div>
-                        <h1 className="text-3xl font-bold text-gray-900">PFMS Management</h1>
-                        <p className="text-gray-600 mt-2">Public Financial Management System data</p>
+                        {/* Title handled by Layout */}
                     </div>
                     <Button onClick={() => setShowForm(!showForm)}>
                         {showForm ? 'Cancel' : 'Add PFMS Entry'}
@@ -261,8 +263,8 @@ const ManagePFMS = () => {
                                         <TableCell>{new Date(entry.creditDate).toLocaleDateString('en-IN')}</TableCell>
                                         <TableCell>
                                             <span className={`text-xs px-2 py-1 rounded ${entry.ucStatus === 'APPROVED' ? 'bg-green-100 text-green-700' :
-                                                entry.ucStatus === 'SUBMITTED' ? 'bg-blue-100 text-blue-700' :
-                                                    'bg-yellow-100 text-yellow-700'
+                                                    entry.ucStatus === 'SUBMITTED' ? 'bg-blue-100 text-blue-700' :
+                                                        'bg-yellow-100 text-yellow-700'
                                                 }`}>
                                                 {entry.ucStatus}
                                             </span>
