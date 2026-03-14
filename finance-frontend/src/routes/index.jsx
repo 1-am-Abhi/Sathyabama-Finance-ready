@@ -18,11 +18,17 @@ import AdminReports from '../pages/admin/AdminReports';
 import Settings from '../components/shared/Settings';
 import Profile from '../pages/shared/Profile';
 
-// Faculty Pages
 import FacultyDashboard from '../pages/faculty/FacultyDashboard';
 import FacultyProjects from '../pages/faculty/FacultyProjects';
 import FacultyRequestFunds from '../pages/faculty/FacultyRequestFunds';
 import FacultyODRequest from '../pages/faculty/FacultyODRequest';
+import FacultyDocuments from '../pages/faculty/FacultyDocuments';
+import ConsultancyRevenueSummary from '../pages/faculty/ConsultancyRevenue/RevenueSummary';
+import MyRevenueRecords from '../pages/faculty/ConsultancyRevenue/MyRevenueRecords';
+import AddRevenueRecord from '../pages/faculty/ConsultancyRevenue/AddRevenueRecord';
+import EquipmentMyRequests from '../pages/faculty/EquipmentFinancialRecords/MyRequests';
+import EquipmentAddRequest from '../pages/faculty/EquipmentFinancialRecords/AddRequest';
+import AcademicSupportDashboard from '../pages/shared/AcademicSupportDashboard';
 
 // Finance Pages
 import FinanceDashboard from '../pages/finance/FinanceDashboard';
@@ -105,6 +111,13 @@ const AppRoutes = () => {
                                         <Route path="projects" element={<FacultyProjects />} />
                                         <Route path="request-funds" element={<FacultyRequestFunds />} />
                                         <Route path="od-request" element={<FacultyODRequest />} />
+                                        <Route path="documents" element={<FacultyDocuments />} />
+                                        <Route path="revenue/dashboard" element={<ConsultancyRevenueSummary />} />
+                                        <Route path="revenue/records" element={<MyRevenueRecords />} />
+                                        <Route path="revenue/add" element={<AddRevenueRecord />} />
+                                        <Route path="equipment/dashboard" element={<EquipmentMyRequests />} />
+                                        <Route path="equipment/add" element={<EquipmentAddRequest />} />
+                                        <Route path="/academic-support" element={<AcademicSupportDashboard />} />
                                     </Routes>
                                 </DashboardLayout>
                             </ProtectedRoute>
