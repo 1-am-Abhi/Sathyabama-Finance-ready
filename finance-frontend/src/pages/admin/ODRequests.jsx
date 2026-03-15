@@ -8,7 +8,10 @@ import { Label } from '../../components/ui/label';
 import { Textarea } from '../../components/ui/textarea';
 import { Input } from '../../components/ui/input';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../../components/ui/tooltip';
-import { CheckCircle, XCircle, Clock, Search, Filter, Calendar as CalendarIcon, ChevronLeft, ChevronRight, Image as ImageIcon, Eye, Sparkles, Download, RefreshCw, AlertTriangle, FileSpreadsheet, Upload, User, Building, CalendarDays, FileText } from 'lucide-react';
+import { CheckCircle, XCircle, Clock, Search, Filter, Calendar as CalendarIcon, ChevronLeft, ChevronRight, Image as ImageIcon, Eye, Sparkles, Download, RefreshCw, AlertTriangle, FileSpreadsheet, Upload, User, Building, CalendarDays, FileText, Brain } from 'lucide-react';
+import AIResultModal from '../../components/shared/AIResultModal';
+import { summarizeRequest } from '../../services/aiService';
+
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSameDay, addMonths, subMonths, isWithinInterval, parseISO, isPast, addHours, differenceInHours } from 'date-fns';
 
 const API_KEY = 'AIzaSyBj4Crh5DFqWdf49XQNKxvxLMo-5MSyKog';
@@ -142,10 +145,12 @@ const ODRequests = () => {
     const [calDateFilter, setCalDateFilter] = useState(null);
     const [holidays, setHolidays] = useState([]);
     const [uploadFile, setUploadFile] = useState(null);
+    const [aiModal, setAiModal] = useState({ open: false, loading: false, result: null });
 
     // Filter State
     const [filterOpen, setFilterOpen] = useState(false);
     const [centreFilter, setCentreFilter] = useState('All');
+
 
     // Initialize requests with some old dates to test 24h rule
     const [requests, setRequests] = useState([
@@ -160,6 +165,8 @@ const ODRequests = () => {
     ]);
 
     const uniqueResearchCentres = ['All', ...new Set(requests.map(r => r.researchCentre))];
+
+
 
     useEffect(() => {
         setLayout("OD Requests", "Manage faculty on-duty requests");
@@ -178,7 +185,6 @@ const ODRequests = () => {
                     setHolidays(formattedHolidays);
                 } else {
                     console.error("Failed to fetch holidays", response.statusText);
-                    // Fallback holidays
                     setHolidays([
                         { name: 'New Year', date: '2026-01-01' },
                         { name: 'Pongal', date: '2026-01-15' },
@@ -192,22 +198,6 @@ const ODRequests = () => {
         };
 
         fetchHolidays();
-
-        // Check for 24-hour Auto-Cancellation
-        setRequests(prevRequests => prevRequests.map(req => {
-            // Only auto-cancel Approved requests that don't have photos
-            if (req.status === 'APPROVED' && !req.photosUploaded) {
-                const endDate = req.dates.includes('to') ? req.dates.split(' to ')[1] : req.dates;
-                const requestDate = parseISO(endDate);
-                const deadline = addHours(requestDate, 24);
-
-                if (isPast(deadline)) {
-                    return { ...req, status: 'CANCELLED', remarks: 'Auto-cancelled: Photos not uploaded within 24 hours.' };
-                }
-            }
-            return req;
-        }));
-
     }, [setLayout]);
 
     const handleStatusClick = (status) => {
@@ -419,7 +409,7 @@ const ODRequests = () => {
                                 <th className="px-6 py-3">Dates</th>
                                 <th className="px-6 py-3">Status</th>
                                 <th className="px-6 py-3">Photos</th>
-                                <th className="px-6 py-3 text-right">Actions</th>
+                                <th className="px-6 py-3 text-right min-w-[280px]">Actions</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -451,24 +441,37 @@ const ODRequests = () => {
                                             <Badge variant="outline" className="text-amber-600 border-amber-200 bg-amber-50 dark:text-amber-400 dark:border-amber-800 dark:bg-amber-900/20">Pending</Badge>
                                         )}
                                     </td>
-                                    <td className="px-6 py-4 text-right">
-                                        <div className="flex justify-end space-x-2">
+                                    <td className="px-6 py-4">
+                                        <div className="actions-cell justify-end">
                                             {req.status === 'PENDING' && (
                                                 <>
                                                     <Button
                                                         size="sm"
                                                         variant="outline"
-                                                        className="h-7 text-xs text-red-600 border-red-200 hover:bg-red-50 dark:hover:bg-red-900/20"
+                                                        className="h-7 text-xs text-red-600 border-red-200 hover:bg-red-50 dark:hover:bg-red-900/20 action-btn"
                                                         onClick={(e) => handleRejectClick(req, e)}
                                                     >
                                                         Reject
                                                     </Button>
                                                     <Button
                                                         size="sm"
-                                                        className="bg-green-600 hover:bg-green-700 text-white h-7 text-xs"
+                                                        className="bg-green-600 hover:bg-green-700 text-white h-7 text-xs action-btn"
                                                         onClick={(e) => { e.stopPropagation(); handleApprove(req.id); }}
                                                     >
                                                         Approve
+                                                    </Button>
+                                                    <Button
+                                                        size="sm"
+                                                        variant="ghost"
+                                                        className="text-indigo-400 hover:bg-indigo-500/10 text-[10px] h-7 font-black action-btn"
+                                                        onClick={async (e) => {
+                                                            e.stopPropagation();
+                                                            setAiModal({ open: true, loading: true, result: null });
+                                                            const r = await summarizeRequest(req);
+                                                            setAiModal({ open: true, loading: false, result: r });
+                                                        }}
+                                                    >
+                                                        <Brain className="w-3 h-3 mr-1" /> AI Summary
                                                     </Button>
                                                 </>
                                             )}
@@ -476,17 +479,16 @@ const ODRequests = () => {
                                                 <Button
                                                     size="sm"
                                                     variant="outline"
-                                                    className="h-7 text-xs text-orange-600 border-orange-200 hover:bg-orange-50 dark:hover:bg-orange-900/20"
+                                                    className="h-7 text-xs text-orange-600 border-orange-200 hover:bg-orange-50 dark:hover:bg-orange-900/20 action-btn"
                                                     onClick={(e) => handleRevokeClick(req, e)}
                                                 >
                                                     Revoke
                                                 </Button>
                                             )}
-                                            {/* Allow Revoking/Re-approving Cancelled/Rejected Requests */}
                                             {(req.status === 'CANCELLED' || req.status === 'REJECTED') && (
                                                 <Button
                                                     size="sm"
-                                                    className="h-7 text-xs flex items-center gap-1 bg-cyan-600 hover:bg-cyan-700 text-white border-0 shadow-sm"
+                                                    className="h-7 text-xs flex items-center gap-1 bg-cyan-600 hover:bg-cyan-700 text-white border-0 shadow-sm action-btn"
                                                     onClick={(e) => handleRevokeClick(req, e)}
                                                 >
                                                     <RefreshCw className="w-3 h-3" /> Revoke
@@ -687,6 +689,15 @@ const ODRequests = () => {
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
+
+
+            {/* AI Result Modal */}
+            <AIResultModal
+                open={aiModal.open}
+                loading={aiModal.loading}
+                result={aiModal.result}
+                onClose={() => setAiModal({ ...aiModal, open: false })}
+            />
         </div>
     );
 };

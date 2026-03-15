@@ -4,18 +4,21 @@ import { Button } from '../../components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
 import { Badge } from '../../components/ui/badge';
 import { Textarea } from '../../components/ui/textarea';
-import { CheckCircle, XCircle, Banknote, FileText, ArrowRight, Wallet, RefreshCw } from 'lucide-react';
+import { CheckCircle, XCircle, Banknote, FileText, ArrowRight, Wallet, RefreshCw, Brain } from 'lucide-react';
 import { useLayout } from '../../contexts/LayoutContext';
 import DateFilter from '../../components/shared/DateFilter';
 import { RESEARCH_CENTRES } from '../../constants/researchCentres';
 import { FUND_SOURCES } from '../../constants/fundSources';
 import { FUND_REQUESTS_MOCK } from '../../data/dashboardData';
+import AIResultModal from '../../components/shared/AIResultModal';
+import { summarizeRequest } from '../../services/aiService';
 
 const ApproveFundRequests = () => {
     const { setLayout } = useLayout();
     const [selectedDate, setSelectedDate] = useState(null);
     const [selectedCentre, setSelectedCentre] = useState('All');
     const [selectedSource, setSelectedSource] = useState('All');
+    const [aiModal, setAiModal] = useState({ open: false, loading: false, result: null });
 
     const [fundRequests, setFundRequests] = useState(FUND_REQUESTS_MOCK);
 
@@ -23,6 +26,7 @@ const ApproveFundRequests = () => {
     const [approvalNotes, setApprovalNotes] = useState('');
     const [rejectionModal, setRejectionModal] = useState({ isOpen: false, requestId: null, remarks: '' });
     const [revokeModal, setRevokeModal] = useState({ isOpen: false, request: null, remarks: '' });
+
 
     React.useEffect(() => {
         setLayout(
@@ -235,7 +239,7 @@ const ApproveFundRequests = () => {
                                     <TableHead className="dark:text-gray-400">Purpose</TableHead>
                                     <TableHead className="dark:text-gray-400">Submitted</TableHead>
                                     <TableHead className="dark:text-gray-400">Status</TableHead>
-                                    <TableHead className="text-right dark:text-gray-400">Actions</TableHead>
+                                    <TableHead className="text-right dark:text-gray-400 min-w-[280px]">Actions</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
@@ -282,13 +286,13 @@ const ApproveFundRequests = () => {
                                             </div>
                                         </TableCell>
                                         <TableCell>
-                                            <div className="flex justify-end space-x-2">
+                                            <div className="actions-cell justify-end">
                                                 {request.status === 'PENDING' && (
                                                     <>
                                                         <Button
                                                             variant="outline"
                                                             size="sm"
-                                                            className="text-red-600 border-red-200 hover:bg-red-50 dark:hover:bg-red-900/20"
+                                                            className="text-red-600 border-red-200 hover:bg-red-50 dark:hover:bg-red-900/20 action-btn"
                                                             onClick={(e) => {
                                                                 e.stopPropagation();
                                                                 handleRejectClick(request.id);
@@ -299,7 +303,7 @@ const ApproveFundRequests = () => {
                                                         <Button
                                                             variant="default"
                                                             size="sm"
-                                                            className="bg-green-600 hover:bg-green-700 text-white font-medium shadow-sm px-4"
+                                                            className="bg-green-600 hover:bg-green-700 text-white font-medium shadow-sm px-4 action-btn"
                                                             onClick={(e) => {
                                                                 e.stopPropagation();
                                                                 handleApprove(request.id);
@@ -307,13 +311,26 @@ const ApproveFundRequests = () => {
                                                         >
                                                             Approve
                                                         </Button>
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            className="text-indigo-400 hover:bg-indigo-500/10 text-[10px] h-7 font-black action-btn"
+                                                            onClick={async (e) => {
+                                                                e.stopPropagation();
+                                                                setAiModal({ open: true, loading: true, result: null });
+                                                                const r = await summarizeRequest(request);
+                                                                setAiModal({ open: true, loading: false, result: r });
+                                                            }}
+                                                        >
+                                                            <Brain className="w-3 h-3 mr-1" /> AI Summary
+                                                        </Button>
                                                     </>
                                                 )}
                                                 {request.status === 'APPROVED' && (
                                                     <Button
                                                         variant="outline"
                                                         size="sm"
-                                                        className="text-orange-600 border-orange-200 hover:bg-orange-50 dark:hover:bg-orange-900/20"
+                                                        className="text-orange-600 border-orange-200 hover:bg-orange-50 dark:hover:bg-orange-900/20 action-btn"
                                                         onClick={(e) => {
                                                             e.stopPropagation();
                                                             setSelectedRequest(request);
@@ -591,6 +608,14 @@ const ApproveFundRequests = () => {
                     </div>
                 )}
             </div>
+
+            {/* AI Result Modal */}
+            <AIResultModal
+                open={aiModal.open}
+                loading={aiModal.loading}
+                result={aiModal.result}
+                onClose={() => setAiModal({ ...aiModal, open: false })}
+            />
         </div>
     );
 };

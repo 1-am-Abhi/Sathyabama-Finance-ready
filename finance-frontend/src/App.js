@@ -29,9 +29,9 @@ function App() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <ProjectProvider>
-        <AppRoutes />
-      </ProjectProvider>
+        <ProjectProvider>
+          <AppRoutes />
+        </ProjectProvider>
     </QueryClientProvider>
   );
 }

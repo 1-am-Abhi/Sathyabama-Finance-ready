@@ -1,6 +1,7 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from '../contexts/AuthContext';
+import { NotificationProvider } from '../contexts/NotificationContext';
 import ProtectedRoute from '../components/auth/ProtectedRoute';
 import LoginPage from '../components/auth/LoginPage';
 import { ROLES } from '../constants/roles';
@@ -18,6 +19,7 @@ import AdminReports from '../pages/admin/AdminReports';
 import Settings from '../components/shared/Settings';
 import Profile from '../pages/shared/Profile';
 
+// Faculty Pages
 import FacultyDashboard from '../pages/faculty/FacultyDashboard';
 import FacultyProjects from '../pages/faculty/FacultyProjects';
 import FacultyRequestFunds from '../pages/faculty/FacultyRequestFunds';
@@ -27,8 +29,8 @@ import ConsultancyRevenueSummary from '../pages/faculty/ConsultancyRevenue/Reven
 import MyRevenueRecords from '../pages/faculty/ConsultancyRevenue/MyRevenueRecords';
 import AddRevenueRecord from '../pages/faculty/ConsultancyRevenue/AddRevenueRecord';
 import EquipmentMyRequests from '../pages/faculty/EquipmentFinancialRecords/MyRequests';
-import EquipmentAddRequest from '../pages/faculty/EquipmentFinancialRecords/AddRequest';
 import AcademicSupportDashboard from '../pages/shared/AcademicSupportDashboard';
+import AIProposalGenerator from '../pages/faculty/AIProposalGenerator';
 
 // Finance Pages
 import FinanceDashboard from '../pages/finance/FinanceDashboard';
@@ -65,7 +67,8 @@ const AppRoutes = () => {
 
     return (
         <AuthProvider>
-            <Router>
+            <NotificationProvider>
+                <Router>
                 <Routes>
                     {/* Public Routes */}
                     <Route path="/login" element={<LoginPage />} />
@@ -86,14 +89,8 @@ const AppRoutes = () => {
                                         <Route path="od-requests" element={<ODRequests />} />
                                         <Route path="event-requests" element={<EventRequests />} />
                                         <Route path="reports" element={<AdminReports />} />
-                                        <Route
-                                            path="settings"
-                                            element={<Settings />}
-                                        />
-                                        <Route
-                                            path="profile"
-                                            element={<Profile />}
-                                        />
+                                        <Route path="settings" element={<Settings />} />
+                                        <Route path="profile" element={<Profile />} />
                                     </Routes>
                                 </DashboardLayout>
                             </ProtectedRoute>
@@ -116,8 +113,8 @@ const AppRoutes = () => {
                                         <Route path="revenue/records" element={<MyRevenueRecords />} />
                                         <Route path="revenue/add" element={<AddRevenueRecord />} />
                                         <Route path="equipment/dashboard" element={<EquipmentMyRequests />} />
-                                        <Route path="equipment/add" element={<EquipmentAddRequest />} />
                                         <Route path="academic-support" element={<AcademicSupportDashboard />} />
+                                        <Route path="ai-generator" element={<AIProposalGenerator />} />
                                         <Route path="settings" element={<Settings />} />
                                         <Route path="profile" element={<Profile />} />
                                     </Routes>
@@ -150,6 +147,7 @@ const AppRoutes = () => {
                     <Route path="*" element={<Navigate to="/login" replace />} />
                 </Routes>
             </Router>
+            </NotificationProvider>
         </AuthProvider>
     );
 };

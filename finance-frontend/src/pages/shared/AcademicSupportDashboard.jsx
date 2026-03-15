@@ -1,184 +1,132 @@
 import React, { useEffect, useState } from 'react';
-import { BookOpen, GraduationCap, Users, PenTool, Globe, Award, FileText, ChevronDown } from 'lucide-react';
+import { BookOpen, GraduationCap, Users, PenTool, Globe, Award, FileText, ChevronDown, Activity, Sparkles } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
+import { useLayout } from '../../contexts/LayoutContext';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../../components/ui/card';
+import { Badge } from '../../components/ui/badge';
 
 const AcademicSupportDashboard = () => {
+    const { setLayout } = useLayout();
     const { user } = useAuth();
     const [academicData, setAcademicData] = useState(null);
     const [selectedYear, setSelectedYear] = useState('2024-25');
     
-    // Using demo data structure matching seedData.js
     const years = ['2024-25', '2023-24', '2022-23'];
 
     useEffect(() => {
+        setLayout("Academic Intelligence Hub", "Comprehensive oversight of pedagogical contributions and scholarly mentoring");
         const storedData = JSON.parse(localStorage.getItem('academicSupportData') || '{}');
-        // Retrieve data for specific user and year based on seedData format ("1_2024-25")
-        // For demo, if user.id is '1':
         const userId = user?.id || '1';
         const key = `${userId}_${selectedYear}`;
-        
-        if (storedData[key]) {
-            setAcademicData(storedData[key]);
-        } else {
-            // Null state if no data
-            setAcademicData(null);
-        }
-    }, [selectedYear, user]);
+        setAcademicData(storedData[key] || null);
+    }, [selectedYear, user, setLayout]);
 
     return (
-        <div className="p-8 max-w-7xl mx-auto">
-            <div className="flex justify-between items-center mb-8">
+        <div className="p-6 space-y-8 pb-20">
+            {/* Header / Selector */}
+            <div className="flex flex-col md:flex-row items-center justify-between gap-6 px-2">
                 <div>
-                    <h1 className="text-2xl font-bold text-gray-800">Academic Support & Contributions</h1>
-                    <p className="text-gray-500 mt-1">Overview of your teaching, mentoring, and academic activities</p>
+                    <h2 className="text-2xl font-black italic tracking-tighter uppercase text-slate-800 dark:text-white">Pedagogical Audit</h2>
+                    <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 italic mt-1">Real-time tracking of academic deliverables for cycle {selectedYear}</p>
                 </div>
-                
-                <div className="relative">
+                <div className="flex items-center gap-3">
                     <select
                         value={selectedYear}
                         onChange={(e) => setSelectedYear(e.target.value)}
-                        className="appearance-none bg-white border border-gray-300 rounded-lg py-2 pl-4 pr-10 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent cursor-pointer font-medium text-gray-700 shadow-sm"
+                        className="h-12 px-6 bg-white dark:bg-slate-800 dark:text-white border-0 rounded-xl shadow-sm text-xs font-black italic uppercase tracking-widest outline-none focus:ring-2 focus:ring-maroon-500"
                     >
-                        {years.map(year => (
-                            <option key={year} value={year}>Academic Year {year}</option>
-                        ))}
+                        {years.map(year => <option key={year} value={year}>Cycle {year}</option>)}
                     </select>
-                    <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500 pointer-events-none" />
                 </div>
             </div>
 
             {!academicData ? (
-                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-12 text-center flex flex-col items-center justify-center min-h-[400px]">
-                    <FileText className="w-16 h-16 text-gray-300 mb-4" />
-                    <h3 className="text-lg font-medium text-gray-900 mb-2">No Academic Data Found</h3>
-                    <p className="text-gray-500 max-w-md">There are no academic support records available for the selected year ({selectedYear}). Please select a different year or update your profile.</p>
-                </div>
+                <Card className="border-0 shadow-sm dark:bg-slate-900 rounded-[2rem] p-20 flex flex-col items-center justify-center text-center space-y-6 opacity-40 italic">
+                    <FileText className="w-16 h-16 text-gray-300" />
+                    <p className="text-sm font-black uppercase tracking-widest dark:text-white">Zero pedagogical artifacts detected in current cycle</p>
+                </Card>
             ) : (
-                <div className="space-y-8">
-                    {/* Section A: Statistical Data */}
-                    <div>
-                        <h2 className="text-lg font-semibold text-gray-800 border-b pb-2 mb-4">Teaching & Mentoring Metrics</h2>
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                            <MetricCard 
-                                icon={<BookOpen className="w-5 h-5 text-blue-600" />} 
-                                title="Theory Subjects" 
-                                value={academicData.sectionA.theorySubjects} 
-                                bg="bg-blue-50" 
-                            />
-                            <MetricCard 
-                                icon={<PenTool className="w-5 h-5 text-indigo-600" />} 
-                                title="Practical Subjects" 
-                                value={academicData.sectionA.practicalSubjects} 
-                                bg="bg-indigo-50" 
-                            />
-                            <MetricCard 
-                                icon={<Users className="w-5 h-5 text-green-600" />} 
-                                title="UG Projects Mentored" 
-                                value={academicData.sectionA.ugProjects} 
-                                bg="bg-green-50" 
-                            />
-                            <MetricCard 
-                                icon={<GraduationCap className="w-5 h-5 text-amber-600" />} 
-                                title="PG Projects Mentored" 
-                                value={academicData.sectionA.pgProjects} 
-                                bg="bg-amber-50" 
-                            />
-                            <MetricCard 
-                                icon={<Users className="w-5 h-5 text-purple-600" />} 
-                                title="Internships Guided" 
-                                value={academicData.sectionA.internships} 
-                                bg="bg-purple-50" 
-                            />
-                            <MetricCard 
-                                icon={<GraduationCap className="w-5 h-5 text-rose-600" />} 
-                                title="PhD Scholars (Ongoing)" 
-                                value={academicData.sectionA.phdOngoing} 
-                                bg="bg-rose-50" 
-                            />
-                            <MetricCard 
-                                icon={<Award className="w-5 h-5 text-emerald-600" />} 
-                                title="PhD Scholars (Completed)" 
-                                value={academicData.sectionA.phdCompleted} 
-                                bg="bg-emerald-50" 
-                            />
-                            <MetricCard 
-                                icon={<FileText className="w-5 h-5 text-cyan-600" />} 
-                                title="Exam Duties" 
-                                value={academicData.sectionA.examDuty} 
-                                bg="bg-cyan-50" 
-                            />
-                        </div>
+                <>
+                    {/* Metrics Grid - Admin Style */}
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                        {[
+                            { label: 'Theory Load', value: academicData.sectionA.theorySubjects, icon: BookOpen, color: 'text-maroon-600', bg: 'bg-maroon-50' },
+                            { label: 'Practical Load', value: academicData.sectionA.practicalSubjects, icon: PenTool, color: 'text-indigo-600', bg: 'bg-indigo-50' },
+                            { label: 'UG Projects', value: academicData.sectionA.ugProjects, icon: Users, color: 'text-emerald-600', bg: 'bg-emerald-50' },
+                            { label: 'PG Projects', value: academicData.sectionA.pgProjects, icon: GraduationCap, color: 'text-amber-600', bg: 'bg-amber-50' },
+                        ].map((stat, i) => (
+                            <Card key={i} className={`border-0 ${stat.bg} ${stat.color} transition-all duration-300 hover:shadow-lg shadow-sm`}>
+                                <CardContent className="p-6">
+                                    <div className="flex items-start justify-between">
+                                        <div>
+                                            <p className="text-[10px] font-black uppercase tracking-widest opacity-70 italic">{stat.label}</p>
+                                            <p className="text-3xl font-black mt-2 italic tracking-tighter">{stat.value}</p>
+                                        </div>
+                                        <div className={`w-10 h-10 ${stat.bg} brightness-95 rounded-lg flex items-center justify-center`}>
+                                            <stat.icon className="w-5 h-5" />
+                                        </div>
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        ))}
                     </div>
 
-                    {/* Section B: Qualitative Data */}
-                    <div>
-                        <h2 className="text-lg font-semibold text-gray-800 border-b pb-2 mb-4">Other Contributions & Achievements</h2>
-                        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-                            <div className="divide-y divide-gray-100">
-                                <DetailRow 
-                                    title="International Visits" 
-                                    icon={<Globe className="w-5 h-5 text-blue-500" />}
-                                    content={academicData.sectionB.internationalVisit} 
-                                />
-                                <DetailRow 
-                                    title="Fellowships & Awards" 
-                                    icon={<Award className="w-5 h-5 text-amber-500" />}
-                                    content={academicData.sectionB.fellowship} 
-                                />
-                                <DetailRow 
-                                    title="Coordinator Roles" 
-                                    icon={<Users className="w-5 h-5 text-indigo-500" />}
-                                    content={academicData.sectionB.coordinators} 
-                                />
-                                <DetailRow 
-                                    title="Year Coordinator" 
-                                    icon={<GraduationCap className="w-5 h-5 text-emerald-500" />}
-                                    content={academicData.sectionB.yearCoordinator} 
-                                />
-                                <DetailRow 
-                                    title="Grants & Reviewer Roles" 
-                                    icon={<FileText className="w-5 h-5 text-rose-500" />}
-                                    content={academicData.sectionB.grants} 
-                                />
-                                <DetailRow 
-                                    title="Other Contributions" 
-                                    icon={<PenTool className="w-5 h-5 text-purple-500" />}
-                                    content={academicData.sectionB.anyContribution} 
-                                />
-                            </div>
-                        </div>
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                        {/* Secondary Metrics */}
+                        <Card className="border-0 shadow-lg dark:bg-slate-900 rounded-[2.5rem] overflow-hidden bg-white">
+                            <CardHeader className="p-8 border-b border-gray-50 flex flex-row items-center justify-between">
+                                <div>
+                                    <CardTitle className="text-lg font-black italic tracking-tighter uppercase text-slate-800">Advanced Mentoring</CardTitle>
+                                    <CardDescription className="text-[10px] font-black uppercase tracking-widest text-gray-400 italic">Scholarly supervision and research guidance audit</CardDescription>
+                                </div>
+                                <Sparkles className="w-6 h-6 text-maroon-600" />
+                            </CardHeader>
+                            <CardContent className="p-8">
+                                <div className="grid grid-cols-2 gap-6">
+                                    {[
+                                        { label: 'Internships', value: academicData.sectionA.internships, color: 'text-indigo-600' },
+                                        { label: 'Exam Duties', value: academicData.sectionA.examDuty, color: 'text-rose-600' },
+                                        { label: 'PhD Ongoing', value: academicData.sectionA.phdOngoing, color: 'text-blue-600' },
+                                        { label: 'PhD Completed', value: academicData.sectionA.phdCompleted, color: 'text-emerald-600' },
+                                    ].map((m, i) => (
+                                        <div key={i} className="p-6 rounded-2xl bg-gray-50/50 border border-gray-100/50">
+                                            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 italic">{m.label}</p>
+                                            <p className={`text-2xl font-black italic tracking-tighter mt-1 ${m.color}`}>{m.value}</p>
+                                        </div>
+                                    ))}
+                                </div>
+                            </CardContent>
+                        </Card>
+
+                        {/* Qualitative Achievements */}
+                        <Card className="border-0 shadow-lg dark:bg-slate-900 rounded-[2.5rem] overflow-hidden bg-white">
+                            <CardHeader className="p-8 border-b border-gray-50 flex flex-row items-center justify-between">
+                                <div>
+                                    <CardTitle className="text-lg font-black italic tracking-tighter uppercase text-slate-800">Strategic Contributions</CardTitle>
+                                    <CardDescription className="text-[10px] font-black uppercase tracking-widest text-gray-400 italic">Institutional impact and global professional engagement</CardDescription>
+                                </div>
+                                <Activity className="w-6 h-6 text-maroon-600" />
+                            </CardHeader>
+                            <CardContent className="p-0 overflow-y-auto max-h-[400px]">
+                                {[
+                                    { title: 'Global Visits', icon: Globe, content: academicData.sectionB.internationalVisit, color: 'text-blue-600' },
+                                    { title: 'Awards', icon: Award, content: academicData.sectionB.fellowship, color: 'text-amber-600' },
+                                    { title: 'Coordination', icon: Users, content: academicData.sectionB.coordinators, color: 'text-indigo-600' },
+                                    { title: 'Grants', icon: GraduationCap, content: academicData.sectionB.grants, color: 'text-emerald-600' },
+                                ].map((row, i) => row.content ? (
+                                    <div key={i} className="p-8 border-b border-gray-50 last:border-0 hover:bg-gray-50 transition-colors">
+                                        <div className="flex items-center gap-3 mb-3">
+                                            <row.icon className={`w-4 h-4 ${row.color}`} />
+                                            <p className="text-[10px] font-black uppercase tracking-widest text-slate-800 italic">{row.title}</p>
+                                        </div>
+                                        <p className="text-xs font-bold text-slate-500 italic leading-relaxed uppercase tracking-tighter">{row.content}</p>
+                                    </div>
+                                ) : null)}
+                            </CardContent>
+                        </Card>
                     </div>
-                </div>
+                </>
             )}
-        </div>
-    );
-};
-
-const MetricCard = ({ icon, title, value, bg }) => (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5 flex items-start space-x-4">
-        <div className={`p-3 rounded-lg ${bg}`}>
-            {icon}
-        </div>
-        <div>
-            <p className="text-sm text-gray-500 font-medium mb-1">{title}</p>
-            <p className="text-2xl font-bold text-gray-900">{value}</p>
-        </div>
-    </div>
-);
-
-const DetailRow = ({ title, icon, content }) => {
-    if (!content) return null;
-    return (
-        <div className="p-6 flex flex-col sm:flex-row sm:items-start gap-4 hover:bg-gray-50 transition-colors">
-            <div className="flex items-center space-x-3 sm:w-1/4 sm:shrink-0">
-                <div className="p-2 bg-gray-50 rounded-lg shrink-0">
-                    {icon}
-                </div>
-                <h3 className="font-medium text-gray-900">{title}</h3>
-            </div>
-            <div className="text-gray-600 sm:w-3/4">
-                <p className="leading-relaxed">{content}</p>
-            </div>
         </div>
     );
 };

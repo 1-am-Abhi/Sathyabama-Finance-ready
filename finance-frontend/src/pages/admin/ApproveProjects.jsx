@@ -3,7 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../..
 import { Button } from '../../components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
 import { Badge } from '../../components/ui/badge';
-import { CheckCircle, XCircle, Eye, Calendar, User, Clock, Info, ShieldAlert, RefreshCw, Users } from 'lucide-react';
+import { CheckCircle, XCircle, Eye, Calendar, User, Clock, Info, ShieldAlert, RefreshCw, Users, Brain, Sparkles, TrendingUp } from 'lucide-react';
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend, ResponsiveContainer } from 'recharts';
 import { useLayout } from '../../contexts/LayoutContext';
 import DateFilter from '../../components/shared/DateFilter';
@@ -11,12 +11,15 @@ import { RESEARCH_CENTRES } from '../../constants/researchCentres';
 import { AGENCIES } from '../../constants/agencies';
 import { FACULTY_MEMBERS } from '../../constants/facultyMembers';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../../components/ui/tooltip';
+import AIResultModal from '../../components/shared/AIResultModal';
+import { generateProjectSummary, analyzeProjectRisk, detectDuplicateProposal, predictFundingSuccess } from '../../services/aiService';
 
 const ApproveProjects = () => {
     const { setLayout } = useLayout();
     const [selectedDate, setSelectedDate] = useState(null);
     const [selectedCentre, setSelectedCentre] = useState('All');
     const [selectedAgency, setSelectedAgency] = useState('All');
+
     const [projects, setProjects] = useState([
         {
             id: 1,
@@ -82,6 +85,7 @@ const ApproveProjects = () => {
 
     const [selectedProject, setSelectedProject] = useState(null);
     const [manageFacultyModal, setManageFacultyModal] = useState({ isOpen: false, project: null, selectedFaculty: '' });
+    const [aiModal, setAiModal] = useState({ open: false, loading: false, result: null });
 
     const handleFacultyAssignment = () => {
         if (!manageFacultyModal.selectedFaculty) return;
@@ -95,6 +99,14 @@ const ApproveProjects = () => {
 
         // Close modal and reset
         setManageFacultyModal({ isOpen: false, project: null, selectedFaculty: '' });
+    };
+
+    const handleApprove = (id) => {
+        setProjects(prev => prev.map(p => p.id === id ? { ...p, status: 'APPROVED' } : p));
+    };
+
+    const handleReject = (id) => {
+        setProjects(prev => prev.map(p => p.id === id ? { ...p, status: 'REJECTED' } : p));
     };
 
     React.useEffect(() => {
@@ -241,7 +253,7 @@ const ApproveProjects = () => {
                                     <TableHead className="dark:text-gray-400">Budget</TableHead>
                                     <TableHead className="dark:text-gray-400">Submitted</TableHead>
                                     <TableHead className="dark:text-gray-400">Status</TableHead>
-                                    <TableHead className="dark:text-gray-400 text-center">Actions</TableHead>
+                                    <TableHead className="dark:text-gray-400 text-right min-w-[380px]">Actions</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
@@ -277,25 +289,98 @@ const ApproveProjects = () => {
                                                 {project.status}
                                             </Badge>
                                         </TableCell>
-                                        <TableCell className="text-center">
-                                            {project.status === 'APPROVED' && (
+                                        <TableCell className="text-right">
+                                            <div className="actions-cell justify-end">
+                                                {project.status === 'PENDING' && (
+                                                    <>
+                                                        <Button
+                                                            variant="outline"
+                                                            size="sm"
+                                                            className="text-red-600 border-red-200 hover:bg-red-50 h-7 text-xs action-btn"
+                                                            onClick={(e) => { e.stopPropagation(); handleReject(project.id); }}
+                                                        >
+                                                            Reject
+                                                        </Button>
+                                                        <Button
+                                                            size="sm"
+                                                            className="bg-green-600 hover:bg-green-700 text-white h-7 text-xs action-btn"
+                                                            onClick={(e) => { e.stopPropagation(); handleApprove(project.id); }}
+                                                        >
+                                                            Approve
+                                                        </Button>
+                                                    </>
+                                                )}
+                                                {project.status === 'APPROVED' && (
+                                                    <Button
+                                                        variant="outline"
+                                                        size="sm"
+                                                        className="text-blue-600 border-blue-200 hover:bg-blue-50 dark:hover:bg-blue-900/20 action-btn"
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            setManageFacultyModal({
+                                                                isOpen: true,
+                                                                project: project,
+                                                                selectedFaculty: project.faculty
+                                                            });
+                                                        }}
+                                                    >
+                                                        <Users className="w-4 h-4 mr-1" />
+                                                        Faculty
+                                                    </Button>
+                                                )}
                                                 <Button
-                                                    variant="outline"
+                                                    variant="ghost"
                                                     size="sm"
-                                                    className="text-blue-600 border-blue-200 hover:bg-blue-50 dark:hover:bg-blue-900/20"
-                                                    onClick={(e) => {
+                                                    className="text-indigo-400 hover:bg-indigo-500/10 text-[10px] h-7 font-black action-btn"
+                                                    onClick={async (e) => {
                                                         e.stopPropagation();
-                                                        setManageFacultyModal({
-                                                            isOpen: true,
-                                                            project: project,
-                                                            selectedFaculty: project.faculty
-                                                        });
+                                                        setAiModal({ open: true, loading: true, result: null });
+                                                        const r = await generateProjectSummary(project);
+                                                        setAiModal({ open: true, loading: false, result: r });
                                                     }}
                                                 >
-                                                    <Users className="w-4 h-4 mr-1" />
-                                                    Manage Faculty
+                                                    <Brain className="w-3 h-3 mr-1" /> AI Summary
                                                 </Button>
-                                            )}
+                                                <Button
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    className="text-amber-400 hover:bg-amber-500/10 text-[10px] h-7 font-black action-btn"
+                                                    onClick={async (e) => {
+                                                        e.stopPropagation();
+                                                        setAiModal({ open: true, loading: true, result: null });
+                                                        const r = await analyzeProjectRisk(project);
+                                                        setAiModal({ open: true, loading: false, result: r });
+                                                    }}
+                                                >
+                                                    <ShieldAlert className="w-3 h-3 mr-1" /> Risk
+                                                </Button>
+                                                <Button
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    className="text-emerald-400 hover:bg-emerald-500/10 text-[10px] h-7 font-black action-btn"
+                                                    onClick={async (e) => {
+                                                        e.stopPropagation();
+                                                        setAiModal({ open: true, loading: true, result: null });
+                                                        const r = await detectDuplicateProposal(project);
+                                                        setAiModal({ open: true, loading: false, result: r });
+                                                    }}
+                                                >
+                                                    <Sparkles className="w-3 h-3 mr-1" /> Duplicate
+                                                </Button>
+                                                <Button
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    className="text-fuchsia-400 hover:bg-fuchsia-500/10 text-[10px] h-7 font-black action-btn"
+                                                    onClick={async (e) => {
+                                                        e.stopPropagation();
+                                                        setAiModal({ open: true, loading: true, result: null });
+                                                        const r = await predictFundingSuccess(project);
+                                                        setAiModal({ open: true, loading: false, result: r });
+                                                    }}
+                                                >
+                                                    <TrendingUp className="w-3 h-3 mr-1" /> Predict
+                                                </Button>
+                                            </div>
                                         </TableCell>
                                     </TableRow>
                                 ))}
@@ -622,8 +707,15 @@ const ApproveProjects = () => {
                     </div>
                 )}
             </div>
-        </div>
 
+            {/* AI Result Modal */}
+            <AIResultModal
+                open={aiModal.open}
+                loading={aiModal.loading}
+                result={aiModal.result}
+                onClose={() => setAiModal({ ...aiModal, open: false })}
+            />
+        </div>
     );
 };
 

@@ -6,10 +6,12 @@ import { Button } from '../../components/ui/button';
 import {
     BarChart3, Download, FileText, TrendingUp, Users,
     PieChart as PieIcon, Activity, Banknote, Wallet, ArrowUpRight,
-    FileSpreadsheet, Filter, Search, CheckCircle, Clock
+    FileSpreadsheet, Filter, Search, CheckCircle, Clock, Brain
 } from 'lucide-react';
 import { useLayout } from '../../contexts/LayoutContext';
 import DateFilter from '../../components/shared/DateFilter';
+import AIResultModal from '../../components/shared/AIResultModal';
+import { summarizeRequest } from '../../services/aiService';
 import {
     LineChart, Line, BarChart, Bar, PieChart, Pie, Cell,
     XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
@@ -32,6 +34,8 @@ const AdminReports = () => {
     const [selectedStatus, setSelectedStatus] = useState('All');
     const [selectedSource, setSelectedSource] = useState('All');
     const [manageFacultyModal, setManageFacultyModal] = useState({ isOpen: false, project: null, selectedFaculty: '' });
+    const [aiModal, setAiModal] = useState({ open: false, loading: false, result: null });
+
 
     // Derive active project from context data to ensure updates are reflected
     const activeProject = selectedProject ? FUND_REQUESTS_MOCK.find(p => p.id === selectedProject.id) : null;
@@ -921,6 +925,19 @@ const AdminReports = () => {
                                                         Manage Faculty
                                                     </Button>
                                                 )}
+                                                <Button
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    className="text-indigo-600 hover:bg-indigo-50 hover:text-indigo-700 h-7 text-xs flex items-center gap-1 mt-1 mx-auto"
+                                                    onClick={async (e) => {
+                                                        e.stopPropagation();
+                                                        setAiModal({ open: true, loading: true, result: null });
+                                                        const r = await summarizeRequest({ title: request.projectTitle, faculty: request.faculty, budget: request.requestedAmount });
+                                                        setAiModal({ open: true, loading: false, result: r });
+                                                    }}
+                                                >
+                                                    <Brain className="w-3 h-3" /> AI
+                                                </Button>
                                             </TableCell>
                                         </TableRow>
                                     ))}
@@ -1221,7 +1238,16 @@ const AdminReports = () => {
                 centreName={selectedCentreDetail}
                 isDark={document.documentElement.classList.contains('dark')}
             />
-        </div >
+
+
+            {/* AI Result Modal */}
+            <AIResultModal
+                open={aiModal.open}
+                loading={aiModal.loading}
+                result={aiModal.result}
+                onClose={() => setAiModal({ ...aiModal, open: false })}
+            />
+        </div>
     );
 };
 

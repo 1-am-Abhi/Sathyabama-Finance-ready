@@ -1,35 +1,33 @@
 import React, { useEffect, useState } from 'react';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { DollarSign, TrendingUp, Calendar, Briefcase, Users, Beaker } from 'lucide-react';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../../../components/ui/card';
+import { Badge } from '../../../components/ui/badge';
+import { 
+    DollarSign, TrendingUp, Briefcase,
+    Users, PieChart, Activity
+} from 'lucide-react';
+import { useLayout } from '../../../contexts/LayoutContext';
 
 const RevenueSummary = () => {
+    const { setLayout } = useLayout();
     const [records, setRecords] = useState([]);
-    const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+    const [selectedYear, setSelectedYear] = useState(2026);
     const [summary, setSummary] = useState({
-        total: 0,
-        consultancy: 0,
-        events: 0,
-        projects: 0,
-        industry: 0,
-        analysis: 0,
-        other: 0
+        total: 0, consultancy: 0, events: 0, projects: 0, industry: 0, analysis: 0, other: 0
     });
     const [chartData, setChartData] = useState([]);
 
     useEffect(() => {
+        setLayout("Consultancy Revenue", "Analytical oversight of institutional income and professional services");
         const storedRecords = JSON.parse(localStorage.getItem('revenueRecords') || '[]');
         setRecords(storedRecords);
-    }, []);
+    }, [setLayout]);
 
     useEffect(() => {
-        // Filter by selected year
         const filtered = records.filter(r => r.year === Number(selectedYear));
-
-        // Calculate Summary
         const newSummary = filtered.reduce((acc, curr) => {
             const amount = Number(curr.amountGenerated);
             acc.total += amount;
-
             const source = curr.revenueSource.toLowerCase();
             if (source.includes('consultancy')) acc.consultancy += amount;
             else if (source.includes('events')) acc.events += amount;
@@ -37,97 +35,128 @@ const RevenueSummary = () => {
             else if (source.includes('industry')) acc.industry += amount;
             else if (source.includes('analysis')) acc.analysis += amount;
             else acc.other += amount;
-
             return acc;
         }, { total: 0, consultancy: 0, events: 0, projects: 0, industry: 0, analysis: 0, other: 0 });
 
         setSummary(newSummary);
-
-        // Prepare Chart Data
         setChartData([
-            { name: 'Consultancy', amount: newSummary.consultancy },
-            { name: 'Events', amount: newSummary.events },
-            { name: 'Projects', amount: newSummary.projects },
-            { name: 'Industry', amount: newSummary.industry },
-            { name: 'Analysis', amount: newSummary.analysis },
+            { name: 'Consultancy', value: newSummary.consultancy, color: '#f43f5e' },
+            { name: 'Events', value: newSummary.events, color: '#8b5cf6' },
+            { name: 'Projects', value: newSummary.projects, color: '#10b981' },
+            { name: 'Industry', value: newSummary.industry, color: '#f59e0b' },
+            { name: 'Analysis', value: newSummary.analysis, color: '#3b82f6' }
         ]);
-
     }, [records, selectedYear]);
 
-    const getAvailableYears = () => {
-        const years = [...new Set(records.map(r => r.year))];
-        if (!years.includes(new Date().getFullYear())) years.push(new Date().getFullYear());
-        return years.sort((a, b) => b - a);
-    };
-
-    const SummaryCard = ({ title, amount, icon: Icon, color }) => (
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 flex items-center gap-4">
-            <div className={`p-3 rounded-lg ${color} bg-opacity-20`}>
-                <Icon className={`w-6 h-6 ${color.replace('bg-', 'text-')}`} />
-            </div>
-            <div>
-                <p className="text-sm text-gray-500 font-medium">{title}</p>
-                <p className="text-xl font-bold text-gray-800">₹{amount.toLocaleString()}</p>
-            </div>
-        </div>
-    );
-
     return (
-        <div className="p-8 max-w-7xl mx-auto">
-            <div className="flex justify-between items-center mb-8">
+        <div className="p-6 space-y-8 pb-20">
+            {/* Header Area */}
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 px-2">
                 <div>
-                    <h1 className="text-2xl font-bold text-gray-800">Revenue Summary</h1>
-                    <p className="text-gray-500 text-sm mt-1">Analytical overview of generated revenue</p>
+                    <h2 className="text-2xl font-black italic tracking-tighter uppercase text-white">Financial Intelligence</h2>
+                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 italic mt-1">Real-time revenue monitoring for FY {selectedYear}</p>
                 </div>
-                <div className="relative w-40">
-                    <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <div className="flex items-center gap-3">
                     <select
                         value={selectedYear}
                         onChange={(e) => setSelectedYear(Number(e.target.value))}
-                        className="w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-100 outline-none appearance-none bg-white font-medium"
+                        className="h-12 px-4 bg-slate-800 border border-white/10 text-white rounded-xl text-xs font-black italic uppercase tracking-widest outline-none focus:ring-2 focus:ring-rose-500"
                     >
-                        {getAvailableYears().map(year => (
-                            <option key={year} value={year}>{year}</option>
-                        ))}
+                        {[2026, 2025, 2024, 2023].map(y => <option key={y} value={y}>{y}</option>)}
                     </select>
                 </div>
             </div>
 
-            {/* Summary Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6 mb-8">
-                <div className="bg-gradient-to-r from-blue-600 to-blue-800 p-6 rounded-xl shadow-md text-white md:col-span-2 lg:col-span-1">
-                    <p className="text-blue-100 text-sm font-medium mb-1">Total Revenue ({selectedYear})</p>
-                    <h2 className="text-3xl font-bold">₹{summary.total.toLocaleString()}</h2>
-                    <div className="mt-4 flex items-center text-xs text-blue-200 gap-1">
-                        <TrendingUp className="w-3 h-3" />
-                        <span>Generated so far</span>
-                    </div>
-                </div>
-                <SummaryCard title="Projects" amount={summary.projects} icon={Briefcase} color="bg-purple-600 text-purple-600" />
-                <SummaryCard title="Consultancy" amount={summary.consultancy} icon={Users} color="bg-emerald-600 text-emerald-600" />
-                <SummaryCard title="Events & Workshops" amount={summary.events} icon={Calendar} color="bg-orange-600 text-orange-600" />
-                <SummaryCard title="Industry Training" amount={summary.industry} icon={TrendingUp} color="bg-rose-600 text-rose-600" />
-                <SummaryCard title="Analysis & Testing" amount={summary.analysis} icon={Beaker} color="bg-cyan-600 text-cyan-600" />
+            {/* Stats Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                {[
+                    { label: 'Total Revenue', value: `₹${(summary.total / 100000).toFixed(1)}L`, icon: DollarSign, color: 'text-rose-400', bg: 'bg-rose-500/10', border: 'border-rose-500/20' },
+                    { label: 'Consultancy', value: `₹${(summary.consultancy / 100000).toFixed(1)}L`, icon: Users, color: 'text-violet-400', bg: 'bg-violet-500/10', border: 'border-violet-500/20' },
+                    { label: 'Projects', value: `₹${(summary.projects / 100000).toFixed(1)}L`, icon: Briefcase, color: 'text-emerald-400', bg: 'bg-emerald-500/10', border: 'border-emerald-500/20' },
+                    { label: 'Growth', value: '+12.5%', icon: TrendingUp, color: 'text-amber-400', bg: 'bg-amber-500/10', border: 'border-amber-500/20' },
+                ].map((stat, i) => (
+                    <Card key={i} className={`border ${stat.border} ${stat.bg} ${stat.color}`}>
+                        <CardContent className="p-6">
+                            <div className="flex items-start justify-between">
+                                <div>
+                                    <p className="text-[10px] font-black uppercase tracking-widest opacity-60 italic">{stat.label}</p>
+                                    <p className="text-3xl font-black mt-2 italic tracking-tighter">{stat.value}</p>
+                                </div>
+                                <div className={`w-10 h-10 ${stat.bg} border ${stat.border} rounded-xl flex items-center justify-center`}>
+                                    <stat.icon className="w-5 h-5" />
+                                </div>
+                            </div>
+                        </CardContent>
+                    </Card>
+                ))}
             </div>
 
-            {/* Chart Section */}
-            <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-                <h3 className="text-lg font-bold text-gray-800 mb-6">Revenue Distribution by Source</h3>
-                <div className="h-80 w-full">
-                    <ResponsiveContainer width="100%" height="100%">
-                        <BarChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
-                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
-                            <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#6b7280' }} dy={10} />
-                            <YAxis axisLine={false} tickLine={false} tick={{ fill: '#6b7280' }} tickFormatter={(value) => `₹${value / 1000}k`} />
-                            <Tooltip
-                                contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' }}
-                                cursor={{ fill: '#f3f4f6' }}
-                                formatter={(value) => [`₹${value.toLocaleString()}`, 'Amount']}
-                            />
-                            <Bar dataKey="amount" fill="#3b82f6" radius={[4, 4, 0, 0]} barSize={50} />
-                        </BarChart>
-                    </ResponsiveContainer>
-                </div>
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                {/* Chart Section */}
+                <Card className="lg:col-span-2 border border-white/10 bg-slate-800/40 rounded-[2.5rem] overflow-hidden">
+                    <CardHeader className="p-8 border-b border-white/10 flex flex-row items-center justify-between">
+                        <div>
+                            <CardTitle className="text-lg font-black italic tracking-tighter uppercase text-white">Revenue Distribution</CardTitle>
+                            <CardDescription className="text-[10px] font-black uppercase tracking-widest text-slate-400 italic">Financial partitioning across various research streams</CardDescription>
+                        </div>
+                        <PieChart className="w-6 h-6 text-rose-400" />
+                    </CardHeader>
+                    <CardContent className="p-8">
+                        <div className="h-80 w-full font-bold italic">
+                            <ResponsiveContainer width="100%" height="100%">
+                                <BarChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.05)" />
+                                    <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 10, fontWeight: 900 }} dy={10} />
+                                    <YAxis axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 10, fontWeight: 900 }} tickFormatter={(v) => `₹${v/100000}L`} />
+                                    <Tooltip
+                                        cursor={{ fill: 'rgba(255,255,255,0.03)' }}
+                                        contentStyle={{ borderRadius: '1rem', border: '1px solid rgba(255,255,255,0.1)', backgroundColor: '#1e293b', color: '#f8fafc' }}
+                                        formatter={(val) => [`₹${(val/100000).toFixed(1)}L`, 'Revenue']}
+                                    />
+                                    <Bar dataKey="value" radius={[8, 8, 0, 0]} barSize={40}>
+                                        {chartData.map((entry, index) => (
+                                            <Cell key={`cell-${index}`} fill={entry.color} opacity={0.85} />
+                                        ))}
+                                    </Bar>
+                                </BarChart>
+                            </ResponsiveContainer>
+                        </div>
+                    </CardContent>
+                </Card>
+
+                {/* Stream Breakdown */}
+                <Card className="border border-white/10 bg-slate-800/40 rounded-[2.5rem] overflow-hidden">
+                    <CardHeader className="p-8 border-b border-white/10">
+                        <CardTitle className="text-lg font-black italic tracking-tighter uppercase text-white">Stream Audit</CardTitle>
+                        <CardDescription className="text-[10px] font-black uppercase tracking-widest text-slate-400 italic">Detailed per-stream performance</CardDescription>
+                    </CardHeader>
+                    <CardContent className="p-8 space-y-6">
+                        {chartData.map((stream, i) => (
+                            <div key={i} className="space-y-2">
+                                <div className="flex items-center justify-between text-[10px] font-black uppercase tracking-widest italic">
+                                    <span className="text-slate-400">{stream.name}</span>
+                                    <span className="text-white">₹{(stream.value / 100000).toFixed(1)}L</span>
+                                </div>
+                                <div className="h-2 bg-white/5 rounded-full overflow-hidden">
+                                    <div
+                                        className="h-full rounded-full transition-all duration-1000"
+                                        style={{
+                                            backgroundColor: stream.color,
+                                            width: `${summary.total > 0 ? (stream.value / summary.total) * 100 : 0}%`
+                                        }}
+                                    />
+                                </div>
+                            </div>
+                        ))}
+                        <div className="pt-6 border-t border-white/10 mt-4">
+                            <div className="bg-slate-700/50 border border-white/10 rounded-2xl p-6 text-white text-center">
+                                <Activity className="w-5 h-5 mx-auto mb-2 text-emerald-400" />
+                                <p className="text-[10px] font-black uppercase tracking-widest italic text-slate-400">Yield Efficiency</p>
+                                <p className="text-2xl font-black italic tracking-tighter mt-1 text-white">94.2%</p>
+                            </div>
+                        </div>
+                    </CardContent>
+                </Card>
             </div>
         </div>
     );

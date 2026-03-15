@@ -239,6 +239,47 @@ const InitialFundRequestModal = ({ isOpen, onClose, onSubmit }) => {
                         </div>
                     </div>
 
+                    {/* Section 4: Supporting Documents */}
+                    <div className="space-y-4">
+                        <h4 className="text-sm font-bold text-gray-900 border-b border-gray-100 pb-2">4. Supporting Documents</h4>
+                        
+                        <div className="flex flex-wrap gap-4">
+                            <input
+                                type="file"
+                                id="initial-modal-file-upload"
+                                className="hidden"
+                                multiple
+                                onChange={handleFileUpload}
+                            />
+                            <Button
+                                type="button"
+                                onClick={() => document.getElementById('initial-modal-file-upload').click()}
+                                variant="outline"
+                                className="h-24 w-full md:w-48 border-2 border-dashed border-gray-200 rounded-2xl flex flex-col items-center justify-center gap-2 hover:border-emerald-500 hover:bg-emerald-50 transition-all group"
+                            >
+                                <Upload className="w-5 h-5 text-gray-400 group-hover:text-emerald-500" />
+                                <span className="text-[10px] font-black uppercase text-gray-500 group-hover:text-emerald-700">Upload Documents</span>
+                            </Button>
+
+                            {files.map((file) => (
+                                <div key={file.id} className="h-24 w-full md:w-48 bg-gray-50 rounded-2xl border border-gray-100 p-4 flex flex-col justify-between relative group overflow-hidden">
+                                    <FileText className="w-8 h-8 text-emerald-600 opacity-20 absolute -right-2 -bottom-2" />
+                                    <p className="text-[10px] font-bold text-gray-700 truncate pr-6">{file.name}</p>
+                                    <div className="flex items-center justify-between">
+                                        <Badge className="bg-emerald-100 text-emerald-700 border-0 text-[8px] px-1.5 py-0">READY</Badge>
+                                        <button 
+                                            type="button"
+                                            onClick={() => setFiles(files.filter(f => f.id !== file.id))}
+                                            className="text-gray-400 hover:text-red-500 transition-colors"
+                                        >
+                                            <X className="w-3 h-3" />
+                                        </button>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+
                     {/* Action */}
                     <div className="pt-4 flex items-center gap-4">
                         <Button type="button" variant="ghost" onClick={onClose} className="flex-1 h-12 rounded-2xl font-bold text-gray-400 hover:text-gray-900">

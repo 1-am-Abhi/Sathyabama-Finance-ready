@@ -1,278 +1,213 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Card, CardContent } from '../../components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../../components/ui/card';
 import { Badge } from '../../components/ui/badge';
 import { Button } from '../../components/ui/button';
-import {
-    FileText, Layers, Clock,
-    Plus, Edit2, Building, Search,
-    Book, BookOpen, Lightbulb, Award,
-    Presentation, FolderOpen, CheckCircle,
-    Briefcase, Filter
+import { 
+    FileText, Layers, Clock, Plus, Edit2, 
+    Building, Search, Filter, BookOpen, 
+    CheckCircle, Briefcase, TrendingUp, Award, BarChart2, Brain, Sparkles
 } from 'lucide-react';
 import { useLayout } from '../../contexts/LayoutContext';
 import AcademicWorkModal from '../../components/faculty/NewProjectModal';
+import AIResultModal from '../../components/shared/AIResultModal';
+import { predictResearchImpact, predictGrantSuccess } from '../../services/aiService';
 
 const FacultyProjects = () => {
     const { setLayout } = useLayout();
 
     useEffect(() => {
-        setLayout("My Academic Portfolio", "Manage your research projects and publications");
+        setLayout("My Academic Portfolio", "Manage research projects, publications, and professional contributions");
     }, [setLayout]);
 
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [modalMode, setModalMode] = useState('create');
     const [selectedWork, setSelectedWork] = useState(null);
+    const [aiModal, setAiModal] = useState({ open: false, loading: false, result: null });
     const [selectedYear, setSelectedYear] = useState('All');
+
 
     const [projects, setProjects] = useState(() => {
         const storedProjects = localStorage.getItem('facultyProjects');
-        return storedProjects ? JSON.parse(storedProjects) : [];
+        return storedProjects ? JSON.parse(storedProjects) : [
+            { id: 1, title: 'AI-Powered Medical Diagnosis', type: 'PROJECT', agency: 'DST-SERB', budget: 4500000, status: 'Active', startDate: '2023-01-15' },
+            { id: 2, title: 'Sustainable Cities Framework', type: 'PUBLICATION', publisher: 'Elsevier', year: 2024, status: 'Published' },
+            { id: 3, title: 'Smart Grid Optimization', type: 'PROJECT', agency: 'Industry Sponsored', budget: 2500000, status: 'Active', startDate: '2023-06-10' }
+        ];
     });
 
-    // Save to localStorage whenever projects change
     useEffect(() => {
         localStorage.setItem('facultyProjects', JSON.stringify(projects));
     }, [projects]);
 
-    // Helper: Extract Year from Work
-    const getYear = (work) => {
-        if (work.year) return Number(work.year);
-        if (work.startDate) return new Date(work.startDate).getFullYear();
-        return null;
-    };
-
-    // Derived Data: Available Years
-    const availableYears = useMemo(() => {
-        const years = projects.map(getYear).filter(y => y !== null);
-        return [...new Set(years)].sort((a, b) => b - a);
-    }, [projects]);
-
-    // Derived Data: Filtered Projects
     const filteredProjects = useMemo(() => {
         if (selectedYear === 'All') return projects;
-        return projects.filter(p => getYear(p) === Number(selectedYear));
+        return projects.filter(p => {
+            const year = p.year || (p.startDate ? new Date(p.startDate).getFullYear() : null);
+            return year === Number(selectedYear);
+        });
     }, [projects, selectedYear]);
 
-    // Derived Data: Statistics
     const stats = useMemo(() => {
-        const data = filteredProjects; // Calculate stats based on FILTERED data (Year-wise)
-
-        const counts = {
-            total: data.length,
-            books: 0,
-            journals: 0,
-            projects: 0,
-            papers: 0,
-            patents: 0,
-            projectOngoing: 0,
-            projectCompleted: 0
-        };
-
-        data.forEach(item => {
-            const type = item.type?.toUpperCase();
-            if (type === 'BOOK') counts.books++;
-            else if (type === 'JOURNAL' || type === 'PUBLICATION') counts.journals++;
-            else if (type === 'PROJECT') {
-                counts.projects++;
-                if (item.status === 'ONGOING') counts.projectOngoing++;
-                if (item.status === 'COMPLETED') counts.projectCompleted++;
-            }
-            else if (type === 'CONFERENCE') counts.papers++;
-            else if (type === 'PATENT') counts.patents++;
-        });
-
-        return counts;
-    }, [filteredProjects]);
-
+        return [
+            { title: 'Total Works', value: projects.length, icon: Layers, color: 'text-maroon-600', bg: 'bg-maroon-50' },
+            { title: 'Active Projects', value: projects.filter(p => p.status === 'Active').length, icon: CheckCircle, color: 'text-green-600', bg: 'bg-green-50' },
+            { title: 'Publications', value: projects.filter(p => p.type === 'PUBLICATION').length, icon: BookOpen, color: 'text-indigo-600', bg: 'bg-indigo-50' },
+            { title: 'Total Budget', value: `₹${(projects.reduce((sum, p) => sum + (p.budget || 0), 0) / 100000).toFixed(1)}L`, icon: TrendingUp, color: 'text-amber-600', bg: 'bg-amber-50' }
+        ];
+    }, [projects]);
 
     const handleWorkSubmit = (data) => {
         if (modalMode === 'create') {
-            setProjects([{ ...data, utilized: 0, progress: 0 }, ...projects]);
+            setProjects([{ ...data, id: Date.now() }, ...projects]);
         } else {
             setProjects(projects.map(p => p.id === data.id ? { ...p, ...data } : p));
         }
         setIsModalOpen(false);
     };
 
-    const openEditModal = (work) => {
-        setSelectedWork(work);
-        setModalMode('edit');
-        setIsModalOpen(true);
-    };
-
-    const openCreateModal = () => {
-        setSelectedWork(null);
-        setModalMode('create');
-        setIsModalOpen(true);
-    };
-
-    const getStatusColor = (status) => {
-        switch (status) {
-            case 'ONGOING': return 'bg-blue-100 text-blue-700';
-            case 'COMPLETED': return 'bg-green-100 text-green-700';
-            case 'PUBLISHED': return 'bg-purple-100 text-purple-700';
-            default: return 'bg-gray-100 text-gray-700';
-        }
-    };
-
     return (
-        <div className="min-h-full">
+        <div className="p-6 space-y-8">
+            {/* Stats Grid - Admin Style */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                {stats.map((stat, index) => {
+                    const Icon = stat.icon;
+                    return (
+                        <Card key={index} className={`border-0 ${stat.bg} ${stat.color} transition-all duration-300 hover:shadow-lg`}>
+                            <CardContent className="p-6">
+                                <div className="flex items-start justify-between">
+                                    <div>
+                                        <p className="text-sm font-medium opacity-80">{stat.title}</p>
+                                        <p className="text-3xl font-bold mt-2">{stat.value}</p>
+                                    </div>
+                                    <div className={`w-12 h-12 ${stat.bg} brightness-95 rounded-lg flex items-center justify-center`}>
+                                        <Icon className="w-6 h-6" />
+                                    </div>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    );
+                })}
+            </div>
 
-            <div className="p-8 max-w-7xl mx-auto space-y-8">
-
-                {/* 1. Header with Year Selector */}
-                <div className="flex justify-between items-end">
+            {/* Project Management Table */}
+            <Card className="border-0 shadow-sm dark:bg-slate-900 overflow-hidden">
+                <CardHeader className="p-6 border-b border-gray-100 dark:border-slate-800 flex flex-row items-center justify-between">
                     <div>
-                        <h2 className="text-2xl font-bold text-gray-900">Academic Snapshot</h2>
-                        <p className="text-sm text-gray-500">Overview of your contributions for {selectedYear}</p>
+                        <CardTitle className="text-lg font-bold dark:text-white">Detailed Academic Record</CardTitle>
+                        <CardDescription className="dark:text-gray-400">Comprehensive list of your research and academic contributions</CardDescription>
                     </div>
-                    <div className="relative">
-                        <select
+                    <div className="flex items-center gap-3">
+                        <select 
+                            className="bg-gray-50 dark:bg-slate-800 border-0 rounded-lg px-3 py-2 text-sm font-medium focus:ring-2 focus:ring-maroon-500"
                             value={selectedYear}
-                            onChange={(e) => setSelectedYear(e.target.value === 'All' ? 'All' : Number(e.target.value))}
-                            className="appearance-none bg-white border border-gray-300 text-gray-700 py-2 pl-4 pr-10 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-medium"
+                            onChange={(e) => setSelectedYear(e.target.value)}
                         >
                             <option value="All">All Years</option>
-                            {availableYears.map(year => (
-                                <option key={year} value={year}>{year}</option>
-                            ))}
+                            {[2024, 2023, 2022].map(y => <option key={y} value={y}>{y}</option>)}
                         </select>
-                        <Filter className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-                    </div>
-                </div>
-
-                {/* 2. Overall Summary Stat Cards */}
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-                    <StatCard title="Total Works" count={stats.total} icon={Layers} color="text-blue-600" bg="bg-blue-50" />
-                    <StatCard title="Books" count={stats.books} icon={Book} color="text-purple-600" bg="bg-purple-50" />
-                    <StatCard title="Journals" count={stats.journals} icon={BookOpen} color="text-pink-600" bg="bg-pink-50" />
-                    <StatCard title="Projects" count={stats.projects} icon={Briefcase} color="text-indigo-600" bg="bg-indigo-50" />
-                    <StatCard title="Conf. Papers" count={stats.papers} icon={Presentation} color="text-orange-600" bg="bg-orange-50" />
-                    <StatCard title="Patents" count={stats.patents} icon={Award} color="text-green-600" bg="bg-green-50" />
-                </div>
-
-                {/* 3. Category-Wise Summary Cards */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    {/* Books & Journals Combined for visual balance or specific logic */}
-                    <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm flex items-center justify-between">
-                        <div>
-                            <p className="text-sm font-medium text-gray-500">Books & Journals</p>
-                            <div className="flex gap-4 mt-2">
-                                <div><span className="text-xl font-bold">{stats.books}</span> <span className="text-xs text-gray-400">Books</span></div>
-                                <div className="w-px bg-gray-200 h-8"></div>
-                                <div><span className="text-xl font-bold">{stats.journals}</span> <span className="text-xs text-gray-400">Journals</span></div>
-                            </div>
-                        </div>
-                        <div className="p-3 bg-fuchsia-50 rounded-lg"><BookOpen className="w-6 h-6 text-fuchsia-600" /></div>
-                    </div>
-
-                    {/* Research Projects Detailed */}
-                    <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm flex items-center justify-between">
-                        <div>
-                            <p className="text-sm font-medium text-gray-500">Research Projects</p>
-                            <div className="flex gap-4 mt-2">
-                                <div><span className="text-xl font-bold">{stats.projectOngoing}</span> <span className="text-xs text-green-600">Ongoing</span></div>
-                                <div className="w-px bg-gray-200 h-8"></div>
-                                <div><span className="text-xl font-bold">{stats.projectCompleted}</span> <span className="text-xs text-gray-400">Completed</span></div>
-                            </div>
-                        </div>
-                        <div className="p-3 bg-blue-50 rounded-lg"><Layers className="w-6 h-6 text-blue-600" /></div>
-                    </div>
-
-                    {/* Conference & Patents */}
-                    <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm flex items-center justify-between">
-                        <div>
-                            <p className="text-sm font-medium text-gray-500">Papers & Patents</p>
-                            <div className="flex gap-4 mt-2">
-                                <div><span className="text-xl font-bold">{stats.papers}</span> <span className="text-xs text-gray-400">Papers</span></div>
-                                <div className="w-px bg-gray-200 h-8"></div>
-                                <div><span className="text-xl font-bold">{stats.patents}</span> <span className="text-xs text-gray-400">Patents</span></div>
-                            </div>
-                        </div>
-                        <div className="p-3 bg-orange-50 rounded-lg"><Lightbulb className="w-6 h-6 text-orange-600" /></div>
-                    </div>
-                </div>
-
-                {/* 4. Project List Section */}
-                <div>
-                    <div className="flex justify-between items-center mb-6 mt-8">
-                        <div>
-                            <h3 className="text-lg font-bold text-gray-900 icon-text-gap">
-                                <Layers className="w-5 h-5 inline mr-2 text-blue-600" />
-                                Detailed List
-                            </h3>
-                        </div>
-                        <Button onClick={openCreateModal} className="bg-blue-600 hover:bg-blue-700">
-                            <Plus className="w-4 h-4 mr-2" /> Add New Work
+                        <Button onClick={() => { setModalMode('create'); setIsModalOpen(true); }} className="bg-maroon-600 hover:bg-maroon-700">
+                            <Plus className="w-4 h-4 mr-2" /> Add Work
                         </Button>
                     </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                        {filteredProjects.length > 0 ? filteredProjects.map((work) => (
-                            <Card key={work.id} className="border-0 shadow-sm hover:shadow-md transition-shadow group">
-                                <CardContent className="p-6">
-                                    <div className="flex justify-between items-start mb-4">
-                                        <Badge variant="outline" className="text-[10px] font-bold group-hover:bg-blue-50">
-                                            {work.id}
-                                        </Badge>
-                                        <Badge className={getStatusColor(work.status)}>
-                                            {work.status}
-                                        </Badge>
-                                    </div>
-                                    <h3 className="font-bold text-gray-900 mb-2 line-clamp-2 h-12" title={work.title}>
-                                        {work.title}
-                                    </h3>
-                                    <div className="space-y-2 mb-4">
-                                        <div className="flex items-center text-xs text-gray-500">
-                                            <Layers className="w-3.5 h-3.5 mr-2" />
-                                            {work.type}
+                </CardHeader>
+                <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse">
+                        <thead>
+                            <tr className="bg-gray-50 dark:bg-slate-800 text-[10px] uppercase tracking-widest text-gray-500 font-bold italic">
+                                <th className="px-6 py-4">Title & Classification</th>
+                                <th className="px-6 py-4">Entity/Agency</th>
+                                <th className="px-6 py-4">Financials/Year</th>
+                                <th className="px-6 py-4">Status</th>
+                                <th className="px-6 py-4 text-right">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-100 dark:divide-slate-800">
+                            {filteredProjects.map((work) => (
+                                <tr key={work.id} className="hover:bg-gray-50 dark:hover:bg-slate-800/50 transition-colors">
+                                    <td className="px-6 py-4">
+                                        <p className="text-sm font-bold text-slate-800 dark:text-white uppercase tracking-tighter italic">{work.title}</p>
+                                        <div className="flex items-center gap-2 mt-1">
+                                            <Badge variant="outline" className="text-[9px] uppercase font-black px-1.5 py-0 border-slate-200 text-slate-400">{work.type}</Badge>
                                         </div>
-                                        <div className="flex items-center text-xs text-gray-500">
-                                            <Clock className="w-3.5 h-3.5 mr-2" />
-                                            {work.type === 'PROJECT' ? `Started: ${work.startDate}` : `Year: ${work.year}`}
-                                        </div>
-                                        {work.publisher && (
-                                            <div className="flex items-center text-xs text-gray-500">
-                                                <Building className="w-3.5 h-3.5 mr-2" />
-                                                {work.publisher}
-                                            </div>
-                                        )}
-                                    </div>
-                                    <div className="border-t pt-4 flex justify-between items-center">
-                                        {work.type === 'PROJECT' ? (
-                                            <div>
-                                                <p className="text-[10px] text-gray-400 uppercase font-bold">Budget</p>
-                                                <p className="text-sm font-bold text-gray-900">₹{(work.budget / 100000).toFixed(1)}L</p>
-                                            </div>
+                                    </td>
+                                    <td className="px-6 py-4">
+                                        <p className="text-xs font-bold text-slate-500 italic uppercase">{work.agency || work.publisher || 'N/A'}</p>
+                                    </td>
+                                    <td className="px-6 py-4">
+                                        {work.budget ? (
+                                            <p className="text-sm font-bold text-maroon-600 italic">₹{(work.budget / 100000).toFixed(1)}L</p>
                                         ) : (
-                                            <div />
+                                            <p className="text-sm font-bold text-slate-400 italic">{work.year || 'N/A'}</p>
                                         )}
-                                        <Button variant="ghost" size="sm" onClick={() => openEditModal(work)} className="text-blue-600 hover:text-blue-700 hover:bg-blue-50">
-                                            <Edit2 className="w-3.5 h-3.5 mr-1" /> Edit
-                                        </Button>
-                                    </div>
-                                </CardContent>
-                            </Card>
-                        )) : (
-                            <div className="col-span-full text-center py-12 bg-gray-50 rounded-lg border border-dashed border-gray-300">
-                                <div className="mx-auto w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mb-3">
-                                    <Search className="w-6 h-6 text-gray-400" />
-                                </div>
-                                <h3 className="text-gray-900 font-medium">No projects found for {selectedYear}</h3>
-                                <p className="text-gray-500 text-sm mt-1">Try selecting a different year or add a new work.</p>
-                            </div>
-                        )}
-
-                        {/* Add New Card Placeholder (Only shown if filter matches current year or 'All', or maybe always? 
-                            User said 'It should update dynamically when year filter changes.' 
-                            Let's keep the placeholder at the end of the list ONLY if we are in 'All' or Current Year to encourage adding recent work.
-                            Actually, let's just leave it out of the main grid if filtered, or append it if appropriate.
-                            User didn't specify, but standard UX is to show 'Add' always or conditional.
-                            I will remove the inline placeholder card and rely on the button, as the grid is now dynamic.
-                        */}
-                    </div>
+                                    </td>
+                                    <td className="px-6 py-4">
+                                        {/* Status badge + Impact badge */}
+                                        <div className="flex flex-col gap-1.5">
+                                            <Badge className={`border-0 text-[10px] font-black italic px-3 py-1 rounded-full w-fit ${
+                                                work.status === 'Active' || work.status === 'Published' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'
+                                            }`}>
+                                                {work.status}
+                                            </Badge>
+                                            {work.budget > 3000000 && (
+                                                <span className="inline-flex items-center gap-1 text-[9px] font-black uppercase px-2 py-0.5 rounded-full bg-emerald-100 border border-emerald-200 text-emerald-700 w-fit">
+                                                    <Award className="w-2.5 h-2.5" /> High Impact
+                                                </span>
+                                            )}
+                                            {work.budget >= 1000000 && work.budget <= 3000000 && (
+                                                <span className="inline-flex items-center gap-1 text-[9px] font-black uppercase px-2 py-0.5 rounded-full bg-amber-100 border border-amber-200 text-amber-700 w-fit">
+                                                    <BarChart2 className="w-2.5 h-2.5" /> Moderate Impact
+                                                </span>
+                                            )}
+                                            {work.type === 'PUBLICATION' && (
+                                                <span className="inline-flex items-center gap-1 text-[9px] font-black uppercase px-2 py-0.5 rounded-full bg-sky-100 border border-sky-200 text-sky-700 w-fit">
+                                                    <BookOpen className="w-2.5 h-2.5" /> Emerging Research
+                                                </span>
+                                            )}
+                                        </div>
+                                    </td>
+                                    <td className="px-6 py-4 text-right">
+                                        <div className="flex items-center justify-end gap-1 flex-wrap">
+                                            <Button variant="ghost" size="sm" onClick={() => { setSelectedWork(work); setModalMode('edit'); setIsModalOpen(true); }} className="text-slate-400 hover:text-maroon-600">
+                                                <Edit2 className="w-4 h-4" />
+                                            </Button>
+                                            {work.type === 'PROPOSAL' && (
+                                                <>
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        className="text-indigo-400 hover:bg-indigo-500/10 text-[10px] h-7 font-black"
+                                                        onClick={async (e) => {
+                                                            e.stopPropagation();
+                                                            setAiModal({ open: true, loading: true, result: null });
+                                                            const r = await predictResearchImpact({ title: work.title, department: work.department });
+                                                            setAiModal({ open: true, loading: false, result: r });
+                                                        }}
+                                                    >
+                                                        <Brain className="w-3 h-3 mr-1" /> Impact
+                                                    </Button>
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        className="text-sky-400 hover:bg-sky-500/10 text-[10px] h-7 font-black"
+                                                        onClick={async (e) => {
+                                                            e.stopPropagation();
+                                                            setAiModal({ open: true, loading: true, result: null });
+                                                            const r = await predictGrantSuccess({ title: work.title, budget: work.budget });
+                                                            setAiModal({ open: true, loading: false, result: r });
+                                                        }}
+                                                    >
+                                                        <Sparkles className="w-3 h-3 mr-1" /> Grant
+                                                    </Button>
+                                                </>
+                                            )}
+                                        </div>
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
                 </div>
-            </div>
+            </Card>
 
             <AcademicWorkModal
                 isOpen={isModalOpen}
@@ -281,23 +216,15 @@ const FacultyProjects = () => {
                 initialData={selectedWork}
                 mode={modalMode}
             />
+            {/* AI Result Modal */}
+            <AIResultModal
+                open={aiModal.open}
+                loading={aiModal.loading}
+                result={aiModal.result}
+                onClose={() => setAiModal({ ...aiModal, open: false })}
+            />
         </div>
     );
 };
-
-// Stateless Components
-const StatCard = ({ title, count, icon: Icon, color, bg }) => (
-    <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200">
-        <div className="flex justify-between items-start mb-2">
-            <div>
-                <p className="text-xs font-medium text-gray-500">{title}</p>
-                <h3 className="text-2xl font-bold text-gray-800 mt-1">{count}</h3>
-            </div>
-            <div className={`p-2 rounded-lg ${bg}`}>
-                <Icon className={`w-4 h-4 ${color}`} />
-            </div>
-        </div>
-    </div>
-);
 
 export default FacultyProjects;

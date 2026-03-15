@@ -27,27 +27,25 @@
   }
 
   .dark {
-    --background: 222.2 84% 4.9%;
+    --background: 222 47% 10%;
     --foreground: 210 40% 98%;
-    --card: 222.2 84% 4.9%;
+    --card: 222 47% 13%;
     --card-foreground: 210 40% 98%;
-    --popover: 222.2 84% 4.9%;
+    --popover: 222 47% 11%;
     --popover-foreground: 210 40% 98%;
-    --primary: 343 67% 39%;
-    /* Slightly lighter Maroon for dark mode */
+    --primary: 343 67% 45%;
     --primary-foreground: 210 40% 98%;
-    --secondary: 32 95% 44%;
-    /* Amber */
+    --secondary: 45 93% 47%;
     --secondary-foreground: 210 40% 98%;
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
-    --accent: 217.2 32.6% 17.5%;
+    --muted: 217 32% 18%;
+    --muted-foreground: 215 20% 65%;
+    --accent: 217 32% 18%;
     --accent-foreground: 210 40% 98%;
-    --destructive: 0 62.8% 30.6%;
+    --destructive: 0 62% 30%;
     --destructive-foreground: 210 40% 98%;
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 343 67% 39%;
+    --border: 217 32% 18%;
+    --input: 217 32% 18%;
+    --ring: 343 67% 45%;
   }
 }
 
@@ -64,4 +62,145 @@
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
+}
+
+/* ============================================================
+   DARK MODE GLOBAL OVERRIDES
+   ============================================================ */
+
+/* Text colors */
+.dark .text-slate-800,
+.dark .text-slate-900 {
+  color: rgba(248, 250, 252, 0.90) !important;
+}
+.dark .text-slate-700 {
+  color: rgba(226, 232, 240, 0.80) !important;
+}
+.dark .text-slate-600 {
+  color: rgba(203, 213, 225, 0.70) !important;
+}
+.dark .text-gray-700,
+.dark .text-gray-800,
+.dark .text-gray-900 {
+  color: rgba(226, 232, 240, 0.80) !important;
+}
+
+/* Remove all shadows */
+.dark * {
+  box-shadow: none !important;
+}
+
+/* White and light backgrounds */
+.dark .bg-white {
+  background-color: hsl(222, 47%, 15%) !important;
+}
+.dark .bg-gray-50 {
+  background-color: hsl(222, 47%, 17%) !important;
+}
+.dark .bg-gray-100 {
+  background-color: hsl(222, 47%, 20%) !important;
+}
+
+/* ============================================================
+   STAT CARD bg-*-50 / bg-*-100 OVERRIDES
+   Convert all light colored card backgrounds to dark tinted
+   versions to match the dark theme aesthetically.
+   ============================================================ */
+
+/* Maroon / Rose / Red */
+.dark .bg-maroon-50  { background-color: rgba(153, 27, 27, 0.12) !important; }
+.dark .bg-maroon-100 { background-color: rgba(153, 27, 27, 0.18) !important; }
+.dark .bg-rose-50    { background-color: rgba(244, 63, 98, 0.10) !important; }
+.dark .bg-rose-100   { background-color: rgba(244, 63, 98, 0.16) !important; }
+.dark .bg-red-50     { background-color: rgba(239, 68, 68, 0.10) !important; }
+.dark .bg-red-100    { background-color: rgba(239, 68, 68, 0.16) !important; }
+
+/* Green / Emerald / Teal */
+.dark .bg-green-50    { background-color: rgba(34, 197, 94, 0.10) !important; }
+.dark .bg-green-100   { background-color: rgba(34, 197, 94, 0.16) !important; }
+.dark .bg-emerald-50  { background-color: rgba(16, 185, 129, 0.10) !important; }
+.dark .bg-emerald-100 { background-color: rgba(16, 185, 129, 0.16) !important; }
+.dark .bg-teal-50     { background-color: rgba(20, 184, 166, 0.10) !important; }
+
+/* Amber / Yellow / Orange */
+.dark .bg-amber-50   { background-color: rgba(245, 158, 11, 0.10) !important; }
+.dark .bg-amber-100  { background-color: rgba(245, 158, 11, 0.16) !important; }
+.dark .bg-yellow-50  { background-color: rgba(234, 179, 8, 0.10) !important; }
+.dark .bg-orange-50  { background-color: rgba(249, 115, 22, 0.10) !important; }
+
+/* Indigo / Violet / Purple */
+.dark .bg-indigo-50   { background-color: rgba(99, 102, 241, 0.10) !important; }
+.dark .bg-indigo-100  { background-color: rgba(99, 102, 241, 0.16) !important; }
+.dark .bg-violet-50   { background-color: rgba(139, 92, 246, 0.10) !important; }
+.dark .bg-purple-50   { background-color: rgba(168, 85, 247, 0.10) !important; }
+
+/* Blue / Sky / Cyan */
+.dark .bg-blue-50  { background-color: rgba(59, 130, 246, 0.10) !important; }
+.dark .bg-blue-100 { background-color: rgba(59, 130, 246, 0.16) !important; }
+.dark .bg-sky-50   { background-color: rgba(14, 165, 233, 0.10) !important; }
+.dark .bg-cyan-50  { background-color: rgba(6, 182, 212, 0.10) !important; }
+
+/* Pink / Fuchsia */
+.dark .bg-pink-50    { background-color: rgba(236, 72, 153, 0.10) !important; }
+.dark .bg-fuchsia-50 { background-color: rgba(217, 70, 239, 0.10) !important; }
+
+/* Slate / Gray / Zinc */
+.dark .bg-slate-50 { background-color: rgba(100, 116, 139, 0.10) !important; }
+.dark .bg-zinc-50  { background-color: rgba(113, 113, 122, 0.10) !important; }
+
+/* Remove brightness filter which brightens dark tinted cards */
+.dark [class*="brightness"] {
+  filter: none !important;
+}
+
+/* ============================================================
+   FORM ELEMENTS
+   ============================================================ */
+
+.dark input,
+.dark textarea {
+  background-color: hsl(222, 47%, 17%);
+  color: rgba(248, 250, 252, 0.90);
+}
+.dark input::placeholder,
+.dark textarea::placeholder {
+  color: rgba(148, 163, 184, 0.45);
+}
+.dark select {
+  background-color: hsl(222, 47%, 17%);
+  color: rgba(248, 250, 252, 0.90);
+}
+.dark select option {
+  background-color: hsl(222, 47%, 13%);
+  color: rgba(248, 250, 252, 0.90);
+}
+
+/* Borders */
+.dark .border-gray-50,
+.dark .border-gray-100,
+.dark .border-gray-200 {
+  border-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+/* Hover */
+.dark .hover\:bg-gray-50:hover {
+  background-color: rgba(255, 255, 255, 0.04) !important;
+}
+
+/* ============================================================
+   ACTION BUTTON VISIBILITY FIX
+   ============================================================ */
+.actions-cell {
+  display: flex !important;
+  gap: 8px !important;
+  align-items: center !important;
+  justify-content: flex-end !important;
+  flex-wrap: wrap !important;
+  min-width: 180px !important;
+}
+
+.action-btn {
+  padding: 6px 10px !important;
+  font-size: 12px !important;
+  white-space: nowrap !important;
 }

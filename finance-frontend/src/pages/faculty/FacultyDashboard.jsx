@@ -1,141 +1,299 @@
-import React, { useState } from 'react';
-import { Card, CardContent } from '../../components/ui/card';
+import React, { useEffect, useState } from 'react';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../../components/ui/card';
 import { Badge } from '../../components/ui/badge';
+import { Button } from '../../components/ui/button';
 import { useLayout } from '../../contexts/LayoutContext';
+import { useNavigate } from 'react-router-dom';
 import {
-    Award, TrendingUp, BookOpen,
-    ArrowUpRight, Target, Zap
+    AreaChart, Area, BarChart, Bar, XAxis, YAxis,
+    CartesianGrid, Tooltip, ResponsiveContainer,
+    PieChart, Pie, Cell
+} from 'recharts';
+import {
+    FileText, Banknote, TrendingUp, Award, Target, ChevronRight, Sparkles, Brain, Search, Users, Lightbulb
 } from 'lucide-react';
-import FacultyDetailsSection from '../../components/faculty/FacultyDetailsSection';
-import ResearchProjectsGraphs from '../../components/faculty/ResearchProjectsGraphs';
-import PublicationsGraphs from '../../components/faculty/PublicationsGraphs';
-import ConsultancyGraphs from '../../components/faculty/ConsultancyGraphs';
-import FacultyProfileEdit from '../../components/faculty/FacultyProfileEdit';
+import AIResultModal from '../../components/shared/AIResultModal';
+import { predictFundingSuccess, predictResearchTrends, analyzePersonalResearchMetrics, findMoreCollaborators } from '../../services/aiService';
 
 const FacultyDashboard = () => {
     const { setLayout } = useLayout();
+    const navigate = useNavigate();
+    const [aiModal, setAiModal] = useState({ open: false, loading: false, result: null });
 
-    React.useEffect(() => {
-        setLayout("Faculty Dashboard", "Institutional research impact & grant performance monitoring");
+    useEffect(() => {
+        setLayout("Faculty Dashboard", "Research impact & grant performance monitoring");
     }, [setLayout]);
 
-    // Faculty Data State
-    const [facultyData, setFacultyData] = useState({
-        name: 'Dr. Aishwarya',
-        designation: 'Professor & Head',
-        department: 'Centre for Research - Sathyabama',
-        qualification: 'Ph.D in AI & Robotics',
-        experience: '9 Years 8 Months',
-        specialization: 'Artificial Intelligence, Machine Learning, Computer Vision',
-        email: 'aishwarya.research@sathyabama.ac.in',
-        phone: '+91 98765 43210',
-        biography: 'Specialized in deep learning and robotics with over 9 years of research experience.',
-        profilePhoto: null,
-        office: 'Research Block, Level 4, Room 402'
-    });
+    const stats = [
+        { title: 'Active Projects', value: '4', trend: '+1', icon: FileText, color: 'text-rose-400', bg: 'bg-rose-500/10', border: 'border-rose-500/20', subtitle: 'Ongoing research' },
+        { title: 'Total Funding', value: '₹85.5L', trend: '+₹12L', icon: Banknote, color: 'text-emerald-400', bg: 'bg-emerald-500/10', border: 'border-emerald-500/20', subtitle: 'Sanctioned grants' },
+        { title: 'Publications', value: '28', trend: '+2', icon: Award, color: 'text-violet-400', bg: 'bg-violet-500/10', border: 'border-violet-500/20', subtitle: 'Scopus/WoS indexed' },
+        { title: 'h-Index', value: '22', trend: '+1', icon: Target, color: 'text-amber-400', bg: 'bg-amber-500/10', border: 'border-amber-500/20', subtitle: 'Author impact' }
+    ];
 
-    const [isProfileEditOpen, setIsProfileEditOpen] = useState(false);
+    const fundingTrend = [
+        { month: 'Apr', amount: 10 }, { month: 'May', amount: 14 }, { month: 'Jun', amount: 12 },
+        { month: 'Jul', amount: 18 }, { month: 'Aug', amount: 16 }, { month: 'Sep', amount: 22 },
+        { month: 'Oct', amount: 20 }, { month: 'Nov', amount: 28 }, { month: 'Dec', amount: 25 },
+        { month: 'Jan', amount: 35 }, { month: 'Feb', amount: 42 }, { month: 'Mar', amount: 85.5 },
+    ];
 
-    const handleProfileUpdate = (newData) => {
-        setFacultyData(prev => ({ ...prev, ...newData }));
-        setIsProfileEditOpen(false);
-    };
+    const projectStatus = [
+        { name: 'Active', value: 4, color: '#10b981' },
+        { name: 'Completed', value: 6, color: '#8b5cf6' },
+        { name: 'Pending', value: 2, color: '#f59e0b' },
+        { name: 'Rejected', value: 1, color: '#f43f5e' },
+    ];
 
-    // Research Impact Metrics
-    const metrics = [
-        {
-            title: 'Scopus Citations',
-            value: '1,284',
-            trend: '+12%',
-            icon: Award,
-            color: 'text-indigo-600',
-            bg: 'bg-indigo-50',
-            subtitle: 'Total citations indexed in Scopus'
-        },
-        {
-            title: 'h-Index (Overall)',
-            value: '22',
-            trend: '+2',
-            icon: Target,
-            color: 'text-emerald-600',
-            bg: 'bg-emerald-50',
-            subtitle: 'Author productivity & impact metric'
-        },
-        {
-            title: 'Impact Factor',
-            value: '4.85',
-            trend: 'Peak',
-            icon: Zap,
-            color: 'text-rose-600',
-            bg: 'bg-rose-50',
-            subtitle: 'Highest impact journal achieved'
-        }
+    const publicationsByYear = [
+        { year: '2021', count: 4 }, { year: '2022', count: 6 }, { year: '2023', count: 8 },
+        { year: '2024', count: 7 }, { year: '2025', count: 3 },
     ];
 
     return (
-        <div className="min-h-full">
-            <div className="p-8 max-w-7xl mx-auto">
-                {/* 1. Profile Section */}
-                <FacultyDetailsSection
-                    facultyData={facultyData}
-                    onEdit={() => setIsProfileEditOpen(true)}
-                />
-
-                {/* 2. Research Impact Metrics Row */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8 italic">
-                    {metrics.map((metric, index) => {
-                        const Icon = metric.icon;
-                        return (
-                            <Card key={index} className="border-0 shadow-xl shadow-gray-200/40 bg-white rounded-[2rem] overflow-hidden group hover:scale-[1.02] transition-transform">
-                                <CardContent className="p-8">
-                                    <div className="flex items-start justify-between">
-                                        <div className="space-y-4">
-                                            <div className="flex items-center gap-2">
-                                                <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest leading-none">{metric.title}</p>
-                                                <Badge className={`${metric.bg} ${metric.color} border-0 text-[8px] font-black px-2 py-0.5`}>
-                                                    <ArrowUpRight className="w-2.5 h-2.5 mr-1" /> {metric.trend}
-                                                </Badge>
-                                            </div>
-                                            <h3 className={`text-4xl font-black italic tracking-tighter ${metric.color}`}>
-                                                {metric.value}
-                                            </h3>
-                                            <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">{metric.subtitle}</p>
-                                        </div>
-                                        <div className={`w-14 h-14 ${metric.bg} ${metric.color} rounded-2xl flex items-center justify-center transition-all group-hover:rotate-12`}>
-                                            <Icon className="w-7 h-7" />
-                                        </div>
+        <div className="p-6 space-y-8 pb-20">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                {stats.map((stat, index) => {
+                    const Icon = stat.icon;
+                    return (
+                        <Card key={index} className={`border ${stat.border} ${stat.bg} ${stat.color}`}>
+                            <CardContent className="p-6">
+                                <div className="flex items-start justify-between">
+                                    <div>
+                                        <p className="text-[10px] font-black uppercase tracking-widest opacity-60 italic">{stat.title}</p>
+                                        <p className="text-3xl font-black mt-2 italic tracking-tighter">{stat.value}</p>
                                     </div>
-                                </CardContent>
-                            </Card>
-                        );
-                    })}
-                </div>
-
-                {/* 3. Analytics Graphs Section */}
-                <div className="space-y-10">
-                    <ResearchProjectsGraphs />
-
-                    <div className="grid grid-cols-1 gap-10">
-                        <PublicationsGraphs />
-                        <ConsultancyGraphs />
-                    </div>
-                </div>
-
-                {/* Footer Insight */}
-                <div className="mt-12 text-center pb-12">
-                    <div className="inline-flex items-center gap-4 px-8 py-3 bg-gray-900 text-white rounded-full shadow-2xl animate-bounce-slow italic">
-                        <TrendingUp className="w-5 h-5 text-emerald-400" />
-                        <span className="text-[10px] font-black uppercase tracking-[0.2em]">Institutional Performance Benchmark: EXCELLENCE (A+)</span>
-                    </div>
-                </div>
+                                    <div className={`w-12 h-12 ${stat.bg} border ${stat.border} rounded-2xl flex items-center justify-center`}>
+                                        <Icon className="w-6 h-6" />
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-1 mt-4">
+                                    <Badge variant="outline" className="border-current bg-transparent text-[10px] font-black px-2 py-0 italic uppercase tracking-tighter">
+                                        {stat.trend}
+                                    </Badge>
+                                    <p className="text-[9px] font-black uppercase tracking-widest opacity-50 italic">{stat.subtitle}</p>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    );
+                })}
             </div>
 
-            {/* Profile Edit Modal */}
-            <FacultyProfileEdit
-                isOpen={isProfileEditOpen}
-                onClose={() => setIsProfileEditOpen(false)}
-                onSave={handleProfileUpdate}
-                facultyData={facultyData}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <Card className="lg:col-span-2 border border-white/10 bg-slate-800/40 rounded-[2rem] overflow-hidden">
+                    <CardHeader className="p-6 border-b border-white/10">
+                        <CardTitle className="text-base font-black italic tracking-tighter uppercase text-white">Grant Funding Trend</CardTitle>
+                        <CardDescription className="text-[10px] font-black uppercase tracking-widest text-slate-400 italic">Cumulative sanctioned funding — FY 2025-26</CardDescription>
+                    </CardHeader>
+                    <CardContent className="p-6">
+                        <div className="h-56 w-full">
+                            <ResponsiveContainer width="100%" height="100%">
+                                <AreaChart data={fundingTrend} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
+                                    <defs>
+                                        <linearGradient id="fundGrad" x1="0" y1="0" x2="0" y2="1">
+                                            <stop offset="5%" stopColor="#f43f5e" stopOpacity={0.3} />
+                                            <stop offset="95%" stopColor="#f43f5e" stopOpacity={0} />
+                                        </linearGradient>
+                                    </defs>
+                                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
+                                    <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 10, fontWeight: 900 }} />
+                                    <YAxis axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 10, fontWeight: 900 }} tickFormatter={(v) => `₹${v}L`} />
+                                    <Tooltip contentStyle={{ background: '#1e293b', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', color: '#f8fafc' }} />
+                                    <Area type="monotone" dataKey="amount" stroke="#f43f5e" strokeWidth={2} fill="url(#fundGrad)" />
+                                </AreaChart>
+                            </ResponsiveContainer>
+                        </div>
+                    </CardContent>
+                </Card>
+
+                <Card className="border border-white/10 bg-slate-800/40 rounded-[2rem] overflow-hidden">
+                    <CardHeader className="p-6 border-b border-white/10">
+                        <CardTitle className="text-base font-black italic tracking-tighter uppercase text-white">Project Status</CardTitle>
+                    </CardHeader>
+                    <CardContent className="p-6 text-center">
+                        <div className="h-40 w-full mb-4">
+                            <ResponsiveContainer width="100%" height="100%">
+                                <PieChart>
+                                    <Pie data={projectStatus} cx="50%" cy="50%" outerRadius={60} innerRadius={35} dataKey="value">
+                                        {projectStatus.map((e, i) => <Cell key={i} fill={e.color} />)}
+                                    </Pie>
+                                </PieChart>
+                            </ResponsiveContainer>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                            {projectStatus.map((s, i) => (
+                                <div key={i} className="flex items-center gap-2">
+                                    <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: s.color }} />
+                                    <span className="text-[10px] font-black uppercase text-slate-400">{s.name}</span>
+                                </div>
+                            ))}
+                        </div>
+                    </CardContent>
+                </Card>
+            </div>
+
+            <Card className="border border-white/10 bg-slate-800/40 overflow-hidden rounded-[2rem]">
+                <div className="p-6 border-b border-white/10 flex items-center justify-between">
+                    <h3 className="text-base font-black italic tracking-tighter uppercase text-white">Active Research Projects</h3>
+                    <Button variant="ghost" onClick={() => navigate('/faculty/projects')} className="text-amber-400 font-black text-[10px] uppercase tracking-widest italic">
+                        View All <ChevronRight className="w-3 h-3 ml-1" />
+                    </Button>
+                </div>
+                <div className="overflow-x-auto">
+                    <table className="w-full text-left">
+                        <thead>
+                            <tr className="bg-white/5 text-[10px] uppercase tracking-widest text-slate-400 font-black italic">
+                                <th className="px-6 py-4">Title</th>
+                                <th className="px-6 py-4">Agency</th>
+                                <th className="px-6 py-4">Budget</th>
+                                <th className="px-6 py-4 text-right">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-white/5">
+                            {[
+                                { title: 'AI-Powered Medical Diagnosis', agency: 'DST-SERB', budget: '₹45,00,000', status: 'Active' },
+                                { title: 'Smart Traffic Management', agency: 'Industry Sponsored', budget: '₹25,00,000', status: 'Active' }
+                            ].map((row, i) => (
+                                <tr key={i} className="hover:bg-white/5">
+                                    <td className="px-6 py-5 text-xs font-black italic uppercase text-white">{row.title}</td>
+                                    <td className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase">{row.agency}</td>
+                                    <td className="px-6 py-5 text-sm font-black italic text-rose-400">{row.budget}</td>
+                                    <td className="px-6 py-5 text-right">
+                                        <Badge className="bg-emerald-500/15 text-emerald-400 border-emerald-500/30 text-[9px] uppercase">{row.status}</Badge>
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            </Card>
+
+            {/* AI Research Assistant Panel */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+                <Card className="bg-gradient-to-br from-indigo-900/40 to-slate-900 border-indigo-500/20 shadow-2xl overflow-hidden relative group">
+                    <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/10 rounded-full blur-3xl group-hover:bg-indigo-500/20 transition-all duration-700"></div>
+                    <CardHeader className="pb-2">
+                        <CardTitle className="text-sm font-black italic uppercase tracking-widest text-indigo-400 flex items-center">
+                            <Brain className="w-4 h-4 mr-2" />
+                            AI Research Assistant
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                        <p className="text-[10px] text-slate-400 font-bold uppercase italic leading-relaxed">
+                            Advanced institutional intelligence for proposal optimization and resource discovery.
+                        </p>
+                        <div className="grid grid-cols-1 gap-2">
+                            <Button 
+                                variant="ghost" 
+                                className="w-full justify-start text-[10px] font-black uppercase tracking-widest text-slate-300 hover:bg-white/5 h-8"
+                                onClick={() => navigate('/faculty/ai-generator')}
+                            >
+                                <Sparkles className="w-3 h-3 mr-2 text-indigo-500" /> AI Proposal Generator
+                            </Button>
+                            <Button 
+                                variant="ghost" 
+                                className="w-full justify-start text-[10px] font-black uppercase tracking-widest text-slate-300 hover:bg-white/5 h-8"
+                                onClick={async () => {
+                                    setAiModal({ open: true, loading: true, result: null });
+                                    const r = await analyzePersonalResearchMetrics('Dr. Abhijeet');
+                                    setAiModal({ open: true, loading: false, result: r });
+                                }}
+                            >
+                                <Target className="w-3 h-3 mr-2 text-rose-500" /> Analyze My Performance
+                            </Button>
+                            <Button 
+                                variant="ghost" 
+                                className="w-full justify-start text-[10px] font-black uppercase tracking-widest text-slate-300 hover:bg-white/5 h-8"
+                                onClick={async () => {
+                                    setAiModal({ open: true, loading: true, result: null });
+                                    const r = await predictFundingSuccess({ title: 'Sample Project' });
+                                    setAiModal({ open: true, loading: false, result: r });
+                                }}
+                            >
+                                <Brain className="w-3 h-3 mr-2 text-emerald-500" /> Grant Success Predictor
+                            </Button>
+                            <Button 
+                                variant="ghost" 
+                                className="w-full justify-start text-[10px] font-black uppercase tracking-widest text-slate-300 hover:bg-white/5 h-8"
+                                onClick={async () => {
+                                    setAiModal({ open: true, loading: true, result: null });
+                                    const r = await predictResearchTrends();
+                                    setAiModal({ open: true, loading: false, result: r });
+                                }}
+                            >
+                                <TrendingUp className="w-3 h-3 mr-2 text-amber-500" /> Emerging Research Trends
+                            </Button>
+                        </div>
+                    </CardContent>
+                </Card>
+
+                <Card className="bg-slate-900 border-white/5 shadow-xl">
+                    <CardHeader className="pb-2">
+                        <CardTitle className="text-sm font-black italic uppercase tracking-widest text-emerald-400 flex items-center">
+                            <TrendingUp className="w-4 h-4 mr-2" />
+                            Research Trends
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                        <div className="p-3 bg-white/5 rounded-lg border border-white/5">
+                            <p className="text-[10px] text-emerald-500 font-black uppercase mb-1">Forecast 2025</p>
+                            <p className="text-[11px] text-slate-300 font-bold italic">
+                                "AI & Machine Learning research proposals expected to increase by 34% next semester."
+                            </p>
+                        </div>
+                        <Button 
+                            variant="outline" 
+                            size="sm"
+                            className="w-full border-emerald-500/20 text-emerald-400 text-[10px] font-black uppercase h-8"
+                            onClick={async () => {
+                                setAiModal({ open: true, loading: true, result: null });
+                                const r = await predictResearchTrends();
+                                setAiModal({ open: true, loading: false, result: r });
+                            }}
+                        >
+                            <Lightbulb className="w-3 h-3 mr-2" /> Full Trend Analysis
+                        </Button>
+                    </CardContent>
+                </Card>
+
+                <Card className="bg-slate-900 border-white/5 shadow-xl">
+                    <CardHeader className="pb-2">
+                        <CardTitle className="text-sm font-black italic uppercase tracking-widest text-rose-400 flex items-center">
+                            <Users className="w-4 h-4 mr-2" />
+                            Collaboration Finder
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                        <div className="space-y-2">
+                            <div className="flex items-center justify-between p-2 bg-white/5 rounded">
+                                <span className="text-[10px] font-black text-slate-300 uppercase italic">Dr. Mehta</span>
+                                <Badge className="bg-rose-500/10 text-rose-400 text-[8px]">Healthcare AI</Badge>
+                            </div>
+                            <div className="flex items-center justify-between p-2 bg-white/5 rounded">
+                                <span className="text-[10px] font-black text-slate-300 uppercase italic">Dr. Rao</span>
+                                <Badge className="bg-rose-500/10 text-rose-400 text-[8px]">Robotics</Badge>
+                            </div>
+                        </div>
+                        <Button 
+                            variant="ghost" 
+                            className="w-full text-rose-400 text-[10px] font-black uppercase hover:bg-rose-500/5 h-8"
+                            onClick={async () => {
+                                setAiModal({ open: true, loading: true, result: null });
+                                const r = await findMoreCollaborators();
+                                setAiModal({ open: true, loading: false, result: r });
+                            }}
+                        >
+                            Find More Collaborators
+                        </Button>
+                    </CardContent>
+                </Card>
+            </div>
+
+            <AIResultModal
+                open={aiModal.open}
+                loading={aiModal.loading}
+                result={aiModal.result}
+                onClose={() => setAiModal({ ...aiModal, open: false })}
             />
         </div>
     );

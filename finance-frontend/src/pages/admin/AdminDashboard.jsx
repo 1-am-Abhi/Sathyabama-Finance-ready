@@ -6,10 +6,12 @@ import { Badge } from '../../components/ui/badge';
 import { Button } from '../../components/ui/button';
 import {
     FileText, Banknote, CheckCircle, Clock, TrendingUp, AlertCircle,
-    UserPlus, BarChart3, Filter, ArrowRight, Wallet, Building2
+    UserPlus, BarChart3, Filter, ArrowRight, Wallet, Building2, Award, BarChart2, Brain, Sparkles
 } from 'lucide-react';
 import { useLayout } from '../../contexts/LayoutContext';
 import DateFilter from '../../components/shared/DateFilter';
+import AIResultModal from '../../components/shared/AIResultModal';
+import { generateResearchInsights } from '../../services/aiService';
 import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
     PieChart, Pie, Cell, LineChart, Line, Sector
@@ -21,6 +23,7 @@ import {
     FUND_REQUESTS_MOCK
 } from '../../data/dashboardData';
 import ResearchCentreDetail from './ResearchCentreDetail';
+
 
 const AdminDashboard = () => {
     const { setLayout } = useLayout();
@@ -34,6 +37,8 @@ const AdminDashboard = () => {
     const [detailModalOpen, setDetailModalOpen] = useState(false);
     const [selectedCentreDetail, setSelectedCentreDetail] = useState(null);
     const [selectedProject, setSelectedProject] = useState(null);
+    const [aiModal, setAiModal] = useState({ open: false, loading: false, result: null });
+
 
     const centres = RESEARCH_CENTRES;
 
@@ -183,6 +188,8 @@ const AdminDashboard = () => {
     const onPieEnter = (_, index) => {
         setActiveIndex(index);
     };
+
+
 
     React.useEffect(() => {
         setLayout(
@@ -988,6 +995,58 @@ const AdminDashboard = () => {
                 </CardContent>
             </Card>
 
+            {/* AI Insights Section */}
+            <Card className="border-0 shadow-lg mb-8 bg-slate-900 overflow-hidden relative group">
+                <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl -mr-32 -mt-32 group-hover:bg-indigo-500/20 transition-all duration-700"></div>
+                <CardHeader className="border-b border-white/5 bg-white/5">
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <CardTitle className="text-lg font-black italic tracking-tighter uppercase text-white flex items-center gap-2">
+                                <Sparkles className="w-5 h-5 text-indigo-400" /> Administrative AI Insights
+                            </CardTitle>
+                            <CardDescription className="text-slate-400 text-[10px] uppercase font-bold tracking-widest">Automated Institutional Growth Analysis</CardDescription>
+                        </div>
+                        <Button
+                            onClick={async () => {
+                                setAiModal({ open: true, loading: true, result: null });
+                                const r = await generateResearchInsights(centreData);
+                                setAiModal({ open: true, loading: false, result: r });
+                            }}
+                            className="bg-indigo-500 hover:bg-indigo-600 text-white font-black italic uppercase tracking-tighter text-xs px-6 rounded-xl shadow-lg shadow-indigo-500/20"
+                        >
+                            <Brain className="w-4 h-4 mr-2" /> Generate Report
+                        </Button>
+                    </div>
+                </CardHeader>
+                <CardContent className="p-8">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <div className="bg-white/5 p-4 rounded-2xl border border-white/5 space-y-1">
+                            <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Predicted Approval Rate</span>
+                            <p className="text-2xl font-black italic tracking-tighter text-emerald-400 uppercase">92.4%</p>
+                            <p className="text-[9px] text-slate-400 uppercase font-medium">Based on current FY trends</p>
+                        </div>
+                        <div className="bg-white/5 p-4 rounded-2xl border border-white/5 space-y-1">
+                            <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Resource Optimization</span>
+                            <p className="text-2xl font-black italic tracking-tighter text-indigo-400 uppercase">Highly Efficient</p>
+                            <p className="text-[9px] text-slate-400 uppercase font-medium">Top performing: Nano Sci</p>
+                        </div>
+                        <div className="bg-white/5 p-4 rounded-2xl border border-white/5 space-y-1">
+                            <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Publication Forecast</span>
+                            <p className="text-2xl font-black italic tracking-tighter text-amber-400 uppercase">+15.8%</p>
+                            <p className="text-[9px] text-slate-400 uppercase font-medium">Expected Q2/Q3 2025</p>
+                        </div>
+                    </div>
+                </CardContent>
+            </Card>
+
+            {/* AI Result Modal */}
+            <AIResultModal
+                open={aiModal.open}
+                loading={aiModal.loading}
+                result={aiModal.result}
+                onClose={() => setAiModal({ ...aiModal, open: false })}
+            />
+
             {/* Recent Activities */}
             <Card className="border-0 shadow-sm dark:bg-slate-900">
                 <CardHeader className="border-b bg-gray-50 dark:bg-slate-800/50 dark:border-slate-800">
@@ -1013,6 +1072,149 @@ const AdminDashboard = () => {
                     </div>
                 </CardContent>
             </Card>
+
+            {/* AI Research Intelligence Widget */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6">
+                {/* AI Impact Forecast */}
+                <Card className="col-span-1 border-0 bg-gradient-to-br from-indigo-50 to-violet-50 dark:from-indigo-900/20 dark:to-violet-900/20 shadow-sm dark:bg-slate-900 border border-indigo-100 dark:border-indigo-900/30">
+                    <CardContent className="p-6 space-y-4">
+                        <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 bg-indigo-100 dark:bg-indigo-900/40 rounded-xl flex items-center justify-center">
+                                <TrendingUp className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+                            </div>
+                            <div>
+                                <p className="text-xs font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400">AI Impact Forecast</p>
+                                <p className="text-[10px] text-gray-500 dark:text-gray-400">Research citation growth prediction</p>
+                            </div>
+                        </div>
+                        <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">
+                            AI-based research proposals submitted this semester show an estimated <strong className="text-indigo-600 dark:text-indigo-400">citation growth of +28%</strong> vs last year. AI/ML proposals lead with 150+ expected citations.
+                        </p>
+                        <Button
+                            size="sm"
+                            onClick={async () => {
+                                setAiModal({ open: true, loading: true, result: null });
+                                const r = await predictResearchImpact({ title: 'AI and Machine Learning Research', budget: 5000000, agency: 'DST-SERB', department: 'Computer Science' });
+                                setAiModal({ open: true, loading: false, result: r });
+                            }}
+                            className="w-full bg-indigo-600 hover:bg-indigo-700 text-white text-xs"
+                        >
+                            <Brain className="w-3.5 h-3.5 mr-2" /> Run Impact Analysis
+                        </Button>
+                    </CardContent>
+                </Card>
+
+                {/* AI Trend Predictor */}
+                <Card className="col-span-1 border-0 bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-900/20 dark:to-teal-900/20 shadow-sm border border-emerald-100 dark:border-emerald-900/30">
+                    <CardContent className="p-6 space-y-4">
+                        <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 bg-emerald-100 dark:bg-emerald-900/40 rounded-xl flex items-center justify-center">
+                                <BarChart2 className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+                            </div>
+                            <div>
+                                <p className="text-xs font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">AI Trend Forecast</p>
+                                <p className="text-[10px] text-gray-500 dark:text-gray-400">Upcoming research domain predictions</p>
+                            </div>
+                        </div>
+                        <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">
+                            <strong className="text-emerald-600 dark:text-emerald-400">AI/ML proposals +34%</strong> next semester. Healthcare Biomedical surging by +28% across DST/ICMR allocations.
+                        </p>
+                        <Button
+                            size="sm"
+                            onClick={async () => {
+                                setAiModal({ open: true, loading: true, result: null });
+                                const r = await predictResearchTrends();
+                                setAiModal({ open: true, loading: false, result: r });
+                            }}
+                            className="w-full bg-emerald-600 hover:bg-emerald-700 text-white text-xs"
+                        >
+                            <Sparkles className="w-3.5 h-3.5 mr-2" /> View Trend Prediction
+                        </Button>
+                    </CardContent>
+                </Card>
+
+                {/* AI Institutional Insights */}
+                <Card className="col-span-1 border-0 bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20 shadow-sm border border-amber-100 dark:border-amber-900/30">
+                    <CardContent className="p-6 space-y-4">
+                        <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 bg-amber-100 dark:bg-amber-900/40 rounded-xl flex items-center justify-center">
+                                <Award className="w-5 h-5 text-amber-600 dark:text-amber-400" />
+                            </div>
+                            <div>
+                                <p className="text-xs font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400">Institutional Insights</p>
+                                <p className="text-[10px] text-gray-500 dark:text-gray-400">Top performing departments &amp; funding</p>
+                            </div>
+                        </div>
+                        <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">
+                            <strong className="text-amber-600 dark:text-amber-400">CSRC leads</strong> with 24 active projects. EEERC shows highest funding absorption at 91% this FY.
+                        </p>
+                        <Button
+                            size="sm"
+                            onClick={async () => {
+                                setAiModal({ open: true, loading: true, result: null });
+                                const r = await generateResearchInsights();
+                                setAiModal({ open: true, loading: false, result: r });
+                            }}
+                            className="w-full bg-amber-600 hover:bg-amber-700 text-white text-xs"
+                        >
+                            <Brain className="w-3.5 h-3.5 mr-2" /> Get Insights
+                        </Button>
+                    </CardContent>
+                </Card>
+
+                <Card className="border-0 shadow-lg bg-white dark:bg-slate-900 overflow-hidden col-span-1">
+                    <CardHeader className="pb-2">
+                        <CardTitle className="text-sm font-bold flex items-center text-gray-700 dark:text-gray-200 uppercase tracking-wider">
+                            <TrendingUp className="w-4 h-4 mr-2 text-emerald-500" />
+                            Research Growth Trends
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="space-y-4">
+                            <div className="p-3 bg-emerald-50 dark:bg-emerald-900/20 rounded-lg border border-emerald-100 dark:border-emerald-800/30">
+                                <p className="text-xs text-emerald-600 dark:text-emerald-400 font-semibold mb-1 uppercase">Institutional Forecast</p>
+                                <p className="text-sm text-gray-700 dark:text-gray-300">Grant success probability has increased by <span className="font-bold">14%</span> since last FY. AI & Biotech are primary drivers.</p>
+                            </div>
+                            <div className="grid grid-cols-2 gap-3">
+                                <div className="p-2 bg-gray-50 dark:bg-slate-800 rounded border border-gray-100 dark:border-slate-700">
+                                    <p className="text-[10px] text-gray-500 uppercase">Proposal Volume</p>
+                                    <p className="text-lg font-bold text-gray-900 dark:text-white">+22%</p>
+                                </div>
+                                <div className="p-2 bg-gray-50 dark:bg-slate-800 rounded border border-gray-100 dark:border-slate-700">
+                                    <p className="text-[10px] text-gray-500 uppercase">Agency Hits</p>
+                                    <p className="text-lg font-bold text-gray-900 dark:text-white">8/10</p>
+                                </div>
+                            </div>
+                        </div>
+                    </CardContent>
+                </Card>
+
+                <Card className="border-0 shadow-lg bg-slate-900 text-white overflow-hidden col-span-1 relative">
+                    <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/20 rounded-full blur-2xl"></div>
+                    <CardHeader className="pb-2">
+                        <CardTitle className="text-sm font-bold flex items-center text-indigo-400 uppercase tracking-wider">
+                            <Sparkles className="w-4 h-4 mr-2" />
+                            AI Growth Analysis
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <p className="text-xs text-gray-400 mb-4 italic leading-relaxed">
+                            "Computer Science department generated the highest number of funded proposals this quarter. Forecast shows 32% growth in Green Energy sector."
+                        </p>
+                        <Button
+                            size="sm"
+                            onClick={async () => {
+                                setAiModal({ open: true, loading: true, result: null });
+                                const r = await generateResearchInsights();
+                                setAiModal({ open: true, loading: false, result: r });
+                            }}
+                            className="w-full bg-indigo-600 hover:bg-indigo-700 text-white text-xs"
+                        >
+                            <Brain className="w-3.5 h-3.5 mr-2" /> Generate Report
+                        </Button>
+                    </CardContent>
+                </Card>
+            </div>
 
             {/* Research Centre Detail Modal */}
             <ResearchCentreDetail
@@ -1141,6 +1343,9 @@ const AdminDashboard = () => {
                     </Card>
                 </div>
             )}
+
+            {/* AI Result Modal */}
+
         </div>
     );
 };

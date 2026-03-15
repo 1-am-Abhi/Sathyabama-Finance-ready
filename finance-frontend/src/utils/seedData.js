@@ -64,9 +64,108 @@ export const seedAllData = () => {
         localStorage.setItem('facultyProjects', JSON.stringify(projects));
     }
 
-    // 2. Revenue Generated (RevenueGeneratedDashboard.jsx)
-    if (!localStorage.getItem('revenueRecords')) {
+    // 2. Revenue Generated - Always refresh to ensure up-to-date mock data
+    {
         const revenue = [
+            // 2026 records (current year - shows by default)
+            {
+                id: 'REV-2601',
+                title: 'AI-Powered Clinical Decision Support System',
+                revenueSource: 'Consultancy',
+                clientName: 'Apollo Hospitals Ltd',
+                amountGenerated: 1800000,
+                revenueDate: '2026-01-18',
+                year: 2026,
+                facultyName: 'Dr. Priya Sharma',
+                description: 'AI model integration for ICU patient monitoring and risk prediction.',
+                status: 'Received'
+            },
+            {
+                id: 'REV-2602',
+                title: 'Industry Training: Deep Learning for Engineers',
+                revenueSource: 'Industry',
+                clientName: 'Tata Consultancy Services',
+                amountGenerated: 480000,
+                revenueDate: '2026-02-10',
+                year: 2026,
+                facultyName: 'Dr. Priya Sharma',
+                description: '5-day intensive bootcamp on DL frameworks for 120 TCS engineers.',
+                status: 'Received'
+            },
+            {
+                id: 'REV-2603',
+                title: 'Smart Grid Fault Detection System',
+                revenueSource: 'Projects',
+                clientName: 'Tangedco',
+                amountGenerated: 2500000,
+                revenueDate: '2026-01-05',
+                year: 2026,
+                facultyName: 'Dr. Priya Sharma',
+                description: 'Sponsored research on AI-based anomaly detection in power grids.',
+                status: 'Received'
+            },
+            {
+                id: 'REV-2604',
+                title: 'Technozarre 2026 Symposium',
+                revenueSource: 'Events',
+                clientName: 'Multiple Corporate Sponsors',
+                amountGenerated: 650000,
+                revenueDate: '2026-03-01',
+                year: 2026,
+                facultyName: 'Dr. Priya Sharma',
+                description: 'National-level annual tech symposium with 2000+ participants.',
+                status: 'Pending'
+            },
+            {
+                id: 'REV-2605',
+                title: 'Water Purity Testing - Municipal Corp',
+                revenueSource: 'Analysis',
+                clientName: 'Greater Chennai Corporation',
+                amountGenerated: 95000,
+                revenueDate: '2026-02-22',
+                year: 2026,
+                facultyName: 'Dr. Priya Sharma',
+                description: 'Quarterly water sample analysis across 12 zones.',
+                status: 'Received'
+            },
+            // 2025 records
+            {
+                id: 'REV-2501',
+                title: 'Structural Health Monitoring for Bridges',
+                revenueSource: 'Consultancy',
+                clientName: 'NHAI',
+                amountGenerated: 2200000,
+                revenueDate: '2025-07-15',
+                year: 2025,
+                facultyName: 'Dr. Priya Sharma',
+                description: 'IoT sensor deployment and structural analysis for 4 NH bridges.',
+                status: 'Received'
+            },
+            {
+                id: 'REV-2502',
+                title: 'Python & ML Bootcamp for Wipro',
+                revenueSource: 'Industry',
+                clientName: 'Wipro Ltd',
+                amountGenerated: 350000,
+                revenueDate: '2025-04-20',
+                year: 2025,
+                facultyName: 'Dr. Priya Sharma',
+                description: '3-day upskilling program for 80 freshers.',
+                status: 'Received'
+            },
+            {
+                id: 'REV-2503',
+                title: 'National Conference on AI in Healthcare',
+                revenueSource: 'Events',
+                clientName: 'DST India',
+                amountGenerated: 800000,
+                revenueDate: '2025-09-12',
+                year: 2025,
+                facultyName: 'Dr. Priya Sharma',
+                description: 'Two-day national conference with 500+ delegates.',
+                status: 'Received'
+            },
+            // 2024 records
             {
                 id: 'REV-1001',
                 title: 'Corporate Training on Data Science',
@@ -75,8 +174,9 @@ export const seedAllData = () => {
                 amountGenerated: 250000,
                 revenueDate: '2024-03-15',
                 year: 2024,
-                facultyName: 'Admin User',
-                description: '3-day workshop for entry-level engineers.'
+                facultyName: 'Dr. Priya Sharma',
+                description: '3-day workshop for entry-level engineers.',
+                status: 'Received'
             },
             {
                 id: 'REV-1002',
@@ -84,10 +184,11 @@ export const seedAllData = () => {
                 revenueSource: 'Consultancy',
                 clientName: 'Chennai Metro Rail Ltd (CMRL)',
                 amountGenerated: 1200000,
-                revenueDate: '2023-11-20',
-                year: 2023,
-                facultyName: 'Admin User',
-                description: 'Geotechnical investigation and reporting.'
+                revenueDate: '2024-06-20',
+                year: 2024,
+                facultyName: 'Dr. Priya Sharma',
+                description: 'Geotechnical investigation and reporting.',
+                status: 'Received'
             },
             {
                 id: 'REV-1003',
@@ -97,28 +198,21 @@ export const seedAllData = () => {
                 amountGenerated: 500000,
                 revenueDate: '2024-01-25',
                 year: 2024,
-                facultyName: 'Admin User',
-                description: 'Sponsorship for Technozarre 2024.'
+                facultyName: 'Dr. Priya Sharma',
+                description: 'Sponsorship for Technozarre 2024.',
+                status: 'Received'
             },
             {
                 id: 'REV-1004',
-                title: 'Water Sample Testing',
-                revenueSource: 'Analysis',
-                clientName: 'Local Municpality',
-                amountGenerated: 15000,
-                revenueDate: '2023-08-10',
-                year: 2023,
-                facultyName: 'Admin User'
-            },
-            {
-                id: 'REV-1005',
                 title: 'AI Model License Fee',
                 revenueSource: 'Projects',
                 clientName: 'StartUp Inc',
                 amountGenerated: 750000,
-                revenueDate: '2022-12-05',
-                year: 2022,
-                facultyName: 'Admin User'
+                revenueDate: '2024-09-05',
+                year: 2024,
+                facultyName: 'Dr. Priya Sharma',
+                description: 'Technology transfer and licensing agreement.',
+                status: 'Received'
             }
         ];
         localStorage.setItem('revenueRecords', JSON.stringify(revenue));

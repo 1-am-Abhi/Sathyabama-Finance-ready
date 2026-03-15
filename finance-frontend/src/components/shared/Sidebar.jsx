@@ -5,7 +5,7 @@ import { ROLES } from '../../constants/roles';
 import { Button } from '../ui/button';
 import {
     LogOut, Home, FileText, IndianRupee, DollarSign, Users, Building2,
-    Settings, CheckCircle, UserPlus, BarChart3, Clock, Calendar, TrendingUp, ChevronDown, ChevronRight, Briefcase, GraduationCap, X
+    Settings, CheckCircle, UserPlus, BarChart3, Clock, Calendar, TrendingUp, ChevronDown, ChevronRight, Briefcase, GraduationCap, X, Sparkles
 } from 'lucide-react';
 
 const Sidebar = ({ isOpen, onClose }) => {
@@ -59,6 +59,11 @@ const Sidebar = ({ isOpen, onClose }) => {
                         label: 'Academic Support',
                         icon: GraduationCap,
                         path: '/faculty/academic-support'
+                    },
+                    {
+                        label: 'AI Proposal Assistant',
+                        icon: Sparkles,
+                        path: '/faculty/ai-generator'
                     },
                 ];
             case ROLES.FINANCE_OFFICER:

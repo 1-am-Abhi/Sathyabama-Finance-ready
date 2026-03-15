@@ -4,8 +4,10 @@ import { Button } from '../../components/ui/button';
 import { Badge } from '../../components/ui/badge';
 import {
     DollarSign, FileText, Users, Clock, CheckCircle,
-    AlertTriangle, ArrowRight, Calendar, Building
+    AlertTriangle, ArrowRight, Calendar, Building, Brain
 } from 'lucide-react';
+import AIResultModal from '../../components/shared/AIResultModal';
+import { analyzeInstitutionalFinance } from '../../services/aiService';
 import Sidebar from '../../components/shared/Sidebar';
 // import TopBar from '../../components/shared/TopBar';
 import { useLayout } from '../../contexts/LayoutContext';
@@ -13,6 +15,9 @@ import { useLayout } from '../../contexts/LayoutContext';
 const FinanceDashboard = () => {
     const { setLayout } = useLayout();
     const [selectedProject, setSelectedProject] = useState(null);
+    const [aiModal, setAiModal] = useState({ open: false, loading: false, result: null });
+
+
 
     React.useEffect(() => {
         setLayout("Finance Dashboard", "Fund releases, PFMS tracking & settlements");
@@ -146,6 +151,8 @@ const FinanceDashboard = () => {
                         })}
                     </div>
 
+
+
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                         {/* Fund Flow Actions */}
                         <div className="lg:col-span-2">
@@ -182,6 +189,7 @@ const FinanceDashboard = () => {
                                                 </div>
                                                 <div className="flex items-center justify-between mt-3 pt-3 border-t">
                                                     <span className="text-sm font-semibold text-gray-700">{project.amount}</span>
+
                                                 </div>
                                             </div>
                                         ))}
@@ -197,9 +205,7 @@ const FinanceDashboard = () => {
                                             <FileText className="w-5 h-5 mr-2 text-blue-600" />
                                             Recent PFMS Transactions
                                         </CardTitle>
-                                        <button className="text-sm text-blue-600 hover:text-blue-700 flex items-center">
-                                            View All <ArrowRight className="w-4 h-4 ml-1" />
-                                        </button>
+
                                     </div>
                                 </CardHeader>
                                 <CardContent className="p-6">
@@ -272,25 +278,21 @@ const FinanceDashboard = () => {
                         {/* Internship Payments Sidebar */}
                         <div>
                             <Card className="border-0 shadow-sm">
-                                <CardHeader className="border-b bg-orange-50">
+                                <CardHeader className="border-b bg-orange-50 dark:bg-orange-950/20">
                                     <CardTitle className="text-lg font-semibold flex items-center">
                                         <Users className="w-5 h-5 mr-2 text-orange-600" />
                                         Internship Payments
                                     </CardTitle>
-                                    <p className="text-xs text-gray-600 mt-1 flex items-center">
-                                        <AlertTriangle className="w-3 h-3 mr-1 text-orange-500" />
-                                        Blocked internships shown with ⚠️
-                                    </p>
                                 </CardHeader>
                                 <CardContent className="p-4">
                                     <div className="space-y-3">
                                         {internshipPayments.map((payment) => (
-                                            <div key={payment.id} className="border border-gray-200 rounded-lg p-3">
+                                            <div key={payment.id} className="border border-gray-200 dark:border-slate-800 rounded-lg p-3">
                                                 <div className="flex items-start justify-between mb-2">
                                                     <div className="flex-1">
-                                                        <p className="font-semibold text-sm text-gray-900">{payment.name}</p>
-                                                        <p className="text-xs text-gray-600 mt-1">{payment.internship}</p>
-                                                        <p className="text-sm font-bold text-gray-900 mt-1">{payment.amount}</p>
+                                                        <p className="font-semibold text-sm text-gray-900 dark:text-gray-100">{payment.name}</p>
+                                                        <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">{payment.internship}</p>
+                                                        <p className="text-sm font-bold text-gray-900 dark:text-white mt-1">{payment.amount}</p>
                                                     </div>
                                                     {payment.status === 'paid' ? (
                                                         <CheckCircle className="w-5 h-5 text-green-500" />
@@ -298,20 +300,52 @@ const FinanceDashboard = () => {
                                                         <AlertTriangle className="w-5 h-5 text-orange-500" />
                                                     )}
                                                 </div>
-                                                {payment.status === 'pending' && (
-                                                    <Button size="sm" className="w-full mt-2 bg-blue-600 hover:bg-blue-700">
-                                                        Verify
-                                                    </Button>
-                                                )}
                                             </div>
                                         ))}
                                     </div>
+                                </CardContent>
+                            </Card>
+
+                            {/* AI Financial Analytics */}
+                            <Card className="border-0 shadow-sm mt-6 bg-slate-900 text-white overflow-hidden relative">
+                                <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/10 rounded-full blur-2xl"></div>
+                                <CardHeader className="pb-2">
+                                    <CardTitle className="text-sm font-bold flex items-center text-emerald-400 uppercase tracking-wider">
+                                        <Brain className="w-4 h-4 mr-2" />
+                                        AI Financial Insights
+                                    </CardTitle>
+                                </CardHeader>
+                                <CardContent className="space-y-4">
+                                    <div className="p-3 bg-white/5 rounded-lg border border-white/5">
+                                        <p className="text-[10px] text-emerald-500 font-bold uppercase mb-1 underline">Audit Alert</p>
+                                        <p className="text-[11px] text-slate-300 italic">
+                                            "Mechanical Engineering department shows 22% increase in funding usage. Re-allocation recommended for unused Electronics budget."
+                                        </p>
+                                    </div>
+                                    <Button 
+                                        size="sm" 
+                                        className="w-full bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold uppercase tracking-widest"
+                                        onClick={async () => {
+                                            setAiModal({ open: true, loading: true, result: null });
+                                            const r = await analyzeInstitutionalFinance();
+                                            setAiModal({ open: true, loading: false, result: r });
+                                        }}
+                                    >
+                                        Analyze Budget
+                                    </Button>
                                 </CardContent>
                             </Card>
                         </div>
                     </div>
                 </div>
             </div>
+
+            <AIResultModal
+                open={aiModal.open}
+                loading={aiModal.loading}
+                result={aiModal.result}
+                onClose={() => setAiModal({ ...aiModal, open: false })}
+            />
         </div>
     );
 };
