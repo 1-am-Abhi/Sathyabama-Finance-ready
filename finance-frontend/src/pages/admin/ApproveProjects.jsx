@@ -6,6 +6,7 @@ import { Badge } from '../../components/ui/badge';
 import { CheckCircle, XCircle, Eye, Calendar, User, Clock, Info, ShieldAlert, RefreshCw, Users, Brain, Sparkles, TrendingUp } from 'lucide-react';
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend, ResponsiveContainer } from 'recharts';
 import { useLayout } from '../../contexts/LayoutContext';
+import { usePipeline } from '../../contexts/PipelineContext';
 import DateFilter from '../../components/shared/DateFilter';
 import { RESEARCH_CENTRES } from '../../constants/researchCentres';
 import { AGENCIES } from '../../constants/agencies';
@@ -16,97 +17,56 @@ import { generateProjectSummary, analyzeProjectRisk, detectDuplicateProposal, pr
 
 const ApproveProjects = () => {
     const { setLayout } = useLayout();
+    const { projects: pipelineProjects, updateProject, isLoading } = usePipeline();
     const [selectedDate, setSelectedDate] = useState(null);
     const [selectedCentre, setSelectedCentre] = useState('All');
     const [selectedAgency, setSelectedAgency] = useState('All');
 
-    const [projects, setProjects] = useState([
-        {
-            id: 1,
-            title: 'AI-Powered Medical Diagnosis System',
-            faculty: 'Dr. Priya Sharma',
-            centre: 'Centre for Nano Science and Nanotechnology',
-            budget: 5000000,
-            submittedDate: '2024-01-15',
-            status: 'PENDING',
-            department: 'CSE',
-            agency: 'DST',
-            chequeStatus: 'Pending'
-        },
-        {
-            id: 2,
-            title: 'Renewable Energy Grid Optimization',
-            faculty: 'Dr. Bharathi',
-            centre: 'Centre of Excellence for Energy Research',
-            budget: 7500000,
-            submittedDate: '2024-01-18',
-            status: 'PENDING',
-            department: 'EEE',
-            agency: 'ICMR',
-            chequeStatus: 'Pending'
-        },
-        {
-            id: 3,
-            title: 'Blockchain for Supply Chain Management',
-            faculty: 'Dr. Anita Desai',
-            centre: 'Centre for Waste Management',
-            budget: 4000000,
-            submittedDate: '2024-01-20',
-            status: 'PENDING',
-            department: 'MECH',
-            agency: 'AICTE',
-            chequeStatus: 'Pending'
-        },
-        {
-            id: 4,
-            title: 'Smart Traffic Management System',
-            faculty: 'Dr. Vikram Singh',
-            centre: 'Centre for Climate Studies',
-            budget: 6000000,
-            submittedDate: '2024-01-10',
-            status: 'APPROVED',
-            department: 'OCEAN',
-            agency: 'Private Industry',
-            chequeStatus: 'Approved'
-        },
-        {
-            id: 5,
-            title: 'Ocean Plastic Cleanup Drone',
-            faculty: 'Dr. R. Kumar',
-            centre: 'Centre for Ocean Research',
-            budget: 3500000,
-            submittedDate: '2024-02-01',
-            status: 'REJECTED',
-            department: 'OCEAN',
-            agency: 'University Fund',
-            chequeStatus: 'Pending'
-        }
-    ]);
+    // Map DB fields to UI expected fields
+    const projects = (pipelineProjects || []).map(p => ({
+        id: p._id || p.id,
+        title: p.title,
+        faculty: p.pi || p.faculty || 'Unknown',
+        centre: p.centre,
+        budget: p.sanctionedBudget || p.budget || 0,
+        submittedDate: p.createdAt ? p.createdAt.substring(0, 10) : (p.submittedDate || new Date().toISOString().substring(0, 10)),
+        status: p.status === 'ACTIVE' ? 'APPROVED' : p.status, // Map ACTIVE to APPROVED for UI
+        department: p.department,
+        agency: p.fundingSource || p.agency || 'Unknown',
+        chequeStatus: p.chequeStatus || 'Pending'
+    }));
 
     const [selectedProject, setSelectedProject] = useState(null);
     const [manageFacultyModal, setManageFacultyModal] = useState({ isOpen: false, project: null, selectedFaculty: '' });
     const [aiModal, setAiModal] = useState({ open: false, loading: false, result: null });
 
-    const handleFacultyAssignment = () => {
+    const handleFacultyAssignment = async () => {
         if (!manageFacultyModal.selectedFaculty) return;
-
-        // Update the project's faculty in the projects array
-        setProjects(projects.map(p =>
-            p.id === manageFacultyModal.project.id
-                ? { ...p, faculty: manageFacultyModal.selectedFaculty }
-                : p
-        ));
-
-        // Close modal and reset
-        setManageFacultyModal({ isOpen: false, project: null, selectedFaculty: '' });
+        try {
+            await updateProject({
+                projectId: manageFacultyModal.project.id,
+                updates: { faculty: manageFacultyModal.selectedFaculty }
+            });
+            setManageFacultyModal({ isOpen: false, project: null, selectedFaculty: '' });
+        } catch (error) {
+            console.error(error);
+        }
     };
 
-    const handleApprove = (id) => {
-        setProjects(prev => prev.map(p => p.id === id ? { ...p, status: 'APPROVED' } : p));
+    const handleApprove = async (id) => {
+        try {
+            await updateProject({ projectId: id, updates: { status: 'ACTIVE' }});
+        } catch (error) {
+            console.error(error);
+        }
     };
 
-    const handleReject = (id) => {
-        setProjects(prev => prev.map(p => p.id === id ? { ...p, status: 'REJECTED' } : p));
+    const handleReject = async (id) => {
+        try {
+            await updateProject({ projectId: id, updates: { status: 'REJECTED' }}); // Keep in mind DB might not have REJECTED in enum, but we can try or just map it if DB updates.
+        } catch (error) {
+            console.error(error);
+        }
     };
 
     React.useEffect(() => {
@@ -124,6 +84,8 @@ const ApproveProjects = () => {
     });
 
     const pendingProjects = filteredProjects.filter(p => p.status === 'PENDING');
+
+    if (isLoading) return <div className="p-8 text-center">Loading Projects Data...</div>;
 
     return (
         <div className="flex-1 overflow-y-auto overflow-x-hidden">

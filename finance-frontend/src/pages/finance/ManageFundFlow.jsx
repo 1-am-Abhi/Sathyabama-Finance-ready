@@ -5,66 +5,44 @@ import { Badge } from '../../components/ui/badge';
 import { CheckCircle, Circle, Clock, ArrowRight, AlertTriangle } from 'lucide-react';
 import { useLayout } from '../../contexts/LayoutContext';
 
+import { usePipeline } from '../../contexts/PipelineContext';
+
 const ManageFundFlow = () => {
     const { setLayout } = useLayout();
-    const [selectedProject, setSelectedProject] = useState(null);
-    const [currentStage, setCurrentStage] = useState('FUND_APPROVED');
+    const { fundRequests, advanceStage, isLoading } = usePipeline();
+    const [selectedRequest, setSelectedRequest] = useState(null);
 
     React.useEffect(() => {
         setLayout("Fund Flow", "Track fund flow stages");
     }, [setLayout]);
 
-    const stages = [
-        {
-            id: 'FUND_APPROVED',
-            label: 'Fund Approved',
-            description: 'Initial approval from authorities',
-            date: '10 Dec 2023, 03:30 pm',
-            by: 'Dr. Bharathi',
-            completed: true
-        },
-        {
-            id: 'FUND_RELEASED',
-            label: 'Fund Released',
-            description: 'Funds released from source',
-            date: '18 Dec 2023, 04:30 pm',
-            by: 'Mr. Suresh Menon',
-            completed: true
-        },
-        {
-            id: 'CHEQUE_RELEASED',
-            label: 'Cheque Released',
-            description: 'Payment instrument issued',
-            date: '22 Dec 2023, 07:30 pm',
-            by: 'Mr. Suresh Menon',
-            completed: true
-        },
-        {
-            id: 'AMOUNT_DISBURSED',
-            label: 'Amount Disbursed',
-            description: 'Funds credited to account',
-            date: '28 Dec 2023, 02:30 pm',
-            by: 'Mr. Suresh Menon',
-            completed: true
-        },
-        {
-            id: 'UTILIZATION_COMPLETED',
-            label: 'Utilization Completed',
-            description: 'Funds utilized as per plan',
-            date: '15 Nov 2024, 09:30 pm',
-            by: 'Mr. Suresh Menon',
-            note: '"All funds utilized as per plan"',
-            completed: true
-        },
-        {
-            id: 'SETTLEMENT_CLOSED',
-            label: 'Settlement Closed',
-            description: 'Final settlement done',
-            date: null,
-            by: null,
-            completed: false
-        },
+    if (isLoading) return <div className="p-8 text-center">Loading Fund Flow Pipeline...</div>;
+
+    // Use selectedRequest or first available request for demo
+    const activeRequest = selectedRequest || (fundRequests && fundRequests[0]);
+
+    const FUND_FLOW_STAGES = [
+        { id: 'FUND_APPROVED', label: 'Fund Approved', description: 'Initial approval from authorities' },
+        { id: 'FUND_RELEASED', label: 'Fund Released', description: 'Funds released from source' },
+        { id: 'CHEQUE_RELEASED', label: 'Cheque Released', description: 'Payment instrument issued' },
+        { id: 'AMOUNT_DISBURSED', label: 'Amount Disbursed', description: 'Funds credited to account' },
+        { id: 'UTILIZATION_COMPLETED', label: 'Utilization Completed', description: 'Funds utilized as per plan' },
+        { id: 'SETTLEMENT_CLOSED', label: 'Settlement Closed', description: 'Final settlement done' },
     ];
+
+    const currentStageIndex = activeRequest 
+        ? FUND_FLOW_STAGES.findIndex(s => s.id === activeRequest.currentStage) 
+        : -1;
+
+    const stages = FUND_FLOW_STAGES.map((s, idx) => {
+        const audit = activeRequest?.auditTrail?.find(a => a.stage === s.id);
+        return {
+            ...s,
+            completed: idx <= currentStageIndex,
+            date: audit ? new Date(audit.timestamp).toLocaleString() : null,
+            by: audit ? audit.updatedByName : null
+        };
+    });
 
     const allowedActions = [
         { id: 'FUND_RELEASED', label: 'Mark Fund Released', enabled: false },
@@ -75,8 +53,16 @@ const ManageFundFlow = () => {
         { id: 'VERIFY_INTERNSHIP', label: 'Verify Internship Payments', enabled: false },
     ];
 
-    const handleMarkComplete = (stageId) => {
-        console.log('Marking stage complete:', stageId);
+    const handleMarkComplete = async (stageId) => {
+        try {
+            await advanceStage({ 
+                requestId: activeRequest._id, 
+                nextStage: stageId, 
+                remarks: `Stage ${stageId} completed by Finance` 
+            });
+        } catch (error) {
+            alert(error.response?.data?.message || 'Failed to advance stage');
+        }
     };
 
     return (
@@ -88,70 +74,95 @@ const ManageFundFlow = () => {
                         {/* Fund Flow Timeline */}
                         <div className="lg:col-span-2">
                             <Card className="border-0 shadow-sm">
-                                <CardHeader className="border-b bg-gray-50">
-                                    <CardTitle className="text-lg font-semibold">Fund Flow Timeline</CardTitle>
-                                    <p className="text-xs text-gray-500 mt-1">Track the complete fund flow process</p>
+                                <CardHeader className="border-b bg-gray-50 flex flex-row items-center justify-between">
+                                    <div>
+                                        <CardTitle className="text-lg font-semibold">Fund Flow Timeline</CardTitle>
+                                        <p className="text-xs text-gray-500 mt-1">Track the complete fund flow process</p>
+                                    </div>
+                                    <div className="w-1/3">
+                                        <select
+                                            className="w-full border-gray-300 rounded-md text-sm p-2"
+                                            value={activeRequest?._id || ''}
+                                            onChange={(e) => {
+                                                const req = fundRequests.find(r => r._id === e.target.value);
+                                                setSelectedRequest(req);
+                                            }}
+                                        >
+                                            <option value="">Select a Fund Request</option>
+                                            {fundRequests?.map(req => (
+                                                <option key={req._id} value={req._id}>
+                                                    {req.projectTitle} - ₹{req.requestedAmount} ({req.currentStage})
+                                                </option>
+                                            ))}
+                                        </select>
+                                    </div>
                                 </CardHeader>
-                                <CardContent className="p-8">
-                                    <div className="relative">
-                                        {/* Vertical Line */}
-                                        <div className="absolute left-6 top-0 bottom-0 w-0.5 bg-gray-200"></div>
+                                {activeRequest ? (
+                                    <CardContent className="p-8">
+                                        <div className="relative">
+                                            {/* Vertical Line */}
+                                            <div className="absolute left-6 top-0 bottom-0 w-0.5 bg-gray-200"></div>
 
-                                        {/* Timeline Items */}
-                                        <div className="space-y-8">
-                                            {stages.map((stage, index) => (
-                                                <div key={stage.id} className="relative flex items-start">
-                                                    {/* Icon */}
-                                                    <div className={`relative z-10 flex items-center justify-center w-12 h-12 rounded-full ${stage.completed
-                                                        ? 'bg-green-500'
-                                                        : 'bg-blue-100 border-4 border-white'
-                                                        }`}>
-                                                        {stage.completed ? (
-                                                            <CheckCircle className="w-6 h-6 text-white" />
-                                                        ) : (
-                                                            <Circle className="w-6 h-6 text-blue-500" />
-                                                        )}
-                                                    </div>
+                                            {/* Timeline Items */}
+                                            <div className="space-y-8">
+                                                {stages.map((stage, index) => (
+                                                    <div key={stage.id} className="relative flex items-start">
+                                                        {/* Icon */}
+                                                        <div className={`relative z-10 flex items-center justify-center w-12 h-12 rounded-full ${stage.completed
+                                                            ? 'bg-green-500'
+                                                            : 'bg-blue-100 border-4 border-white'
+                                                            }`}>
+                                                            {stage.completed ? (
+                                                                <CheckCircle className="w-6 h-6 text-white" />
+                                                            ) : (
+                                                                <Circle className="w-6 h-6 text-blue-500" />
+                                                            )}
+                                                        </div>
 
-                                                    {/* Content */}
-                                                    <div className="ml-6 flex-1">
-                                                        <div className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
-                                                            <div className="flex items-start justify-between">
-                                                                <div className="flex-1">
-                                                                    <h3 className="font-bold text-gray-900">{stage.label}</h3>
-                                                                    <p className="text-sm text-gray-600 mt-1">{stage.description}</p>
+                                                        {/* Content */}
+                                                        <div className="ml-6 flex-1">
+                                                            <div className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+                                                                <div className="flex items-start justify-between">
+                                                                    <div className="flex-1">
+                                                                        <h3 className="font-bold text-gray-900">{stage.label}</h3>
+                                                                        <p className="text-sm text-gray-600 mt-1">{stage.description}</p>
 
-                                                                    {stage.completed && stage.date && (
-                                                                        <div className="mt-3 space-y-1">
-                                                                            <div className="flex items-center text-xs text-gray-500">
-                                                                                <Clock className="w-3 h-3 mr-1" />
-                                                                                {stage.date}
+                                                                        {stage.completed && stage.date && (
+                                                                            <div className="mt-3 space-y-1">
+                                                                                <div className="flex items-center text-xs text-gray-500">
+                                                                                    <Clock className="w-3 h-3 mr-1" />
+                                                                                    {stage.date}
+                                                                                </div>
+                                                                                <p className="text-xs text-gray-500">By: {stage.by}</p>
+                                                                                {stage.note && (
+                                                                                    <p className="text-xs text-gray-600 italic mt-2">{stage.note}</p>
+                                                                                )}
                                                                             </div>
-                                                                            <p className="text-xs text-gray-500">By: {stage.by}</p>
-                                                                            {stage.note && (
-                                                                                <p className="text-xs text-gray-600 italic mt-2">{stage.note}</p>
-                                                                            )}
-                                                                        </div>
+                                                                        )}
+                                                                    </div>
+
+                                                                    {!stage.completed && index === stages.findIndex(s => !s.completed) && (
+                                                                        <Button
+                                                                            size="sm"
+                                                                            className="bg-blue-600 hover:bg-blue-700"
+                                                                            onClick={() => handleMarkComplete(stage.id)}
+                                                                        >
+                                                                            Mark Complete
+                                                                        </Button>
                                                                     )}
                                                                 </div>
-
-                                                                {!stage.completed && index === stages.findIndex(s => !s.completed) && (
-                                                                    <Button
-                                                                        size="sm"
-                                                                        className="bg-blue-600 hover:bg-blue-700"
-                                                                        onClick={() => handleMarkComplete(stage.id)}
-                                                                    >
-                                                                        Mark Complete
-                                                                    </Button>
-                                                                )}
                                                             </div>
                                                         </div>
                                                     </div>
-                                                </div>
-                                            ))}
+                                                ))}
+                                            </div>
                                         </div>
-                                    </div>
-                                </CardContent>
+                                    </CardContent>
+                                ) : (
+                                    <CardContent className="p-8 text-center text-gray-500">
+                                        No fund requests available or selected.
+                                    </CardContent>
+                                )}
                             </Card>
                         </div>
 

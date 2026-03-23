@@ -15,6 +15,7 @@ import {
 import { Calendar, Globe, BookOpen, Send, Clock, FileCheck, FileX, Upload, Plus, ChevronRight } from 'lucide-react';
 import { useLayout } from '../../contexts/LayoutContext';
 import { useAuth } from '../../contexts/AuthContext';
+import apiClient from '../../api/client';
 
 const FacultyODRequest = () => {
     const { setLayout } = useLayout();
@@ -31,11 +32,20 @@ const FacultyODRequest = () => {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [showForm, setShowForm] = useState(false);
 
-    const [history, setHistory] = useState([
-        { id: 'OD-24-003', type: 'ACADEMIC', purpose: 'Guest Lecture at IIT Madras', startDate: '2024-03-20', endDate: '2024-03-20', days: 1, status: 'APPROVED', proofUploaded: false },
-        { id: 'OD-24-001', type: 'ACADEMIC', purpose: 'International Conference on AI', startDate: '2024-03-15', endDate: '2024-03-17', days: 3, status: 'APPROVED', proofUploaded: true },
-        { id: 'OD-24-002', type: 'JOURNAL', purpose: 'Writing Research Paper on ML', startDate: '2024-04-10', endDate: '2024-04-11', days: 2, status: 'PENDING', proofUploaded: false }
-    ]);
+    const [history, setHistory] = useState([]);
+
+    useEffect(() => {
+        fetchODs();
+    }, []);
+
+    const fetchODs = async () => {
+        try {
+            const response = await apiClient.get('/od-requests');
+            setHistory(response.data.data);
+        } catch (error) {
+            console.error('Error fetching ODs:', error);
+        }
+    };
 
     useEffect(() => {
         if (startDate && endDate) {
@@ -46,27 +56,35 @@ const FacultyODRequest = () => {
         }
     }, [startDate, endDate]);
 
-    const handleProofUpload = (id) => {
-        setHistory(history.map(item => item.id === id ? { ...item, proofUploaded: true } : item));
+    const handleProofUpload = async (id) => {
+        try {
+            await apiClient.put(`/od-requests/${id}/status`, { proofUploaded: true, status: 'APPROVED' }); // Keep status same, update proof
+            setHistory(history.map(item => item._id === id ? { ...item, proofUploaded: true } : item));
+            alert('Success');
+        } catch (err) {
+            console.error(err);
+        }
     };
 
-    const handleSubmit = (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault();
         setIsSubmitting(true);
-        setTimeout(() => {
-            const newEntry = {
-                id: `OD-24-00${history.length + 1}`,
+        try {
+            const payload = {
                 type: odType,
                 purpose: e.target.purpose.value,
                 startDate,
                 endDate,
-                days,
-                status: 'PENDING'
+                days
             };
-            setHistory([newEntry, ...history]);
-            setIsSubmitting(false);
+            const response = await apiClient.post('/od-requests', payload);
+            setHistory([response.data.data, ...history]);
             setShowForm(false);
-        }, 1500);
+        } catch (error) {
+            console.error('Submit OD failed', error);
+        } finally {
+            setIsSubmitting(false);
+        }
     };
 
     return (
@@ -110,8 +128,7 @@ const FacultyODRequest = () => {
                             onChange={(e) => {
                                 const unuploaded = history.find(h => h.status === 'APPROVED' && !h.proofUploaded);
                                 if (unuploaded && e.target.files[0]) {
-                                    handleProofUpload(unuploaded.id);
-                                    alert(`Successfully uploaded proof for ${unuploaded.id}`);
+                                    handleProofUpload(unuploaded._id);
                                 }
                             }}
                         />
@@ -204,12 +221,12 @@ const FacultyODRequest = () => {
                         </thead>
                         <tbody className="divide-y divide-white/5">
                             {history.map((item) => (
-                                <tr key={item.id} className="hover:bg-white/5 transition-colors group">
+                                <tr key={item._id} className="hover:bg-white/5 transition-colors group">
                                     <td className="px-8 py-6">
-                                        <p className="text-[10px] font-black text-gray-400 italic">#{item.id}</p>
+                                        <p className="text-[10px] font-black text-gray-400 italic">#{item._id.substring(0, 6)}</p>
                                     </td>
                                     <td className="px-8 py-6">
-                                        <span className="bg-indigo-500/15 text-indigo-300 border border-indigo-500/30 text-[9px] font-black italic uppercase px-3 py-1 rounded-lg">{item.type}</span>
+                                        <span className="bg-indigo-500/15 text-indigo-300 border border-indigo-500/30 text-[9px] font-black italic uppercase px-3 py-1 rounded-lg">{item.odType}</span>
                                     </td>
                                     <td className="px-8 py-6">
                                         <p className="text-xs font-black italic uppercase tracking-tighter text-slate-800 dark:text-white line-clamp-1">{item.purpose}</p>
@@ -219,7 +236,9 @@ const FacultyODRequest = () => {
                                     </td>
                                     <td className="px-8 py-6 text-right">
                                         <span className={`text-[10px] font-black italic px-3 py-1 rounded-full uppercase tracking-tighter border ${
-                                            item.status === 'APPROVED' ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30' : 'bg-amber-500/15 text-amber-400 border-amber-500/30'
+                                            item.status === 'APPROVED' ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30' : 
+                                            item.status === 'REJECTED' ? 'bg-red-500/15 text-red-400 border-red-500/30' :
+                                            'bg-amber-500/15 text-amber-400 border-amber-500/30'
                                         }`}>
                                             {item.status}
                                         </span>

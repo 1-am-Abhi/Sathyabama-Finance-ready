@@ -1,7 +1,6 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { AuthProvider } from '../contexts/AuthContext';
-import { NotificationProvider } from '../contexts/NotificationContext';
+import { ProjectProvider } from '../contexts/ProjectContext';
 import ProtectedRoute from '../components/auth/ProtectedRoute';
 import LoginPage from '../components/auth/LoginPage';
 import { ROLES } from '../constants/roles';
@@ -66,10 +65,8 @@ const AppRoutes = () => {
     }, []);
 
     return (
-        <AuthProvider>
-            <NotificationProvider>
-                <Router>
-                <Routes>
+        <Router>
+            <Routes>
                     {/* Public Routes */}
                     <Route path="/login" element={<LoginPage />} />
                     <Route path="/" element={<Navigate to="/login" replace />} />
@@ -145,10 +142,8 @@ const AppRoutes = () => {
 
                     {/* 404 Route */}
                     <Route path="*" element={<Navigate to="/login" replace />} />
-                </Routes>
-            </Router>
-            </NotificationProvider>
-        </AuthProvider>
+            </Routes>
+        </Router>
     );
 };
 

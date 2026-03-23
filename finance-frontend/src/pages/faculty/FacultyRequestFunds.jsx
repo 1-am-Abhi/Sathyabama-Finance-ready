@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../../components/ui/card';
 import { Badge } from '../../components/ui/badge';
 import { Button } from '../../components/ui/button';
@@ -7,6 +7,7 @@ import {
     CheckCircle, Clock, Banknote, ArrowRight
 } from 'lucide-react';
 import { useLayout } from '../../contexts/LayoutContext';
+import { usePipeline } from '../../contexts/PipelineContext';
 import InstallmentStepper from '../../components/faculty/InstallmentStepper';
 import FundRequestModal from '../../components/faculty/FundRequestModal';
 import InitialFundRequestModal from '../../components/faculty/InitialFundRequestModal';
@@ -18,50 +19,31 @@ const FacultyRequestFunds = () => {
         setLayout("Fund & Asset Management", "Strategic disbursement oversight and grant lifecycle tracking");
     }, [setLayout]);
 
-    const [projects, setProjects] = useState([
-        {
-            id: 'PROJ-001',
-            title: 'AI-Powered Healthcare Diagnostics System',
-            totalBudget: 5000000,
-            installments: [
-                { phase: 1, amount: 1000000, status: 'RELEASED', date: '15 Jan 2024' },
-                { phase: 2, amount: 1000000, status: 'RELEASED', date: '12 Apr 2024' },
-                { phase: 3, amount: 1000000, status: 'PENDING', date: null },
-                { phase: 4, amount: 1000000, status: 'UPCOMING', date: null },
-                { phase: 5, amount: 1000000, status: 'UPCOMING', date: null }
-            ],
-            status: 'ACTIVE'
-        },
-        {
-            id: 'PROJ-002',
-            title: 'Machine Learning for Predictive Analytics',
-            totalBudget: 3500000,
-            installments: [
-                { phase: 1, amount: 800000, status: 'RELEASED', date: '10 Feb 2024' },
-                { phase: 2, amount: 900000, status: 'UPCOMING', date: null },
-                { phase: 3, amount: 900000, status: 'UPCOMING', date: null },
-            ],
-            status: 'ACTIVE'
-        }
-    ]);
-
-    const [selectedProjectId, setSelectedProjectId] = useState(projects[0]?.id);
+    const { projects, fundRequests, createRequest, isLoading } = usePipeline();
+    const [selectedProjectId, setSelectedProjectId] = useState(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [requestMode, setRequestMode] = useState('RELEASE');
 
-    const [requestHistory, setRequestHistory] = useState([
-        { id: 'REQ-882', projectTitle: 'AI Healthcare Diagnostics', type: 'INSTALLMENT_RELEASE', amount: 1000000, status: 'APPROVED', date: '12 Apr 2024' },
-        { id: 'REQ-412', projectTitle: 'ML Predictive Analytics', type: 'INITIAL_GRANT', amount: 800000, status: 'APPROVED', date: '10 Feb 2024' }
-    ]);
+    useEffect(() => {
+        if (projects?.length > 0 && !selectedProjectId) {
+            setSelectedProjectId(projects[0]._id);
+        }
+    }, [projects, selectedProjectId]);
 
-    const selectedProject = projects.find(p => p.id === selectedProjectId);
-    const nextInstallment = selectedProject?.installments.find(i => i.status === 'PENDING' || i.status === 'UPCOMING');
+    const selectedProject = projects?.find(p => p._id === selectedProjectId);
     
-    const releasedAmount = selectedProject?.installments
-        .filter(i => i.status === 'RELEASED')
-        .reduce((sum, i) => sum + i.amount, 0) || 0;
+    // Adapted installment logic
+    const installments = [
+        { phase: 1, amount: (selectedProject?.sanctionedBudget || 0) * 0.4, status: 'RELEASED', date: 'Shared' },
+        { phase: 2, amount: (selectedProject?.sanctionedBudget || 0) * 0.3, status: 'PENDING', date: null },
+    ];
 
-    const remainingAmount = (selectedProject?.totalBudget || 0) - releasedAmount;
+    const nextInstallment = installments.find(i => i.status === 'PENDING' || i.status === 'UPCOMING');
+    
+    const releasedAmount = selectedProject?.releasedBudget || 0;
+    const remainingAmount = (selectedProject?.sanctionedBudget || 0) - releasedAmount;
+
+    if (isLoading) return <div className="p-8 text-center text-maroon-600 font-bold">Initiating Pipeline...</div>;
 
     return (
         <div className="p-6 space-y-10">
@@ -72,7 +54,7 @@ const FacultyRequestFunds = () => {
                         <div className="flex items-start justify-between">
                             <div>
                                 <p className="text-xs font-bold uppercase tracking-wider opacity-70">Total Sanctioned</p>
-                                <p className="text-3xl font-bold mt-2">₹{(selectedProject?.totalBudget / 100000).toFixed(1)}L</p>
+                                <p className="text-3xl font-bold mt-2">₹{((selectedProject?.sanctionedBudget || 0) / 100000).toFixed(1)}L</p>
                             </div>
                             <div className="w-12 h-12 bg-blue-100/50 dark:bg-blue-800/20 rounded-xl flex items-center justify-center">
                                 <Banknote className="w-6 h-6" />
@@ -117,20 +99,24 @@ const FacultyRequestFunds = () => {
                         <CardTitle className="text-sm font-black uppercase tracking-widest text-gray-500 italic">Active Projects</CardTitle>
                     </CardHeader>
                     <div className="divide-y divide-gray-100 dark:divide-slate-800">
-                        {projects.map((project) => (
+                        {projects?.map((project) => (
                             <button
-                                key={project.id}
-                                onClick={() => setSelectedProjectId(project.id)}
+                                key={project._id}
+                                onClick={() => setSelectedProjectId(project._id)}
                                 className={`w-full text-left p-6 transition-all hover:bg-gray-50 dark:hover:bg-slate-800/50 ${
-                                    selectedProjectId === project.id ? 'bg-maroon-50/50 border-r-4 border-maroon-600' : ''
+                                    selectedProjectId === project._id ? 'bg-maroon-50/50 border-r-4 border-maroon-600' : ''
                                 }`}
                             >
-                                <p className={`text-sm font-bold italic tracking-tighter uppercase ${selectedProjectId === project.id ? 'text-maroon-700' : 'text-slate-600 dark:text-gray-300'}`}>
+                                <p className={`text-sm font-bold italic tracking-tighter uppercase ${selectedProjectId === project._id ? 'text-maroon-700' : 'text-slate-600 dark:text-gray-300'}`}>
                                     {project.title}
                                 </p>
                                 <div className="flex items-center gap-2 mt-2">
-                                    <Badge variant="outline" className="text-[9px] font-black italic px-2 py-0 border-gray-200">#{project.id}</Badge>
-                                    <span className="text-[10px] font-bold text-gray-400">REM: ₹{( (project.totalBudget - project.installments.filter(i => i.status === 'RELEASED').reduce((s,i) => s + i.amount, 0)) / 100000).toFixed(1)}L</span>
+                                    <Badge variant="outline" className="text-[9px] font-black italic px-2 py-0 border-gray-200">
+                                        #{project._id.substring(0, 6)}
+                                    </Badge>
+                                    <span className="text-[10px] font-bold text-gray-400">
+                                        REM: ₹{(((project.sanctionedBudget || 0) - (project.releasedBudget || 0)) / 100000).toFixed(1)}L
+                                    </span>
                                 </div>
                             </button>
                         ))}
@@ -160,7 +146,7 @@ const FacultyRequestFunds = () => {
                             </CardHeader>
                             <CardContent className="p-10">
                                 <InstallmentStepper
-                                    installments={selectedProject.installments}
+                                    installments={installments}
                                     currentPhase={nextInstallment?.phase || 0}
                                 />
                                 <div className="mt-12 flex flex-col items-center text-center space-y-6">
@@ -197,29 +183,31 @@ const FacultyRequestFunds = () => {
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-gray-50 dark:divide-slate-800">
-                                    {requestHistory.map((req) => (
-                                        <tr key={req.id} className="hover:bg-gray-50 dark:hover:bg-slate-800/50">
-                                            <td className="px-8 py-6">
-                                                <p className="text-[10px] font-black text-slate-400 italic">#{req.id}</p>
-                                                <p className="text-[11px] font-black text-slate-800 dark:text-white uppercase italic mt-0.5">{req.date}</p>
-                                            </td>
-                                            <td className="px-8 py-6">
-                                                <p className="text-[11px] font-black text-slate-600 dark:text-gray-300 italic uppercase">{req.projectTitle}</p>
-                                                <p className="text-[9px] font-bold text-gray-400 tracking-tighter mt-1">{req.type.replace('_', ' ')}</p>
-                                            </td>
-                                            <td className="px-8 py-6">
-                                                <p className="text-sm font-black text-maroon-600 italic">₹{(req.amount / 100000).toFixed(1)}L</p>
-                                            </td>
-                                            <td className="px-8 py-6 text-right">
-                                                <Badge className={`border-0 text-[10px] font-black italic px-3 py-1 rounded-full ${
-                                                    req.status === 'APPROVED' ? 'bg-emerald-50 text-emerald-600' : 'bg-blue-50 text-blue-600'
-                                                }`}>
-                                                    {req.status}
-                                                </Badge>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
+                                     {(fundRequests || []).map((req) => (
+                                         <tr key={req._id} className="hover:bg-gray-50 dark:hover:bg-slate-800/50">
+                                             <td className="px-8 py-6">
+                                                 <p className="text-[10px] font-black text-slate-400 italic">#{req._id.substring(req._id.length - 6)}</p>
+                                                 <p className="text-[11px] font-black text-slate-800 dark:text-white uppercase italic mt-0.5">{new Date(req.createdAt).toLocaleDateString()}</p>
+                                             </td>
+                                             <td className="px-8 py-6">
+                                                 <p className="text-[11px] font-black text-slate-600 dark:text-gray-300 italic uppercase">{req.projectTitle}</p>
+                                                 <p className="text-[9px] font-bold text-gray-400 tracking-tighter mt-1">{req.purpose}</p>
+                                             </td>
+                                             <td className="px-8 py-6">
+                                                 <p className="text-sm font-black text-maroon-600 italic">₹{(req.requestedAmount / 100000).toFixed(1)}L</p>
+                                             </td>
+                                             <td className="px-8 py-6 text-right">
+                                                 <Badge className={`border-0 text-[10px] font-black italic px-3 py-1 rounded-full ${
+                                                     req.status === 'APPROVED' ? 'bg-emerald-50 text-emerald-600' : 
+                                                     req.status === 'REJECTED' ? 'bg-red-50 text-red-600' :
+                                                     'bg-blue-50 text-blue-600'
+                                                 }`}>
+                                                     {req.currentStage || req.status}
+                                                 </Badge>
+                                             </td>
+                                         </tr>
+                                     ))}
+                                 </tbody>
                             </table>
                         </div>
                     </Card>
@@ -234,16 +222,19 @@ const FacultyRequestFunds = () => {
                     project={selectedProject}
                     nextInstallment={nextInstallment}
                     maxClaimableAmount={remainingAmount}
-                    onSubmit={(data) => {
-                        setRequestHistory([{ 
-                            id: `REQ-${Math.floor(Math.random()*1000)}`, 
-                            projectTitle: selectedProject.title, 
-                            type: 'INSTALLMENT_RELEASE', 
-                            amount: data.amount, 
-                            status: 'PENDING', 
-                            date: 'Today' 
-                        }, ...requestHistory]);
-                        setIsModalOpen(false);
+                    onSubmit={async (data) => {
+                        try {
+                            await createRequest({
+                                projectTitle: selectedProject.title,
+                                projectRef: selectedProject._id,
+                                requestedAmount: data.amount,
+                                purpose: data.purpose,
+                                source: selectedProject.fundingSource === 'PFMS' ? 'PFMS' : 'DIRECTOR_INNOVATION'
+                            });
+                            setIsModalOpen(false);
+                        } catch (err) {
+                            alert('Request submission failed');
+                        }
                     }}
                 />
             )}
@@ -251,16 +242,18 @@ const FacultyRequestFunds = () => {
             <InitialFundRequestModal
                 isOpen={isModalOpen && requestMode === 'INITIAL'}
                 onClose={() => setIsModalOpen(false)}
-                onSubmit={(data) => {
-                    setRequestHistory([{ 
-                        id: `REQ-${Math.floor(Math.random()*1000)}`, 
-                        projectTitle: data.title, 
-                        type: 'INITIAL_GRANT', 
-                        amount: data.amount, 
-                        status: 'PENDING', 
-                        date: 'Today' 
-                    }, ...requestHistory]);
-                    setIsModalOpen(false);
+                onSubmit={async (data) => {
+                    try {
+                        await createRequest({
+                            projectTitle: data.title,
+                            requestedAmount: data.amount,
+                            purpose: data.reason,
+                            source: data.fundSource === 'PFMS' ? 'PFMS' : 'DIRECTOR_INNOVATION'
+                        });
+                        setIsModalOpen(false);
+                    } catch (err) {
+                        alert('Request submission failed');
+                    }
                 }}
             />
         </div>

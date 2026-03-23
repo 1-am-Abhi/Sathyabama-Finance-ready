@@ -2,6 +2,9 @@ import React, { useEffect } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import AppRoutes from './routes';
 import { ProjectProvider } from './contexts/ProjectContext';
+import { PipelineProvider } from './contexts/PipelineContext';
+import { AuthProvider } from './contexts/AuthContext';
+import { NotificationProvider } from './contexts/NotificationContext';
 import { seedAllData } from './utils/seedData';
 
 const queryClient = new QueryClient({
@@ -29,9 +32,15 @@ function App() {
 
   return (
     <QueryClientProvider client={queryClient}>
-        <ProjectProvider>
-          <AppRoutes />
-        </ProjectProvider>
+      <AuthProvider>
+        <NotificationProvider>
+          <ProjectProvider>
+            <PipelineProvider>
+              <AppRoutes />
+            </PipelineProvider>
+          </ProjectProvider>
+        </NotificationProvider>
+      </AuthProvider>
     </QueryClientProvider>
   );
 }

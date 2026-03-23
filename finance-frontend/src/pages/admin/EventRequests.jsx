@@ -12,6 +12,7 @@ import { CheckCircle, XCircle, Clock, Search, Filter, Calendar as CalendarIcon, 
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSameDay, addMonths, subMonths, isWithinInterval, parseISO, isPast, addHours, differenceInHours } from 'date-fns';
 import AIResultModal from '../../components/shared/AIResultModal';
 import { analyzeEventFeasibility } from '../../services/aiService';
+import apiClient from '../../api/client';
 
 const API_KEY = 'AIzaSyBj4Crh5DFqWdf49XQNKxvxLMo-5MSyKog';
 const CALENDAR_ID = 'en.indian#holiday@group.v.calendar.google.com';
@@ -152,22 +153,27 @@ const EventRequests = () => {
     const [filterOpen, setFilterOpen] = useState(false);
     const [centreFilter, setCentreFilter] = useState('All');
 
-    // Initialize requests with event-specific data for Sathyabama University
-    const [requests, setRequests] = useState([
-        { id: 1, faculty: 'Dr. Priya Sharma', eventTitle: 'AI & ML Conference 2026', eventType: 'Conference', dates: '2026-02-15', venue: 'Jeppiaar Auditorium', participants: 150, fundingType: 'College Funded', fundingSource: 'PFMS', approvedAmount: 250000, status: 'PENDING', researchCentre: 'CfNSaN', photosUploaded: false, description: 'International conference on Artificial Intelligence and Machine Learning' },
-        { id: 2, faculty: 'Dr. R. Kumar', eventTitle: 'Research Symposium', eventType: 'Symposium', dates: '2026-03-01 to 2026-03-02', venue: 'Seminar Hall - Block 1', participants: 200, fundingType: 'Industry Funded', fundingSource: null, approvedAmount: null, status: 'APPROVED', researchCentre: 'CfOCEAN', photosUploaded: true, description: 'Annual research symposium on ocean studies sponsored by TCS' },
-        { id: 3, faculty: 'Dr. Anita Desai', eventTitle: 'Guest Lecture Series', eventType: 'Seminar', dates: '2026-02-20', venue: 'Main Auditorium', participants: 100, fundingType: 'Non-Funded', fundingSource: null, approvedAmount: null, status: 'REJECTED', researchCentre: 'CfMaNS', photosUploaded: false, description: 'Series of lectures on molecular sciences' },
-        { id: 4, faculty: 'Dr. Suresh', eventTitle: 'Workshop on Additive Manufacturing', eventType: 'Workshop', dates: '2026-02-25', venue: 'Engineering Workshop - Block 3', participants: 50, fundingType: 'College Funded', fundingSource: "Director's Innovation Fund", approvedAmount: 150000, status: 'PENDING', researchCentre: 'CfEAM', photosUploaded: false, description: 'Hands-on workshop on 3D printing technologies' },
-        { id: 5, faculty: 'Dr. Meena', eventTitle: 'Sathyabama Cultural Fest 2026', eventType: 'Cultural', dates: '2026-01-10', venue: 'Open Air Theatre', participants: 500, fundingType: 'College Funded', fundingSource: "Director's Innovation Fund", approvedAmount: 500000, status: 'APPROVED', researchCentre: 'CfACS', photosUploaded: false, description: 'Annual cultural festival celebrating diversity' },
-        { id: 6, faculty: 'Dr. John Doe', eventTitle: 'Inter-Department Sports Meet', eventType: 'Sports', dates: '2026-03-10', venue: 'University Sports Complex', participants: 300, fundingType: 'Non-Funded', fundingSource: null, approvedAmount: null, status: 'PENDING', researchCentre: 'CfBM', photosUploaded: false, description: 'Inter-departmental sports competition' },
-        { id: 7, faculty: 'Dr. Emily Chen', eventTitle: 'Tech Expo 2026', eventType: 'Exhibition', dates: '2026-03-15 to 2026-03-16', venue: 'Central Library Exhibition Hall', participants: 400, fundingType: 'Industry Funded', fundingSource: null, approvedAmount: null, status: 'APPROVED', researchCentre: 'CfWTER', photosUploaded: true, description: 'Technology exhibition showcasing student projects sponsored by Infosys' },
-        { id: 8, faculty: 'Dr. Ankit', eventTitle: 'Hackathon 2026', eventType: 'Competition', dates: '2026-03-20', venue: 'Computer Science Lab - Block 2', participants: 80, fundingType: 'College Funded', fundingSource: 'PFMS', approvedAmount: 100000, status: 'CANCELLED', researchCentre: 'CfDSaA', photosUploaded: false, description: '24-hour coding competition' },
-    ]);
+    const [requests, setRequests] = useState([]);
 
     const uniqueResearchCentres = ['All', ...new Set(requests.map(r => r.researchCentre))];
 
     useEffect(() => {
         setLayout("Event Requests", "Manage institutional event requests");
+
+        const fetchRequests = async () => {
+            try {
+                const response = await apiClient.get('/event-requests');
+                const formattedRequests = response.data.data.map(req => ({
+                    ...req,
+                    id: req._id,
+                    faculty: req.facultyName
+                }));
+                setRequests(formattedRequests);
+            } catch (err) {
+                console.error("Failed to fetch events:", err);
+            }
+        };
+        fetchRequests();
 
         // Fetch Google Calendar Holidays
         const fetchHolidays = async () => {
@@ -198,21 +204,6 @@ const EventRequests = () => {
 
         fetchHolidays();
 
-        // Check for 24-hour Auto-Cancellation
-        setRequests(prevRequests => prevRequests.map(req => {
-            // Only auto-cancel Approved events that don't have photos
-            if (req.status === 'APPROVED' && !req.photosUploaded) {
-                const endDate = req.dates.includes('to') ? req.dates.split(' to ')[1] : req.dates;
-                const requestDate = parseISO(endDate);
-                const deadline = addHours(requestDate, 24);
-
-                if (isPast(deadline)) {
-                    return { ...req, status: 'CANCELLED', remarks: 'Auto-cancelled: Photos not uploaded within 24 hours.' };
-                }
-            }
-            return req;
-        }));
-
     }, [setLayout]);
 
     const handleStatusClick = (status) => {
@@ -227,7 +218,7 @@ const EventRequests = () => {
         // Prevent scroll to top by not changing the filter if it's the same date
     };
 
-    const handleApproveClick = (request, e) => {
+    const handleApproveClick = async (request, e) => {
         e.stopPropagation();
         setSelectedRequest(request);
         // For college-funded events, open approval modal to set amount
@@ -236,25 +227,35 @@ const EventRequests = () => {
             setApproveModalOpen(true);
         } else {
             // For industry-funded events, approve directly (no amount needed)
-            setRequests(requests.map(req =>
-                req.id === request.id
-                    ? { ...req, status: 'APPROVED' }
-                    : req
-            ));
+            try {
+                await apiClient.put(`/event-requests/${request.id}/status`, { status: 'APPROVED' });
+                setRequests(requests.map(req =>
+                    req.id === request.id
+                        ? { ...req, status: 'APPROVED' }
+                        : req
+                ));
+            } catch (err) {
+                console.error(err);
+            }
         }
     };
 
-    const handleConfirmApprove = () => {
+    const handleConfirmApprove = async () => {
         if (selectedRequest) {
             const amount = parseFloat(approvalAmount);
-            setRequests(requests.map(req =>
-                req.id === selectedRequest.id
-                    ? { ...req, status: 'APPROVED', approvedAmount: amount }
-                    : req
-            ));
-            setApproveModalOpen(false);
-            setApprovalAmount('');
-            setSelectedRequest(null);
+            try {
+                await apiClient.put(`/event-requests/${selectedRequest.id}/status`, { status: 'APPROVED', approvedAmount: amount });
+                setRequests(requests.map(req =>
+                    req.id === selectedRequest.id
+                        ? { ...req, status: 'APPROVED', approvedAmount: amount }
+                        : req
+                ));
+                setApproveModalOpen(false);
+                setApprovalAmount('');
+                setSelectedRequest(null);
+            } catch (err) {
+                console.error(err);
+            }
         }
     };
 
@@ -270,19 +271,24 @@ const EventRequests = () => {
         setRevokeModalOpen(true);
     };
 
-    const handleConfirmRevoke = () => {
+    const handleConfirmRevoke = async () => {
         if (selectedRequest) {
             const hasPhoto = !!uploadFile || selectedRequest.photosUploaded;
-            setRequests(requests.map(req => req.id === selectedRequest.id ? {
-                ...req,
-                status: 'REVOKED',
-                remarks: 'Revoked by Admin - Event completed',
-                photosUploaded: hasPhoto
-            } : req));
+            try {
+                await apiClient.put(`/event-requests/${selectedRequest.id}/status`, { status: 'REVOKED', remarks: 'Revoked by Admin - Event completed', photosUploaded: hasPhoto });
+                setRequests(requests.map(req => req.id === selectedRequest.id ? {
+                    ...req,
+                    status: 'REVOKED',
+                    remarks: 'Revoked by Admin - Event completed',
+                    photosUploaded: hasPhoto
+                } : req));
 
-            setRevokeModalOpen(false);
-            setUploadFile(null);
-            setSelectedRequest(null);
+                setRevokeModalOpen(false);
+                setUploadFile(null);
+                setSelectedRequest(null);
+            } catch (err) {
+                console.error(err);
+            }
         }
     };
 
@@ -292,12 +298,17 @@ const EventRequests = () => {
         setPhotoModalOpen(true);
     };
 
-    const handleConfirmReject = () => {
+    const handleConfirmReject = async () => {
         if (selectedRequest) {
-            setRequests(requests.map(req => req.id === selectedRequest.id ? { ...req, status: 'REJECTED', remarks: rejectRemarks } : req));
-            setRejectModalOpen(false);
-            setRejectRemarks('');
-            setSelectedRequest(null);
+            try {
+                await apiClient.put(`/event-requests/${selectedRequest.id}/status`, { status: 'REJECTED', remarks: rejectRemarks });
+                setRequests(requests.map(req => req.id === selectedRequest.id ? { ...req, status: 'REJECTED', remarks: rejectRemarks } : req));
+                setRejectModalOpen(false);
+                setRejectRemarks('');
+                setSelectedRequest(null);
+            } catch (err) {
+                console.error(err);
+            }
         }
     };
 

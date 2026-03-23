@@ -22,25 +22,26 @@ const LoginPage = () => {
         setLoading(true);
 
         try {
-            const mockUser = {
-                id: 1,
-                name: selectedRole === ROLES.ADMIN ? 'Dr. Bharathi' :
-                    selectedRole === ROLES.FACULTY ? 'Dr. Priya Sharma' : 'Mr. Arun Patel',
-                email: email,
-                role: selectedRole
-            };
+            const result = await login(email, password);
+            
+            if (result.success) {
+                // Get the user from local storage or context (AuthContext already sets it)
+                const storedUser = JSON.parse(localStorage.getItem('user'));
+                const role = storedUser.role;
 
-            localStorage.setItem('token', 'mock-jwt-token-' + Date.now());
-            localStorage.setItem('user', JSON.stringify(mockUser));
+                const dashboardPaths = {
+                    [ROLES.ADMIN]: '/admin/dashboard',
+                    [ROLES.FACULTY]: '/faculty/dashboard',
+                    [ROLES.FINANCE_OFFICER]: '/finance/dashboard'
+                };
 
-            const dashboardPaths = {
-                [ROLES.ADMIN]: '/admin/dashboard',
-                [ROLES.FACULTY]: '/faculty/dashboard',
-                [ROLES.FINANCE_OFFICER]: '/finance/dashboard'
-            };
-
-            window.location.href = dashboardPaths[selectedRole];
+                // Use window.location.href for a full refresh to ensure all contexts are clean
+                window.location.href = dashboardPaths[role] || '/login';
+            } else {
+                setError(result.error || 'Login failed. Please check your credentials.');
+            }
         } catch (err) {
+            console.error('Login submission error:', err);
             setError('Login failed. Please try again.');
         } finally {
             setLoading(false);

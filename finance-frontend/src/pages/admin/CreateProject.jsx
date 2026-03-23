@@ -6,6 +6,8 @@ import { Label } from '../../components/ui/label';
 import { Input } from '../../components/ui/input';
 import { Textarea } from '../../components/ui/textarea';
 import { Button } from '../../components/ui/button';
+import apiClient from '../../api/client';
+import { FUND_SOURCES } from '../../constants/fundSources';
 
 const CreateProject = () => {
     const { setLayout } = useLayout();
@@ -16,14 +18,33 @@ const CreateProject = () => {
         researchCentre: '',
         budget: '',
         duration: '',
-        startDate: ''
+        startDate: '',
+        fundingSource: 'PFMS'
     });
 
-    const handleSubmit = (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault();
-        // TODO: API call to create project
-        console.log('Creating project:', formData);
-        alert('Project created successfully!');
+        try {
+            const payload = {
+                title: formData.title,
+                description: formData.description,
+                pi: formData.principalInvestigator,
+                department: 'Research', // can be dynamic if added
+                centre: formData.researchCentre,
+                sanctionedBudget: Number(formData.budget),
+                fundingSource: formData.fundingSource,
+                startDate: formData.startDate,
+                status: 'PENDING'
+            };
+            const response = await apiClient.post('/projects', payload);
+            if (response.data.success) {
+                alert('Project created successfully!');
+                setFormData({ title: '', description: '', principalInvestigator: '', researchCentre: '', budget: '', duration: '', startDate: '', fundingSource: 'PFMS' });
+            }
+        } catch (error) {
+            console.error('Error creating project:', error);
+            alert('Failed to create project: ' + (error.response?.data?.message || error.message));
+        }
     };
 
     const handleChange = (e) => {
@@ -149,6 +170,22 @@ const CreateProject = () => {
                                     className="dark:bg-slate-800 dark:border-slate-700 dark:text-white"
                                     required
                                 />
+                            </div>
+
+                            <div className="space-y-2">
+                                <Label htmlFor="fundingSource" className="dark:text-gray-300">Funding Source *</Label>
+                                <select
+                                    id="fundingSource"
+                                    name="fundingSource"
+                                    value={formData.fundingSource}
+                                    onChange={handleChange}
+                                    className="flex h-10 w-full rounded-md border border-input bg-background dark:bg-slate-800 dark:border-slate-700 dark:text-white px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-maroon-500 focus-visible:ring-offset-2"
+                                    required
+                                >
+                                    {FUND_SOURCES.map((source) => (
+                                        <option key={source} value={source}>{source}</option>
+                                    ))}
+                                </select>
                             </div>
 
                             <div className="flex justify-end space-x-4 pt-4 border-t dark:border-slate-800">

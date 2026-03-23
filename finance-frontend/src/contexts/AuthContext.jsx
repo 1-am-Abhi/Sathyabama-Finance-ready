@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import apiClient from '../api/client';
 
 const AuthContext = createContext(null);
 
@@ -21,25 +22,22 @@ export const AuthProvider = ({ children }) => {
 
     const login = async (email, password) => {
         try {
-            // TODO: Replace with actual API call
-            // Simulating login for now
-            const mockUser = {
-                id: 1,
-                name: 'Dr. Bharathi',
-                email: email,
-                role: 'ADMIN' // Can be ADMIN, FACULTY, or FINANCE_OFFICER
-            };
-            const mockToken = 'mock-jwt-token-' + Date.now();
+            const response = await apiClient.post('/auth/login', { email, password });
+            const { user: userData, token: userToken } = response.data;
 
-            localStorage.setItem('token', mockToken);
-            localStorage.setItem('user', JSON.stringify(mockUser));
+            localStorage.setItem('token', userToken);
+            localStorage.setItem('user', JSON.stringify(userData));
 
-            setToken(mockToken);
-            setUser(mockUser);
+            setToken(userToken);
+            setUser(userData);
 
             return { success: true };
         } catch (error) {
-            return { success: false, error: error.message };
+            console.error('Login error:', error);
+            return { 
+                success: false, 
+                error: error.response?.data?.message || 'Login failed. Please check your credentials.' 
+            };
         }
     };
 

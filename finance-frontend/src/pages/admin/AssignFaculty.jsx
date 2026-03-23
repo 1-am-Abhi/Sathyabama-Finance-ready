@@ -12,7 +12,7 @@ import {
 } from 'lucide-react';
 import { useLayout } from '../../contexts/LayoutContext';
 import { RESEARCH_CENTRES } from '../../constants/researchCentres';
-
+import apiClient from '../../api/client';
 
 const ManageFaculty = () => {
     const { setLayout } = useLayout();
@@ -37,107 +37,57 @@ const ManageFaculty = () => {
         setLayout("Manage Faculty", "Overview and administration of research faculty accounts");
     }, [setLayout]);
 
-    // Projects State - UPDATED to support multiple faculty (assignedFacultyIds)
-    const [projects, setProjects] = useState([
-        {
-            id: 1,
-            title: 'AI-Powered Medical Diagnosis System',
-            status: 'APPROVED',
-            assignedFacultyIds: [], // Changed from null to array
-            requestedAmount: 5000000,
-            requestedByIds: [1, 3],
-            type: 'Agency'
-        },
-        {
-            id: 2,
-            title: 'Smart Traffic Management System',
-            status: 'APPROVED',
-            assignedFacultyIds: [4], // Pre-assigned to Dr. Vikram
-            requestedAmount: 6000000,
-            requestedByIds: [4],
-            type: 'College'
-        },
-        {
-            id: 3,
-            title: 'Renewable Energy Storage Solutions',
-            status: 'APPROVED',
-            assignedFacultyIds: [],
-            requestedAmount: 4500000,
-            requestedByIds: [2],
-            type: 'Agency'
-        },
-        {
-            id: 4,
-            title: 'Student Innovation Project - Robotics',
-            status: 'APPROVED',
-            assignedFacultyIds: [1],
-            requestedAmount: 50000,
-            requestedByIds: [],
-            type: 'Faculty'
-        },
-        {
-            id: 5,
-            title: 'Pending Research Grant Proposal',
-            status: 'PENDING',
-            assignedFacultyIds: [],
-            requestedAmount: 2000000,
-            requestedByIds: [3],
-            type: 'Agency'
-        }
-    ]);
+    const [projects, setProjects] = useState([]);
+
+    useEffect(() => {
+        const fetchProjects = async () => {
+            try {
+                const response = await apiClient.get('/projects');
+                if (response.data.success) {
+                    const mappedProjects = response.data.projects.map(p => ({
+                        id: p._id,
+                        title: p.title,
+                        status: p.status,
+                        assignedFacultyIds: [p.pi], // In a real app we might allow multiple, here we map PI as the assignee
+                        requestedAmount: p.sanctionedBudget || 0,
+                        type: p.fundingSource || 'College'
+                    }));
+                    setProjects(mappedProjects);
+                }
+            } catch (err) {
+                console.error("Failed to fetch projects", err);
+            }
+        };
+        fetchProjects();
+    }, []);
 
     // Faculty State
-    const [faculties, setFaculties] = useState([
-        {
-            id: 1,
-            name: 'Dr. Priya Sharma',
-            username: 'priya.sharma',
-            email: 'priya.sharma@sathyabama.ac.in',
-            centre: 'Centre for Nano Science and Nanotechnology',
-            status: 'Active',
-            projectsCount: 2,
-            department: 'CSE'
-        },
-        {
-            id: 2,
-            name: 'Dr. Bharathi',
-            username: 'bharti.research',
-            email: 'bharti.r@sathyabama.ac.in',
-            centre: 'Centre of Excellence for Energy Research',
-            status: 'Active',
-            projectsCount: 3,
-            department: 'EEE'
-        },
-        {
-            id: 3,
-            name: 'Dr. Anita Desai',
-            username: 'anita.desai',
-            email: 'anita.desai@sathyabama.ac.in',
-            centre: 'Centre for Waste Management',
-            status: 'Active',
-            projectsCount: 1,
-            department: 'CIVIL'
-        },
-        {
-            id: 4,
-            name: 'Dr. Vikram Singh',
-            username: 'vikram.singh',
-            email: 'vikram.s@sathyabama.ac.in',
-            centre: 'Centre for Climate Studies',
-            status: 'Active',
-            projectsCount: 2,
-            department: 'CIVIL'
-        },
-        {
-            id: 5,
-            name: 'Dr. Meera Patel',
-            username: 'meera.patel',
-            email: 'meera.p@sathyabama.ac.in',
-            centre: 'Centre for Molecular and Nanomedical Sciences',
-            status: 'Inactive',
-            projectsCount: 1
-        },
-    ]);
+    const [faculties, setFaculties] = useState([]);
+
+    useEffect(() => {
+        const fetchFaculties = async () => {
+            try {
+                const response = await apiClient.get('/auth/users');
+                if (response.data.success) {
+                    const mappedFaculties = response.data.users.map(u => ({
+                        id: u._id,
+                        name: u.name,
+                        username: u.email.split('@')[0],
+                        email: u.email,
+                        centre: u.centre || 'Not Assigned',
+                        status: 'Active',
+                        projectsCount: 0,
+                        department: u.department
+                    }));
+                    setFaculties(mappedFaculties);
+                }
+            } catch (error) {
+                console.error("Error fetching users:", error);
+            }
+        };
+
+        fetchFaculties();
+    }, []);
 
     // UI State
     const [selectedFaculty, setSelectedFaculty] = useState(null);
@@ -239,20 +189,36 @@ const ManageFaculty = () => {
         }
     };
 
-    const handleAddFaculty = (e) => {
+    const handleAddFaculty = async (e) => {
         e.preventDefault();
-        const id = faculties.length + 1;
-        setFaculties([...faculties, {
-            id,
-            name: newFaculty.name,
-            username: newFaculty.username,
-            email: newFaculty.email,
-            centre: newFaculty.centre,
-            status: newFaculty.status,
-            projectsCount: 0
-        }]);
-        setIsAddModalOpen(false);
-        setNewFaculty({ name: '', username: '', email: '', password: '', status: 'Active', centre: RESEARCH_CENTRES[0] });
+        try {
+            const response = await apiClient.post('/auth/register', {
+                name: newFaculty.name,
+                email: newFaculty.email,
+                password: newFaculty.password,
+                role: 'FACULTY',
+                department: 'Research',
+                centre: newFaculty.centre
+            });
+            
+            if (response.data.success) {
+                const addedUser = response.data.user;
+                setFaculties([...faculties, {
+                    id: addedUser._id,
+                    name: addedUser.name,
+                    username: addedUser.email.split('@')[0],
+                    email: addedUser.email,
+                    centre: addedUser.centre || 'Not Assigned',
+                    status: newFaculty.status,
+                    projectsCount: 0
+                }]);
+                setIsAddModalOpen(false);
+                setNewFaculty({ name: '', username: '', email: '', password: '', status: 'Active', centre: RESEARCH_CENTRES[0] });
+            }
+        } catch (error) {
+            console.error("Error creating user:", error);
+            alert("Failed to create faculty account: " + (error.response?.data?.message || error.message));
+        }
     };
 
     const handleUpdateFaculty = (e) => {

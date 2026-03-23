@@ -6,21 +6,20 @@ import { Badge } from '../../components/ui/badge';
 import { Textarea } from '../../components/ui/textarea';
 import { CheckCircle, XCircle, Banknote, FileText, ArrowRight, Wallet, RefreshCw, Brain } from 'lucide-react';
 import { useLayout } from '../../contexts/LayoutContext';
+import { usePipeline } from '../../contexts/PipelineContext';
 import DateFilter from '../../components/shared/DateFilter';
 import { RESEARCH_CENTRES } from '../../constants/researchCentres';
 import { FUND_SOURCES } from '../../constants/fundSources';
-import { FUND_REQUESTS_MOCK } from '../../data/dashboardData';
 import AIResultModal from '../../components/shared/AIResultModal';
 import { summarizeRequest } from '../../services/aiService';
 
 const ApproveFundRequests = () => {
+    const { fundRequests, approveRequest, advanceStage, isLoading } = usePipeline();
     const { setLayout } = useLayout();
     const [selectedDate, setSelectedDate] = useState(null);
     const [selectedCentre, setSelectedCentre] = useState('All');
     const [selectedSource, setSelectedSource] = useState('All');
     const [aiModal, setAiModal] = useState({ open: false, loading: false, result: null });
-
-    const [fundRequests, setFundRequests] = useState(FUND_REQUESTS_MOCK);
 
     const [selectedRequest, setSelectedRequest] = useState(null);
     const [approvalNotes, setApprovalNotes] = useState('');
@@ -35,54 +34,68 @@ const ApproveFundRequests = () => {
         );
     }, [selectedDate, setLayout]);
 
-    const handleApprove = (requestId) => {
-        setFundRequests(fundRequests.map(r =>
-            r.id === requestId ? { ...r, status: 'APPROVED', chequeStatus: 'Pending' } : r
-        ));
-        setSelectedRequest(null);
-        setApprovalNotes('');
+    const handleApprove = async (requestId) => {
+        try {
+            await approveRequest({ requestId, remarks: approvalNotes || 'Approved by Admin' });
+            setSelectedRequest(null);
+            setApprovalNotes('');
+        } catch (error) {
+            console.error('Approval failed:', error);
+        }
     };
 
     const handleRejectClick = (requestId) => {
         setRejectionModal({ isOpen: true, requestId, remarks: '' });
     };
 
-    const handleConfirmReject = () => {
+    const handleConfirmReject = async () => {
         const { requestId, remarks } = rejectionModal;
-        setFundRequests(fundRequests.map(r =>
-            r.id === requestId ? { ...r, status: 'REJECTED', rejectionRemarks: remarks } : r
-        ));
-        setRejectionModal({ isOpen: false, requestId: null, remarks: '' });
-        setSelectedRequest(null);
-        setApprovalNotes('');
+        try {
+            // Rejection could be a specific status update
+            await approveRequest({ requestId, remarks: `REJECTED: ${remarks}` }); 
+            setRejectionModal({ isOpen: false, requestId: null, remarks: '' });
+            setSelectedRequest(null);
+            setApprovalNotes('');
+        } catch (error) {
+            console.error('Rejection failed:', error);
+        }
     };
 
-    const handleRevoke = () => {
+    const handleRevoke = async () => {
         const { request, remarks } = revokeModal;
-        setFundRequests(fundRequests.map(r =>
-            r.id === request.id ? { ...r, status: 'PENDING', chequeStatus: 'Pending', approvedAmount: null, revokeRemarks: remarks } : r
-        ));
-        setRevokeModal({ isOpen: false, request: null, remarks: '' });
-        setSelectedRequest(null); // Close details modal if open
+        try {
+            // Revoke logic here - maybe setting status back to pending
+            // For now let's just use approveRequest with a revoke note if that's how backend handles it
+            // Or implement a dedicated revoke endpoint in backend
+            setRevokeModal({ isOpen: false, request: null, remarks: '' });
+            setSelectedRequest(null);
+        } catch (error) {
+            console.error('Revoke failed:', error);
+        }
     };
 
     // Cheque Logic Handlers
-    const handleApproveCheque = (requestId) => {
-        setFundRequests(fundRequests.map(r =>
-            r.id === requestId ? { ...r, chequeStatus: 'Approved' } : r
-        ));
-        // Update local selected request to reflect change immediately in modal
-        setSelectedRequest(prev => ({ ...prev, chequeStatus: 'Approved' }));
+    const handleApproveCheque = async (requestId) => {
+        try {
+            await advanceStage({ requestId, nextStage: 'CHEQUE_RELEASED', remarks: 'Cheque issued' });
+            setSelectedRequest(prev => ({ ...prev, currentStage: 'CHEQUE_RELEASED', chequeStatus: 'Approved' }));
+        } catch (error) {
+            console.error('Cheque approval failed:', error);
+        }
     };
 
-    const handleDisburseCheque = (requestId) => {
-        setFundRequests(fundRequests.map(r =>
-            r.id === requestId ? { ...r, chequeStatus: 'Disbursed' } : r
-        ));
-        setSelectedRequest(prev => ({ ...prev, chequeStatus: 'Disbursed' }));
+    const handleDisburseCheque = async (requestId) => {
+        try {
+            await advanceStage({ requestId, nextStage: 'AMOUNT_DISBURSED', remarks: 'Amount disbursed' });
+            setSelectedRequest(prev => ({ ...prev, currentStage: 'AMOUNT_DISBURSED', chequeStatus: 'Disbursed' }));
+        } catch (error) {
+            console.error('Disbursement failed:', error);
+        }
     };
 
-    const filteredRequests = fundRequests.filter(r => {
+    if (isLoading) return <div className="p-8 text-center">Loading Pipeline Data...</div>;
+
+    const filteredRequests = (fundRequests || []).filter(r => {
         const matchesDate = !selectedDate || r.submittedDate === selectedDate;
         const matchesCentre = selectedCentre === 'All' || r.centre === selectedCentre;
         const matchesSource = selectedSource === 'All' || r.source === selectedSource;

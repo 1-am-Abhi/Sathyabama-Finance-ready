@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../..
 import { Button } from '../../components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
 import { User, Bell, Shield, Server, Palette, Upload, Moon, Sun } from 'lucide-react';
+import apiClient from '../../api/client';
 
 const Settings = () => {
     const { setLayout } = useLayout();
@@ -58,14 +59,26 @@ const Settings = () => {
         }
     };
 
-    const handlePasswordUpdate = () => {
-        // Mock API call
-        if (currentPassword && newPassword) {
-            alert("Password updated successfully!");
-            setCurrentPassword('');
-            setNewPassword('');
-        } else {
+    const handlePasswordUpdate = async () => {
+        if (!currentPassword || !newPassword) {
             alert("Please fill in all password fields.");
+            return;
+        }
+
+        try {
+            const response = await apiClient.put('/auth/update-password', {
+                currentPassword,
+                newPassword
+            });
+            
+            if (response.data.success) {
+                alert("Password updated successfully!");
+                setCurrentPassword('');
+                setNewPassword('');
+            }
+        } catch (error) {
+            console.error("Error updating password:", error);
+            alert(error.response?.data?.message || "Failed to update password");
         }
     };
 

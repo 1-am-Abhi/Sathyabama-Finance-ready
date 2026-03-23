@@ -11,7 +11,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../../
 import { CheckCircle, XCircle, Clock, Search, Filter, Calendar as CalendarIcon, ChevronLeft, ChevronRight, Image as ImageIcon, Eye, Sparkles, Download, RefreshCw, AlertTriangle, FileSpreadsheet, Upload, User, Building, CalendarDays, FileText, Brain } from 'lucide-react';
 import AIResultModal from '../../components/shared/AIResultModal';
 import { summarizeRequest } from '../../services/aiService';
-
+import apiClient from '../../api/client';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSameDay, addMonths, subMonths, isWithinInterval, parseISO, isPast, addHours, differenceInHours } from 'date-fns';
 
 const API_KEY = 'AIzaSyBj4Crh5DFqWdf49XQNKxvxLMo-5MSyKog';
@@ -152,19 +152,30 @@ const ODRequests = () => {
     const [centreFilter, setCentreFilter] = useState('All');
 
 
-    // Initialize requests with some old dates to test 24h rule
-    const [requests, setRequests] = useState([
-        { id: 1, faculty: 'Dr. Priya Sharma', purpose: 'Conference Presentation', dates: '2026-02-15', status: 'PENDING', researchCentre: 'CfNSaN', photosUploaded: false },
-        { id: 2, faculty: 'Dr. R. Kumar', purpose: 'Research Summit', dates: '2026-03-01 to 2026-03-02', status: 'APPROVED', researchCentre: 'CfOCEAN', photosUploaded: true },
-        { id: 3, faculty: 'Dr. Anita Desai', purpose: 'Guest Lecture', dates: '2026-02-20', status: 'REJECTED', researchCentre: 'CfMaNS', photosUploaded: false },
-        { id: 4, faculty: 'Dr. Suresh', purpose: 'Thesis Evaluation', dates: '2026-02-25', status: 'PENDING', researchCentre: 'CfEAM', photosUploaded: false },
-        { id: 5, faculty: 'Dr. Meena', purpose: 'Symposium', dates: '2026-01-10', status: 'APPROVED', researchCentre: 'CfACS', photosUploaded: false }, // Should be auto-cancelled (old date, no photos)
-        { id: 6, faculty: 'Dr. John Doe', purpose: 'External Examiner', dates: '2026-03-10', status: 'PENDING', researchCentre: 'CfBM', photosUploaded: false },
-        { id: 7, faculty: 'Dr. Emily Chen', purpose: 'Workshop', dates: '2026-03-15 to 2026-03-16', status: 'APPROVED', researchCentre: 'CfWTER', photosUploaded: true },
-        { id: 8, faculty: 'Dr. Ankit', purpose: 'Project Revoke Test', dates: '2026-03-20', status: 'CANCELLED', researchCentre: 'CfDSaA', photosUploaded: false },
-    ]);
-
+    const [requests, setRequests] = useState([]);
     const uniqueResearchCentres = ['All', ...new Set(requests.map(r => r.researchCentre))];
+
+    useEffect(() => {
+        const fetchRequests = async () => {
+            try {
+                const response = await apiClient.get('/od-requests');
+                const mappedRequests = response.data.data.map(req => ({
+                    id: req._id,
+                    faculty: req.facultyName,
+                    researchCentre: req.department,
+                    purpose: req.purpose,
+                    dates: req.startDate === req.endDate ? req.startDate : `${req.startDate} to ${req.endDate}`,
+                    status: req.status,
+                    photosUploaded: req.proofUploaded,
+                    remarks: req.remarks
+                }));
+                setRequests(mappedRequests);
+            } catch (err) {
+                console.error("Failed to fetch ODs", err);
+            }
+        };
+        fetchRequests();
+    }, []);
 
 
 
@@ -210,8 +221,13 @@ const ODRequests = () => {
         setSelectedStatus('All'); // Clear status filter when clicking date
     };
 
-    const handleApprove = (id) => {
-        setRequests(requests.map(req => req.id === id ? { ...req, status: 'APPROVED' } : req));
+    const handleApprove = async (id) => {
+        try {
+            await apiClient.put(`/od-requests/${id}/status`, { status: 'APPROVED' });
+            setRequests(requests.map(req => req.id === id ? { ...req, status: 'APPROVED' } : req));
+        } catch (error) {
+            console.error(error);
+        }
     };
 
     const handleRejectClick = (request, e) => {
@@ -226,19 +242,23 @@ const ODRequests = () => {
         setRevokeModalOpen(true);
     };
 
-    const handleConfirmRevoke = () => {
+    const handleConfirmRevoke = async () => {
         if (selectedRequest) {
             const hasPhoto = !!uploadFile || selectedRequest.photosUploaded;
-            setRequests(requests.map(req => req.id === selectedRequest.id ? {
-                ...req,
-                status: 'APPROVED',
-                remarks: 'Revoked by Admin',
-                photosUploaded: hasPhoto
-            } : req));
-
-            setRevokeModalOpen(false);
-            setUploadFile(null);
-            setSelectedRequest(null);
+            try {
+                await apiClient.put(`/od-requests/${selectedRequest.id}/status`, { status: 'APPROVED', proofUploaded: hasPhoto });
+                setRequests(requests.map(req => req.id === selectedRequest.id ? {
+                    ...req,
+                    status: 'APPROVED',
+                    remarks: 'Revoked by Admin',
+                    photosUploaded: hasPhoto
+                } : req));
+                setRevokeModalOpen(false);
+                setUploadFile(null);
+                setSelectedRequest(null);
+            } catch (error) {
+                console.error(error);
+            }
         }
     };
 
@@ -248,12 +268,17 @@ const ODRequests = () => {
         setPhotoModalOpen(true);
     };
 
-    const handleConfirmReject = () => {
+    const handleConfirmReject = async () => {
         if (selectedRequest) {
-            setRequests(requests.map(req => req.id === selectedRequest.id ? { ...req, status: 'REJECTED', remarks: rejectRemarks } : req));
-            setRejectModalOpen(false);
-            setRejectRemarks('');
-            setSelectedRequest(null);
+            try {
+                await apiClient.put(`/od-requests/${selectedRequest.id}/status`, { status: 'REJECTED', remarks: rejectRemarks });
+                setRequests(requests.map(req => req.id === selectedRequest.id ? { ...req, status: 'REJECTED', remarks: rejectRemarks } : req));
+                setRejectModalOpen(false);
+                setRejectRemarks('');
+                setSelectedRequest(null);
+            } catch (error) {
+                console.error(error);
+            }
         }
     };
 

@@ -11,6 +11,8 @@ import { useLayout } from '../../contexts/LayoutContext';
 import AcademicWorkModal from '../../components/faculty/NewProjectModal';
 import AIResultModal from '../../components/shared/AIResultModal';
 import { predictResearchImpact, predictGrantSuccess } from '../../services/aiService';
+import { usePipeline } from '../../contexts/PipelineContext';
+import apiClient from '../../api/client';
 
 const FacultyProjects = () => {
     const { setLayout } = useLayout();
@@ -24,45 +26,71 @@ const FacultyProjects = () => {
     const [selectedWork, setSelectedWork] = useState(null);
     const [aiModal, setAiModal] = useState({ open: false, loading: false, result: null });
     const [selectedYear, setSelectedYear] = useState('All');
-
-
-    const [projects, setProjects] = useState(() => {
-        const storedProjects = localStorage.getItem('facultyProjects');
-        return storedProjects ? JSON.parse(storedProjects) : [
-            { id: 1, title: 'AI-Powered Medical Diagnosis', type: 'PROJECT', agency: 'DST-SERB', budget: 4500000, status: 'Active', startDate: '2023-01-15' },
-            { id: 2, title: 'Sustainable Cities Framework', type: 'PUBLICATION', publisher: 'Elsevier', year: 2024, status: 'Published' },
-            { id: 3, title: 'Smart Grid Optimization', type: 'PROJECT', agency: 'Industry Sponsored', budget: 2500000, status: 'Active', startDate: '2023-06-10' }
-        ];
-    });
+    const { projects, isLoading, updateProject } = usePipeline();
+    const [localProjects, setLocalProjects] = useState([]);
 
     useEffect(() => {
-        localStorage.setItem('facultyProjects', JSON.stringify(projects));
+        if (projects) {
+            setLocalProjects(projects);
+        }
     }, [projects]);
 
     const filteredProjects = useMemo(() => {
-        if (selectedYear === 'All') return projects;
-        return projects.filter(p => {
-            const year = p.year || (p.startDate ? new Date(p.startDate).getFullYear() : null);
+        const safeProjects = localProjects || [];
+        if (selectedYear === 'All') return safeProjects;
+        return safeProjects.filter(p => {
+            const year = p.publicationYear || (p.startDate ? new Date(p.startDate).getFullYear() : null) || new Date(p.createdAt).getFullYear();
             return year === Number(selectedYear);
         });
-    }, [projects, selectedYear]);
+    }, [localProjects, selectedYear]);
 
     const stats = useMemo(() => {
+        const safeProjects = localProjects || [];
         return [
-            { title: 'Total Works', value: projects.length, icon: Layers, color: 'text-maroon-600', bg: 'bg-maroon-50' },
-            { title: 'Active Projects', value: projects.filter(p => p.status === 'Active').length, icon: CheckCircle, color: 'text-green-600', bg: 'bg-green-50' },
-            { title: 'Publications', value: projects.filter(p => p.type === 'PUBLICATION').length, icon: BookOpen, color: 'text-indigo-600', bg: 'bg-indigo-50' },
-            { title: 'Total Budget', value: `₹${(projects.reduce((sum, p) => sum + (p.budget || 0), 0) / 100000).toFixed(1)}L`, icon: TrendingUp, color: 'text-amber-600', bg: 'bg-amber-50' }
+            { title: 'Total Works', value: safeProjects.length, icon: Layers, color: 'text-maroon-600', bg: 'bg-maroon-50' },
+            { title: 'Active Projects', value: safeProjects.filter(p => p.status === 'ACTIVE').length, icon: CheckCircle, color: 'text-green-600', bg: 'bg-green-50' },
+            { title: 'Publications', value: safeProjects.filter(p => p.projectType === 'PUBLICATION').length, icon: BookOpen, color: 'text-indigo-600', bg: 'bg-indigo-50' },
+            { title: 'Total Budget', value: `₹${(safeProjects.reduce((sum, p) => sum + (p.sanctionedBudget || 0), 0) / 100000).toFixed(1)}L`, icon: TrendingUp, color: 'text-amber-600', bg: 'bg-amber-50' }
         ];
-    }, [projects]);
+    }, [localProjects]);
 
-    const handleWorkSubmit = (data) => {
-        if (modalMode === 'create') {
-            setProjects([{ ...data, id: Date.now() }, ...projects]);
-        } else {
-            setProjects(projects.map(p => p.id === data.id ? { ...p, ...data } : p));
+    const handleWorkSubmit = async (data) => {
+        try {
+            if (modalMode === 'create') {
+                const payload = {
+                    title: data.title,
+                    description: data.description || 'description not provided',
+                    pi: data.pi || 'Current Faculty',
+                    department: data.department || 'General',
+                    centre: 'General',
+                    sanctionedBudget: data.budget || 0,
+                    status: data.status === 'Active' ? 'ACTIVE' : data.status === 'Published' ? 'PUBLISHED' : 'PENDING',
+                    fundingSource: data.fundingSource || 'INSTITUTIONAL',
+                    projectType: data.type || 'PROJECT',
+                    publisher: data.publisher,
+                    publicationYear: data.year
+                };
+                const res = await apiClient.post('/projects', payload);
+                setLocalProjects([res.data.data, ...localProjects]);
+            } else {
+                const payload = {
+                    title: data.title,
+                    description: data.description,
+                    sanctionedBudget: data.budget,
+                    status: data.status,
+                    fundingSource: data.fundingSource,
+                    projectType: data.type,
+                    publisher: data.publisher,
+                    publicationYear: data.year
+                };
+                const res = await apiClient.put(`/projects/${data.id}`, payload);
+                setLocalProjects(localProjects.map(p => p._id === data.id ? res.data.data : p));
+            }
+            setIsModalOpen(false);
+        } catch (error) {
+            console.error(error);
+            alert("Failed to save work");
         }
-        setIsModalOpen(false);
     };
 
     return (
@@ -123,21 +151,21 @@ const FacultyProjects = () => {
                         </thead>
                         <tbody className="divide-y divide-gray-100 dark:divide-slate-800">
                             {filteredProjects.map((work) => (
-                                <tr key={work.id} className="hover:bg-gray-50 dark:hover:bg-slate-800/50 transition-colors">
+                                <tr key={work._id} className="hover:bg-gray-50 dark:hover:bg-slate-800/50 transition-colors">
                                     <td className="px-6 py-4">
                                         <p className="text-sm font-bold text-slate-800 dark:text-white uppercase tracking-tighter italic">{work.title}</p>
                                         <div className="flex items-center gap-2 mt-1">
-                                            <Badge variant="outline" className="text-[9px] uppercase font-black px-1.5 py-0 border-slate-200 text-slate-400">{work.type}</Badge>
+                                            <Badge variant="outline" className="text-[9px] uppercase font-black px-1.5 py-0 border-slate-200 text-slate-400">{work.projectType || 'PROJECT'}</Badge>
                                         </div>
                                     </td>
                                     <td className="px-6 py-4">
-                                        <p className="text-xs font-bold text-slate-500 italic uppercase">{work.agency || work.publisher || 'N/A'}</p>
+                                        <p className="text-xs font-bold text-slate-500 italic uppercase">{work.fundingSource || work.publisher || 'N/A'}</p>
                                     </td>
                                     <td className="px-6 py-4">
-                                        {work.budget ? (
-                                            <p className="text-sm font-bold text-maroon-600 italic">₹{(work.budget / 100000).toFixed(1)}L</p>
+                                        {work.sanctionedBudget ? (
+                                            <p className="text-sm font-bold text-maroon-600 italic">₹{(work.sanctionedBudget / 100000).toFixed(1)}L</p>
                                         ) : (
-                                            <p className="text-sm font-bold text-slate-400 italic">{work.year || 'N/A'}</p>
+                                            <p className="text-sm font-bold text-slate-400 italic">{work.publicationYear || 'N/A'}</p>
                                         )}
                                     </td>
                                     <td className="px-6 py-4">
@@ -148,17 +176,17 @@ const FacultyProjects = () => {
                                             }`}>
                                                 {work.status}
                                             </Badge>
-                                            {work.budget > 3000000 && (
+                                            {work.sanctionedBudget > 3000000 && (
                                                 <span className="inline-flex items-center gap-1 text-[9px] font-black uppercase px-2 py-0.5 rounded-full bg-emerald-100 border border-emerald-200 text-emerald-700 w-fit">
                                                     <Award className="w-2.5 h-2.5" /> High Impact
                                                 </span>
                                             )}
-                                            {work.budget >= 1000000 && work.budget <= 3000000 && (
+                                            {work.sanctionedBudget >= 1000000 && work.sanctionedBudget <= 3000000 && (
                                                 <span className="inline-flex items-center gap-1 text-[9px] font-black uppercase px-2 py-0.5 rounded-full bg-amber-100 border border-amber-200 text-amber-700 w-fit">
                                                     <BarChart2 className="w-2.5 h-2.5" /> Moderate Impact
                                                 </span>
                                             )}
-                                            {work.type === 'PUBLICATION' && (
+                                            {work.projectType === 'PUBLICATION' && (
                                                 <span className="inline-flex items-center gap-1 text-[9px] font-black uppercase px-2 py-0.5 rounded-full bg-sky-100 border border-sky-200 text-sky-700 w-fit">
                                                     <BookOpen className="w-2.5 h-2.5" /> Emerging Research
                                                 </span>
@@ -167,10 +195,10 @@ const FacultyProjects = () => {
                                     </td>
                                     <td className="px-6 py-4 text-right">
                                         <div className="flex items-center justify-end gap-1 flex-wrap">
-                                            <Button variant="ghost" size="sm" onClick={() => { setSelectedWork(work); setModalMode('edit'); setIsModalOpen(true); }} className="text-slate-400 hover:text-maroon-600">
+                                            <Button variant="ghost" size="sm" onClick={() => { setSelectedWork({...work, id: work._id, type: work.projectType, budget: work.sanctionedBudget, year: work.publicationYear }); setModalMode('edit'); setIsModalOpen(true); }} className="text-slate-400 hover:text-maroon-600">
                                                 <Edit2 className="w-4 h-4" />
                                             </Button>
-                                            {work.type === 'PROPOSAL' && (
+                                            {work.projectType === 'PROPOSAL' && (
                                                 <>
                                                     <Button
                                                         variant="ghost"
@@ -192,7 +220,7 @@ const FacultyProjects = () => {
                                                         onClick={async (e) => {
                                                             e.stopPropagation();
                                                             setAiModal({ open: true, loading: true, result: null });
-                                                            const r = await predictGrantSuccess({ title: work.title, budget: work.budget });
+                                                            const r = await predictGrantSuccess({ title: work.title, budget: work.sanctionedBudget });
                                                             setAiModal({ open: true, loading: false, result: r });
                                                         }}
                                                     >
