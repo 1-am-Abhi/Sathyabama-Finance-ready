@@ -54,6 +54,38 @@ export const AuthProvider = ({ children }) => {
         setUser(null);
     };
 
+    // Auto-logout for inactivity
+    useEffect(() => {
+        if (!user) return;
+
+        let timeoutId;
+        const INACTIVITY_LIMIT = 60 * 60 * 1000; // 1 hour
+
+        const resetTimer = () => {
+            if (timeoutId) clearTimeout(timeoutId);
+            timeoutId = setTimeout(() => {
+                console.log('Logging out due to inactivity');
+                logout();
+            }, INACTIVITY_LIMIT);
+        };
+
+        const activityEvents = ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart'];
+        
+        // Add listeners
+        activityEvents.forEach(event => 
+            window.addEventListener(event, resetTimer)
+        );
+
+        resetTimer(); // Start the first timer
+
+        return () => {
+            if (timeoutId) clearTimeout(timeoutId);
+            activityEvents.forEach(event => 
+                window.removeEventListener(event, resetTimer)
+            );
+        };
+    }, [user]);
+
     const updateUser = (userData) => {
         const updatedUser = { ...user, ...userData };
         setUser(updatedUser);
