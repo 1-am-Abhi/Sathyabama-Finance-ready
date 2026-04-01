@@ -58,7 +58,31 @@ app.get('/api/health', (req, res) => {
 
 // Root route
 app.get('/', (req, res) => {
-    res.json({ message: 'Welcome to Sathyabama Finance API' });
+    res.json({ 
+        message: 'Welcome to Sathyabama Finance API',
+        status: 'Live',
+        timestamp: new Date().toISOString()
+    });
+});
+
+// Test Database Route
+app.get('/test-db', async (req, res) => {
+    try {
+        const { sequelize } = require('./config/db');
+        const [results] = await sequelize.query('SELECT NOW() as current_time');
+        res.json({ 
+            success: true, 
+            message: 'PostgreSQL Database connected successfully via Sequelize!', 
+            server_time: results[0].current_time 
+        });
+    } catch (error) {
+        console.error('Test DB Route Error:', error);
+        res.status(500).json({ 
+            success: false, 
+            message: 'Database connection failed',
+            error: error.message 
+        });
+    }
 });
 
 // Error handling middleware
