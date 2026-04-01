@@ -64,6 +64,33 @@ exports.createFundRequest = async (req, res) => {
             source: (req.body.source || 'PFMS').toUpperCase().replace(/ /g, '_')
         };
         const request = await FundRequest.create(requestData);
+
+        // Auto-create Project record if it doesn't exist for this title/user
+        const existingProject = await Project.findOne({
+            where: {
+                [Op.or]: [
+                    { title: req.body.projectTitle },
+                    { [Op.and]: [{ pi: req.user.name }, { title: req.body.projectTitle }] }
+                ]
+            }
+        });
+
+        if (!existingProject) {
+            await Project.create({
+                title: req.body.projectTitle,
+                pi: req.user.name,
+                userId: req.user.id || req.user._id,
+                facultyId: req.user.id || req.user._id,
+                sanctionedBudget: Number(req.body.requestedAmount),
+                releasedBudget: 0,
+                utilizedBudget: 0,
+                status: 'PENDING',
+                department: req.user.department || 'RESEARCH',
+                centre: req.user.centre || 'Research Centre',
+                fundingSource: requestData.source
+            });
+        }
+
         res.status(201).json({ success: true, data: request });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });

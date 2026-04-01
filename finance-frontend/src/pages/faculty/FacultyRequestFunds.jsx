@@ -49,8 +49,15 @@ const FacultyRequestFunds = () => {
 
     const nextInstallment = installments.find(i => i.status === 'PENDING' || i.status === 'UPCOMING');
     
-    const releasedAmount = selectedProject?.releasedBudget || 0;
-    const remainingAmount = (selectedProject?.sanctionedBudget || 0) - releasedAmount;
+    const releasedAmount = selectedProject 
+        ? (selectedProject.releasedBudget || 0)
+        : (projects || []).reduce((acc, p) => acc + (p.releasedBudget || 0), 0);
+        
+    const sanctionedAmount = selectedProject
+        ? (selectedProject.sanctionedBudget || 0)
+        : (projects || []).reduce((acc, p) => acc + (p.sanctionedBudget || 0), 0);
+
+    const remainingAmount = sanctionedAmount - releasedAmount;
 
     const handleExportExcel = () => {
         const dataToExport = (fundRequests || []).map(item => ({
@@ -82,7 +89,7 @@ const FacultyRequestFunds = () => {
                         <div className="flex items-start justify-between">
                             <div>
                                 <p className="text-xs font-bold uppercase tracking-wider opacity-70">Total Sanctioned</p>
-                                <p className="text-3xl font-bold mt-2">{formatCurrency(selectedProject?.sanctionedBudget || 0)}</p>
+                                <p className="text-3xl font-bold mt-2">{formatCurrency(sanctionedAmount)}</p>
                             </div>
                             <div className="w-12 h-12 bg-blue-100/50 dark:bg-blue-800/20 rounded-xl flex items-center justify-center">
                                 <Banknote className="w-6 h-6" />
