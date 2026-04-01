@@ -242,6 +242,7 @@ export const getChatResponse = async (query) => {
 // Backward compatibility aliases
 export const analyzeProposal = analyzeProjectRisk;
 export const predictGrantSuccess = predictFundingSuccess;
+export const summarizeResearchProposal = summarizeRequest;
 export const predictResearchImpact = async (project) => {
     await delay(1200);
     return {
