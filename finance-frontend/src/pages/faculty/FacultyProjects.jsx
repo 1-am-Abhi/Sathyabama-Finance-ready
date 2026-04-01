@@ -88,12 +88,12 @@ const FacultyProjects = () => {
                     pi: data.pi || 'Current Faculty',
                     department: data.department || 'General',
                     centre: 'General',
-                    sanctionedBudget: data.budget || 0,
-                    status: data.status === 'Active' ? 'ACTIVE' : data.status === 'Published' ? 'PUBLISHED' : 'PENDING',
-                    fundingSource: data.fundingSource || 'INSTITUTIONAL',
-                    projectType: data.type || 'PROJECT',
+                    sanctionedBudget: Number(data.amount || data.budget || 0),
+                    status: (data.projectStatus || data.status || 'PENDING').toUpperCase(),
+                    fundingSource: (data.fundingSource || 'INSTITUTIONAL').toUpperCase().replace(' ', '_'),
+                    projectType: (data.mainType || data.type || 'PROJECT').toUpperCase(),
                     publisher: data.publisher,
-                    publicationYear: data.year
+                    publicationYear: Number(data.year || new Date().getFullYear())
                 };
                 const res = await apiClient.post('/projects', payload);
                 setLocalProjects([res.data.data, ...localProjects]);
@@ -101,15 +101,15 @@ const FacultyProjects = () => {
                 const payload = {
                     title: data.title,
                     description: data.description,
-                    sanctionedBudget: data.budget,
-                    status: data.status,
-                    fundingSource: data.fundingSource,
-                    projectType: data.type,
+                    sanctionedBudget: Number(data.amount || data.budget || 0),
+                    status: (data.projectStatus || data.status || 'PENDING').toUpperCase(),
+                    fundingSource: (data.fundingSource || 'INSTITUTIONAL').toUpperCase().replace(' ', '_'),
+                    projectType: (data.mainType || data.type || 'PROJECT').toUpperCase(),
                     publisher: data.publisher,
-                    publicationYear: data.year
+                    publicationYear: Number(data.year || new Date().getFullYear())
                 };
-                const res = await apiClient.put(`/projects/${data.id}`, payload);
-                setLocalProjects(localProjects.map(p => p._id === data.id ? res.data.data : p));
+                const res = await apiClient.put(`/projects/${data._id || data.id}`, payload);
+                setLocalProjects(localProjects.map(p => (p._id === (data._id || data.id)) ? res.data.data : p));
             }
             setIsModalOpen(false);
         } catch (error) {

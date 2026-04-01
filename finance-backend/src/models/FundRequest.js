@@ -15,8 +15,8 @@ class FundRequest extends Model {
         const currentIndex = FUND_FLOW_STAGES.indexOf(this.currentStage);
         const nextIndex = FUND_FLOW_STAGES.indexOf(nextStage);
         
-        if (nextIndex !== currentIndex + 1) {
-            throw new Error(`Cannot jump from ${this.currentStage} to ${nextStage}. Sequential flow only.`);
+        if (nextIndex <= currentIndex) {
+            throw new Error(`Cannot move from ${this.currentStage} to ${nextStage}. Only forward movement is allowed.`);
         }
         
         const prevStage = this.currentStage;

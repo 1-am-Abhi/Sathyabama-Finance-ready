@@ -24,6 +24,19 @@ const registerSchema = z.object({
   }),
 });
 
+// Project Schema
+const projectSchema = z.object({
+  body: z.object({
+    title: z.string().min(3, 'Title must be at least 3 characters'),
+    description: z.string().min(10, 'Description must be at least 10 characters'),
+    sanctionedBudget: z.number().nonnegative(),
+    fundingSource: z.enum(['PFMS', 'INSTITUTIONAL', 'DIRECTOR_INNOVATION', 'Director Innovation Fund']),
+    projectType: z.string().optional(),
+    publisher: z.string().optional(),
+    publicationYear: z.number().optional()
+  })
+});
+
 // OD Request Schema
 const odRequestSchema = z.object({
   body: z.object({

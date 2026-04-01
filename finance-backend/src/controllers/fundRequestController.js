@@ -53,12 +53,15 @@ exports.createFundRequest = async (req, res) => {
         }
 
         const requestData = {
-            ...req.body,
-            faculty: req.user.name || 'Faculty Member',
+            projectTitle: req.body.projectTitle,
+            faculty: req.user.name,
             facultyId: req.user.id || req.user._id,
             userId: req.user.id || req.user._id,
+            requestedAmount: Number(req.body.requestedAmount),
+            purpose: req.body.purpose,
             department: req.user.department || 'RESEARCH',
-            centre: req.user.centre || 'Research Centre'
+            centre: req.user.centre || 'Research Centre',
+            source: req.body.source || 'PFMS'
         };
         const request = await FundRequest.create(requestData);
         res.status(201).json({ success: true, data: request });

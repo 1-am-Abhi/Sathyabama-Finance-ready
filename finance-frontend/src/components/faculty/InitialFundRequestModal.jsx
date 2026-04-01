@@ -170,7 +170,7 @@ const InitialFundRequestModal = ({ isOpen, onClose, onSubmit }) => {
                                         required
                                         type="number"
                                         value={formData.totalBudget}
-                                        onChange={(e) => setFormData({ ...formData, totalBudget: e.target.value })}
+                                        onChange={(e) => setFormData({ ...formData, totalBudget: Number(e.target.value) || 0 })}
                                         placeholder="Total Project Cost"
                                         className="w-full pl-10 pr-4 py-4 bg-gray-50 border-0 rounded-2xl focus:ring-2 focus:ring-blue-100 transition-all outline-none font-bold text-gray-900"
                                     />
@@ -187,7 +187,7 @@ const InitialFundRequestModal = ({ isOpen, onClose, onSubmit }) => {
                                         required
                                         type="number"
                                         value={formData.amount}
-                                        onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
+                                        onChange={(e) => setFormData({ ...formData, amount: Number(e.target.value) || 0 })}
                                         placeholder="Initial Installment"
                                         className="w-full pl-10 pr-4 py-4 bg-emerald-50/50 border-0 rounded-2xl focus:ring-2 focus:ring-emerald-100 transition-all outline-none font-bold text-emerald-900"
                                     />

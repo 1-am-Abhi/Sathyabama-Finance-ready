@@ -87,7 +87,7 @@ const FundRequestModal = ({ isOpen, onClose, project, nextInstallment, onSubmit,
                                 <input
                                     type="number"
                                     value={formData.amount}
-                                    onChange={(e) => setFormData({ ...formData, amount: parseInt(e.target.value) || 0 })}
+                                    onChange={(e) => setFormData({ ...formData, amount: Number(e.target.value) || 0 })}
                                     max={maxClaimableAmount}
                                     readOnly={isFinalInstallment} // Read-only if Final Installment
                                     className={`bg-transparent border-0 text-2xl font-bold text-blue-900 tracking-tight w-full pl-5 outline-none focus:ring-0 p-0 ${isFinalInstallment ? 'cursor-not-allowed opacity-70' : ''}`}

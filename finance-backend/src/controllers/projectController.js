@@ -77,11 +77,13 @@ exports.getProject = async (req, res) => {
 
 exports.createProject = async (req, res) => {
     try {
-        console.log('Creating Project. User:', req.user.name, 'Role:', req.user.role);
-        
-        // If Admin is creating, they might provide pi and facultyId
+        const { projectSchema } = require('../utils/validation');
+        const validated = projectSchema.parse({ body: req.body });
+        const data = validated.body;
+
         const projectData = {
-            ...req.body,
+            ...data,
+            sanctionedBudget: Number(data.sanctionedBudget),
             userId: req.user.role === 'ADMIN' ? (req.body.facultyId || req.user.id) : req.user.id,
             facultyId: req.user.role === 'ADMIN' ? (req.body.facultyId || req.user.id) : req.user.id,
             pi: req.user.role === 'ADMIN' ? (req.body.pi || 'Admin Created') : req.user.name,
@@ -92,7 +94,8 @@ exports.createProject = async (req, res) => {
         const project = await Project.create(projectData);
         res.status(201).json({ success: true, data: project });
     } catch (error) {
-        res.status(500).json({ success: false, message: error.message });
+        console.error('Create Project Error:', error);
+        res.status(400).json({ success: false, message: error.errors ? error.errors[0].message : error.message });
     }
 };
 
@@ -102,14 +105,19 @@ exports.updateProject = async (req, res) => {
         if (!project) {
             return res.status(404).json({ success: false, message: 'Project not found' });
         }
+        
         const updateData = { ...req.body };
+        if (req.body.sanctionedBudget !== undefined) {
+            updateData.sanctionedBudget = Number(req.body.sanctionedBudget);
+        }
+        
         if (req.body.proofStatus === 'REJECTED') {
             updateData.proofUploaded = false;
         }
         await project.update(updateData);
         res.status(200).json({ success: true, data: project });
     } catch (error) {
-        res.status(500).json({ success: false, message: error.message });
+        res.status(400).json({ success: false, message: error.message });
     }
 };
 

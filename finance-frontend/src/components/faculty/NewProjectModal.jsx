@@ -275,7 +275,7 @@ const AcademicWorkModal = ({ isOpen, onClose, onSubmit, initialData = null, mode
                                             type="number"
                                             required
                                             value={formData.year}
-                                            onChange={(e) => setFormData({ ...formData, year: e.target.value })}
+                                            onChange={(e) => setFormData({ ...formData, year: Number(e.target.value) || 0 })}
                                             className="w-full mt-1 px-4 py-2 border dark:border-slate-700 bg-white dark:bg-slate-800 dark:text-white rounded-lg outline-none italic font-bold"
                                             placeholder="YYYY"
                                         />
