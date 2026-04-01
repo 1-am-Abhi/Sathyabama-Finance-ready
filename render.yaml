@@ -24,4 +24,4 @@ services:
     staticPublishPath: build
     envVars:
       - key: REACT_APP_API_URL
-        value: https://finance-api.onrender.com/api
+        value: https://finance-api-x1ig.onrender.com/api
