@@ -31,11 +31,14 @@ exports.protect = async (req, res, next) => {
 
 exports.authorize = (...roles) => {
     return (req, res, next) => {
-        if (!roles.includes(req.user.role)) {
+        const userRole = (req.user?.role || '').toUpperCase();
+        const requiredRoles = roles.map(r => r.toUpperCase());
+        
+        if (!requiredRoles.includes(userRole)) {
             console.log('--- Authorization Failed Detail ---');
-            console.log(`Required Roles: [${roles.join(', ')}]`);
-            console.log(`User's Role in Session: "${req.user.role}"`);
-            console.log(`User's Role Type: ${typeof req.user.role}`);
+            console.log(`Required Roles: [${requiredRoles.join(', ')}]`);
+            console.log(`User's Role in Session: "${userRole}"`);
+            console.log(`User's Role Type: ${typeof userRole}`);
             console.log('-----------------------------------');
             return res.status(403).json({ success: false, message: 'Not authorized for this role' });
         }

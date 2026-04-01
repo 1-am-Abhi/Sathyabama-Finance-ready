@@ -51,11 +51,12 @@ const FacultyProjects = () => {
 
     const stats = useMemo(() => {
         const safeProjects = localProjects || [];
+        const totalBudgetSum = safeProjects.reduce((sum, p) => sum + (p.sanctionedBudget || 0), 0);
         return [
             { title: 'Total Works', value: safeProjects.length, icon: Layers, color: 'text-maroon-600', bg: 'bg-maroon-50' },
             { title: 'Active Projects', value: safeProjects.filter(p => p.status === 'ACTIVE').length, icon: CheckCircle, color: 'text-green-600', bg: 'bg-green-50' },
             { title: 'Publications', value: safeProjects.filter(p => p.projectType === 'PUBLICATION').length, icon: BookOpen, color: 'text-indigo-600', bg: 'bg-indigo-50' },
-            { title: 'Total Budget', value: `₹${(safeProjects.reduce((sum, p) => sum + (p.sanctionedBudget || 0), 0) / 100000).toFixed(1)}L`, icon: TrendingUp, color: 'text-amber-600', bg: 'bg-amber-50' }
+            { title: 'Total Budget', value: formatCurrency(totalBudgetSum), icon: TrendingUp, color: 'text-amber-600', bg: 'bg-amber-50' }
         ];
     }, [localProjects]);
 

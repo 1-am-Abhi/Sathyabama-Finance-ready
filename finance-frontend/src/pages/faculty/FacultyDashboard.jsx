@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import AIResultModal from '../../components/shared/AIResultModal';
 import { predictFundingSuccess, predictResearchTrends, analyzePersonalResearchMetrics, findMoreCollaborators } from '../../services/aiService';
+import { formatCurrency } from '../../utils/format';
 import apiClient from '../../api/client';
 
 const FacultyDashboard = () => {
@@ -48,9 +49,7 @@ const FacultyDashboard = () => {
 
     const activeProjects = projects.filter(p => p.status === 'active' || p.status === 'ACTIVE' || p.status === 'Approved').length;
     const totalFunding = fundRequests.reduce((sum, r) => sum + (parseFloat(r.approvedAmount || r.requestedAmount || 0)), 0);
-    const formattedFunding = totalFunding >= 100000
-        ? `₹${(totalFunding / 100000).toFixed(1)}L`
-        : totalFunding > 0 ? `₹${totalFunding.toLocaleString()}` : '₹0';
+    const formattedFunding = formatCurrency(totalFunding);
 
     const stats = [
         { title: 'Active Projects', value: loading ? '…' : String(activeProjects), icon: FileText, color: 'text-rose-400', bg: 'bg-rose-500/10', border: 'border-rose-500/20', subtitle: 'Ongoing research' },
