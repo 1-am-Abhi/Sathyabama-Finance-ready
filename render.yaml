@@ -15,7 +15,7 @@ services:
       - key: PORT
         value: 5001
 
-  - type: static
+  - type: static_site
     name: finance-frontend
     runtime: static
     rootDir: finance-frontend
