@@ -10,7 +10,6 @@ exports.getFundRequests = async (req, res) => {
                 [Op.or]: [
                     { facultyId: req.user.id || req.user._id },
                     { userId: req.user.id || req.user._id },
-                    { pi: req.user.name }, // Fallback for legacy
                     { faculty: req.user.name }
                 ]
             };
