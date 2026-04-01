@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { X, Upload, FileText, ChevronRight, DollarSign, LayoutList, Target, Briefcase, BookOpen, GraduationCap, FileSpreadsheet } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
@@ -11,7 +12,6 @@ const InitialFundRequestModal = ({ isOpen, onClose, onSubmit }) => {
         totalBudget: '',
         amount: '',
         reason: '',
-        usagePlan: '',
         usagePlan: '',
         expectedOutcome: '',
         fundSource: '' // New Field
@@ -45,8 +45,8 @@ const InitialFundRequestModal = ({ isOpen, onClose, onSubmit }) => {
         { id: 'Publication', label: 'Other Publication', icon: GraduationCap },
     ];
 
-    return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fadeIn">
+    const modalContent = (
+        <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fadeIn">
             <div className="bg-white rounded-[2.5rem] w-full max-w-3xl overflow-hidden shadow-2xl animate-scaleIn max-h-[90vh] overflow-y-auto">
                 {/* Header */}
                 <div className="bg-emerald-900 p-8 text-white relative">
@@ -72,10 +72,10 @@ const InitialFundRequestModal = ({ isOpen, onClose, onSubmit }) => {
                     <div className="space-y-6">
                         <h4 className="text-sm font-bold text-gray-900 border-b border-gray-100 pb-2">1. Work Details</h4>
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="flex flex-col gap-6">
                             <div className="space-y-2">
                                 <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Type of Work <span className="text-red-500">*</span></label>
-                                <div className="grid grid-cols-2 gap-2">
+                                <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
                                     {workTypes.map((type) => {
                                         const Icon = type.icon;
                                         return (
@@ -103,7 +103,7 @@ const InitialFundRequestModal = ({ isOpen, onClose, onSubmit }) => {
                                     value={formData.title}
                                     onChange={(e) => setFormData({ ...formData, title: e.target.value })}
                                     placeholder="e.g. AI-Based Crop Disease Detection"
-                                    className="w-full p-4 bg-gray-50 border-0 rounded-2xl focus:ring-2 focus:ring-emerald-100 transition-all outline-none font-bold text-gray-800 text-sm h-[88px]"
+                                    className="w-full p-4 bg-gray-50 border-0 rounded-2xl focus:ring-2 focus:ring-emerald-100 transition-all outline-none font-bold text-gray-800 text-sm"
                                 />
                             </div>
                         </div>
@@ -293,6 +293,8 @@ const InitialFundRequestModal = ({ isOpen, onClose, onSubmit }) => {
             </div>
         </div>
     );
+
+    return createPortal(modalContent, document.body);
 };
 
 export default InitialFundRequestModal;

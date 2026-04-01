@@ -6,7 +6,11 @@ import { useNotifications } from '../../contexts/NotificationContext';
 
 const TopBar = ({ title, subtitle, onMenuClick }) => {
     const { user, logout } = useAuth();
-    const { notifications, markAsRead: contextMarkAsRead } = useNotifications();
+    const { notifications, markAsRead: contextMarkAsRead, getNotificationsByRole } = useNotifications();
+    
+    // Filter by role
+    const filteredNotifications = getNotificationsByRole(user?.role);
+    
     const navigate = useNavigate();
     const [showNotifications, setShowNotifications] = useState(false);
     const [showProfileMenu, setShowProfileMenu] = useState(false);
@@ -121,7 +125,7 @@ const TopBar = ({ title, subtitle, onMenuClick }) => {
     };
 
     // Get unread count
-    const unreadCount = notifications.filter(n => !n.read).length;
+    const unreadCount = filteredNotifications.filter(n => !n.read).length;
 
     return (
         <div className="bg-white dark:bg-slate-900 border-b border-gray-200 dark:border-slate-800 px-4 md:px-8 py-4 relative">
@@ -158,9 +162,9 @@ const TopBar = ({ title, subtitle, onMenuClick }) => {
                     >
                         <Menu className="w-6 h-6 dark:text-gray-200" />
                     </button>
-                    <div>
-                        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{title}</h1>
-                        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{subtitle}</p>
+                    <div className="min-w-0 flex-1">
+                        <h1 className="text-xl md:text-2xl font-bold text-gray-900 dark:text-white truncate">{title}</h1>
+                        <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5 line-clamp-1">{subtitle}</p>
                     </div>
                 </div>
 
@@ -194,6 +198,89 @@ const TopBar = ({ title, subtitle, onMenuClick }) => {
 
 
                     <div className="flex items-center gap-3">
+                        {/* Notification Bell */}
+                        <div className="relative" ref={notificationRef}>
+                            <button
+                                onClick={() => setShowNotifications(!showNotifications)}
+                                className="relative p-2 text-gray-500 hover:bg-gray-100 dark:hover:bg-slate-800 rounded-full transition-colors"
+                            >
+                                <Bell className="w-6 h-6 dark:text-gray-300" />
+                                {unreadCount > 0 && (
+                                    <span className="absolute top-1 right-1 flex h-3 w-3">
+                                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                                        <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
+                                    </span>
+                                )}
+                            </button>
+
+                            {/* Notifications Dropdown */}
+                            {showNotifications && (
+                                <div className="absolute right-0 mt-2 w-80 md:w-96 bg-white dark:bg-slate-900 rounded-xl shadow-2xl border border-gray-100 dark:border-slate-800 z-50 overflow-hidden transform origin-top-right transition-all">
+                                    <div className="p-4 border-b border-gray-100 dark:border-slate-800 flex justify-between items-center bg-gray-50/50 dark:bg-slate-800/50">
+                                        <div>
+                                            <h3 className="text-sm font-bold text-gray-900 dark:text-white">Notifications</h3>
+                                            <p className="text-xs text-gray-500 dark:text-gray-400">You have {unreadCount} unread alerts</p>
+                                        </div>
+                                    </div>
+
+                                    <div className="max-h-[400px] overflow-y-auto">
+                                        {filteredNotifications.length === 0 ? (
+                                            <div className="p-8 text-center flex flex-col items-center">
+                                                <div className="w-16 h-16 bg-gray-50 dark:bg-slate-800 rounded-full flex items-center justify-center mb-3">
+                                                    <Bell className="w-6 h-6 text-gray-300 dark:text-gray-600" />
+                                                </div>
+                                                <p className="text-sm text-gray-500 dark:text-gray-400 font-medium">You're all caught up!</p>
+                                            </div>
+                                        ) : (
+                                            <div className="divide-y divide-gray-100 dark:divide-slate-800">
+                                                {filteredNotifications.map((notification) => {
+                                                    const { Icon, color, bg } = getNotificationIcon(notification.type);
+                                                    return (
+                                                        <div
+                                                            key={notification.id}
+                                                            onClick={() => handleNotificationClick(notification)}
+                                                            className={`p-4 hover:bg-gray-50 dark:hover:bg-slate-800/50 transition-colors cursor-pointer ${!notification.read ? 'bg-blue-50/30 dark:bg-blue-900/10' : ''}`}
+                                                        >
+                                                            <div className="flex gap-4">
+                                                                <div className={`mt-1 flex-shrink-0 w-10 h-10 ${bg} dark:bg-opacity-10 rounded-full flex items-center justify-center`}>
+                                                                    <Icon className={`w-5 h-5 ${color}`} />
+                                                                </div>
+                                                                <div className="flex-1">
+                                                                    <p className={`text-sm ${!notification.read ? 'font-semibold text-gray-900 dark:text-white' : 'font-medium text-gray-700 dark:text-gray-300'}`}>
+                                                                        {notification.message}
+                                                                    </p>
+                                                                    <div className="flex items-center gap-2 mt-1.5">
+                                                                        <span className="text-xs text-gray-400 dark:text-gray-500 font-medium">
+                                                                            {getRelativeTime(notification.time)}
+                                                                        </span>
+                                                                        {!notification.read && (
+                                                                            <span className="w-2 h-2 bg-blue-500 rounded-full"></span>
+                                                                        )}
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        )}
+                                    </div>
+                                    {filteredNotifications.length > 0 && (
+                                        <div className="p-3 border-t border-gray-100 dark:border-slate-800 bg-gray-50/50 dark:bg-slate-800/50 text-center">
+                                            <button 
+                                                onClick={() => {
+                                                    filteredNotifications.forEach(n => contextMarkAsRead(n.id));
+                                                }}
+                                                className="text-xs font-semibold text-maroon-600 hover:text-maroon-700 dark:text-maroon-400 transition-colors"
+                                            >
+                                                Mark all as read
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+
                         {/* User Profile with Dropdown */}
                         <div
                             className="relative"
@@ -210,21 +297,25 @@ const TopBar = ({ title, subtitle, onMenuClick }) => {
                         >
                             {/* Profile Trigger */}
                             <div
-                                className="flex items-center space-x-3 cursor-pointer hover:bg-gray-50 dark:hover:bg-slate-800 rounded-lg px-2 py-1.5 transition-colors h-10"
+                                className="flex items-center space-x-3 cursor-pointer hover:bg-gray-50 dark:hover:bg-slate-800 rounded-lg px-2 py-1 transition-colors min-h-[40px]"
                                 onClick={() => setShowProfileMenu(!showProfileMenu)}
                             >
-                                <div className="w-8 h-8 md:w-8 md:h-8 bg-maroon-600 rounded-full flex items-center justify-center text-white font-bold border-2 border-maroon-100 dark:border-maroon-900 overflow-hidden">
+                                <div className="flex-shrink-0 w-8 h-8 bg-maroon-600 rounded-full flex items-center justify-center text-white font-bold border-2 border-maroon-100 dark:border-maroon-900 overflow-hidden shadow-sm">
                                     {profilePhoto ? (
                                         <img src={profilePhoto} alt="Profile" className="w-full h-full object-cover" />
                                     ) : (
                                         user?.name?.split(' ').map(n => n[0]).join('').toUpperCase()
                                     )}
                                 </div>
-                                <div className="hidden md:block text-right">
-                                    <p className="text-sm font-semibold text-gray-700 dark:text-gray-200 leading-none">{user?.name || 'User'}</p>
-                                    <p className="text-[10px] text-gray-500 dark:text-gray-400 leading-none mt-1">{user?.role || 'Role'}</p>
+                                <div className="hidden md:flex flex-col items-end overflow-hidden max-w-[150px]">
+                                    <span className="text-[9px] font-black uppercase tracking-wider text-maroon-600 dark:text-maroon-400 leading-tight mb-0.5 italic truncate w-full text-right">
+                                        {user?.role === 'FACULTY' ? (user?.department || 'Faculty') : user?.role?.replace('_', ' ')}
+                                    </span>
+                                    <span className="text-xs font-black text-slate-800 dark:text-white leading-tight tracking-tight italic truncate w-full text-right">
+                                        {user?.name}
+                                    </span>
                                 </div>
-                                <ChevronDown className="w-4 h-4 text-gray-500" />
+                                <ChevronDown className="w-4 h-4 text-slate-400 flex-shrink-0" />
                             </div>
 
                             {/* Profile Dropdown Menu */}

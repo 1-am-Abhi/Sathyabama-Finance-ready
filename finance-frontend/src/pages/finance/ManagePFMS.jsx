@@ -7,12 +7,34 @@ import { Button } from '../../components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
 import { useLayout } from '../../contexts/LayoutContext';
 
+import apiClient from '../../api/client';
+
 const ManagePFMS = () => {
     const { setLayout } = useLayout();
+    const [pfmsEntries, setPfmsEntries] = useState([]);
+    const [projects, setProjects] = useState([]);
+    const [loading, setLoading] = useState(true);
 
     React.useEffect(() => {
         setLayout("PFMS Management", "Public Financial Management System data");
+        fetchData();
     }, [setLayout]);
+
+    const fetchData = async () => {
+        try {
+            setLoading(true);
+            const [pfmsRes, projRes] = await Promise.all([
+                apiClient.get('/finance/pfms'),
+                apiClient.get('/projects')
+            ]);
+            setPfmsEntries(pfmsRes.data.data);
+            setProjects(projRes.data.data);
+        } catch (error) {
+            console.error('Error fetching PFMS data:', error);
+        } finally {
+            setLoading(false);
+        }
+    };
     const [showForm, setShowForm] = useState(false);
     const [formData, setFormData] = useState({
         projectId: '',
@@ -27,45 +49,29 @@ const ManagePFMS = () => {
         ucStatus: 'PENDING'
     });
 
-    // Mock data
-    const pfmsEntries = [
-        {
-            id: 1,
-            projectTitle: 'AI Research Lab',
-            pfmsProjectId: 'PFMS2024001',
-            govtOrganization: 'DST',
-            amountReleased: 1500000,
-            creditDate: '2024-01-15',
-            ucStatus: 'SUBMITTED'
-        },
-        {
-            id: 2,
-            projectTitle: 'IoT Smart Campus',
-            pfmsProjectId: 'PFMS2024002',
-            govtOrganization: 'AICTE',
-            amountReleased: 2000000,
-            creditDate: '2024-01-20',
-            ucStatus: 'PENDING'
-        }
-    ];
 
-    const handleSubmit = (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault();
-        console.log('PFMS Entry:', formData);
-        alert('PFMS entry created successfully!');
-        setShowForm(false);
-        setFormData({
-            projectId: '',
-            pfmsProjectId: '',
-            govtOrganization: '',
-            sanctionOrderNo: '',
-            sanctionOrderDate: '',
-            installmentNumber: '',
-            amountReleased: '',
-            creditDate: '',
-            utrNumber: '',
-            ucStatus: 'PENDING'
-        });
+        try {
+            await apiClient.post('/finance/pfms', formData);
+            alert('PFMS entry created successfully!');
+            setShowForm(false);
+            setFormData({
+                projectId: '',
+                pfmsProjectId: '',
+                govtOrganization: '',
+                sanctionOrderNo: '',
+                sanctionOrderDate: '',
+                installmentNumber: '',
+                amountReleased: '',
+                creditDate: '',
+                utrNumber: '',
+                ucStatus: 'PENDING'
+            });
+            fetchData();
+        } catch (error) {
+            alert(error.response?.data?.message || 'Failed to save PFMS entry');
+        }
     };
 
     const handleChange = (e) => {
@@ -108,8 +114,9 @@ const ManagePFMS = () => {
                                             required
                                         >
                                             <option value="">Select Project</option>
-                                            <option value="1">AI Research Lab</option>
-                                            <option value="2">IoT Smart Campus</option>
+                                            {projects.map(proj => (
+                                                <option key={proj._id} value={proj._id}>{proj.title}</option>
+                                            ))}
                                         </select>
                                     </div>
 
@@ -254,9 +261,9 @@ const ManagePFMS = () => {
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
-                                {pfmsEntries.map((entry) => (
-                                    <TableRow key={entry.id}>
-                                        <TableCell className="font-medium">{entry.projectTitle}</TableCell>
+                                {pfmsEntries.length > 0 ? pfmsEntries.map((entry) => (
+                                    <TableRow key={entry._id}>
+                                        <TableCell className="font-medium">{entry.Project?.title || 'Unknown Project'}</TableCell>
                                         <TableCell>{entry.pfmsProjectId}</TableCell>
                                         <TableCell>{entry.govtOrganization}</TableCell>
                                         <TableCell>₹{(entry.amountReleased / 100000).toFixed(1)}L</TableCell>
@@ -270,10 +277,16 @@ const ManagePFMS = () => {
                                             </span>
                                         </TableCell>
                                         <TableCell>
-                                            <Button size="sm" variant="outline">Edit</Button>
+                                            <Button size="sm" variant="outline">View</Button>
                                         </TableCell>
                                     </TableRow>
-                                ))}
+                                )) : (
+                                    <TableRow>
+                                        <TableCell colSpan={7} className="text-center py-4 text-gray-500">
+                                            No PFMS entries found.
+                                        </TableCell>
+                                    </TableRow>
+                                )}
                             </TableBody>
                         </Table>
                     </CardContent>

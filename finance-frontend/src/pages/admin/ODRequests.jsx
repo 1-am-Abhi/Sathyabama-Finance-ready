@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import { useLayout } from '../../contexts/LayoutContext';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
@@ -11,8 +12,10 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../../
 import { CheckCircle, XCircle, Clock, Search, Filter, Calendar as CalendarIcon, ChevronLeft, ChevronRight, Image as ImageIcon, Eye, Sparkles, Download, RefreshCw, AlertTriangle, FileSpreadsheet, Upload, User, Building, CalendarDays, FileText, Brain } from 'lucide-react';
 import AIResultModal from '../../components/shared/AIResultModal';
 import { summarizeRequest } from '../../services/aiService';
+import { useNotifications } from '../../contexts/NotificationContext';
 import apiClient from '../../api/client';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSameDay, addMonths, subMonths, isWithinInterval, parseISO, isPast, addHours, differenceInHours } from 'date-fns';
+import * as XLSX from 'xlsx';
 
 const API_KEY = 'AIzaSyBj4Crh5DFqWdf49XQNKxvxLMo-5MSyKog';
 const CALENDAR_ID = 'en.indian#holiday@group.v.calendar.google.com';
@@ -134,6 +137,8 @@ const ODCalendar = ({ requests, holidays, onDateClick, selectedDate, onRequestCl
 
 const ODRequests = () => {
     const { setLayout } = useLayout();
+    const { addNotification } = useNotifications();
+    const location = useLocation();
     const [selectedStatus, setSelectedStatus] = useState('All');
     const [searchTerm, setSearchTerm] = useState('');
     const [rejectModalOpen, setRejectModalOpen] = useState(false);
@@ -146,7 +151,8 @@ const ODRequests = () => {
     const [holidays, setHolidays] = useState([]);
     const [uploadFile, setUploadFile] = useState(null);
     const [aiModal, setAiModal] = useState({ open: false, loading: false, result: null });
-
+    const [proofRejectModalOpen, setProofRejectModalOpen] = useState(false);
+    const [proofRemarks, setProofRemarks] = useState('');
     // Filter State
     const [filterOpen, setFilterOpen] = useState(false);
     const [centreFilter, setCentreFilter] = useState('All');
@@ -160,6 +166,7 @@ const ODRequests = () => {
             try {
                 const response = await apiClient.get('/od-requests');
                 const mappedRequests = response.data.data.map(req => ({
+                    ...req,
                     id: req._id,
                     faculty: req.facultyName,
                     researchCentre: req.department,
@@ -167,15 +174,27 @@ const ODRequests = () => {
                     dates: req.startDate === req.endDate ? req.startDate : `${req.startDate} to ${req.endDate}`,
                     status: req.status,
                     photosUploaded: req.proofUploaded,
+                    proofStatus: req.proofStatus,
+                    proofRemarks: req.proofRemarks,
                     remarks: req.remarks
                 }));
                 setRequests(mappedRequests);
+                
+                const queryParams = new URLSearchParams(location.search);
+                const reqId = queryParams.get('request_id');
+                if (reqId) {
+                    const found = mappedRequests.find(r => String(r.id) === String(reqId));
+                    if (found) {
+                        setSelectedRequest(found);
+                        setDetailsModalOpen(true);
+                    }
+                }
             } catch (err) {
                 console.error("Failed to fetch ODs", err);
             }
         };
         fetchRequests();
-    }, []);
+    }, [location.search]);
 
 
 
@@ -225,6 +244,14 @@ const ODRequests = () => {
         try {
             await apiClient.put(`/od-requests/${id}/status`, { status: 'APPROVED' });
             setRequests(requests.map(req => req.id === id ? { ...req, status: 'APPROVED' } : req));
+            
+            addNotification({
+                role: 'FACULTY',
+                type: 'success',
+                message: `Your OD Request was APPROVED.`,
+                actionUrl: `/faculty/od-request`,
+                targetUserId: requests.find(r => r.id === id)?.facultyId
+            });
         } catch (error) {
             console.error(error);
         }
@@ -246,15 +273,41 @@ const ODRequests = () => {
         if (selectedRequest) {
             const hasPhoto = !!uploadFile || selectedRequest.photosUploaded;
             try {
-                await apiClient.put(`/od-requests/${selectedRequest.id}/status`, { status: 'APPROVED', proofUploaded: hasPhoto });
+                let base64data = selectedRequest.proofData; // Default to existing if any
+                
+                // Convert new file to base64 if it exists
+                if (uploadFile) {
+                    base64data = await new Promise((resolve) => {
+                        const reader = new FileReader();
+                        reader.readAsDataURL(uploadFile);
+                        reader.onloadend = () => resolve(reader.result);
+                    });
+                }
+                
+                await apiClient.put(`/od-requests/${selectedRequest.id}/status`, { 
+                    status: 'APPROVED', 
+                    proofUploaded: hasPhoto,
+                    proofData: base64data
+                });
+                
                 setRequests(requests.map(req => req.id === selectedRequest.id ? {
                     ...req,
                     status: 'APPROVED',
                     remarks: 'Revoked by Admin',
-                    photosUploaded: hasPhoto
+                    photosUploaded: hasPhoto,
+                    proofData: base64data
                 } : req));
                 setRevokeModalOpen(false);
                 setUploadFile(null);
+                
+                addNotification({
+                    role: 'FACULTY',
+                    type: 'success',
+                    message: `Your OD Request has been REVOKED and APPROVED by the Admin.`,
+                    actionUrl: `/faculty/od-request`,
+                    targetUserId: selectedRequest?.facultyId
+                });
+                
                 setSelectedRequest(null);
             } catch (error) {
                 console.error(error);
@@ -274,11 +327,71 @@ const ODRequests = () => {
                 await apiClient.put(`/od-requests/${selectedRequest.id}/status`, { status: 'REJECTED', remarks: rejectRemarks });
                 setRequests(requests.map(req => req.id === selectedRequest.id ? { ...req, status: 'REJECTED', remarks: rejectRemarks } : req));
                 setRejectModalOpen(false);
+                
+                addNotification({
+                    role: 'FACULTY',
+                    type: 'rejection',
+                    message: `Your OD Request was REJECTED: ${rejectRemarks}`,
+                    actionUrl: `/faculty/od-request`,
+                    targetUserId: selectedRequest?.facultyId
+                });
+                
                 setRejectRemarks('');
                 setSelectedRequest(null);
             } catch (error) {
                 console.error(error);
             }
+        }
+    };
+
+    const handleVerifyProof = async (id) => {
+        try {
+            await apiClient.put(`/od-requests/${id}/status`, { proofStatus: 'VERIFIED' });
+            setRequests(requests.map(req => req.id === id ? { ...req, proofStatus: 'VERIFIED' } : req));
+            if (selectedRequest?.id === id) {
+                setSelectedRequest({ ...selectedRequest, proofStatus: 'VERIFIED' });
+            }
+            alert('Proof Verified');
+            
+            addNotification({
+                role: 'FACULTY',
+                type: 'success',
+                message: `Your uploaded proof for OD Request was VERIFIED.`,
+                actionUrl: `/faculty/od-request`,
+                targetUserId: requests.find(r => r.id === id)?.facultyId
+            });
+        } catch (error) {
+            console.error(error);
+        }
+    };
+
+    const handleRejectProof = async () => {
+        if (!selectedRequest) return;
+        try {
+            await apiClient.put(`/od-requests/${selectedRequest.id}/status`, { 
+                proofStatus: 'REJECTED', 
+                proofRemarks,
+                proofUploaded: false 
+            });
+            setRequests(requests.map(req => req.id === selectedRequest.id ? { 
+                ...req, 
+                proofStatus: 'REJECTED', 
+                proofRemarks, 
+                proofUploaded: false 
+            } : req));
+            setProofRejectModalOpen(false);
+            setPhotoModalOpen(false);
+            alert('Proof Rejected. Faculty can re-upload.');
+            
+            addNotification({
+                role: 'FACULTY',
+                type: 'rejection',
+                message: `Your OD Proof was REJECTED: ${proofRemarks}. Please re-upload.`,
+                actionUrl: `/faculty/od-request`,
+                targetUserId: selectedRequest?.facultyId
+            });
+        } catch (error) {
+            console.error(error);
         }
     };
 
@@ -288,29 +401,31 @@ const ODRequests = () => {
     };
 
     const handleExport = () => {
-        // Generate CSV content
-        const headers = ["ID", "Faculty", "Research Centre", "Purpose", "Dates", "Status", "Photos Uploaded", "Remarks"];
-        const rows = requests.map(req => [
-            req.id,
-            req.faculty,
-            req.researchCentre,
-            req.purpose,
-            req.dates,
-            req.status,
-            req.photosUploaded ? "Yes" : "No",
-            req.remarks || ""
-        ]);
+        const dataToExport = filteredRequests.map(req => ({
+            'ID': req._id,
+            'Faculty Name': req.facultyName,
+            'Department': req.department,
+            'OD Type': req.odType,
+            'Purpose': req.purpose,
+            'Start Date': req.startDate,
+            'End Date': req.endDate,
+            'Days': req.days,
+            'Status': req.status,
+            'Proof Uploaded': req.proofUploaded ? 'Yes' : 'No',
+            'Admin Remarks': req.remarks || ''
+        }));
 
-        const csvContent = [headers.join(","), ...rows.map(r => r.join(","))].join("\n");
-        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-        const link = document.createElement("a");
-        const url = URL.createObjectURL(blob);
-        link.setAttribute("href", url);
-        link.setAttribute("download", "od_requests_report.csv");
-        link.style.visibility = 'hidden';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
+        const ws = XLSX.utils.json_to_sheet(dataToExport);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, 'OD Requests');
+        
+        // Auto-size columns
+        const colWidths = Object.keys(dataToExport[0] || {}).map(key => ({
+            wch: Math.max(key.length, ...dataToExport.map(row => String(row[key]).length)) + 2
+        }));
+        ws['!cols'] = colWidths;
+
+        XLSX.writeFile(wb, `OD_Requests_Report_${format(new Date(), 'yyyy-MM-dd')}.xlsx`);
     };
 
     const filteredRequests = requests.filter(req => {
@@ -604,16 +719,51 @@ const ODRequests = () => {
                     </DialogHeader>
                     <div className="py-4">
                         {selectedRequest?.photosUploaded ? (
-                            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                                {[1, 2, 3].map(i => (
-                                    <div key={i} className="aspect-video bg-gray-100 dark:bg-slate-800 rounded-lg flex items-center justify-center border dark:border-slate-700 relative group overflow-hidden">
-                                        <ImageIcon className="w-8 h-8 text-gray-400" />
-                                        <span className="text-xs text-gray-400 ml-2">Photo {i}</span>
-                                        <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                                            <Button variant="secondary" size="sm" className="h-8 text-xs"><Download className="w-3 h-3 mr-1" /> Download</Button>
+                            <div className="flex flex-col gap-4">
+                                {typeof selectedRequest.proofData === 'string' && selectedRequest.proofData.trim().length > 20 ? (
+                                    <div className="w-full relative group">
+                                        <div className="bg-gray-100 dark:bg-slate-800 rounded-lg flex items-center justify-center border dark:border-slate-700 overflow-hidden w-full h-[60vh]">
+                                            {selectedRequest.proofData.startsWith('data:application/pdf') ? (
+                                                <iframe src={selectedRequest.proofData} title="Document Proof" className="w-full h-full" />
+                                            ) : (
+                                                <img src={selectedRequest.proofData} alt="Proof" className="w-full h-full object-contain" />
+                                            )}
+                                        </div>
+                                        <div className="mt-4 flex gap-3 justify-center">
+                                            <a download={`evidence_${selectedRequest.id}${selectedRequest.proofData.startsWith('data:application/pdf') ? '.pdf' : '.png'}`} href={selectedRequest.proofData} className="inline-flex items-center justify-center h-10 px-5 text-sm font-semibold bg-maroon-600 text-white rounded-xl shadow-lg hover:bg-maroon-700 transition">
+                                                <Download className="w-4 h-4 mr-2" /> Download Evidence
+                                            </a>
+                                            <Button variant="outline" onClick={() => {
+                                                const newWindow = window.open();
+                                                if (selectedRequest.proofData.startsWith('data:application/pdf')) {
+                                                    newWindow.document.write(`<iframe src="${selectedRequest.proofData}" style="width: 100vw; height: 100vh; border: none; margin: 0; padding: 0;"></iframe>`);
+                                                } else {
+                                                    newWindow.document.write(`<img src="${selectedRequest.proofData}" style="max-width: 100%; display: block; margin: 0 auto;"/>`);
+                                                }
+                                            }}>
+                                                <Eye className="w-4 h-4 mr-2" /> Open Full Screen
+                                            </Button>
+
+                                            {selectedRequest.proofStatus !== 'VERIFIED' && (
+                                                <div className="flex gap-2 ml-4 border-l pl-4">
+                                                    <Button variant="destructive" onClick={() => setProofRejectModalOpen(true)}>Reject Proof</Button>
+                                                    <Button className="bg-green-600 hover:bg-green-700 text-white" onClick={() => handleVerifyProof(selectedRequest.id)}>Verify Proof</Button>
+                                                </div>
+                                            )}
+                                            {selectedRequest.proofStatus === 'VERIFIED' && (
+                                                <Badge className="bg-green-50 text-green-700 border-green-200">Verified Securely</Badge>
+                                            )}
                                         </div>
                                     </div>
-                                ))}
+                                ) : (
+                                    <div className="py-12 text-center bg-red-50 dark:bg-red-900/10 rounded-xl flex flex-col items-center justify-center border border-red-200 dark:border-red-800">
+                                        <AlertTriangle className="w-12 h-12 text-red-500 mb-4" />
+                                        <p className="text-red-700 dark:text-red-400 font-bold text-lg mb-2">Image Corrupted or Missing</p>
+                                        <p className="text-sm text-red-600 dark:text-red-500 max-w-md px-6">
+                                            The actual image data was not found in the database. Please request the faculty to upload it again or revoke this request.
+                                        </p>
+                                    </div>
+                                )}
                             </div>
                         ) : (
                             <div className="flex flex-col items-center justify-center py-12 text-gray-500 dark:text-gray-400 border-2 border-dashed rounded-lg dark:border-slate-700">
@@ -686,11 +836,15 @@ const ODRequests = () => {
                                 <div className="mt-4">
                                     <p className="text-sm font-medium mb-2">Uploaded Evidence</p>
                                     <div className="flex gap-2 overflow-x-auto pb-2">
-                                        {[1, 2].map(i => (
-                                            <div key={i} className="h-16 w-24 bg-gray-100 rounded border flex items-center justify-center flex-shrink-0">
+                                        {selectedRequest.proofData ? (
+                                            <div className="h-16 w-24 bg-gray-100 rounded border flex items-center justify-center flex-shrink-0 overflow-hidden cursor-pointer" onClick={() => setPhotoModalOpen(true)}>
+                                                <img src={selectedRequest.proofData} alt="Proof Thumbnail" className="w-full h-full object-cover" />
+                                            </div>
+                                        ) : (
+                                            <div className="h-16 w-24 bg-gray-100 rounded border flex items-center justify-center flex-shrink-0 cursor-pointer" onClick={() => setPhotoModalOpen(true)}>
                                                 <ImageIcon className="w-4 h-4 text-gray-400" />
                                             </div>
-                                        ))}
+                                        )}
                                     </div>
                                 </div>
                             )}
@@ -723,6 +877,29 @@ const ODRequests = () => {
                 result={aiModal.result}
                 onClose={() => setAiModal({ ...aiModal, open: false })}
             />
+
+            {/* Proof Reject Modal */}
+            <Dialog open={proofRejectModalOpen} onOpenChange={setProofRejectModalOpen}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Reject Documentary Evidence</DialogTitle>
+                    </DialogHeader>
+                    <div className="py-4">
+                        <Label htmlFor="proofRemarks">Reason for Document Rejection</Label>
+                        <Textarea
+                            id="proofRemarks"
+                            placeholder="e.g. Image blurry, incorrect document..."
+                            className="mt-2"
+                            value={proofRemarks}
+                            onChange={(e) => setProofRemarks(e.target.value)}
+                        />
+                    </div>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setProofRejectModalOpen(false)}>Cancel</Button>
+                        <Button variant="destructive" onClick={handleRejectProof} disabled={!proofRemarks.trim()}>Confirm Rejection</Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 };

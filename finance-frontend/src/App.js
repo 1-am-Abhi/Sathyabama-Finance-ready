@@ -5,7 +5,6 @@ import { ProjectProvider } from './contexts/ProjectContext';
 import { PipelineProvider } from './contexts/PipelineContext';
 import { AuthProvider } from './contexts/AuthContext';
 import { NotificationProvider } from './contexts/NotificationContext';
-import { seedAllData } from './utils/seedData';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -25,9 +24,8 @@ function App() {
     } else {
       document.documentElement.classList.remove('dark');
     }
-    
-    // Seed initial data
-    seedAllData();
+    // One-time cleanup of old seeded localStorage data
+    localStorage.removeItem('academicSupportData');
   }, []);
 
   return (

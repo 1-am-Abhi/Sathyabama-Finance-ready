@@ -14,7 +14,9 @@ import AssignFaculty from '../pages/admin/AssignFaculty';
 import ApproveFundRequests from '../pages/admin/ApproveFundRequests';
 import ODRequests from '../pages/admin/ODRequests';
 import EventRequests from '../pages/admin/EventRequests';
+import ApproveEquipment from '../pages/admin/ApproveEquipment';
 import AdminReports from '../pages/admin/AdminReports';
+import AdminDocuments from '../pages/admin/AdminDocuments';
 import Settings from '../components/shared/Settings';
 import Profile from '../pages/shared/Profile';
 
@@ -23,6 +25,7 @@ import FacultyDashboard from '../pages/faculty/FacultyDashboard';
 import FacultyProjects from '../pages/faculty/FacultyProjects';
 import FacultyRequestFunds from '../pages/faculty/FacultyRequestFunds';
 import FacultyODRequest from '../pages/faculty/FacultyODRequest';
+import FacultyEventRequests from '../pages/faculty/FacultyEventRequests';
 import FacultyDocuments from '../pages/faculty/FacultyDocuments';
 import ConsultancyRevenueSummary from '../pages/faculty/ConsultancyRevenue/RevenueSummary';
 import MyRevenueRecords from '../pages/faculty/ConsultancyRevenue/MyRevenueRecords';
@@ -30,6 +33,7 @@ import AddRevenueRecord from '../pages/faculty/ConsultancyRevenue/AddRevenueReco
 import EquipmentMyRequests from '../pages/faculty/EquipmentFinancialRecords/MyRequests';
 import AcademicSupportDashboard from '../pages/shared/AcademicSupportDashboard';
 import AIProposalGenerator from '../pages/faculty/AIProposalGenerator';
+import ProfileSetup from '../pages/faculty/ProfileSetup';
 
 // Finance Pages
 import FinanceDashboard from '../pages/finance/FinanceDashboard';
@@ -83,9 +87,11 @@ const AppRoutes = () => {
                                         <Route path="approve-projects" element={<ApproveProjects />} />
                                         <Route path="assign-faculty" element={<AssignFaculty />} />
                                         <Route path="fund-requests" element={<ApproveFundRequests />} />
+                                        <Route path="equipment-requests" element={<ApproveEquipment />} />
                                         <Route path="od-requests" element={<ODRequests />} />
                                         <Route path="event-requests" element={<EventRequests />} />
                                         <Route path="reports" element={<AdminReports />} />
+                                        <Route path="documents" element={<AdminDocuments />} />
                                         <Route path="settings" element={<Settings />} />
                                         <Route path="profile" element={<Profile />} />
                                     </Routes>
@@ -105,6 +111,7 @@ const AppRoutes = () => {
                                         <Route path="projects" element={<FacultyProjects />} />
                                         <Route path="request-funds" element={<FacultyRequestFunds />} />
                                         <Route path="od-request" element={<FacultyODRequest />} />
+                                        <Route path="event-requests" element={<FacultyEventRequests />} />
                                         <Route path="documents" element={<FacultyDocuments />} />
                                         <Route path="revenue/dashboard" element={<ConsultancyRevenueSummary />} />
                                         <Route path="revenue/records" element={<MyRevenueRecords />} />
@@ -138,6 +145,16 @@ const AppRoutes = () => {
                                 </DashboardLayout>
                             </ProtectedRoute>
                         }
+                    />
+
+                    {/* Full-screen Setup Route */}
+                    <Route 
+                        path="/faculty/profile-setup" 
+                        element={
+                            <ProtectedRoute allowedRoles={[ROLES.FACULTY]}>
+                                <ProfileSetup />
+                            </ProtectedRoute>
+                        } 
                     />
 
                     {/* 404 Route */}

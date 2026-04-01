@@ -1,49 +1,73 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import apiClient from '../api/client';
+import { useAuth } from './AuthContext';
 
-const NotificationContext = createContext();
+const NotificationContext = createContext(null);
 
 export const NotificationProvider = ({ children }) => {
-    const [notifications, setNotifications] = useState(() => {
-        const saved = localStorage.getItem('research_notifications');
-        return saved ? JSON.parse(saved) : [];
-    });
+    const { user } = useAuth();
+    const [notifications, setNotifications] = useState([]);
+
+    const fetchNotifications = async () => {
+        if (!user) {
+            setNotifications([]);
+            return;
+        }
+        try {
+            const res = await apiClient.get('/notifications');
+            setNotifications(res.data.data || []);
+        } catch (error) {
+            console.error('Failed to fetch real-time notifications', error);
+        }
+    };
 
     useEffect(() => {
-        localStorage.setItem('research_notifications', JSON.stringify(notifications));
-    }, [notifications]);
+        fetchNotifications();
+        // Ping database every 5 seconds for ultra-real-time synchronization between clients
+        const interval = setInterval(fetchNotifications, 5000);
+        return () => clearInterval(interval);
+    }, [user]);
 
-    const addNotification = React.useCallback((notif) => {
-        const newNotif = {
-            id: Date.now(),
-            time: new Date().toISOString(),
-            read: false,
-            ...notif
-        };
-        setNotifications(prev => [newNotif, ...prev]);
+    const addNotification = React.useCallback(async (notif) => {
+        try {
+            // Push to backend
+            await apiClient.post('/notifications', notif);
+            // Force an immediate fetch so it shows up instantly without waiting for the 5s interval
+            const res = await apiClient.get('/notifications');
+            setNotifications(res.data.data || []);
+        } catch (error) {
+            console.error('Failed to create notification', error);
+        }
     }, []);
 
-    const markAsRead = React.useCallback((id) => {
+    const markAsRead = async (id) => {
         setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
-    }, []);
+        try {
+            await apiClient.put(`/notifications/${id}/read`);
+        } catch (error) {
+            console.error('Failed to mark real-time read', error);
+        }
+    };
 
-    const clearAll = React.useCallback((role) => {
-        setNotifications(prev => prev.filter(n => n.role !== role));
-    }, []);
+    const clearAll = () => {
+        setNotifications([]);
+    };
 
     const getNotificationsByRole = React.useCallback((role) => {
-        return notifications.filter(n => n.role === role || n.role === 'all');
+        // The backend `findAll` already firmly maps `{ where: { role: req.user.role } }`
+        // so we don't need to filter on frontend anymore.
+        return notifications;
     }, [notifications]);
 
-    const value = React.useMemo(() => ({
-        notifications,
-        addNotification,
-        markAsRead,
-        clearAll,
-        getNotificationsByRole
-    }), [notifications, addNotification, markAsRead, clearAll, getNotificationsByRole]);
-
     return (
-        <NotificationContext.Provider value={value}>
+        <NotificationContext.Provider value={{
+            notifications,
+            addNotification,
+            markAsRead,
+            clearAll,
+            getNotificationsByRole,
+            refreshNotifications: fetchNotifications
+        }}>
             {children}
         </NotificationContext.Provider>
     );

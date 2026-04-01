@@ -2,17 +2,24 @@ const EventRequest = require('../models/EventRequest');
 
 exports.createEventRequest = async (req, res) => {
     try {
+        console.log('Creating Event Request. User:', req.user?.name, 'Dept:', req.user?.department);
+        console.log('Payload:', req.body);
+
         const payload = {
             ...req.body,
-            facultyId: req.user.id,
-            facultyName: req.user.name,
-            department: req.user.department,
+            facultyId: req.user.id || req.user._id,
+            facultyName: req.user.name || 'Faculty Member',
+            department: req.user.department || 'RESEARCH',
             researchCentre: req.user.centre || 'General',
-            status: 'PENDING'
+            status: 'PENDING',
+            isFullDay: req.body.isFullDay !== undefined ? req.body.isFullDay : true,
+            startTime: req.body.startTime,
+            endTime: req.body.endTime
         };
         const newRequest = await EventRequest.create(payload);
         res.status(201).json({ success: true, data: newRequest });
     } catch (error) {
+        console.error('Event Submission Error:', error);
         res.status(500).json({ success: false, message: error.message });
     }
 };

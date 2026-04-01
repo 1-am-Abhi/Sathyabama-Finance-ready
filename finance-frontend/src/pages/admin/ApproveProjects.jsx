@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
+import * as XLSX from 'xlsx';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
 import { Badge } from '../../components/ui/badge';
-import { CheckCircle, XCircle, Eye, Calendar, User, Clock, Info, ShieldAlert, RefreshCw, Users, Brain, Sparkles, TrendingUp } from 'lucide-react';
+import { CheckCircle, XCircle, Eye, Calendar, User, Clock, Info, ShieldAlert, RefreshCw, Users, Brain, Sparkles, TrendingUp, Download, FileCheck, BookOpen, Edit2 } from 'lucide-react';
+import { useNotifications } from '../../contexts/NotificationContext';
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend, ResponsiveContainer } from 'recharts';
 import { useLayout } from '../../contexts/LayoutContext';
 import { usePipeline } from '../../contexts/PipelineContext';
@@ -14,9 +16,14 @@ import { FACULTY_MEMBERS } from '../../constants/facultyMembers';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../../components/ui/tooltip';
 import AIResultModal from '../../components/shared/AIResultModal';
 import { generateProjectSummary, analyzeProjectRisk, detectDuplicateProposal, predictFundingSuccess } from '../../services/aiService';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../../components/ui/dialog';
+import { Label } from '../../components/ui/label';
+import { Textarea } from '../../components/ui/textarea';
+import apiClient from '../../api/client';
 
 const ApproveProjects = () => {
     const { setLayout } = useLayout();
+    const { addNotification } = useNotifications();
     const { projects: pipelineProjects, updateProject, isLoading } = usePipeline();
     const [selectedDate, setSelectedDate] = useState(null);
     const [selectedCentre, setSelectedCentre] = useState('All');
@@ -27,18 +34,84 @@ const ApproveProjects = () => {
         id: p._id || p.id,
         title: p.title,
         faculty: p.pi || p.faculty || 'Unknown',
+        facultyId: p.facultyId,
+        userId: p.userId,
         centre: p.centre,
         budget: p.sanctionedBudget || p.budget || 0,
         submittedDate: p.createdAt ? p.createdAt.substring(0, 10) : (p.submittedDate || new Date().toISOString().substring(0, 10)),
         status: p.status === 'ACTIVE' ? 'APPROVED' : p.status, // Map ACTIVE to APPROVED for UI
         department: p.department,
         agency: p.fundingSource || p.agency || 'Unknown',
-        chequeStatus: p.chequeStatus || 'Pending'
+        chequeStatus: p.chequeStatus || 'Pending',
+        proofUploaded: p.proofUploaded,
+        proofData: p.proofData,
+        proofStatus: p.proofStatus,
+        proofRemarks: p.proofRemarks
     }));
 
     const [selectedProject, setSelectedProject] = useState(null);
     const [manageFacultyModal, setManageFacultyModal] = useState({ isOpen: false, project: null, selectedFaculty: '' });
     const [aiModal, setAiModal] = useState({ open: false, loading: false, result: null });
+    const [proofRejectModalOpen, setProofRejectModalOpen] = useState(false);
+    const [proofRemarks, setProofRemarks] = useState('');
+
+    const [pendingMetrics, setPendingMetrics] = useState([]);
+    const [isMetricsLoading, setIsMetricsLoading] = useState(false);
+    const [selectedMetric, setSelectedMetric] = useState(null);
+
+    const fetchPendingMetrics = async () => {
+        setIsMetricsLoading(true);
+        try {
+            const res = await apiClient.get('/academic-metrics/pending');
+            setPendingMetrics(res.data.data || []);
+        } catch (error) {
+            console.error('Fetch pending metrics failed', error);
+        } finally {
+            setIsMetricsLoading(false);
+        }
+    };
+
+    React.useEffect(() => {
+        fetchPendingMetrics();
+    }, []);
+
+    const handleApproveMetric = async (id) => {
+        try {
+            await apiClient.put(`/academic-metrics/${id}/approve`);
+            const metric = pendingMetrics.find(m => m._id === id);
+            addNotification({
+                role: 'FACULTY',
+                type: 'success',
+                message: `Your Academic Record for cycle ${metric?.cycle} has been APPROVED!`,
+                actionUrl: '/faculty/academic-support',
+                targetUserId: metric?.facultyId
+            });
+            fetchPendingMetrics();
+            setSelectedMetric(null);
+            alert('Academic Record Approved');
+        } catch (error) {
+            console.error(error);
+        }
+    };
+
+    const handleRejectMetric = async (id, remarks) => {
+        try {
+            await apiClient.put(`/academic-metrics/${id}/reject`, { remarks });
+            const metric = pendingMetrics.find(m => m._id === id);
+            addNotification({
+                role: 'FACULTY',
+                type: 'rejection',
+                message: `Your Academic Record for cycle ${metric?.cycle} was REJECTED: ${remarks}`,
+                actionUrl: '/faculty/academic-support',
+                targetUserId: metric?.facultyId
+            });
+            fetchPendingMetrics();
+            setSelectedMetric(null);
+            alert('Academic Record Rejected');
+        } catch (error) {
+            console.error(error);
+        }
+    };
 
     const handleFacultyAssignment = async () => {
         if (!manageFacultyModal.selectedFaculty) return;
@@ -48,6 +121,7 @@ const ApproveProjects = () => {
                 updates: { faculty: manageFacultyModal.selectedFaculty }
             });
             setManageFacultyModal({ isOpen: false, project: null, selectedFaculty: '' });
+            alert('Faculty assigned successfully');
         } catch (error) {
             console.error(error);
         }
@@ -56,14 +130,94 @@ const ApproveProjects = () => {
     const handleApprove = async (id) => {
         try {
             await updateProject({ projectId: id, updates: { status: 'ACTIVE' }});
+            const proj = projects.find(p => p.id === id);
+            addNotification({
+                role: 'FACULTY',
+                type: 'success',
+                message: `Project Proposal "${proj?.title}" is now ACTIVE!`,
+                actionUrl: '/faculty/projects',
+                targetUserId: proj?.facultyId || proj?.userId
+            });
         } catch (error) {
             console.error(error);
         }
     };
 
+    const handleExportExcel = () => {
+        const dataToExport = filteredProjects.map(p => ({
+            'Project ID': p.id,
+            'Title': p.title,
+            'Principal Investigator': p.faculty,
+            'Funding Agency': p.agency,
+            'Research Centre': p.centre,
+            'Budget (₹)': p.budget,
+            'Status': p.status,
+            'Submitted Date': p.submittedDate
+        }));
+
+        const ws = XLSX.utils.json_to_sheet(dataToExport);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, 'Projects');
+        XLSX.writeFile(wb, `Projects_Report_${new Date().toISOString().split('T')[0]}.xlsx`);
+    };
+
     const handleReject = async (id) => {
         try {
-            await updateProject({ projectId: id, updates: { status: 'REJECTED' }}); // Keep in mind DB might not have REJECTED in enum, but we can try or just map it if DB updates.
+            await updateProject({ projectId: id, updates: { status: 'REJECTED' }});
+            const proj = projects.find(p => p.id === id);
+            addNotification({
+                role: 'FACULTY',
+                type: 'rejection',
+                message: `Project Proposal "${proj?.title}" was REJECTED.`,
+                actionUrl: '/faculty/projects',
+                targetUserId: proj?.facultyId || proj?.userId
+            });
+        } catch (error) {
+            console.error(error);
+        }
+    };
+
+    const handleVerifyProof = async (id) => {
+        try {
+            await updateProject({ projectId: id, updates: { proofStatus: 'VERIFIED' } });
+            if (selectedProject?.id === id) {
+                setSelectedProject({ ...selectedProject, proofStatus: 'VERIFIED' });
+            }
+            alert('Proof Verified');
+            const proj = projects.find(p => p.id === id);
+            addNotification({
+                role: 'FACULTY',
+                type: 'success',
+                message: `Your research artifact for "${proj?.title}" was VERIFIED.`,
+                actionUrl: `/faculty/projects`,
+                targetUserId: proj?.facultyId || proj?.userId
+            });
+        } catch (error) {
+            console.error(error);
+        }
+    };
+
+    const handleRejectProof = async () => {
+        if (!selectedProject) return;
+        try {
+            await updateProject({ 
+                projectId: selectedProject.id, 
+                updates: { 
+                    proofStatus: 'REJECTED', 
+                    proofRemarks,
+                    proofUploaded: false 
+                } 
+            });
+            setProofRejectModalOpen(false);
+            setSelectedProject(null);
+            alert('Proof Rejected. Faculty notified for re-upload.');
+            addNotification({
+                role: 'FACULTY',
+                type: 'rejection',
+                message: `Research proof for "${selectedProject.title}" REJECTED: ${proofRemarks}`,
+                actionUrl: `/faculty/projects`,
+                targetUserId: selectedProject?.facultyId || selectedProject?.userId
+            });
         } catch (error) {
             console.error(error);
         }
@@ -90,6 +244,49 @@ const ApproveProjects = () => {
     return (
         <div className="flex-1 overflow-y-auto overflow-x-hidden">
             <div className="p-8 pt-6">
+
+                {/* Pending Academic Metric Updates */}
+                {pendingMetrics.length > 0 && (
+                    <Card className="border-0 shadow-lg dark:bg-slate-900 mb-8 bg-gradient-to-br from-indigo-500/10 to-purple-500/10 ring-1 ring-indigo-500/20">
+                        <CardHeader className="p-6">
+                            <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-4">
+                                    <div className="w-12 h-12 bg-indigo-500/20 rounded-2xl flex items-center justify-center">
+                                        <Sparkles className="w-6 h-6 text-indigo-500" />
+                                    </div>
+                                    <div>
+                                        <CardTitle className="text-lg font-black italic tracking-tighter uppercase text-slate-800 dark:text-white">Academic Metric Approvals</CardTitle>
+                                        <CardDescription className="text-[10px] font-black uppercase tracking-widest text-indigo-500/70 italic mt-0.5">
+                                            {pendingMetrics.length} faculty members have submitted pedagogical audit updates
+                                        </CardDescription>
+                                    </div>
+                                </div>
+                                <Button 
+                                    size="sm" 
+                                    className="bg-indigo-600 hover:bg-indigo-700 text-white font-black text-[10px] uppercase tracking-widest italic h-10 px-6 rounded-xl"
+                                    onClick={() => setSelectedMetric(pendingMetrics[0])}
+                                >
+                                    Review All Updates
+                                </Button>
+                            </div>
+                        </CardHeader>
+                        <CardContent className="px-6 pb-6 pt-0">
+                            <div className="flex flex-wrap gap-3">
+                                {pendingMetrics.map(m => (
+                                    <div 
+                                        key={m._id} 
+                                        onClick={() => setSelectedMetric(m)}
+                                        className="px-4 py-2 bg-white/50 dark:bg-slate-800/50 border border-indigo-500/10 rounded-xl cursor-pointer hover:bg-indigo-500/10 transition-colors flex items-center gap-3 group"
+                                    >
+                                        <div className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse" />
+                                        <span className="text-xs font-black uppercase tracking-widest text-slate-600 dark:text-slate-300 group-hover:text-indigo-500 transition-colors">{m.facultyName || 'Faculty Member'}</span>
+                                        <Badge variant="secondary" className="bg-indigo-100 text-indigo-700 text-[8px] font-black">{m.cycle}</Badge>
+                                    </div>
+                                ))}
+                            </div>
+                        </CardContent>
+                    </Card>
+                )}
 
                 {/* Polished Summary Cards */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
@@ -202,6 +399,13 @@ const ApproveProjects = () => {
                                         </button>
                                     )}
                                 </div>
+                                <Button
+                                    onClick={(e) => { e.stopPropagation(); handleExportExcel(); }}
+                                    variant="outline"
+                                    className="h-10 border-indigo-200 dark:border-indigo-900/50 bg-indigo-50/50 dark:bg-indigo-900/10 text-indigo-700 dark:text-indigo-400 hover:bg-indigo-100/50"
+                                >
+                                    <Download className="w-4 h-4 mr-2" /> Export Excel
+                                </Button>
                             </div>
                         </div>
                     </CardHeader>
@@ -536,6 +740,37 @@ const ApproveProjects = () => {
                                     </div>
                                 )}
 
+                                {selectedProject.proofUploaded && (
+                                    <div className="pt-4 border-t dark:border-slate-800">
+                                        <p className="text-sm font-semibold text-gray-500 dark:text-gray-400 mb-2">Documentary Evidence / Paper</p>
+                                        <div className="bg-slate-800/20 p-4 rounded-xl border border-slate-700/50">
+                                            {selectedProject.proofData?.startsWith('data:image') ? (
+                                                <img src={selectedProject.proofData} className="max-h-64 mx-auto rounded-lg mb-4" alt="Proof" />
+                                            ) : (
+                                                <div className="flex flex-col items-center py-6">
+                                                   <BookOpen className="w-12 h-12 text-slate-500 mb-2" />
+                                                   <p className="text-xs text-slate-400 font-bold uppercase italic">Research Artifact Uploaded (PDF/Doc)</p>
+                                                </div>
+                                            )}
+                                            
+                                            <div className="flex justify-center gap-3">
+                                                <Button size="sm" variant="outline" className="border-indigo-400 text-indigo-500" onClick={() => window.open(selectedProject.proofData)}>
+                                                    <Eye className="w-3 h-3 mr-1" /> View Artifact
+                                                </Button>
+                                                {selectedProject.proofStatus !== 'VERIFIED' && (
+                                                    <div className="flex gap-2 border-l pl-3 ml-1">
+                                                        <Button size="sm" variant="destructive" onClick={() => setProofRejectModalOpen(true)}>Reject</Button>
+                                                        <Button size="sm" className="bg-green-600 hover:bg-green-700 text-white" onClick={() => handleVerifyProof(selectedProject.id)}>Verify</Button>
+                                                    </div>
+                                                )}
+                                                {selectedProject.proofStatus === 'VERIFIED' && (
+                                                    <Badge className="bg-green-100 text-green-700 border-green-200">Verified Securely</Badge>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+
                                 <div className="flex justify-end space-x-3 pt-4 border-t dark:border-slate-800">
                                     <Button variant="outline" className="dark:border-slate-700 dark:hover:bg-slate-800" onClick={() => setSelectedProject(null)}>
                                         Close Details
@@ -677,6 +912,132 @@ const ApproveProjects = () => {
                 result={aiModal.result}
                 onClose={() => setAiModal({ ...aiModal, open: false })}
             />
+
+            {/* Proof Reject Modal */}
+            <Dialog open={proofRejectModalOpen} onOpenChange={setProofRejectModalOpen}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Reject Research Artifact</DialogTitle>
+                    </DialogHeader>
+                    <div className="py-4">
+                        <Label htmlFor="researchProofRemarks">Reason for Proof Rejection</Label>
+                        <Textarea
+                            id="researchProofRemarks"
+                            placeholder="e.g. Invalid document, poor quality..."
+                            className="mt-2"
+                            value={proofRemarks}
+                            onChange={(e) => setProofRemarks(e.target.value)}
+                        />
+                    </div>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setProofRejectModalOpen(false)}>Cancel</Button>
+                        <Button variant="destructive" onClick={handleRejectProof} disabled={!proofRemarks.trim()}>Confirm Rejection</Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+            {/* Academic Metric Detail Modal */}
+            {selectedMetric && (
+                <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/80 backdrop-blur-md p-4 overflow-y-auto">
+                    <div className="bg-slate-900 border border-white/10 rounded-[2.5rem] p-10 w-full max-w-4xl shadow-2xl mx-auto my-8 max-h-[90vh] overflow-y-auto">
+                        <div className="flex items-center justify-between mb-8 pb-6 border-b border-white/5">
+                            <div className="flex items-center gap-5">
+                                <div className="w-14 h-14 bg-indigo-500/20 rounded-2xl flex items-center justify-center">
+                                    <BookOpen className="w-7 h-7 text-indigo-400" />
+                                </div>
+                                <div>
+                                    <h3 className="text-2xl font-black italic tracking-tighter uppercase text-white">Pedagogical Audit Review</h3>
+                                    <p className="text-[10px] font-black uppercase tracking-widest text-indigo-400 italic mt-0.5">Faculty: {selectedMetric.facultyName || 'Unknown'} • Cycle {selectedMetric.cycle}</p>
+                                </div>
+                            </div>
+                            <button onClick={() => setSelectedMetric(null)} className="p-3 hover:bg-white/10 rounded-2xl text-slate-400 transition-colors">
+                                <XCircle className="w-8 h-8" />
+                            </button>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+                            {/* Quantitative Section */}
+                            <div className="space-y-6">
+                                <h4 className="text-xs font-black uppercase tracking-widest text-maroon-500 italic flex items-center gap-2">
+                                    <TrendingUp className="w-4 h-4" /> Quantitative Core Metrics
+                                </h4>
+                                <div className="grid grid-cols-2 gap-4">
+                                    {[
+                                        { label: 'Theory Load', val: selectedMetric.theorySubjects },
+                                        { label: 'Practical Load', val: selectedMetric.practicalSubjects },
+                                        { label: 'UG Projects', val: selectedMetric.ugProjects },
+                                        { label: 'PG Projects', val: selectedMetric.pgProjects },
+                                        { label: 'Internships', val: selectedMetric.internships },
+                                        { label: 'Exam Duty', val: selectedMetric.examDuty },
+                                        { label: 'PhD Ongoing', val: selectedMetric.phdOngoing },
+                                        { label: 'PhD Completed', val: selectedMetric.phdCompleted },
+                                    ].map((stat, i) => (
+                                        <div key={i} className="p-4 bg-white/5 border border-white/5 rounded-2xl">
+                                            <p className="text-[8px] font-black uppercase tracking-widest text-slate-500 italic">{stat.label}</p>
+                                            <p className="text-xl font-black text-white italic tracking-tighter mt-1">{stat.val || 0}</p>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* Qualitative Section */}
+                            <div className="space-y-6">
+                                <h4 className="text-xs font-black uppercase tracking-widest text-indigo-500 italic flex items-center gap-2">
+                                    <Sparkles className="w-4 h-4" /> Qualitative Strategic Impacts
+                                </h4>
+                                <div className="space-y-4">
+                                    {[
+                                        { label: 'International Visits', val: selectedMetric.internationalVisit },
+                                        { label: 'Fellowships / Awards', val: selectedMetric.fellowship },
+                                        { label: 'Coordination Roles', val: selectedMetric.coordinators },
+                                        { label: 'Seed Grants / Consultancy', val: selectedMetric.grants },
+                                    ].map((f, i) => (
+                                        <div key={i} className="p-5 bg-white/5 border border-white/5 rounded-2xl">
+                                            <p className="text-[8px] font-black uppercase tracking-widest text-slate-500 italic mb-2">{f.label}</p>
+                                            <p className="text-xs font-bold text-slate-300 italic leading-relaxed uppercase tracking-tighter">{f.val || 'N/A'}</p>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="mt-10 pt-8 border-t border-white/5 space-y-6">
+                            <div className="space-y-3">
+                                <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic">Reviewer Remarks / Feedback</label>
+                                <textarea 
+                                    className="w-full p-6 bg-white/5 border border-white/10 rounded-3xl font-bold italic text-white outline-none focus:ring-2 focus:ring-indigo-500 min-h-[120px] resize-none text-sm"
+                                    placeholder="Enter feedback for the faculty member..."
+                                    id="metricRemarks"
+                                />
+                            </div>
+                            
+                            <div className="flex gap-4">
+                                <Button 
+                                    variant="outline" 
+                                    className="flex-1 h-14 border-white/10 text-slate-400 hover:bg-white/5 rounded-2xl font-black text-xs uppercase tracking-widest italic"
+                                    onClick={() => setSelectedMetric(null)}
+                                >
+                                    Close Review
+                                </Button>
+                                <Button 
+                                    className="flex-1 h-14 bg-rose-700 hover:bg-rose-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest italic shadow-xl shadow-rose-900/40"
+                                    onClick={() => {
+                                        const rem = document.getElementById('metricRemarks').value;
+                                        handleRejectMetric(selectedMetric._id, rem);
+                                    }}
+                                >
+                                    <XCircle className="w-4 h-4 mr-3" /> Reject Metrics
+                                </Button>
+                                <Button 
+                                    className="flex-[2] h-14 bg-indigo-700 hover:bg-indigo-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest italic shadow-xl shadow-indigo-900/40"
+                                    onClick={() => handleApproveMetric(selectedMetric._id)}
+                                >
+                                    <CheckCircle className="w-4 h-4 mr-3" /> Approve & Integrate
+                                </Button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

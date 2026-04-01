@@ -1,1 +1,14 @@
-node_modules
+node_modules/
+.env
+.env.local
+*.log
+*.txt
+.DS_Store
+dist/
+build/
+.npm-cache/
+ngrok_config.yml
+backend_tunnel.log
+backend_tunnel.txt
+frontend_url.txt
+lt-backend.txt

@@ -23,7 +23,25 @@ exports.register = async (req, res) => {
         const token = generateToken(user);
         res.status(201).json({
             success: true,
-            user: { _id: user._id, name: user.name, role: user.role, email: user.email, department: user.department, centre: user.centre },
+            user: { 
+                _id: user._id, 
+                name: user.name, 
+                role: user.role, 
+                email: user.email, 
+                department: user.department, 
+                centre: user.centre,
+                isProfileCompleted: user.isProfileCompleted,
+                designation: user.designation,
+                employeeId: user.employeeId,
+                joiningDate: user.joiningDate,
+                phone: user.phone,
+                officeLocation: user.officeLocation,
+                specialization: user.specialization,
+                bio: user.bio,
+                education: user.education,
+                achievements: user.achievements,
+                photo: user.photo
+            },
             token
         });
     } catch (error) {
@@ -36,16 +54,61 @@ exports.login = async (req, res) => {
         const { email, password } = req.body;
         
         const user = await User.findOne({ where: { email } });
-        if (!user || !(await user.comparePassword(password))) {
-            return res.status(401).json({ success: false, message: 'Invalid email or password' });
+        if (!user) {
+            return res.status(401).json({ success: false, message: 'Incorrect email' });
+        }
+
+        const isMatch = await user.comparePassword(password);
+        if (!isMatch) {
+            return res.status(401).json({ success: false, message: 'Incorrect password' });
+        }
+
+        if (user.status === 'Inactive') {
+            return res.status(403).json({ 
+                success: false, 
+                message: 'Your account has been deactivated. Please contact the administrator.' 
+            });
         }
         
         const token = generateToken(user);
         res.status(200).json({
             success: true,
-            user: { _id: user._id, name: user.name, role: user.role, email: user.email, department: user.department, centre: user.centre },
+            user: { 
+                _id: user._id, 
+                name: user.name, 
+                role: user.role, 
+                email: user.email, 
+                department: user.department, 
+                centre: user.centre,
+                status: user.status,
+                isProfileCompleted: user.isProfileCompleted,
+                designation: user.designation,
+                employeeId: user.employeeId,
+                joiningDate: user.joiningDate,
+                phone: user.phone,
+                officeLocation: user.officeLocation,
+                specialization: user.specialization,
+                bio: user.bio,
+                education: user.education,
+                achievements: user.achievements,
+                photo: user.photo
+            },
             token
         });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+exports.deleteUser = async (req, res) => {
+    try {
+        const user = await User.findByPk(req.params.id);
+        if (!user) {
+            return res.status(404).json({ success: false, message: 'User not found' });
+        }
+
+        await user.destroy();
+        res.status(200).json({ success: true, message: 'User deleted successfully' });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
     }
@@ -93,6 +156,20 @@ exports.updatePassword = async (req, res) => {
         await user.save();
         
         res.status(200).json({ success: true, message: 'Password updated successfully' });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+exports.updateUser = async (req, res) => {
+    try {
+        const user = await User.findByPk(req.params.id);
+        if (!user) {
+            return res.status(404).json({ success: false, message: 'User not found' });
+        }
+
+        await user.update(req.body);
+        res.status(200).json({ success: true, message: 'User updated successfully', user });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
     }

@@ -1,0 +1,30 @@
+services:
+  - type: web
+    name: finance-api
+    runtime: node
+    rootDir: finance-backend
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: DATABASE_URL
+        sync: false # Set manually in Render Dashboard
+      - key: JWT_SECRET
+        generateValue: true
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 5001
+
+  - type: static
+    name: finance-frontend
+    runtime: static
+    rootDir: finance-frontend
+    buildCommand: npm install && npm run build
+    publishPath: build
+    envVars:
+      - key: REACT_APP_API_URL
+        fromService:
+          type: web
+          name: finance-api
+          property: host
+        suffix: /api

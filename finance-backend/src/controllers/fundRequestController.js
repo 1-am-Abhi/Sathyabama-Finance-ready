@@ -1,11 +1,18 @@
 const { FundRequest, FUND_FLOW_STAGES } = require('../models/FundRequest');
 const Project = require('../models/Project');
+const { Op } = require('sequelize');
 
 exports.getFundRequests = async (req, res) => {
     try {
         let options = { order: [['createdAt', 'DESC']] };
         if (req.user.role === 'FACULTY') {
-            options.where = { faculty: req.user.name }; // Using name as reference for now
+            options.where = { 
+                [Op.or]: [
+                    { facultyId: req.user.id },
+                    { userId: req.user.id },
+                    { pi: req.user.name } // Fallback for legacy
+                ]
+            };
         }
         
         const requests = await FundRequest.findAll(options);
@@ -27,10 +34,13 @@ exports.getFundRequest = async (req, res) => {
 
 exports.createFundRequest = async (req, res) => {
     try {
+        console.log('Creating Fund Request. User:', req.user.name, 'Role:', req.user.role);
         const requestData = {
             ...req.body,
-            faculty: req.user.name,
-            department: req.user.department,
+            faculty: req.user.name || 'Faculty Member',
+            facultyId: req.user.id || req.user._id,
+            userId: req.user.id || req.user._id,
+            department: req.user.department || 'RESEARCH',
             centre: req.user.centre || 'Research Centre'
         };
         const request = await FundRequest.create(requestData);
@@ -59,6 +69,22 @@ exports.approveFundRequest = async (req, res) => {
             status: 'APPROVED',
             currentStage: 'FUND_APPROVED',
             auditTrail: [...currentAudit, newAuditEntry]
+        });
+        
+        res.status(200).json({ success: true, data: request });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+exports.rejectFundRequest = async (req, res) => {
+    try {
+        const request = await FundRequest.findByPk(req.params.id);
+        if (!request) return res.status(404).json({ success: false, message: 'Request not found' });
+        
+        await request.update({
+            status: 'REJECTED',
+            remarks: req.body.remarks || 'Rejected by Admin'
         });
         
         res.status(200).json({ success: true, data: request });

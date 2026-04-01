@@ -6,8 +6,8 @@ const router = express.Router();
 
 router.use(protect);
 
-router.post('/', authorize('FACULTY'), createODRequest);
-router.get('/', getODRequests);
-router.put('/:id/status', updateODRequestStatus);
+router.post('/', authorize('FACULTY', 'ADMIN'), createODRequest);
+router.get('/', authorize('FACULTY', 'ADMIN'), getODRequests);
+router.put('/:id/status', authorize('ADMIN'), updateODRequestStatus);
 
 module.exports = router;

@@ -39,6 +39,18 @@ const ODRequest = sequelize.define('ODRequest', {
         type: DataTypes.INTEGER,
         allowNull: false
     },
+    isFullDay: {
+        type: DataTypes.BOOLEAN,
+        defaultValue: true
+    },
+    startTime: {
+        type: DataTypes.STRING,
+        allowNull: true
+    },
+    endTime: {
+        type: DataTypes.STRING,
+        allowNull: true
+    },
     status: {
         type: DataTypes.ENUM('PENDING', 'APPROVED', 'REJECTED', 'CANCELLED'),
         defaultValue: 'PENDING'
@@ -47,8 +59,20 @@ const ODRequest = sequelize.define('ODRequest', {
         type: DataTypes.BOOLEAN,
         defaultValue: false
     },
+    proofStatus: {
+        type: DataTypes.ENUM('PENDING', 'VERIFIED', 'REJECTED'),
+        defaultValue: 'PENDING'
+    },
+    proofRemarks: {
+        type: DataTypes.TEXT,
+        allowNull: true
+    },
     remarks: {
         type: DataTypes.TEXT,
+        allowNull: true
+    },
+    proofData: {
+        type: DataTypes.TEXT('long'),
         allowNull: true
     }
 });

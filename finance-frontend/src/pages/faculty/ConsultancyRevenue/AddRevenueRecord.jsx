@@ -14,6 +14,7 @@ import {
     SelectValue,
 } from '../../../components/ui/select';
 import { useLayout } from '../../../contexts/LayoutContext';
+import apiClient from '../../../api/client';
 
 const AddRevenueRecord = () => {
     const navigate = useNavigate();
@@ -28,6 +29,7 @@ const AddRevenueRecord = () => {
         supportingDocument: null
     });
     const [error, setError] = useState('');
+    const [submitting, setSubmitting] = useState(false);
 
     React.useEffect(() => {
         setLayout("Revenue Acquisition", "Registration of professional service yields and institutional grants");
@@ -43,22 +45,37 @@ const AddRevenueRecord = () => {
         }
     };
 
-    const handleSubmit = (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault();
+        setError('');
+        
         if (!formData.title || !formData.amountGenerated || !formData.revenueDate) {
             setError('Incomplete Mission Parameters');
             return;
         }
-        const year = new Date(formData.revenueDate).getFullYear();
-        const newRecord = {
-            id: `REV-${Math.floor(Math.random() * 10000)}`,
-            ...formData,
-            year,
-            createdAt: new Date().toISOString()
-        };
-        const existingRecords = JSON.parse(localStorage.getItem('revenueRecords') || '[]');
-        localStorage.setItem('revenueRecords', JSON.stringify([newRecord, ...existingRecords]));
-        navigate('/faculty/revenue/records');
+
+        try {
+            setSubmitting(true);
+            const year = new Date(formData.revenueDate).getFullYear();
+            
+            const payload = {
+                year,
+                revenueSource: formData.revenueSource,
+                amountGenerated: parseFloat(formData.amountGenerated),
+                details: `${formData.title} - ${formData.clientName}. ${formData.description}`
+            };
+
+            const response = await apiClient.post('/revenue', payload);
+            
+            if (response.data.success) {
+                navigate('/faculty/revenue/records');
+            }
+        } catch (error) {
+            console.error('Error saving revenue record:', error);
+            setError(error.response?.data?.message || 'Transmission Failed to Central Archive');
+        } finally {
+            setSubmitting(false);
+        }
     };
 
     return (
@@ -179,8 +196,12 @@ const AddRevenueRecord = () => {
                         </div>
 
                         <div className="flex justify-end pt-4">
-                            <Button type="submit" className="h-16 px-12 bg-maroon-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest italic shadow-xl shadow-maroon-600/20 hover:scale-105 transition-all flex items-center gap-3">
-                                Finalize Record Entry <ChevronRight className="w-4 h-4" />
+                            <Button 
+                                type="submit" 
+                                disabled={submitting}
+                                className="h-16 px-12 bg-maroon-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest italic shadow-xl shadow-maroon-600/20 hover:scale-105 transition-all flex items-center gap-3 disabled:opacity-50"
+                            >
+                                {submitting ? 'TRANSMITTING...' : 'Finalize Record Entry'} <ChevronRight className="w-4 h-4" />
                             </Button>
                         </div>
                     </form>

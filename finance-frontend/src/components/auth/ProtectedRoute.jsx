@@ -20,6 +20,10 @@ const ProtectedRoute = ({ children, allowedRoles = [] }) => {
         return <Navigate to="/login" replace />;
     }
 
+    if (user?.role === 'FACULTY' && !user?.isProfileCompleted && !window.location.pathname.includes('/faculty/profile-setup')) {
+        return <Navigate to="/faculty/profile-setup" replace />;
+    }
+
     if (allowedRoles.length > 0 && !allowedRoles.includes(user?.role)) {
         // Redirect to appropriate dashboard based on role
         const dashboardPaths = {

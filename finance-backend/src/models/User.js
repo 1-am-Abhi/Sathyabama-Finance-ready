@@ -35,6 +35,55 @@ const User = sequelize.define('User', {
     centre: {
         type: DataTypes.STRING,
         allowNull: true
+    },
+    designation: {
+        type: DataTypes.STRING,
+        allowNull: true
+    },
+    employeeId: {
+        type: DataTypes.STRING,
+        allowNull: true,
+        unique: true
+    },
+    joiningDate: {
+        type: DataTypes.DATEONLY,
+        allowNull: true
+    },
+    phone: {
+        type: DataTypes.STRING,
+        allowNull: true
+    },
+    officeLocation: {
+        type: DataTypes.STRING,
+        allowNull: true
+    },
+    specialization: {
+        type: DataTypes.TEXT,
+        allowNull: true
+    },
+    bio: {
+        type: DataTypes.TEXT,
+        allowNull: true
+    },
+    education: {
+        type: DataTypes.JSONB,
+        defaultValue: []
+    },
+    achievements: {
+        type: DataTypes.JSONB,
+        defaultValue: []
+    },
+    photo: {
+        type: DataTypes.TEXT, // Base64 or URL
+        allowNull: true
+    },
+    isProfileCompleted: {
+        type: DataTypes.BOOLEAN,
+        defaultValue: false
+    },
+    status: {
+        type: DataTypes.ENUM('Active', 'Inactive'),
+        defaultValue: 'Active'
     }
 }, {
     hooks: {

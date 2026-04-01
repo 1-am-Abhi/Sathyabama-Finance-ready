@@ -6,8 +6,8 @@ const router = express.Router();
 
 router.use(protect);
 
-router.post('/', authorize('FACULTY'), createEventRequest);
-router.get('/', getEventRequests);
-router.put('/:id/status', updateEventRequestStatus);
+router.post('/', authorize('FACULTY', 'ADMIN'), createEventRequest);
+router.get('/', authorize('FACULTY', 'ADMIN'), getEventRequests);
+router.put('/:id/status', authorize('ADMIN'), updateEventRequestStatus);
 
 module.exports = router;

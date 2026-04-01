@@ -11,6 +11,14 @@ const Project = sequelize.define('Project', {
         type: DataTypes.STRING,
         allowNull: false
     },
+    userId: {
+        type: DataTypes.UUID,
+        allowNull: true // Allow true for legacy data
+    },
+    facultyId: {
+        type: DataTypes.UUID,
+        allowNull: true
+    },
     description: {
         type: DataTypes.TEXT,
         allowNull: false
@@ -66,7 +74,32 @@ const Project = sequelize.define('Project', {
     endDate: {
         type: DataTypes.DATE,
         allowNull: true
+    },
+    proofUploaded: {
+        type: DataTypes.BOOLEAN,
+        defaultValue: false
+    },
+    proofStatus: {
+        type: DataTypes.ENUM('PENDING', 'VERIFIED', 'REJECTED'),
+        defaultValue: 'PENDING'
+    },
+    proofRemarks: {
+        type: DataTypes.TEXT,
+        allowNull: true
+    },
+    proofData: {
+        type: DataTypes.TEXT('long'),
+        allowNull: true
     }
 });
+
+const { FundRequest } = require('./FundRequest');
+const PFMSTransaction = require('./PFMSTransaction');
+
+Project.hasMany(FundRequest, { foreignKey: 'projectId' });
+FundRequest.belongsTo(Project, { foreignKey: 'projectId' });
+
+Project.hasMany(PFMSTransaction, { foreignKey: 'projectId' });
+PFMSTransaction.belongsTo(Project, { foreignKey: 'projectId' });
 
 module.exports = Project;

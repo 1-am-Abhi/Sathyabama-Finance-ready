@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { X, BookOpen, DollarSign, Briefcase, Calendar, Building, FileText, Plus, Trash2 } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
@@ -148,9 +149,9 @@ const AcademicWorkModal = ({ isOpen, onClose, onSubmit, initialData = null, mode
         return 'Publisher / Venue';
     };
 
-    return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-            <div className="bg-white rounded-2xl w-full max-w-2xl overflow-hidden shadow-xl max-h-[90vh] overflow-y-auto">
+    return createPortal(
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+            <div className="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-2xl mx-auto overflow-hidden shadow-xl max-h-[90vh] overflow-y-auto">
                 <div className="bg-blue-600 p-6 text-white flex justify-between items-center">
                     <div>
                         <h3 className="text-xl font-bold">{mode === 'edit' ? 'Edit Work' : 'Add New Work'}</h3>
@@ -185,12 +186,12 @@ const AcademicWorkModal = ({ isOpen, onClose, onSubmit, initialData = null, mode
                         {/* Mandatory Fields */}
                         <div className="grid grid-cols-2 gap-4">
                             <div className="col-span-2">
-                                <label className="text-xs font-bold text-gray-500 uppercase">Title</label>
+                                <label className="text-xs font-bold text-gray-500 uppercase italic">Title</label>
                                 <input
                                     required
                                     value={formData.title}
                                     onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                                    className="w-full mt-1 px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-100 outline-none"
+                                    className="w-full mt-1 px-4 py-2 border dark:border-slate-700 bg-white dark:bg-slate-800 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-100 outline-none italic font-bold"
                                     placeholder={formData.mainType === 'PROJECT' ? "Project Title" : "Paper/Book Title"}
                                     title="Title is required"
                                 />
@@ -202,11 +203,11 @@ const AcademicWorkModal = ({ isOpen, onClose, onSubmit, initialData = null, mode
                                 {/* Project Fields */}
                                 <div className="grid grid-cols-2 gap-4">
                                     <div>
-                                        <label className="text-xs font-bold text-gray-500 uppercase">Status</label>
+                                        <label className="text-xs font-bold text-gray-500 uppercase italic">Status</label>
                                         <select
                                             value={formData.projectStatus}
                                             onChange={(e) => setFormData({ ...formData, projectStatus: e.target.value })}
-                                            className="w-full mt-1 px-4 py-2 border rounded-lg outline-none"
+                                            className="w-full mt-1 px-4 py-2 border dark:border-slate-700 bg-white dark:bg-slate-800 dark:text-white rounded-lg outline-none italic font-bold"
                                         >
                                             <option value="On-Going">On-Going</option>
                                             <option value="Completed">Completed</option>
@@ -215,11 +216,11 @@ const AcademicWorkModal = ({ isOpen, onClose, onSubmit, initialData = null, mode
                                         </select>
                                     </div>
                                     <div>
-                                        <label className="text-xs font-bold text-gray-500 uppercase">Role</label>
+                                        <label className="text-xs font-bold text-gray-500 uppercase italic">Role</label>
                                         <select
                                             value={formData.role}
                                             onChange={(e) => setFormData({ ...formData, role: e.target.value })}
-                                            className="w-full mt-1 px-4 py-2 border rounded-lg outline-none"
+                                            className="w-full mt-1 px-4 py-2 border dark:border-slate-700 bg-white dark:bg-slate-800 dark:text-white rounded-lg outline-none italic font-bold"
                                         >
                                             <option value="PI">Principal Investigator (PI)</option>
                                             <option value="Co-PI">Co-PI</option>
@@ -229,21 +230,21 @@ const AcademicWorkModal = ({ isOpen, onClose, onSubmit, initialData = null, mode
 
                                 <div className="grid grid-cols-2 gap-4">
                                     <div>
-                                        <label className="text-xs font-bold text-gray-500 uppercase">Funding Agency</label>
+                                        <label className="text-xs font-bold text-gray-500 uppercase italic">Funding Agency</label>
                                         <input
                                             value={formData.fundingAgency}
                                             onChange={(e) => setFormData({ ...formData, fundingAgency: e.target.value })}
-                                            className="w-full mt-1 px-4 py-2 border rounded-lg outline-none"
+                                            className="w-full mt-1 px-4 py-2 border dark:border-slate-700 bg-white dark:bg-slate-800 dark:text-white rounded-lg outline-none italic font-bold"
                                             placeholder="e.g. DST, AICTE"
                                         />
                                     </div>
                                     <div>
-                                        <label className="text-xs font-bold text-gray-500 uppercase">Amount (₹)</label>
+                                        <label className="text-xs font-bold text-gray-500 uppercase italic">Amount (₹)</label>
                                         <input
                                             type="number"
                                             value={formData.amount}
                                             onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
-                                            className="w-full mt-1 px-4 py-2 border rounded-lg outline-none"
+                                            className="w-full mt-1 px-4 py-2 border dark:border-slate-700 bg-white dark:bg-slate-800 dark:text-white rounded-lg outline-none italic font-bold"
                                             placeholder="Budget amount"
                                         />
                                     </div>
@@ -251,56 +252,56 @@ const AcademicWorkModal = ({ isOpen, onClose, onSubmit, initialData = null, mode
 
                                 <div className="grid grid-cols-3 gap-4">
                                     <div>
-                                        <label className="text-xs font-bold text-gray-500 uppercase">Start Date</label>
+                                        <label className="text-xs font-bold text-gray-500 uppercase italic">Start Date</label>
                                         <input
                                             type="date"
                                             value={formData.startDate}
                                             onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
-                                            className="w-full mt-1 px-4 py-2 border rounded-lg outline-none"
+                                            className="w-full mt-1 px-4 py-2 border dark:border-slate-700 bg-white dark:bg-slate-800 dark:text-white rounded-lg outline-none italic font-bold"
                                         />
                                     </div>
                                     <div>
-                                        <label className="text-xs font-bold text-gray-500 uppercase">End Date</label>
+                                        <label className="text-xs font-bold text-gray-500 uppercase italic">End Date</label>
                                         <input
                                             type="date"
                                             value={formData.endDate}
                                             onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
-                                            className="w-full mt-1 px-4 py-2 border rounded-lg outline-none"
+                                            className="w-full mt-1 px-4 py-2 border dark:border-slate-700 bg-white dark:bg-slate-800 dark:text-white rounded-lg outline-none italic font-bold"
                                         />
                                     </div>
                                     <div>
-                                        <label className="text-xs font-bold text-gray-500 uppercase">Year</label>
+                                        <label className="text-xs font-bold text-gray-500 uppercase italic">Year</label>
                                         <input
                                             type="number"
                                             required
                                             value={formData.year}
                                             onChange={(e) => setFormData({ ...formData, year: e.target.value })}
-                                            className="w-full mt-1 px-4 py-2 border rounded-lg outline-none"
+                                            className="w-full mt-1 px-4 py-2 border dark:border-slate-700 bg-white dark:bg-slate-800 dark:text-white rounded-lg outline-none italic font-bold"
                                             placeholder="YYYY"
                                         />
                                     </div>
                                 </div>
                                 <div>
-                                    <label className="text-xs font-bold text-gray-500 uppercase">Description</label>
+                                    <label className="text-xs font-bold text-gray-500 uppercase italic">Description</label>
                                     <textarea
                                         value={formData.description}
                                         onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                                         rows="3"
-                                        className="w-full mt-1 px-4 py-2 border rounded-lg outline-none"
+                                        className="w-full mt-1 px-4 py-2 border dark:border-slate-700 bg-white dark:bg-slate-800 dark:text-white rounded-lg outline-none italic font-bold"
                                         placeholder="Project description..."
                                     />
                                 </div>
 
                                 {/* Project Resources Section */}
-                                <div className="space-y-4 border-t pt-4">
-                                    <h4 className="text-sm font-bold text-gray-700 uppercase flex items-center gap-2">
+                                <div className="space-y-4 border-t dark:border-slate-700 pt-4">
+                                    <h4 className="text-sm font-bold text-gray-700 dark:text-gray-300 uppercase flex items-center gap-2 italic">
                                         <Briefcase className="w-4 h-4" /> Project Resources
                                     </h4>
 
                                     {/* Equipments */}
-                                    <div className="bg-gray-50 p-4 rounded-lg space-y-3">
+                                    <div className="bg-gray-50 dark:bg-slate-800/50 p-4 rounded-lg space-y-3">
                                         <div className="flex justify-between items-center">
-                                            <h5 className="text-xs font-bold text-gray-600 uppercase">Equipments</h5>
+                                            <h5 className="text-xs font-bold text-gray-600 dark:text-gray-400 uppercase italic">Equipments</h5>
                                             <Button type="button" size="sm" onClick={addEquipment} className="h-7 text-xs">
                                                 <Plus className="w-3 h-3 mr-1" /> Add Equipment
                                             </Button>
@@ -309,7 +310,7 @@ const AcademicWorkModal = ({ isOpen, onClose, onSubmit, initialData = null, mode
                                             <p className="text-xs text-gray-400 italic">No equipment added.</p>
                                         )}
                                         {formData.equipments.map((item, index) => (
-                                            <div key={index} className="bg-white p-3 rounded border space-y-3 relative">
+                                            <div key={index} className="bg-white dark:bg-slate-800 p-3 rounded border dark:border-slate-700 space-y-3 relative">
                                                 <button
                                                     type="button"
                                                     onClick={() => removeEquipment(index)}
@@ -319,54 +320,54 @@ const AcademicWorkModal = ({ isOpen, onClose, onSubmit, initialData = null, mode
                                                 </button>
                                                 <div className="grid grid-cols-2 gap-3">
                                                     <div>
-                                                        <label className="text-[10px] font-bold text-gray-500 uppercase">Name *</label>
+                                                        <label className="text-[10px] font-bold text-gray-500 uppercase italic">Name *</label>
                                                         <input
                                                             required
                                                             value={item.name}
                                                             onChange={(e) => updateEquipment(index, 'name', e.target.value)}
-                                                            className="w-full mt-1 px-2 py-1 text-sm border rounded outline-none"
+                                                            className="w-full mt-1 px-2 py-1 text-sm border dark:border-slate-700 bg-white dark:bg-slate-900 dark:text-white rounded outline-none font-bold italic"
                                                             placeholder="Equipment Name"
                                                         />
                                                     </div>
                                                     <div>
-                                                        <label className="text-[10px] font-bold text-gray-500 uppercase">Vendor</label>
+                                                        <label className="text-[10px] font-bold text-gray-500 uppercase italic">Vendor</label>
                                                         <input
                                                             value={item.vendor}
                                                             onChange={(e) => updateEquipment(index, 'vendor', e.target.value)}
-                                                            className="w-full mt-1 px-2 py-1 text-sm border rounded outline-none"
+                                                            className="w-full mt-1 px-2 py-1 text-sm border dark:border-slate-700 bg-white dark:bg-slate-900 dark:text-white rounded outline-none font-bold italic"
                                                             placeholder="Vendor Name"
                                                         />
                                                     </div>
                                                 </div>
                                                 <div className="grid grid-cols-2 gap-3">
                                                     <div>
-                                                        <label className="text-[10px] font-bold text-gray-500 uppercase">Quantity *</label>
+                                                        <label className="text-[10px] font-bold text-gray-500 uppercase italic">Quantity *</label>
                                                         <input
                                                             type="number"
                                                             required
                                                             value={item.quantity}
                                                             onChange={(e) => updateEquipment(index, 'quantity', e.target.value)}
-                                                            className="w-full mt-1 px-2 py-1 text-sm border rounded outline-none"
+                                                            className="w-full mt-1 px-2 py-1 text-sm border dark:border-slate-700 bg-white dark:bg-slate-900 dark:text-white rounded outline-none font-bold italic"
                                                             placeholder="Qty"
                                                         />
                                                     </div>
                                                     <div>
-                                                        <label className="text-[10px] font-bold text-gray-500 uppercase">Est. Cost</label>
+                                                        <label className="text-[10px] font-bold text-gray-500 uppercase italic">Est. Cost</label>
                                                         <input
                                                             type="number"
                                                             value={item.cost}
                                                             onChange={(e) => updateEquipment(index, 'cost', e.target.value)}
-                                                            className="w-full mt-1 px-2 py-1 text-sm border rounded outline-none"
+                                                            className="w-full mt-1 px-2 py-1 text-sm border dark:border-slate-700 bg-white dark:bg-slate-900 dark:text-white rounded outline-none font-bold italic"
                                                             placeholder="Amount"
                                                         />
                                                     </div>
                                                 </div>
                                                 <div>
-                                                    <label className="text-[10px] font-bold text-gray-500 uppercase">Description</label>
+                                                    <label className="text-[10px] font-bold text-gray-500 uppercase italic">Description</label>
                                                     <input
                                                         value={item.description}
                                                         onChange={(e) => updateEquipment(index, 'description', e.target.value)}
-                                                        className="w-full mt-1 px-2 py-1 text-sm border rounded outline-none"
+                                                        className="w-full mt-1 px-2 py-1 text-sm border dark:border-slate-700 bg-white dark:bg-slate-900 dark:text-white rounded outline-none font-bold italic"
                                                         placeholder="Brief description..."
                                                     />
                                                 </div>
@@ -375,9 +376,9 @@ const AcademicWorkModal = ({ isOpen, onClose, onSubmit, initialData = null, mode
                                     </div>
 
                                     {/* Consumables */}
-                                    <div className="bg-gray-50 p-4 rounded-lg space-y-3">
+                                    <div className="bg-gray-50 dark:bg-slate-800/50 p-4 rounded-lg space-y-3">
                                         <div className="flex justify-between items-center">
-                                            <h5 className="text-xs font-bold text-gray-600 uppercase">Consumables</h5>
+                                            <h5 className="text-xs font-bold text-gray-600 dark:text-gray-400 uppercase italic">Consumables</h5>
                                             <Button type="button" size="sm" onClick={addConsumable} className="h-7 text-xs">
                                                 <Plus className="w-3 h-3 mr-1" /> Add Consumable
                                             </Button>
@@ -386,7 +387,7 @@ const AcademicWorkModal = ({ isOpen, onClose, onSubmit, initialData = null, mode
                                             <p className="text-xs text-gray-400 italic">No consumables added.</p>
                                         )}
                                         {formData.consumables.map((item, index) => (
-                                            <div key={index} className="bg-white p-3 rounded border space-y-3 relative">
+                                            <div key={index} className="bg-white dark:bg-slate-800 p-3 rounded border dark:border-slate-700 space-y-3 relative">
                                                 <button
                                                     type="button"
                                                     onClick={() => removeConsumable(index)}
@@ -396,44 +397,44 @@ const AcademicWorkModal = ({ isOpen, onClose, onSubmit, initialData = null, mode
                                                 </button>
                                                 <div className="grid grid-cols-2 gap-3">
                                                     <div className="col-span-2">
-                                                        <label className="text-[10px] font-bold text-gray-500 uppercase">Item Name *</label>
+                                                        <label className="text-[10px] font-bold text-gray-500 uppercase italic">Item Name *</label>
                                                         <input
                                                             required
                                                             value={item.name}
                                                             onChange={(e) => updateConsumable(index, 'name', e.target.value)}
-                                                            className="w-full mt-1 px-2 py-1 text-sm border rounded outline-none"
+                                                            className="w-full mt-1 px-2 py-1 text-sm border dark:border-slate-700 bg-white dark:bg-slate-900 dark:text-white rounded outline-none font-bold italic"
                                                             placeholder="Consumable Name"
                                                         />
                                                     </div>
                                                 </div>
                                                 <div className="grid grid-cols-2 gap-3">
                                                     <div>
-                                                        <label className="text-[10px] font-bold text-gray-500 uppercase">Quantity</label>
+                                                        <label className="text-[10px] font-bold text-gray-500 uppercase italic">Quantity</label>
                                                         <input
                                                             type="number"
                                                             value={item.quantity}
                                                             onChange={(e) => updateConsumable(index, 'quantity', e.target.value)}
-                                                            className="w-full mt-1 px-2 py-1 text-sm border rounded outline-none"
+                                                            className="w-full mt-1 px-2 py-1 text-sm border dark:border-slate-700 bg-white dark:bg-slate-900 dark:text-white rounded outline-none font-bold italic"
                                                             placeholder="Qty"
                                                         />
                                                     </div>
                                                     <div>
-                                                        <label className="text-[10px] font-bold text-gray-500 uppercase">Est. Cost</label>
+                                                        <label className="text-[10px] font-bold text-gray-500 uppercase italic">Est. Cost</label>
                                                         <input
                                                             type="number"
                                                             value={item.cost}
                                                             onChange={(e) => updateConsumable(index, 'cost', e.target.value)}
-                                                            className="w-full mt-1 px-2 py-1 text-sm border rounded outline-none"
+                                                            className="w-full mt-1 px-2 py-1 text-sm border dark:border-slate-700 bg-white dark:bg-slate-900 dark:text-white rounded outline-none font-bold italic"
                                                             placeholder="Amount"
                                                         />
                                                     </div>
                                                 </div>
                                                 <div>
-                                                    <label className="text-[10px] font-bold text-gray-500 uppercase">Usage Description</label>
+                                                    <label className="text-[10px] font-bold text-gray-500 uppercase italic">Usage Description</label>
                                                     <input
                                                         value={item.usage}
                                                         onChange={(e) => updateConsumable(index, 'usage', e.target.value)}
-                                                        className="w-full mt-1 px-2 py-1 text-sm border rounded outline-none"
+                                                        className="w-full mt-1 px-2 py-1 text-sm border dark:border-slate-700 bg-white dark:bg-slate-900 dark:text-white rounded outline-none font-bold italic"
                                                         placeholder="How will this be used?"
                                                     />
                                                 </div>
@@ -442,11 +443,11 @@ const AcademicWorkModal = ({ isOpen, onClose, onSubmit, initialData = null, mode
                                     </div>
 
                                     {/* Patient Details (Optional) */}
-                                    <div className="bg-gray-50 p-4 rounded-lg space-y-3">
-                                        <h5 className="text-xs font-bold text-gray-600 uppercase">Patient Details (Optional)</h5>
+                                    <div className="bg-gray-50 dark:bg-slate-800/50 p-4 rounded-lg space-y-3">
+                                        <h5 className="text-xs font-bold text-gray-600 dark:text-gray-400 uppercase italic">Patient Details (Optional)</h5>
                                         <div className="grid grid-cols-2 gap-4">
                                             <div>
-                                                <label className="text-xs font-bold text-gray-500 uppercase">Number of Patients</label>
+                                                <label className="text-xs font-bold text-gray-500 uppercase italic">Number of Patients</label>
                                                 <input
                                                     type="number"
                                                     value={formData.patientDetails.count}
@@ -454,19 +455,19 @@ const AcademicWorkModal = ({ isOpen, onClose, onSubmit, initialData = null, mode
                                                         ...formData,
                                                         patientDetails: { ...formData.patientDetails, count: e.target.value }
                                                     })}
-                                                    className="w-full mt-1 px-4 py-2 border rounded-lg outline-none"
+                                                    className="w-full mt-1 px-4 py-2 border dark:border-slate-700 bg-white dark:bg-slate-800 dark:text-white rounded-lg outline-none font-bold italic"
                                                     placeholder="Count"
                                                 />
                                             </div>
                                             <div>
-                                                <label className="text-xs font-bold text-gray-500 uppercase">Category</label>
+                                                <label className="text-xs font-bold text-gray-500 uppercase italic">Category</label>
                                                 <select
                                                     value={formData.patientDetails.category}
                                                     onChange={(e) => setFormData({
                                                         ...formData,
                                                         patientDetails: { ...formData.patientDetails, category: e.target.value }
                                                     })}
-                                                    className="w-full mt-1 px-4 py-2 border rounded-lg outline-none"
+                                                    className="w-full mt-1 px-4 py-2 border dark:border-slate-700 bg-white dark:bg-slate-800 dark:text-white rounded-lg outline-none font-bold italic"
                                                 >
                                                     <option value="Adult">Adult</option>
                                                     <option value="Pediatric">Pediatric</option>
@@ -475,7 +476,7 @@ const AcademicWorkModal = ({ isOpen, onClose, onSubmit, initialData = null, mode
                                                 </select>
                                             </div>
                                         </div>
-                                        <div className="flex items-center space-x-2 mt-2">
+                                        <div className="flex items-center space-x-2 mt-2 font-bold italic">
                                             <input
                                                 type="checkbox"
                                                 id="ethicalApproval"
@@ -486,7 +487,7 @@ const AcademicWorkModal = ({ isOpen, onClose, onSubmit, initialData = null, mode
                                                 })}
                                                 className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                                             />
-                                            <label htmlFor="ethicalApproval" className="text-sm text-gray-700">Ethical Approval Obtained?</label>
+                                            <label htmlFor="ethicalApproval" className="text-sm text-gray-700 dark:text-gray-300">Ethical Approval Obtained?</label>
                                         </div>
                                     </div>
                                 </div>
@@ -496,11 +497,11 @@ const AcademicWorkModal = ({ isOpen, onClose, onSubmit, initialData = null, mode
                                 {/* Publication Fields */}
                                 <div className="grid grid-cols-3 gap-4">
                                     <div>
-                                        <label className="text-xs font-bold text-gray-500 uppercase">Publication Type</label>
+                                        <label className="text-xs font-bold text-gray-500 uppercase italic">Publication Type</label>
                                         <select
                                             value={formData.publicationType}
                                             onChange={(e) => setFormData({ ...formData, publicationType: e.target.value })}
-                                            className="w-full mt-1 px-4 py-2 border rounded-lg outline-none"
+                                            className="w-full mt-1 px-4 py-2 border dark:border-slate-700 bg-white dark:bg-slate-800 dark:text-white rounded-lg outline-none font-bold italic"
                                         >
                                             <option value="JOURNAL">Journal Article</option>
                                             <option value="CONFERENCE">Conference Paper</option>
@@ -510,11 +511,11 @@ const AcademicWorkModal = ({ isOpen, onClose, onSubmit, initialData = null, mode
                                         </select>
                                     </div>
                                     <div>
-                                        <label className="text-xs font-bold text-gray-500 uppercase">Author Role</label>
+                                        <label className="text-xs font-bold text-gray-500 uppercase italic">Author Role</label>
                                         <select
                                             value={formData.authorRole}
                                             onChange={(e) => setFormData({ ...formData, authorRole: e.target.value })}
-                                            className="w-full mt-1 px-4 py-2 border rounded-lg outline-none"
+                                            className="w-full mt-1 px-4 py-2 border dark:border-slate-700 bg-white dark:bg-slate-800 dark:text-white rounded-lg outline-none font-bold italic"
                                         >
                                             <option value="First Author">First Author</option>
                                             <option value="Corresponding Author">Corresponding Author</option>
@@ -522,27 +523,27 @@ const AcademicWorkModal = ({ isOpen, onClose, onSubmit, initialData = null, mode
                                         </select>
                                     </div>
                                     <div>
-                                        <label className="text-xs font-bold text-gray-500 uppercase">Year</label>
+                                        <label className="text-xs font-bold text-gray-500 uppercase italic">Year</label>
                                         <input
                                             type="number"
                                             required
                                             value={formData.year}
                                             onChange={(e) => setFormData({ ...formData, year: e.target.value })}
-                                            className="w-full mt-1 px-4 py-2 border rounded-lg outline-none"
+                                            className="w-full mt-1 px-4 py-2 border dark:border-slate-700 bg-white dark:bg-slate-800 dark:text-white rounded-lg outline-none font-bold italic"
                                         />
                                     </div>
                                 </div>
 
                                 {/* Conditional Fields Based on Type */}
                                 {(isJournal || isConference || isBook) && (
-                                    <div className="grid grid-cols-2 gap-4">
+                                    <div className="grid grid-cols-2 gap-4 font-bold italic">
                                         <div className="col-span-2">
-                                            <label className="text-xs font-bold text-gray-500 uppercase">{getPublisherLabel()}</label>
+                                            <label className="text-xs font-bold text-gray-500 uppercase italic mb-2 block">{getPublisherLabel()}</label>
                                             <input
                                                 required
                                                 value={formData.publisher}
                                                 onChange={(e) => setFormData({ ...formData, publisher: e.target.value })}
-                                                className="w-full mt-1 px-4 py-2 border rounded-lg outline-none"
+                                                className="w-full mt-1 px-4 py-2 border dark:border-slate-700 bg-white dark:bg-slate-800 dark:text-white rounded-lg outline-none font-bold italic"
                                                 placeholder={`Enter ${getPublisherLabel().toLowerCase()}...`}
                                             />
                                         </div>
@@ -550,12 +551,12 @@ const AcademicWorkModal = ({ isOpen, onClose, onSubmit, initialData = null, mode
                                 )}
 
                                 {isJournal && (
-                                    <div className="grid grid-cols-2 gap-4">
+                                    <div className="grid grid-cols-2 gap-4 font-bold italic text-slate-700 dark:text-slate-300">
                                         <div className="col-span-2">
-                                            <label className="text-xs font-bold text-gray-500 uppercase mb-2 block">Indexing</label>
+                                            <label className="text-xs font-bold text-gray-500 uppercase mb-2 block italic">Indexing</label>
                                             <div className="flex flex-wrap gap-3">
                                                 {['Scopus', 'SCI', 'Web of Science'].map((idx) => (
-                                                    <label key={idx} className="flex items-center space-x-2 text-sm">
+                                                    <label key={idx} className="flex items-center space-x-2 text-sm italic font-bold">
                                                         <input
                                                             type="checkbox"
                                                             value={idx}
@@ -569,22 +570,22 @@ const AcademicWorkModal = ({ isOpen, onClose, onSubmit, initialData = null, mode
                                             </div>
                                         </div>
                                         <div>
-                                            <label className="text-xs font-bold text-gray-500 uppercase">Impact Factor</label>
+                                            <label className="text-xs font-bold text-gray-500 uppercase italic">Impact Factor</label>
                                             <input
                                                 type="number"
                                                 step="0.01"
                                                 value={formData.impactFactor}
                                                 onChange={(e) => setFormData({ ...formData, impactFactor: e.target.value })}
-                                                className="w-full mt-1 px-4 py-2 border rounded-lg outline-none"
+                                                className="w-full mt-1 px-4 py-2 border dark:border-slate-700 bg-white dark:bg-slate-800 dark:text-white rounded-lg outline-none italic font-bold"
                                                 placeholder="e.g. 4.5"
                                             />
                                         </div>
                                         <div>
-                                            <label className="text-xs font-bold text-gray-500 uppercase">DOI</label>
+                                            <label className="text-xs font-bold text-gray-500 uppercase italic">DOI</label>
                                             <input
                                                 value={formData.doi}
                                                 onChange={(e) => setFormData({ ...formData, doi: e.target.value })}
-                                                className="w-full mt-1 px-4 py-2 border rounded-lg outline-none"
+                                                className="w-full mt-1 px-4 py-2 border dark:border-slate-700 bg-white dark:bg-slate-800 dark:text-white rounded-lg outline-none italic font-bold"
                                                 placeholder="DOI"
                                             />
                                         </div>
@@ -592,13 +593,13 @@ const AcademicWorkModal = ({ isOpen, onClose, onSubmit, initialData = null, mode
                                 )}
 
                                 {isConference && (
-                                    <div className="grid grid-cols-1 gap-4">
+                                    <div className="grid grid-cols-1 gap-4 font-bold italic">
                                         <div>
-                                            <label className="text-xs font-bold text-gray-500 uppercase">DOI / ISBN</label>
+                                            <label className="text-xs font-bold text-gray-500 uppercase italic">DOI / ISBN</label>
                                             <input
                                                 value={formData.doi}
                                                 onChange={(e) => setFormData({ ...formData, doi: e.target.value })}
-                                                className="w-full mt-1 px-4 py-2 border rounded-lg outline-none"
+                                                className="w-full mt-1 px-4 py-2 border dark:border-slate-700 bg-white dark:bg-slate-800 dark:text-white rounded-lg outline-none font-bold italic"
                                                 placeholder="DOI or ISBN"
                                             />
                                         </div>
@@ -606,13 +607,13 @@ const AcademicWorkModal = ({ isOpen, onClose, onSubmit, initialData = null, mode
                                 )}
 
                                 {isBook && (
-                                    <div className="grid grid-cols-1 gap-4">
+                                    <div className="grid grid-cols-1 gap-4 font-bold italic">
                                         <div>
-                                            <label className="text-xs font-bold text-gray-500 uppercase">ISBN</label>
+                                            <label className="text-xs font-bold text-gray-500 uppercase italic">ISBN</label>
                                             <input
                                                 value={formData.doi}
                                                 onChange={(e) => setFormData({ ...formData, doi: e.target.value })}
-                                                className="w-full mt-1 px-4 py-2 border rounded-lg outline-none"
+                                                className="w-full mt-1 px-4 py-2 border dark:border-slate-700 bg-white dark:bg-slate-800 dark:text-white rounded-lg outline-none font-bold italic"
                                                 placeholder="ISBN"
                                             />
                                         </div>
@@ -621,13 +622,13 @@ const AcademicWorkModal = ({ isOpen, onClose, onSubmit, initialData = null, mode
 
                                 {isOther && (
                                     <div>
-                                        <label className="text-xs font-bold text-gray-500 uppercase">Description</label>
+                                        <label className="text-xs font-bold text-gray-500 uppercase italic">Description</label>
                                         <textarea
                                             required
                                             value={formData.abstract}
                                             onChange={(e) => setFormData({ ...formData, abstract: e.target.value })}
                                             rows="3"
-                                            className="w-full mt-1 px-4 py-2 border rounded-lg outline-none"
+                                            className="w-full mt-1 px-4 py-2 border dark:border-slate-700 bg-white dark:bg-slate-800 dark:text-white rounded-lg outline-none font-bold italic"
                                             placeholder="Enter brief details..."
                                         />
                                     </div>
@@ -637,16 +638,17 @@ const AcademicWorkModal = ({ isOpen, onClose, onSubmit, initialData = null, mode
                     </div>
 
                     <div className="flex gap-4 pt-4">
-                        <Button type="button" variant="ghost" onClick={onClose} className="flex-1">
+                        <Button type="button" variant="ghost" onClick={onClose} className="flex-1 rounded-xl font-bold italic">
                             Cancel
                         </Button>
-                        <Button type="submit" className="flex-1 bg-blue-600 hover:bg-blue-700">
+                        <Button type="submit" className="flex-1 bg-blue-600 hover:bg-blue-700 rounded-xl font-bold italic text-white">
                             {mode === 'edit' ? 'Update' : 'Add Work'}
                         </Button>
                     </div>
                 </form>
             </div>
-        </div>
+        </div>,
+        document.body
     );
 };
 

@@ -5,50 +5,88 @@ import { Button } from '../../components/ui/button';
 import { useLayout } from '../../contexts/LayoutContext';
 import { useNavigate } from 'react-router-dom';
 import {
-    AreaChart, Area, BarChart, Bar, XAxis, YAxis,
+    AreaChart, Area, XAxis, YAxis,
     CartesianGrid, Tooltip, ResponsiveContainer,
     PieChart, Pie, Cell
 } from 'recharts';
 import {
-    FileText, Banknote, TrendingUp, Award, Target, ChevronRight, Sparkles, Brain, Search, Users, Lightbulb
+    FileText, Banknote, TrendingUp, Award, Target, ChevronRight, Sparkles, Brain, Users, Lightbulb
 } from 'lucide-react';
 import AIResultModal from '../../components/shared/AIResultModal';
 import { predictFundingSuccess, predictResearchTrends, analyzePersonalResearchMetrics, findMoreCollaborators } from '../../services/aiService';
+import apiClient from '../../api/client';
 
 const FacultyDashboard = () => {
     const { setLayout } = useLayout();
     const navigate = useNavigate();
     const [aiModal, setAiModal] = useState({ open: false, loading: false, result: null });
 
+    // Real data
+    const [projects, setProjects] = useState([]);
+    const [fundRequests, setFundRequests] = useState([]);
+    const [loading, setLoading] = useState(true);
+
     useEffect(() => {
         setLayout("Faculty Dashboard", "Research impact & grant performance monitoring");
+        loadData();
     }, [setLayout]);
 
+    const loadData = async () => {
+        try {
+            const [projRes, fundRes] = await Promise.all([
+                apiClient.get('/projects').catch(() => ({ data: { data: [] } })),
+                apiClient.get('/fund-requests').catch(() => ({ data: { data: [] } })),
+            ]);
+            setProjects(projRes.data.data || []);
+            setFundRequests(fundRes.data.data || []);
+        } catch (e) {
+            console.error(e);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const activeProjects = projects.filter(p => p.status === 'active' || p.status === 'ACTIVE' || p.status === 'Approved').length;
+    const totalFunding = fundRequests.reduce((sum, r) => sum + (parseFloat(r.approvedAmount || r.requestedAmount || 0)), 0);
+    const formattedFunding = totalFunding >= 100000
+        ? `₹${(totalFunding / 100000).toFixed(1)}L`
+        : totalFunding > 0 ? `₹${totalFunding.toLocaleString()}` : '₹0';
+
     const stats = [
-        { title: 'Active Projects', value: '4', trend: '+1', icon: FileText, color: 'text-rose-400', bg: 'bg-rose-500/10', border: 'border-rose-500/20', subtitle: 'Ongoing research' },
-        { title: 'Total Funding', value: '₹85.5L', trend: '+₹12L', icon: Banknote, color: 'text-emerald-400', bg: 'bg-emerald-500/10', border: 'border-emerald-500/20', subtitle: 'Sanctioned grants' },
-        { title: 'Publications', value: '28', trend: '+2', icon: Award, color: 'text-violet-400', bg: 'bg-violet-500/10', border: 'border-violet-500/20', subtitle: 'Scopus/WoS indexed' },
-        { title: 'h-Index', value: '22', trend: '+1', icon: Target, color: 'text-amber-400', bg: 'bg-amber-500/10', border: 'border-amber-500/20', subtitle: 'Author impact' }
+        { title: 'Active Projects', value: loading ? '…' : String(activeProjects), icon: FileText, color: 'text-rose-400', bg: 'bg-rose-500/10', border: 'border-rose-500/20', subtitle: 'Ongoing research' },
+        { title: 'Total Funding', value: loading ? '…' : formattedFunding, icon: Banknote, color: 'text-emerald-400', bg: 'bg-emerald-500/10', border: 'border-emerald-500/20', subtitle: 'Sanctioned grants' },
+        { title: 'Publications', value: projects.length > 0 ? String(projects.length) : '0', icon: Award, color: 'text-violet-400', bg: 'bg-violet-500/10', border: 'border-violet-500/20', subtitle: 'Research output' },
+        { title: 'h-Index', value: '0', icon: Target, color: 'text-amber-400', bg: 'bg-amber-500/10', border: 'border-amber-500/20', subtitle: 'Author impact' }
     ];
 
-    const fundingTrend = [
-        { month: 'Apr', amount: 10 }, { month: 'May', amount: 14 }, { month: 'Jun', amount: 12 },
-        { month: 'Jul', amount: 18 }, { month: 'Aug', amount: 16 }, { month: 'Sep', amount: 22 },
-        { month: 'Oct', amount: 20 }, { month: 'Nov', amount: 28 }, { month: 'Dec', amount: 25 },
-        { month: 'Jan', amount: 35 }, { month: 'Feb', amount: 42 }, { month: 'Mar', amount: 85.5 },
-    ];
+    // Build funding trend from real fund requests
+    const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    const trendData = monthNames.map(m => ({ month: m, amount: 0 }));
+    fundRequests.forEach(r => {
+        const d = r.createdAt ? new Date(r.createdAt) : null;
+        if (d) trendData[d.getMonth()].amount += parseFloat(r.approvedAmount || 0) / 100000;
+    });
 
+    // Project status breakdown
+    const statusMap = { Active: 0, Completed: 0, Pending: 0, Rejected: 0 };
+    projects.forEach(p => {
+        const s = (p.status || '').toLowerCase();
+        if (s === 'active' || s === 'approved') statusMap.Active++;
+        else if (s === 'completed') statusMap.Completed++;
+        else if (s === 'pending' || s === 'submitted') statusMap.Pending++;
+        else if (s === 'rejected') statusMap.Rejected++;
+    });
     const projectStatus = [
-        { name: 'Active', value: 4, color: '#10b981' },
-        { name: 'Completed', value: 6, color: '#8b5cf6' },
-        { name: 'Pending', value: 2, color: '#f59e0b' },
-        { name: 'Rejected', value: 1, color: '#f43f5e' },
-    ];
+        { name: 'Active', value: statusMap.Active || 0, color: '#10b981' },
+        { name: 'Completed', value: statusMap.Completed || 0, color: '#8b5cf6' },
+        { name: 'Pending', value: statusMap.Pending || 0, color: '#f59e0b' },
+        { name: 'Rejected', value: statusMap.Rejected || 0, color: '#f43f5e' },
+    ].filter(s => s.value > 0);
 
-    const publicationsByYear = [
-        { year: '2021', count: 4 }, { year: '2022', count: 6 }, { year: '2023', count: 8 },
-        { year: '2024', count: 7 }, { year: '2025', count: 3 },
-    ];
+    const activeProjectList = projects.filter(p => {
+        const s = (p.status || '').toLowerCase();
+        return s === 'active' || s === 'approved';
+    }).slice(0, 3);
 
     return (
         <div className="p-6 space-y-8 pb-20">
@@ -68,9 +106,6 @@ const FacultyDashboard = () => {
                                     </div>
                                 </div>
                                 <div className="flex items-center gap-1 mt-4">
-                                    <Badge variant="outline" className="border-current bg-transparent text-[10px] font-black px-2 py-0 italic uppercase tracking-tighter">
-                                        {stat.trend}
-                                    </Badge>
                                     <p className="text-[9px] font-black uppercase tracking-widest opacity-50 italic">{stat.subtitle}</p>
                                 </div>
                             </CardContent>
@@ -87,21 +122,28 @@ const FacultyDashboard = () => {
                     </CardHeader>
                     <CardContent className="p-6">
                         <div className="h-56 w-full">
-                            <ResponsiveContainer width="100%" height="100%">
-                                <AreaChart data={fundingTrend} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
-                                    <defs>
-                                        <linearGradient id="fundGrad" x1="0" y1="0" x2="0" y2="1">
-                                            <stop offset="5%" stopColor="#f43f5e" stopOpacity={0.3} />
-                                            <stop offset="95%" stopColor="#f43f5e" stopOpacity={0} />
-                                        </linearGradient>
-                                    </defs>
-                                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
-                                    <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 10, fontWeight: 900 }} />
-                                    <YAxis axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 10, fontWeight: 900 }} tickFormatter={(v) => `₹${v}L`} />
-                                    <Tooltip contentStyle={{ background: '#1e293b', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', color: '#f8fafc' }} />
-                                    <Area type="monotone" dataKey="amount" stroke="#f43f5e" strokeWidth={2} fill="url(#fundGrad)" />
-                                </AreaChart>
-                            </ResponsiveContainer>
+                            {trendData.some(d => d.amount > 0) ? (
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <AreaChart data={trendData} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
+                                        <defs>
+                                            <linearGradient id="fundGrad" x1="0" y1="0" x2="0" y2="1">
+                                                <stop offset="5%" stopColor="#f43f5e" stopOpacity={0.3} />
+                                                <stop offset="95%" stopColor="#f43f5e" stopOpacity={0} />
+                                            </linearGradient>
+                                        </defs>
+                                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
+                                        <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 10, fontWeight: 900 }} />
+                                        <YAxis axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 10, fontWeight: 900 }} tickFormatter={(v) => `₹${v}L`} />
+                                        <Tooltip contentStyle={{ background: '#1e293b', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', color: '#f8fafc' }} />
+                                        <Area type="monotone" dataKey="amount" stroke="#f43f5e" strokeWidth={2} fill="url(#fundGrad)" />
+                                    </AreaChart>
+                                </ResponsiveContainer>
+                            ) : (
+                                <div className="h-full flex flex-col items-center justify-center opacity-30">
+                                    <TrendingUp className="w-12 h-12 text-slate-400 mb-3" />
+                                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 italic">No funding data yet</p>
+                                </div>
+                            )}
                         </div>
                     </CardContent>
                 </Card>
@@ -111,23 +153,32 @@ const FacultyDashboard = () => {
                         <CardTitle className="text-base font-black italic tracking-tighter uppercase text-white">Project Status</CardTitle>
                     </CardHeader>
                     <CardContent className="p-6 text-center">
-                        <div className="h-40 w-full mb-4">
-                            <ResponsiveContainer width="100%" height="100%">
-                                <PieChart>
-                                    <Pie data={projectStatus} cx="50%" cy="50%" outerRadius={60} innerRadius={35} dataKey="value">
-                                        {projectStatus.map((e, i) => <Cell key={i} fill={e.color} />)}
-                                    </Pie>
-                                </PieChart>
-                            </ResponsiveContainer>
-                        </div>
-                        <div className="grid grid-cols-2 gap-2">
-                            {projectStatus.map((s, i) => (
-                                <div key={i} className="flex items-center gap-2">
-                                    <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: s.color }} />
-                                    <span className="text-[10px] font-black uppercase text-slate-400">{s.name}</span>
+                        {projectStatus.length > 0 ? (
+                            <>
+                                <div className="h-40 w-full mb-4">
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <PieChart>
+                                            <Pie data={projectStatus} cx="50%" cy="50%" outerRadius={60} innerRadius={35} dataKey="value">
+                                                {projectStatus.map((e, i) => <Cell key={i} fill={e.color} />)}
+                                            </Pie>
+                                        </PieChart>
+                                    </ResponsiveContainer>
                                 </div>
-                            ))}
-                        </div>
+                                <div className="grid grid-cols-2 gap-2">
+                                    {projectStatus.map((s, i) => (
+                                        <div key={i} className="flex items-center gap-2">
+                                            <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: s.color }} />
+                                            <span className="text-[10px] font-black uppercase text-slate-400">{s.name} ({s.value})</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </>
+                        ) : (
+                            <div className="h-40 flex flex-col items-center justify-center opacity-30">
+                                <FileText className="w-10 h-10 text-slate-400 mb-2" />
+                                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 italic">No projects yet</p>
+                            </div>
+                        )}
                     </CardContent>
                 </Card>
             </div>
@@ -140,31 +191,35 @@ const FacultyDashboard = () => {
                     </Button>
                 </div>
                 <div className="overflow-x-auto">
-                    <table className="w-full text-left">
-                        <thead>
-                            <tr className="bg-white/5 text-[10px] uppercase tracking-widest text-slate-400 font-black italic">
-                                <th className="px-6 py-4">Title</th>
-                                <th className="px-6 py-4">Agency</th>
-                                <th className="px-6 py-4">Budget</th>
-                                <th className="px-6 py-4 text-right">Status</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-white/5">
-                            {[
-                                { title: 'AI-Powered Medical Diagnosis', agency: 'DST-SERB', budget: '₹45,00,000', status: 'Active' },
-                                { title: 'Smart Traffic Management', agency: 'Industry Sponsored', budget: '₹25,00,000', status: 'Active' }
-                            ].map((row, i) => (
-                                <tr key={i} className="hover:bg-white/5">
-                                    <td className="px-6 py-5 text-xs font-black italic uppercase text-white">{row.title}</td>
-                                    <td className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase">{row.agency}</td>
-                                    <td className="px-6 py-5 text-sm font-black italic text-rose-400">{row.budget}</td>
-                                    <td className="px-6 py-5 text-right">
-                                        <Badge className="bg-emerald-500/15 text-emerald-400 border-emerald-500/30 text-[9px] uppercase">{row.status}</Badge>
-                                    </td>
+                    {activeProjectList.length > 0 ? (
+                        <table className="w-full text-left">
+                            <thead>
+                                <tr className="bg-white/5 text-[10px] uppercase tracking-widest text-slate-400 font-black italic">
+                                    <th className="px-6 py-4">Title</th>
+                                    <th className="px-6 py-4">Agency</th>
+                                    <th className="px-6 py-4">Budget</th>
+                                    <th className="px-6 py-4 text-right">Status</th>
                                 </tr>
-                            ))}
-                        </tbody>
-                    </table>
+                            </thead>
+                            <tbody className="divide-y divide-white/5">
+                                {activeProjectList.map((row, i) => (
+                                    <tr key={i} className="hover:bg-white/5">
+                                        <td className="px-6 py-5 text-xs font-black italic uppercase text-white">{row.title}</td>
+                                        <td className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase">{row.fundingAgency || row.agency || '—'}</td>
+                                        <td className="px-6 py-5 text-sm font-black italic text-rose-400">₹{parseInt(row.budget || 0).toLocaleString()}</td>
+                                        <td className="px-6 py-5 text-right">
+                                            <Badge className="bg-emerald-500/15 text-emerald-400 border-emerald-500/30 text-[9px] uppercase">{row.status}</Badge>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    ) : (
+                        <div className="p-16 flex flex-col items-center justify-center opacity-30">
+                            <FileText className="w-10 h-10 text-slate-400 mb-3" />
+                            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 italic">No active projects — add one via My Projects</p>
+                        </div>
+                    )}
                 </div>
             </Card>
 
@@ -183,44 +238,19 @@ const FacultyDashboard = () => {
                             Advanced institutional intelligence for proposal optimization and resource discovery.
                         </p>
                         <div className="grid grid-cols-1 gap-2">
-                            <Button 
-                                variant="ghost" 
-                                className="w-full justify-start text-[10px] font-black uppercase tracking-widest text-slate-300 hover:bg-white/5 h-8"
-                                onClick={() => navigate('/faculty/ai-generator')}
-                            >
+                            <Button variant="ghost" className="w-full justify-start text-[10px] font-black uppercase tracking-widest text-slate-300 hover:bg-white/5 h-8" onClick={() => navigate('/faculty/ai-generator')}>
                                 <Sparkles className="w-3 h-3 mr-2 text-indigo-500" /> AI Proposal Generator
                             </Button>
-                            <Button 
-                                variant="ghost" 
-                                className="w-full justify-start text-[10px] font-black uppercase tracking-widest text-slate-300 hover:bg-white/5 h-8"
-                                onClick={async () => {
-                                    setAiModal({ open: true, loading: true, result: null });
-                                    const r = await analyzePersonalResearchMetrics('Dr. Abhijeet');
-                                    setAiModal({ open: true, loading: false, result: r });
-                                }}
-                            >
+                            <Button variant="ghost" className="w-full justify-start text-[10px] font-black uppercase tracking-widest text-slate-300 hover:bg-white/5 h-8"
+                                onClick={async () => { setAiModal({ open: true, loading: true, result: null }); const r = await analyzePersonalResearchMetrics('Faculty'); setAiModal({ open: true, loading: false, result: r }); }}>
                                 <Target className="w-3 h-3 mr-2 text-rose-500" /> Analyze My Performance
                             </Button>
-                            <Button 
-                                variant="ghost" 
-                                className="w-full justify-start text-[10px] font-black uppercase tracking-widest text-slate-300 hover:bg-white/5 h-8"
-                                onClick={async () => {
-                                    setAiModal({ open: true, loading: true, result: null });
-                                    const r = await predictFundingSuccess({ title: 'Sample Project' });
-                                    setAiModal({ open: true, loading: false, result: r });
-                                }}
-                            >
+                            <Button variant="ghost" className="w-full justify-start text-[10px] font-black uppercase tracking-widest text-slate-300 hover:bg-white/5 h-8"
+                                onClick={async () => { setAiModal({ open: true, loading: true, result: null }); const r = await predictFundingSuccess({ title: 'My Research Project' }); setAiModal({ open: true, loading: false, result: r }); }}>
                                 <Brain className="w-3 h-3 mr-2 text-emerald-500" /> Grant Success Predictor
                             </Button>
-                            <Button 
-                                variant="ghost" 
-                                className="w-full justify-start text-[10px] font-black uppercase tracking-widest text-slate-300 hover:bg-white/5 h-8"
-                                onClick={async () => {
-                                    setAiModal({ open: true, loading: true, result: null });
-                                    const r = await predictResearchTrends();
-                                    setAiModal({ open: true, loading: false, result: r });
-                                }}
-                            >
+                            <Button variant="ghost" className="w-full justify-start text-[10px] font-black uppercase tracking-widest text-slate-300 hover:bg-white/5 h-8"
+                                onClick={async () => { setAiModal({ open: true, loading: true, result: null }); const r = await predictResearchTrends(); setAiModal({ open: true, loading: false, result: r }); }}>
                                 <TrendingUp className="w-3 h-3 mr-2 text-amber-500" /> Emerging Research Trends
                             </Button>
                         </div>
@@ -230,27 +260,16 @@ const FacultyDashboard = () => {
                 <Card className="bg-slate-900 border-white/5 shadow-xl">
                     <CardHeader className="pb-2">
                         <CardTitle className="text-sm font-black italic uppercase tracking-widest text-emerald-400 flex items-center">
-                            <TrendingUp className="w-4 h-4 mr-2" />
-                            Research Trends
+                            <TrendingUp className="w-4 h-4 mr-2" /> Research Trends
                         </CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-4">
                         <div className="p-3 bg-white/5 rounded-lg border border-white/5">
-                            <p className="text-[10px] text-emerald-500 font-black uppercase mb-1">Forecast 2025</p>
-                            <p className="text-[11px] text-slate-300 font-bold italic">
-                                "AI & Machine Learning research proposals expected to increase by 34% next semester."
-                            </p>
+                            <p className="text-[10px] text-emerald-500 font-black uppercase mb-1">AI-Powered</p>
+                            <p className="text-[11px] text-slate-300 font-bold italic">Click "Full Trend Analysis" to get real-time AI-generated research trend forecasts.</p>
                         </div>
-                        <Button 
-                            variant="outline" 
-                            size="sm"
-                            className="w-full border-emerald-500/20 text-emerald-400 text-[10px] font-black uppercase h-8"
-                            onClick={async () => {
-                                setAiModal({ open: true, loading: true, result: null });
-                                const r = await predictResearchTrends();
-                                setAiModal({ open: true, loading: false, result: r });
-                            }}
-                        >
+                        <Button variant="outline" size="sm" className="w-full border-emerald-500/20 text-emerald-400 text-[10px] font-black uppercase h-8"
+                            onClick={async () => { setAiModal({ open: true, loading: true, result: null }); const r = await predictResearchTrends(); setAiModal({ open: true, loading: false, result: r }); }}>
                             <Lightbulb className="w-3 h-3 mr-2" /> Full Trend Analysis
                         </Button>
                     </CardContent>
@@ -259,31 +278,16 @@ const FacultyDashboard = () => {
                 <Card className="bg-slate-900 border-white/5 shadow-xl">
                     <CardHeader className="pb-2">
                         <CardTitle className="text-sm font-black italic uppercase tracking-widest text-rose-400 flex items-center">
-                            <Users className="w-4 h-4 mr-2" />
-                            Collaboration Finder
+                            <Users className="w-4 h-4 mr-2" /> Collaboration Finder
                         </CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-4">
-                        <div className="space-y-2">
-                            <div className="flex items-center justify-between p-2 bg-white/5 rounded">
-                                <span className="text-[10px] font-black text-slate-300 uppercase italic">Dr. Mehta</span>
-                                <Badge className="bg-rose-500/10 text-rose-400 text-[8px]">Healthcare AI</Badge>
-                            </div>
-                            <div className="flex items-center justify-between p-2 bg-white/5 rounded">
-                                <span className="text-[10px] font-black text-slate-300 uppercase italic">Dr. Rao</span>
-                                <Badge className="bg-rose-500/10 text-rose-400 text-[8px]">Robotics</Badge>
-                            </div>
+                        <div className="p-4 bg-white/5 rounded-lg border border-white/5 opacity-50 text-center">
+                            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 italic">Use AI to discover potential research collaborators</p>
                         </div>
-                        <Button 
-                            variant="ghost" 
-                            className="w-full text-rose-400 text-[10px] font-black uppercase hover:bg-rose-500/5 h-8"
-                            onClick={async () => {
-                                setAiModal({ open: true, loading: true, result: null });
-                                const r = await findMoreCollaborators();
-                                setAiModal({ open: true, loading: false, result: r });
-                            }}
-                        >
-                            Find More Collaborators
+                        <Button variant="ghost" className="w-full text-rose-400 text-[10px] font-black uppercase hover:bg-rose-500/5 h-8"
+                            onClick={async () => { setAiModal({ open: true, loading: true, result: null }); const r = await findMoreCollaborators(); setAiModal({ open: true, loading: false, result: r }); }}>
+                            Find Collaborators via AI
                         </Button>
                     </CardContent>
                 </Card>

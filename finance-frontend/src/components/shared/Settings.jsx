@@ -14,10 +14,10 @@ const Settings = () => {
     const [profilePhoto, setProfilePhoto] = useState(null);
 
     // Initialize with user data or defaults
-    const [name, setName] = useState(user?.name || 'Dr. Bharathi');
-    const [email, setEmail] = useState(user?.email || 'admin@test.com');
-    const [phone, setPhone] = useState(user?.phone || '+91 98765 43210');
-    const [department, setDepartment] = useState(user?.department || 'Administration');
+    const [name, setName] = useState(user?.name || '');
+    const [email, setEmail] = useState(user?.email || '');
+    const [phone, setPhone] = useState(user?.phone || '');
+    const [department, setDepartment] = useState(user?.department || '');
 
     const [currentPassword, setCurrentPassword] = useState('');
     const [newPassword, setNewPassword] = useState('');
@@ -174,20 +174,55 @@ const Settings = () => {
                             <CardDescription>Choose what emails you receive.</CardDescription>
                         </CardHeader>
                         <CardContent className="space-y-4">
-                            <div className="flex items-center justify-between py-2 border-b">
-                                <div>
-                                    <p className="font-medium">Fund Requests</p>
-                                    <p className="text-sm text-gray-500">Receive emails when new funds are requested.</p>
-                                </div>
-                                <input type="checkbox" className="toggle" defaultChecked />
-                            </div>
-                            <div className="flex items-center justify-between py-2 border-b">
-                                <div>
-                                    <p className="font-medium">Project Approvals</p>
-                                    <p className="text-sm text-gray-500">Receive emails when projects are approved.</p>
-                                </div>
-                                <input type="checkbox" className="toggle" defaultChecked />
-                            </div>
+                            {user?.role === 'ADMIN' ? (
+                                <>
+                                    <div className="flex items-center justify-between py-4 border-b border-white/5">
+                                        <div>
+                                            <p className="font-bold text-white italic">New Fund Requests</p>
+                                            <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest italic mt-1">Receive alerts when faculty submit new funding proposals.</p>
+                                        </div>
+                                        <input type="checkbox" className="w-5 h-5 accent-rose-500 rounded-lg cursor-pointer" defaultChecked />
+                                    </div>
+                                    <div className="flex items-center justify-between py-4 border-b border-white/5">
+                                        <div>
+                                            <p className="font-bold text-white italic">OD Request Submissions</p>
+                                            <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest italic mt-1">Get notified of new On-Duty requests awaiting verification.</p>
+                                        </div>
+                                        <input type="checkbox" className="w-5 h-5 accent-rose-500 rounded-lg cursor-pointer" defaultChecked />
+                                    </div>
+                                    <div className="flex items-center justify-between py-4">
+                                        <div>
+                                            <p className="font-bold text-white italic">Critical Budget Alerts</p>
+                                            <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest italic mt-1">Receive warnings when project budgets exceed thresholds.</p>
+                                        </div>
+                                        <input type="checkbox" className="w-5 h-5 accent-rose-500 rounded-lg cursor-pointer" defaultChecked />
+                                    </div>
+                                </>
+                            ) : (
+                                <>
+                                    <div className="flex items-center justify-between py-4 border-b border-white/5">
+                                        <div>
+                                            <p className="font-bold text-white italic">OD Status Updates</p>
+                                            <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest italic mt-1">Receive alerts when your OD requests are approved or rejected.</p>
+                                        </div>
+                                        <input type="checkbox" className="w-5 h-5 accent-rose-500 rounded-lg cursor-pointer" defaultChecked />
+                                    </div>
+                                    <div className="flex items-center justify-between py-4 border-b border-white/5">
+                                        <div>
+                                            <p className="font-bold text-white italic">Grant Approvals</p>
+                                            <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest italic mt-1">Get notified immediately when your project grants are sanctioned.</p>
+                                        </div>
+                                        <input type="checkbox" className="w-5 h-5 accent-rose-500 rounded-lg cursor-pointer" defaultChecked />
+                                    </div>
+                                    <div className="flex items-center justify-between py-4">
+                                        <div>
+                                            <p className="font-bold text-white italic">AI Analysis Completion</p>
+                                            <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest italic mt-1">Receive signals when AI-assisted research metrics are optimized.</p>
+                                        </div>
+                                        <input type="checkbox" className="w-5 h-5 accent-rose-500 rounded-lg cursor-pointer" defaultChecked />
+                                    </div>
+                                </>
+                            )}
                         </CardContent>
                     </Card>
                 </TabsContent>

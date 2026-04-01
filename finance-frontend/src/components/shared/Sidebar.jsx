@@ -5,7 +5,7 @@ import { ROLES } from '../../constants/roles';
 import { Button } from '../ui/button';
 import {
     LogOut, Home, FileText, IndianRupee, DollarSign, Users, Building2,
-    Settings, CheckCircle, UserPlus, BarChart3, Clock, Calendar, TrendingUp, ChevronDown, ChevronRight, Briefcase, GraduationCap, X, Sparkles
+    Settings, CheckCircle, UserPlus, BarChart3, Clock, Calendar, TrendingUp, ChevronDown, ChevronRight, Briefcase, GraduationCap, X, Sparkles, ShieldCheck
 } from 'lucide-react';
 
 const Sidebar = ({ isOpen, onClose }) => {
@@ -34,8 +34,10 @@ const Sidebar = ({ isOpen, onClose }) => {
                     { label: 'Projects', path: '/admin/approve-projects', icon: CheckCircle },
                     { label: 'Manage Faculty / Projects', path: '/admin/assign-faculty', icon: Users },
                     { label: 'Fund Requests', path: '/admin/fund-requests', icon: IndianRupee },
+                    { label: 'Equipment Requests', path: '/admin/equipment-requests', icon: Briefcase },
                     { label: 'OD Requests', path: '/admin/od-requests', icon: Clock },
                     { label: 'Event Requests', path: '/admin/event-requests', icon: Calendar },
+                    { label: 'Document Verification', path: '/admin/documents', icon: ShieldCheck },
                     { label: 'Reports', path: '/admin/reports', icon: BarChart3 },
                 ];
             case ROLES.FACULTY:
@@ -45,6 +47,7 @@ const Sidebar = ({ isOpen, onClose }) => {
                     { label: 'Request Funds', path: '/faculty/request-funds', icon: IndianRupee },
                     { label: 'Documents', path: '/faculty/documents', icon: FileText },
                     { label: 'OD Request', path: '/faculty/od-request', icon: Clock },
+                    { label: 'Event Requests', path: '/faculty/event-requests', icon: Calendar },
                     {
                         label: 'Equipment and Consumable',
                         icon: Briefcase,
@@ -134,7 +137,7 @@ const Sidebar = ({ isOpen, onClose }) => {
                 </div>
 
                 {/* Navigation */}
-                <nav className="flex-1 py-4">
+                <nav className="flex-1 py-4 overflow-y-auto">
                     {getNavItems().map((item) => {
                         const Icon = item.icon;
                         if (item.subItems) {

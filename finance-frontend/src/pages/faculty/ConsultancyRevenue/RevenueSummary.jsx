@@ -7,46 +7,55 @@ import {
     Users, PieChart, Activity
 } from 'lucide-react';
 import { useLayout } from '../../../contexts/LayoutContext';
+import apiClient from '../../../api/client';
 
 const RevenueSummary = () => {
     const { setLayout } = useLayout();
-    const [records, setRecords] = useState([]);
     const [selectedYear, setSelectedYear] = useState(2026);
+    const [loading, setLoading] = useState(true);
     const [summary, setSummary] = useState({
-        total: 0, consultancy: 0, events: 0, projects: 0, industry: 0, analysis: 0, other: 0
+        total: 0, consultancy: 0, events: 0, projects: 0, industry: 0, analysis: 0, other: 0,
+        growth: 0, efficiency: 0
     });
     const [chartData, setChartData] = useState([]);
 
     useEffect(() => {
         setLayout("Consultancy Revenue", "Analytical oversight of institutional income and professional services");
-        const storedRecords = JSON.parse(localStorage.getItem('revenueRecords') || '[]');
-        setRecords(storedRecords);
     }, [setLayout]);
 
     useEffect(() => {
-        const filtered = records.filter(r => r.year === Number(selectedYear));
-        const newSummary = filtered.reduce((acc, curr) => {
-            const amount = Number(curr.amountGenerated);
-            acc.total += amount;
-            const source = curr.revenueSource.toLowerCase();
-            if (source.includes('consultancy')) acc.consultancy += amount;
-            else if (source.includes('events')) acc.events += amount;
-            else if (source.includes('projects')) acc.projects += amount;
-            else if (source.includes('industry')) acc.industry += amount;
-            else if (source.includes('analysis')) acc.analysis += amount;
-            else acc.other += amount;
-            return acc;
-        }, { total: 0, consultancy: 0, events: 0, projects: 0, industry: 0, analysis: 0, other: 0 });
+        const fetchSummary = async () => {
+            try {
+                setLoading(true);
+                const response = await apiClient.get(`/revenue/summary?year=${selectedYear}`);
+                if (response.data.success) {
+                    const data = response.data.data.summary;
+                    setSummary(data);
+                    setChartData([
+                        { name: 'Consultancy', value: data.consultancy, color: '#f43f5e' },
+                        { name: 'Events', value: data.events, color: '#8b5cf6' },
+                        { name: 'Projects', value: data.projects, color: '#10b981' },
+                        { name: 'Industry', value: data.industry, color: '#f59e0b' },
+                        { name: 'Analysis', value: data.analysis, color: '#3b82f6' }
+                    ]);
+                }
+            } catch (error) {
+                console.error('Error fetching revenue summary:', error);
+            } finally {
+                setLoading(false);
+            }
+        };
 
-        setSummary(newSummary);
-        setChartData([
-            { name: 'Consultancy', value: newSummary.consultancy, color: '#f43f5e' },
-            { name: 'Events', value: newSummary.events, color: '#8b5cf6' },
-            { name: 'Projects', value: newSummary.projects, color: '#10b981' },
-            { name: 'Industry', value: newSummary.industry, color: '#f59e0b' },
-            { name: 'Analysis', value: newSummary.analysis, color: '#3b82f6' }
-        ]);
-    }, [records, selectedYear]);
+        fetchSummary();
+    }, [selectedYear]);
+
+    if (loading) {
+        return (
+            <div className="flex items-center justify-center min-h-[400px]">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-rose-500"></div>
+            </div>
+        );
+    }
 
     return (
         <div className="p-6 space-y-8 pb-20">
@@ -73,7 +82,7 @@ const RevenueSummary = () => {
                     { label: 'Total Revenue', value: `₹${(summary.total / 100000).toFixed(1)}L`, icon: DollarSign, color: 'text-rose-400', bg: 'bg-rose-500/10', border: 'border-rose-500/20' },
                     { label: 'Consultancy', value: `₹${(summary.consultancy / 100000).toFixed(1)}L`, icon: Users, color: 'text-violet-400', bg: 'bg-violet-500/10', border: 'border-violet-500/20' },
                     { label: 'Projects', value: `₹${(summary.projects / 100000).toFixed(1)}L`, icon: Briefcase, color: 'text-emerald-400', bg: 'bg-emerald-500/10', border: 'border-emerald-500/20' },
-                    { label: 'Growth', value: '+12.5%', icon: TrendingUp, color: 'text-amber-400', bg: 'bg-amber-500/10', border: 'border-amber-500/20' },
+                    { label: 'Growth', value: `${summary.growth > 0 ? '+' : ''}${summary.growth}%`, icon: TrendingUp, color: 'text-amber-400', bg: 'bg-amber-500/10', border: 'border-amber-500/20' },
                 ].map((stat, i) => (
                     <Card key={i} className={`border ${stat.border} ${stat.bg} ${stat.color}`}>
                         <CardContent className="p-6">
@@ -152,7 +161,7 @@ const RevenueSummary = () => {
                             <div className="bg-slate-700/50 border border-white/10 rounded-2xl p-6 text-white text-center">
                                 <Activity className="w-5 h-5 mx-auto mb-2 text-emerald-400" />
                                 <p className="text-[10px] font-black uppercase tracking-widest italic text-slate-400">Yield Efficiency</p>
-                                <p className="text-2xl font-black italic tracking-tighter mt-1 text-white">94.2%</p>
+                                <p className="text-2xl font-black italic tracking-tighter mt-1 text-white">{summary.efficiency}%</p>
                             </div>
                         </div>
                     </CardContent>

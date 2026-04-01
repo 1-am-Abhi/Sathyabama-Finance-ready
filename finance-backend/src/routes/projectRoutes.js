@@ -8,7 +8,8 @@ router.use(protect); // All project routes are protected
 router.get('/', projectController.getProjects);
 router.get('/:id', projectController.getProject);
 
-// Only ADMIN can create/update/delete projects
+// Only ADMIN can create/update/delete projects and view stats
+router.get('/stats', authorize('ADMIN'), projectController.getAdminStats);
 router.post('/', authorize('ADMIN'), projectController.createProject);
 router.put('/:id', authorize('ADMIN'), projectController.updateProject);
 router.delete('/:id', authorize('ADMIN'), projectController.deleteProject);

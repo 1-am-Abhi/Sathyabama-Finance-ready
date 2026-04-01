@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Eye, Clock, CheckCircle, XCircle, Search, Filter, FileText, Plus, Hammer, ArrowUpRight, Building2, DollarSign, Upload, AlertCircle, ChevronRight } from 'lucide-react';
+import { useNotifications } from '../../../contexts/NotificationContext';
 import { Badge } from '../../../components/ui/badge';
 import { Button } from '../../../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../../../components/ui/card';
@@ -22,15 +23,16 @@ import {
     SelectTrigger,
     SelectValue,
 } from '../../../components/ui/select';
+import apiClient from '../../../api/client';
+import { useAuth } from '../../../contexts/AuthContext';
 
-const MOCK_PROJECTS = [
-    { id: 'PROJ-001', title: 'AI for Healthcare', fundingAgency: 'DST', amount: 5000000 },
-    { id: 'PROJ-002', title: 'Sustainable Energy', fundingAgency: 'AICTE', amount: 3000000 },
-];
 
 const MyRequests = () => {
     const { setLayout } = useLayout();
+    const { addNotification } = useNotifications();
+    const { user } = useAuth();
     const [requests, setRequests] = useState([]);
+    const [projects, setProjects] = useState([]);
     const [filteredRequests, setFilteredRequests] = useState([]);
     const [searchTerm, setSearchTerm] = useState('');
     const [statusFilter, setStatusFilter] = useState('All');
@@ -44,16 +46,35 @@ const MyRequests = () => {
         requestType: 'PURCHASED',
         requestedAmount: '',
         justification: '',
-        billFile: null
+        billData: ''
     });
     const [error, setError] = useState('');
 
     useEffect(() => {
         setLayout("Asset & Equipment Management", "Inventory audit and institutional infrastructure deployment requests");
-        const storedRequests = JSON.parse(localStorage.getItem('equipmentRequests') || '[]');
-        setRequests(storedRequests);
-        setFilteredRequests(storedRequests);
+        fetchRequests();
+        fetchProjects();
     }, [setLayout]);
+
+    const fetchRequests = async () => {
+        try {
+            const res = await apiClient.get('/equipment-requests');
+            const data = res.data.data || [];
+            setRequests(data);
+            setFilteredRequests(data);
+        } catch (err) {
+            console.error('Failed to load equipment requests', err);
+        }
+    };
+
+    const fetchProjects = async () => {
+        try {
+            const res = await apiClient.get('/projects');
+            setProjects(res.data.data || []);
+        } catch (err) {
+            console.error('Failed to load projects', err);
+        }
+    };
 
     useEffect(() => {
         let result = requests;
@@ -69,42 +90,59 @@ const MyRequests = () => {
 
     const handleFileChange = (e) => {
         const file = e.target.files[0];
-        if (file) {
-            if (file.size > 5 * 1024 * 1024) { setError('File size exceeds 5MB'); return; }
-            if (!['application/pdf', 'image/jpeg', 'image/png'].includes(file.type)) { setError('Invalid format'); return; }
-            setError('');
-            setFormData({ ...formData, billFile: file });
-        }
+        if (!file) return;
+        if (file.size > 5 * 1024 * 1024) { setError('File size exceeds 5MB'); return; }
+        if (!['application/pdf', 'image/jpeg', 'image/png'].includes(file.type)) { setError('Invalid format (JPG, PNG, PDF only)'); return; }
+        setError('');
+        const reader = new FileReader();
+        reader.onloadend = () => {
+            setFormData(prev => ({ ...prev, billData: reader.result }));
+        };
+        reader.readAsDataURL(file);
     };
 
-    const handleSubmit = (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault();
-        if (!formData.projectId || !formData.equipmentName || !formData.requestedAmount || !formData.billFile) {
-            setError('Incomplete Mission Parameters');
+        if (!formData.equipmentName || !formData.requestedAmount) {
+            setError('Please fill in all required fields');
             return;
         }
-        const newRequest = {
-            id: `REQ-${Math.floor(Math.random() * 10000)}`,
-            ...formData,
-            projectName: MOCK_PROJECTS.find(p => p.id === formData.projectId)?.title,
-            status: 'Pending',
-            createdAt: new Date().toISOString(),
-            approvedAmount: null,
-            adminRemarks: ''
-        };
-        const updatedRequests = [newRequest, ...requests];
-        localStorage.setItem('equipmentRequests', JSON.stringify(updatedRequests));
-        setRequests(updatedRequests);
-        setIsModalOpen(false);
-        setFormData({
-            projectId: '',
-            equipmentName: '',
-            quantity: '',
-            requestType: 'PURCHASED',
-            requestedAmount: '',
-            justification: '',
-            billFile: null
-        });
+        try {
+            const selectedProject = projects.find(p => p._id === formData.projectId);
+            const payload = {
+                ...formData,
+                projectName: selectedProject?.title || formData.projectId,
+                requestedAmount: parseFloat(formData.requestedAmount),
+                quantity: formData.quantity.toString()
+            };
+            const res = await apiClient.post('/equipment-requests', payload);
+            const newRequest = res.data.data;
+            const updated = [newRequest, ...requests];
+            setRequests(updated);
+            setFilteredRequests(updated);
+            setIsModalOpen(false);
+            
+            // Notify Admin
+            addNotification({
+                role: 'ADMIN',
+                type: 'info',
+                message: `New Equipment Request for ${payload.equipmentName} (${payload.requestType})`,
+                actionUrl: '/admin/equipment-requests'
+            });
+            // Notify Self
+            addNotification({
+                role: 'FACULTY',
+                type: 'success',
+                message: `Successfully submitted request for ${payload.equipmentName}. Pending Admin Approval.`,
+                targetUserId: user?.id
+            });
+
+            setFormData({ projectId: '', equipmentName: '', quantity: '', requestType: 'PURCHASED', requestedAmount: '', justification: '', billData: '' });
+            setError('');
+        } catch (err) {
+            setError('Submission failed. Please try again.');
+            console.error(err);
+        }
     };
 
     const getStatusStyle = (status) => {
@@ -156,11 +194,13 @@ const MyRequests = () => {
                                                 <SelectValue placeholder="SELECT AN ACTIVE MISSION..." />
                                             </SelectTrigger>
                                             <SelectContent className="border-0 shadow-xl rounded-2xl bg-white dark:bg-slate-800 font-black text-xs italic uppercase">
-                                                {MOCK_PROJECTS.map(project => (
-                                                    <SelectItem key={project.id} value={project.id}>
-                                                        {project.title} ({project.fundingAgency})
+                                                {projects.length > 0 ? projects.map(project => (
+                                                    <SelectItem key={project._id} value={project._id}>
+                                                        {project.title}
                                                     </SelectItem>
-                                                ))}
+                                                )) : (
+                                                    <SelectItem value="none" disabled>No projects found</SelectItem>
+                                                )}
                                             </SelectContent>
                                         </Select>
                                     </div>
@@ -230,7 +270,7 @@ const MyRequests = () => {
                                         />
                                         <Upload className="w-10 h-10 text-gray-300 mb-4 group-hover:text-maroon-600 group-hover:scale-110 transition-all" />
                                         <p className="text-xs font-black uppercase tracking-widest italic text-slate-600 dark:text-slate-400 transition-colors text-center">
-                                            {formData.billFile ? formData.billFile.name : 'Transmit Artifact Proof to Command Center'}
+                                            {formData.billData ? '✓ Bill Attached' : 'Transmit Artifact Proof to Command Center'}
                                         </p>
                                         <p className="text-[9px] font-black text-gray-400 mt-2 uppercase italic tracking-tighter">Verified File Types: PDF, JPG, PNG (Max Limit: 5MB)</p>
                                     </label>

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card';
+import { useNotifications } from '../../contexts/NotificationContext';
 import { Button } from '../../components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
 import { Badge } from '../../components/ui/badge';
@@ -14,8 +15,9 @@ import AIResultModal from '../../components/shared/AIResultModal';
 import { summarizeRequest } from '../../services/aiService';
 
 const ApproveFundRequests = () => {
-    const { fundRequests, approveRequest, advanceStage, isLoading } = usePipeline();
+    const { fundRequests, approveRequest, rejectRequest, advanceStage, isLoading } = usePipeline();
     const { setLayout } = useLayout();
+    const { addNotification } = useNotifications();
     const [selectedDate, setSelectedDate] = useState(null);
     const [selectedCentre, setSelectedCentre] = useState('All');
     const [selectedSource, setSelectedSource] = useState('All');
@@ -37,6 +39,16 @@ const ApproveFundRequests = () => {
     const handleApprove = async (requestId) => {
         try {
             await approveRequest({ requestId, remarks: approvalNotes || 'Approved by Admin' });
+            
+            // Notifying Faculty of Success
+            addNotification({
+                role: 'FACULTY',
+                type: 'success',
+                message: `Your Fund Request has been APPROVED!`,
+                actionUrl: '/faculty/request-funds',
+                targetUserId: (fundRequests.find(r => r.id === requestId))?.userId
+            });
+            
             setSelectedRequest(null);
             setApprovalNotes('');
         } catch (error) {
@@ -51,8 +63,18 @@ const ApproveFundRequests = () => {
     const handleConfirmReject = async () => {
         const { requestId, remarks } = rejectionModal;
         try {
-            // Rejection could be a specific status update
-            await approveRequest({ requestId, remarks: `REJECTED: ${remarks}` }); 
+            // Rejection now uses a dedicated endpoint
+            await rejectRequest({ requestId, remarks }); 
+            
+            // Notify Faculty
+            addNotification({
+                role: 'FACULTY',
+                type: 'rejection',
+                message: `Your Fund Request was REJECTED. Remarks: ${remarks}`,
+                actionUrl: '/faculty/request-funds',
+                targetUserId: (fundRequests.find(r => r.id === requestId))?.userId || (fundRequests.find(r => r._id === requestId))?.userId
+            });
+            
             setRejectionModal({ isOpen: false, requestId: null, remarks: '' });
             setSelectedRequest(null);
             setApprovalNotes('');

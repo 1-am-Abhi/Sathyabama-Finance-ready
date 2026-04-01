@@ -4,16 +4,21 @@ import { Badge } from '../../components/ui/badge';
 import { Button } from '../../components/ui/button';
 import {
     History, ChevronRight, PlusCircle, Wallet, Activity, DollarSign,
-    CheckCircle, Clock, Banknote, ArrowRight
+    CheckCircle, Clock, Banknote, ArrowRight, X, FileText, Globe
 } from 'lucide-react';
+import * as XLSX from 'xlsx';
 import { useLayout } from '../../contexts/LayoutContext';
+import { useNotifications } from '../../contexts/NotificationContext';
 import { usePipeline } from '../../contexts/PipelineContext';
+import { useAuth } from '../../contexts/AuthContext';
 import InstallmentStepper from '../../components/faculty/InstallmentStepper';
 import FundRequestModal from '../../components/faculty/FundRequestModal';
 import InitialFundRequestModal from '../../components/faculty/InitialFundRequestModal';
 
 const FacultyRequestFunds = () => {
     const { setLayout } = useLayout();
+    const { addNotification } = useNotifications();
+    const { user } = useAuth();
 
     React.useEffect(() => {
         setLayout("Fund & Asset Management", "Strategic disbursement oversight and grant lifecycle tracking");
@@ -23,6 +28,8 @@ const FacultyRequestFunds = () => {
     const [selectedProjectId, setSelectedProjectId] = useState(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [requestMode, setRequestMode] = useState('RELEASE');
+    const [selectedRequest, setSelectedRequest] = useState(null);
+    const [showDetailsModal, setShowDetailsModal] = useState(false);
 
     useEffect(() => {
         if (projects?.length > 0 && !selectedProjectId) {
@@ -43,7 +50,26 @@ const FacultyRequestFunds = () => {
     const releasedAmount = selectedProject?.releasedBudget || 0;
     const remainingAmount = (selectedProject?.sanctionedBudget || 0) - releasedAmount;
 
-    if (isLoading) return <div className="p-8 text-center text-maroon-600 font-bold">Initiating Pipeline...</div>;
+    const handleExportExcel = () => {
+        const dataToExport = (fundRequests || []).map(item => ({
+            'Request ID': item._id || item.id,
+            'Date': new Date(item.createdAt).toLocaleDateString(),
+            'Project': item.projectTitle,
+            'Amount (₹)': item.requestedAmount,
+            'Purpose': item.purpose,
+            'Status': item.status,
+            'Stage': item.currentStage || 'N/A',
+            'Source': item.source,
+            'Remarks': item.remarks || ''
+        }));
+
+        const ws = XLSX.utils.json_to_sheet(dataToExport);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, 'Fund Requests');
+        XLSX.writeFile(wb, `Fund_Requests_${user?.name?.replace(/\s+/g, '_')}.xlsx`);
+    };
+
+    if (isLoading) return <div className="p-8 text-center text-maroon-600 font-bold">Loading Data...</div>;
 
     return (
         <div className="p-6 space-y-10">
@@ -169,8 +195,11 @@ const FacultyRequestFunds = () => {
 
                     {/* History Table */}
                     <Card className="border-0 shadow-sm dark:bg-slate-900 overflow-hidden">
-                        <CardHeader className="bg-gray-50 dark:bg-slate-800/50 p-6 border-b dark:border-slate-800">
+                        <CardHeader className="bg-gray-50 dark:bg-slate-800/50 p-6 border-b dark:border-slate-800 flex flex-row items-center justify-between">
                             <CardTitle className="text-sm font-black uppercase tracking-widest text-gray-500 italic">Disbursement History</CardTitle>
+                            <Button onClick={handleExportExcel} variant="ghost" size="sm" className="text-gray-400 hover:text-maroon-600 font-black text-[10px] uppercase tracking-widest italic">
+                                Export Excel
+                            </Button>
                         </CardHeader>
                         <div className="overflow-x-auto">
                             <table className="w-full text-left border-collapse">
@@ -184,7 +213,7 @@ const FacultyRequestFunds = () => {
                                 </thead>
                                 <tbody className="divide-y divide-gray-50 dark:divide-slate-800">
                                      {(fundRequests || []).map((req) => (
-                                         <tr key={req._id} className="hover:bg-gray-50 dark:hover:bg-slate-800/50">
+                                         <tr key={req._id || req.id} onClick={() => { setSelectedRequest(req); setShowDetailsModal(true); }} className="hover:bg-gray-50 dark:hover:bg-slate-800/50 cursor-pointer group">
                                              <td className="px-8 py-6">
                                                  <p className="text-[10px] font-black text-slate-400 italic">#{req._id.substring(req._id.length - 6)}</p>
                                                  <p className="text-[11px] font-black text-slate-800 dark:text-white uppercase italic mt-0.5">{new Date(req.createdAt).toLocaleDateString()}</p>
@@ -231,9 +260,23 @@ const FacultyRequestFunds = () => {
                                 purpose: data.purpose,
                                 source: selectedProject.fundingSource === 'PFMS' ? 'PFMS' : 'DIRECTOR_INNOVATION'
                             });
+                            
+                            addNotification({
+                                role: 'ADMIN',
+                                type: 'finance',
+                                message: `Fund Request for ${selectedProject.title}`,
+                                actionUrl: '/admin/fund-requests'
+                            });
+                            addNotification({
+                                role: 'FACULTY',
+                                type: 'success',
+                                message: `Successfully pushed fund request for Admin Audit.`
+                            });
+                            
                             setIsModalOpen(false);
                         } catch (err) {
-                            alert('Request submission failed');
+                            const errMsg = err.response?.data?.message || err.message || JSON.stringify(err);
+                            alert(`Request submission failed: ${errMsg}`);
                         }
                     }}
                 />
@@ -250,12 +293,99 @@ const FacultyRequestFunds = () => {
                             purpose: data.reason,
                             source: data.fundSource === 'PFMS' ? 'PFMS' : 'DIRECTOR_INNOVATION'
                         });
+                        
+                        addNotification({
+                            role: 'ADMIN',
+                            type: 'finance',
+                            message: `New Grant Request for ${data.title}`,
+                            actionUrl: '/admin/fund-requests'
+                        });
+                        addNotification({
+                            role: 'FACULTY',
+                            type: 'success',
+                            message: `Successfully requested new grant. Pending review.`
+                        });
+                        
                         setIsModalOpen(false);
                     } catch (err) {
-                        alert('Request submission failed');
+                        const errMsg = err.response?.data?.message || err.message || JSON.stringify(err);
+                        alert(`Request submission failed: ${errMsg}`);
                     }
                 }}
             />
+
+            {/* Detailed View Modal */}
+            {showDetailsModal && selectedRequest && (
+                <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+                    <div className="bg-slate-900 border border-white/10 rounded-[2rem] p-10 w-full max-w-2xl shadow-2xl mx-auto overflow-y-auto max-h-[90vh]">
+                        <div className="flex items-center justify-between mb-8">
+                            <div>
+                                <h3 className="text-2xl font-black italic tracking-tighter uppercase text-white">Fund Request Details</h3>
+                                <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic mt-1">Request ID: #{ (selectedRequest._id || selectedRequest.id).substring(0, 12) }</p>
+                            </div>
+                            <button onClick={() => setShowDetailsModal(false)} className="p-2 hover:bg-white/10 rounded-xl text-slate-400">
+                                <X className="w-6 h-6" />
+                            </button>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-10">
+                            <div className="space-y-6">
+                                <div>
+                                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic mb-1">Project & Status</p>
+                                    <p className="text-sm text-white font-bold italic mb-2 uppercase">{selectedRequest.projectTitle}</p>
+                                    <div className="flex items-center gap-3">
+                                        <Badge className={`px-3 py-1 font-black italic uppercase text-[10px] border ${
+                                            selectedRequest.status === 'APPROVED' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 
+                                            selectedRequest.status === 'REJECTED' ? 'bg-red-500/10 text-red-400 border-red-500/20' : 
+                                            'bg-blue-500/10 text-blue-400 border-blue-500/20'
+                                        }`}>{selectedRequest.status}</Badge>
+                                        <Badge className="bg-slate-800 text-slate-400 border-white/10 px-3 py-1 font-black italic uppercase text-[10px]">{selectedRequest.source}</Badge>
+                                    </div>
+                                </div>
+                                <div>
+                                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic mb-1">Financial Target</p>
+                                    <p className="text-2xl font-black italic text-maroon-500 tracking-tighter">₹{selectedRequest.requestedAmount?.toLocaleString()}</p>
+                                    <p className="text-[10px] font-black uppercase text-slate-400 italic mt-1">Submitted: {new Date(selectedRequest.createdAt).toLocaleDateString()}</p>
+                                </div>
+                            </div>
+
+                            <div className="space-y-6">
+                                <div>
+                                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic mb-1">Purpose & Justification</p>
+                                    <p className="text-sm text-slate-200 font-bold italic leading-relaxed">{selectedRequest.purpose}</p>
+                                </div>
+                                {selectedRequest.remarks && (
+                                    <div>
+                                        <p className="text-[10px] font-black uppercase tracking-widest text-amber-500 italic mb-1">Admin Audit Feedback</p>
+                                        <p className="text-sm text-amber-100/70 italic leading-relaxed">{selectedRequest.remarks}</p>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
+                        <div className="p-8 bg-white/5 border border-white/10 rounded-[2rem] mb-10">
+                            <div className="flex items-center gap-4 mb-4">
+                                <div className="w-10 h-10 bg-indigo-500/10 rounded-xl flex items-center justify-center">
+                                    <History className="w-5 h-5 text-indigo-400" />
+                                </div>
+                                <div>
+                                    <p className="text-[10px] font-black uppercase tracking-widest text-indigo-400 italic">Disbursement Pipeline</p>
+                                    <p className="text-sm text-white font-bold italic uppercase">{selectedRequest.currentStage || 'PENDING INITIAL AUDIT'}</p>
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <div className={`flex-1 h-1.5 rounded-full ${selectedRequest.status === 'APPROVED' ? 'bg-emerald-500' : 'bg-white/10'}`}></div>
+                                <div className={`flex-1 h-1.5 rounded-full ${['FUND_APPROVED', 'CHEQUE_RELEASED', 'AMOUNT_DISBURSED'].includes(selectedRequest.currentStage) ? 'bg-indigo-500' : 'bg-white/10'}`}></div>
+                                <div className={`flex-1 h-1.5 rounded-full ${selectedRequest.currentStage === 'AMOUNT_DISBURSED' ? 'bg-amber-500' : 'bg-white/10'}`}></div>
+                            </div>
+                        </div>
+
+                        <Button onClick={() => setShowDetailsModal(false)} className="w-full h-16 bg-slate-800 hover:bg-slate-700 text-white rounded-2xl font-black text-xs uppercase tracking-widest italic border border-white/10">
+                            Close Context
+                        </Button>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

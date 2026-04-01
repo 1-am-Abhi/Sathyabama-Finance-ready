@@ -40,8 +40,13 @@ export const PipelineProvider = ({ children }) => {
     // Create fund request mutation
     const createRequestMutation = useMutation({
         mutationFn: async (requestData) => {
-            const response = await apiClient.post('/fund-requests', requestData);
-            return response.data.data;
+            try {
+                const response = await apiClient.post('/fund-requests', requestData);
+                return response.data.data;
+            } catch (error) {
+                console.error('PipelineContext - createRequest error:', error.response?.data || error.message);
+                throw error;
+            }
         },
         onSuccess: () => {
             queryClient.invalidateQueries(['fund-requests']);
@@ -51,6 +56,16 @@ export const PipelineProvider = ({ children }) => {
     const approveRequestMutation = useMutation({
         mutationFn: async ({ requestId, remarks }) => {
             const response = await apiClient.put(`/fund-requests/${requestId}/approve`, { remarks });
+            return response.data.data;
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries(['fund-requests']);
+        }
+    });
+    
+    const rejectRequestMutation = useMutation({
+        mutationFn: async ({ requestId, remarks }) => {
+            const response = await apiClient.put(`/fund-requests/${requestId}/reject`, { remarks });
             return response.data.data;
         },
         onSuccess: () => {
@@ -85,10 +100,12 @@ export const PipelineProvider = ({ children }) => {
         isLoading: projectsLoading || requestsLoading,
         createRequest: createRequestMutation.mutateAsync,
         approveRequest: approveRequestMutation.mutateAsync,
+        rejectRequest: rejectRequestMutation.mutateAsync,
         advanceStage: advanceStageMutation.mutateAsync,
         updateProject: updateProjectMutation.mutateAsync,
         isCreating: createRequestMutation.isPending,
         isApproving: approveRequestMutation.isPending,
+        isRejecting: rejectRequestMutation.isPending,
         isAdvancing: advanceStageMutation.isPending,
         isUpdatingProject: updateProjectMutation.isPending
     };

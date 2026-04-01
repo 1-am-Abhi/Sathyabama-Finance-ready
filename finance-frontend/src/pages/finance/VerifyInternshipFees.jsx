@@ -8,12 +8,29 @@ import { Badge } from '../../components/ui/badge';
 import { AlertCircle } from 'lucide-react';
 import { useLayout } from '../../contexts/LayoutContext';
 
+import apiClient from '../../api/client';
+
 const VerifyInternshipFees = () => {
     const { setLayout } = useLayout();
+    const [internships, setInternships] = useState([]);
+    const [loading, setLoading] = useState(true);
 
     React.useEffect(() => {
         setLayout("Internship Fee Verification", "Verify and update internship fee payment status");
+        fetchFees();
     }, [setLayout]);
+
+    const fetchFees = async () => {
+        try {
+            setLoading(true);
+            const response = await apiClient.get('/finance/internship-fees');
+            setInternships(response.data.data);
+        } catch (error) {
+            console.error('Error fetching internship fees:', error);
+        } finally {
+            setLoading(false);
+        }
+    };
     const [selectedInternship, setSelectedInternship] = useState(null);
     const [paymentData, setPaymentData] = useState({
         paymentMode: '',
@@ -21,39 +38,6 @@ const VerifyInternshipFees = () => {
         paymentDate: ''
     });
 
-    // Mock data
-    const internships = [
-        {
-            id: 1,
-            studentName: 'Rahul Kumar',
-            studentId: 'STU2024001',
-            internshipTitle: 'Summer Research Internship',
-            feeAmount: 5000,
-            paymentStatus: 'PENDING',
-            approvalBlocked: true
-        },
-        {
-            id: 2,
-            studentName: 'Priya Sharma',
-            studentId: 'STU2024002',
-            internshipTitle: 'AI Lab Internship',
-            feeAmount: 5000,
-            paymentStatus: 'PAID',
-            paymentMode: 'Online',
-            receiptNumber: 'RCP2024001',
-            paymentDate: '2024-01-15',
-            approvalBlocked: false
-        },
-        {
-            id: 3,
-            studentName: 'Amit Patel',
-            studentId: 'STU2024003',
-            internshipTitle: 'IoT Research Internship',
-            feeAmount: 5000,
-            paymentStatus: 'PENDING',
-            approvalBlocked: true
-        }
-    ];
 
     const handleVerifyPayment = (internship) => {
         setSelectedInternship(internship);
@@ -66,12 +50,20 @@ const VerifyInternshipFees = () => {
         }
     };
 
-    const handleSubmit = (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault();
-        console.log('Updating payment for internship:', selectedInternship.id, paymentData);
-        alert('Payment status updated successfully!');
-        setSelectedInternship(null);
-        setPaymentData({ paymentMode: '', receiptNumber: '', paymentDate: '' });
+        try {
+            await apiClient.put(`/finance/internship-fees/${selectedInternship._id}`, {
+                ...paymentData,
+                paymentStatus: 'PAID'
+            });
+            alert('Payment status updated successfully!');
+            setSelectedInternship(null);
+            setPaymentData({ paymentMode: '', receiptNumber: '', paymentDate: '' });
+            fetchFees();
+        } catch (error) {
+            alert(error.response?.data?.message || 'Failed to update payment status');
+        }
     };
 
     const pendingCount = internships.filter(i => i.paymentStatus === 'PENDING').length;
@@ -123,8 +115,8 @@ const VerifyInternshipFees = () => {
                                             </TableRow>
                                         </TableHeader>
                                         <TableBody>
-                                            {internships.map((internship) => (
-                                                <TableRow key={internship.id} className={internship.approvalBlocked ? 'bg-red-50' : ''}>
+                                            {internships.length > 0 ? internships.map((internship) => (
+                                                <TableRow key={internship._id} className={internship.paymentStatus === 'PENDING' ? 'bg-red-50' : ''}>
                                                     <TableCell>
                                                         <div>
                                                             <div className="font-medium">{internship.studentName}</div>
@@ -137,21 +129,27 @@ const VerifyInternshipFees = () => {
                                                         <Badge variant={internship.paymentStatus === 'PAID' ? 'success' : 'warning'}>
                                                             {internship.paymentStatus}
                                                         </Badge>
-                                                        {internship.approvalBlocked && (
+                                                        {internship.paymentStatus === 'PENDING' && (
                                                             <div className="text-xs text-red-600 mt-1">🔒 Approval Blocked</div>
                                                         )}
                                                     </TableCell>
                                                     <TableCell>
                                                         <Button
                                                             size="sm"
-                                                            variant={selectedInternship?.id === internship.id ? 'default' : 'outline'}
+                                                            variant={selectedInternship?._id === internship._id ? 'default' : 'outline'}
                                                             onClick={() => handleVerifyPayment(internship)}
                                                         >
                                                             {internship.paymentStatus === 'PAID' ? 'View' : 'Verify'}
                                                         </Button>
                                                     </TableCell>
                                                 </TableRow>
-                                            ))}
+                                            )) : (
+                                                <TableRow>
+                                                    <TableCell colSpan={5} className="text-center py-8 text-gray-500 italic">
+                                                        No internship fees found in the database.
+                                                    </TableCell>
+                                                </TableRow>
+                                            )}
                                         </TableBody>
                                     </Table>
                                 </CardContent>

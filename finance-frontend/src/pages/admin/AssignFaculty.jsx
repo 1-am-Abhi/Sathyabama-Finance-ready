@@ -8,7 +8,8 @@ import { Input } from '../../components/ui/input';
 import { Label } from '../../components/ui/label';
 import {
     UserPlus, Users, CheckCircle, Shield, Key,
-    AtSign, Building2, UserCircle, PlusCircle, AlertCircle, LayoutGrid, FileText
+    AtSign, Building2, UserCircle, PlusCircle, AlertCircle, LayoutGrid, FileText,
+    Trash2
 } from 'lucide-react';
 import { useLayout } from '../../contexts/LayoutContext';
 import { RESEARCH_CENTRES } from '../../constants/researchCentres';
@@ -75,7 +76,7 @@ const ManageFaculty = () => {
                         username: u.email.split('@')[0],
                         email: u.email,
                         centre: u.centre || 'Not Assigned',
-                        status: 'Active',
+                        status: u.status || 'Active',
                         projectsCount: 0,
                         department: u.department
                     }));
@@ -122,70 +123,106 @@ const ManageFaculty = () => {
         newPassword: ''
     });
 
-    const handleAddProject = (e) => {
+    const handleAddProject = async (e) => {
         e.preventDefault();
-        const id = projects.length + 1;
-        setProjects([...projects, {
-            id,
-            title: newProject.title,
-            status: newProject.status,
-            assignedFacultyIds: [],
-            requestedAmount: parseInt(newProject.budget) || 0,
-            requestedByIds: [],
-            type: newProject.type,
-            agency: newProject.agency
-        }]);
-        setIsAddProjectModalOpen(false);
-        setNewProject({ title: '', type: 'Agency', budget: '', status: 'APPROVED', agency: '' });
-    };
+        try {
+            const response = await apiClient.post('/projects', {
+                title: newProject.title,
+                description: `Agency: ${newProject.agency || 'Internal'}`,
+                sanctionedBudget: parseInt(newProject.budget) || 0,
+                fundingSource: newProject.type === 'Agency' ? 'PFMS' : 'INSTITUTIONAL',
+                status: newProject.status,
+                projectType: 'PROJECT'
+            });
 
-    // 1. Assign A Project TO A Faculty (Existing Flow, Updated for Array)
-    const handleAssignProjectToFaculty = () => {
-        if (selectedProject && selectedFaculty) {
-            setProjects(projects.map(p => {
-                if (p.id === selectedProject.id) {
-                    // Check if already assigned
-                    if (p.assignedFacultyIds.includes(selectedFaculty.id)) return p;
-                    return { ...p, assignedFacultyIds: [...p.assignedFacultyIds, selectedFaculty.id] };
-                }
-                return p;
-            }));
-
-            // Increment count only if not already assigned (simple mock logic)
-            // In real app, we'd check if state actually changed.
-            // Simplified: Just incrementing for the demo as we checked availability in UI
-            setFaculties(faculties.map(f =>
-                f.id === selectedFaculty.id
-                    ? { ...f, projectsCount: f.projectsCount + 1 }
-                    : f
-            ));
-
-            setIsAssignModalOpen(false);
-            setSelectedProject(null);
-            setSelectedFaculty(null);
+            if (response.data.success) {
+                const p = response.data.data;
+                setProjects([...projects, {
+                    id: p._id,
+                    title: p.title,
+                    status: p.status,
+                    assignedFacultyIds: [p.pi],
+                    requestedAmount: p.sanctionedBudget || 0,
+                    type: p.fundingSource || 'College'
+                }]);
+                setIsAddProjectModalOpen(false);
+                setNewProject({ title: '', type: 'Agency', budget: '', status: 'APPROVED', agency: '' });
+                alert("Project created and saved permanently.");
+            }
+        } catch (error) {
+            console.error("Error creating project:", error);
+            alert("Failed to create project in database.");
         }
     };
 
-    // 2. Assign Mulitple Faculty TO A Project (New Flow)
-    const handleAssignFacultyToProject = () => {
+    // 1. Assign A Project TO A Faculty
+    const handleAssignProjectToFaculty = async () => {
+        if (selectedProject && selectedFaculty) {
+            try {
+                const response = await apiClient.put(`/projects/${selectedProject.id}`, {
+                    facultyId: selectedFaculty.id,
+                    pi: selectedFaculty.name
+                });
+
+                if (response.data.success) {
+                    setProjects(projects.map(p => {
+                        if (p.id === selectedProject.id) {
+                            return { ...p, assignedFacultyIds: [selectedFaculty.id] };
+                        }
+                        return p;
+                    }));
+
+                    setFaculties(faculties.map(f =>
+                        f.id === selectedFaculty.id
+                            ? { ...f, projectsCount: f.projectsCount + 1 }
+                            : f
+                    ));
+
+                    setIsAssignModalOpen(false);
+                    setSelectedProject(null);
+                    setSelectedFaculty(null);
+                    alert("Assignment saved permanently.");
+                }
+            } catch (error) {
+                console.error("Error assigning project:", error);
+                alert("Failed to save assignment to database.");
+            }
+        }
+    };
+
+    // 2. Assign Multiple Faculty TO A Project
+    const handleAssignFacultyToProject = async () => {
         if (selectedProject && selectedFacultyIds.length > 0) {
-            // Update Project
-            setProjects(projects.map(p =>
-                p.id === selectedProject.id
-                    ? { ...p, assignedFacultyIds: [...p.assignedFacultyIds, ...selectedFacultyIds.filter(id => !p.assignedFacultyIds.includes(id))] }
-                    : p
-            ));
+            try {
+                // In this simplified model, we'll just update the project with the first selected faculty as PI
+                // Real implementation would support multiple assignees if the model allows
+                const response = await apiClient.put(`/projects/${selectedProject.id}`, {
+                    facultyId: selectedFacultyIds[0],
+                    pi: faculties.find(f => f.id === selectedFacultyIds[0])?.name || 'Assigned PI'
+                });
 
-            // Update Faculty Counts
-            setFaculties(faculties.map(f =>
-                selectedFacultyIds.includes(f.id)
-                    ? { ...f, projectsCount: f.projectsCount + 1 }
-                    : f
-            ));
+                if (response.data.success) {
+                    setProjects(projects.map(p =>
+                        p.id === selectedProject.id
+                            ? { ...p, assignedFacultyIds: [...p.assignedFacultyIds, ...selectedFacultyIds.filter(id => !p.assignedFacultyIds.includes(id))] }
+                            : p
+                    ));
 
-            setIsProjectAssignModalOpen(false);
-            setSelectedProject(null);
-            setSelectedFacultyIds([]);
+                    setFaculties(faculties.map(f =>
+                        selectedFacultyIds.includes(f.id)
+                            ? { ...f, projectsCount: f.projectsCount + 1 }
+                            : f
+                    ));
+
+                    setIsProjectAssignModalOpen(false);
+                    setSelectedProject(null);
+                    setSelectedFacultyIds([]);
+                    alert("Team assignment saved permanently.");
+                }
+            } catch (error) {
+                console.error("Error updating team:", error);
+                alert("Failed to save team assignment.");
+            }
         }
     };
 
@@ -221,13 +258,44 @@ const ManageFaculty = () => {
         }
     };
 
-    const handleUpdateFaculty = (e) => {
+    const handleUpdateFaculty = async (e) => {
         e.preventDefault();
-        setFaculties(faculties.map(f =>
-            f.id === editFaculty.id ? { ...editFaculty } : f
-        ));
-        setIsEditModalOpen(false);
-        setEditFaculty(null);
+        try {
+            const response = await apiClient.put(`/auth/users/${editFaculty.id}`, {
+                name: editFaculty.name,
+                email: editFaculty.email,
+                centre: editFaculty.centre,
+                status: editFaculty.status
+            });
+
+            if (response.data.success) {
+                setFaculties(faculties.map(f =>
+                    f.id === editFaculty.id ? { ...editFaculty } : f
+                ));
+                setIsEditModalOpen(false);
+                setEditFaculty(null);
+            }
+        } catch (error) {
+            console.error("Error updating user:", error);
+            alert("Failed to update faculty profile");
+        }
+    };
+
+    const handleDeleteFaculty = async (id) => {
+        if (!window.confirm("Are you sure you want to permanently delete this faculty account? This action cannot be undone.")) {
+            return;
+        }
+
+        try {
+            const response = await apiClient.delete(`/auth/users/${id}`);
+            if (response.data.success) {
+                setFaculties(faculties.filter(f => f.id !== id));
+                alert("Faculty account deleted successfully");
+            }
+        } catch (error) {
+            console.error("Error deleting user:", error);
+            alert("Failed to delete faculty account");
+        }
     };
 
     const handleResetPassword = (e) => {
@@ -447,6 +515,15 @@ const ManageFaculty = () => {
                                                     >
                                                         <UserCircle className="w-3 h-3 mr-1" />
                                                         Edit
+                                                    </Button>
+                                                    <Button
+                                                        variant="outline"
+                                                        size="sm"
+                                                        className="text-[10px] h-7 px-2 border-red-200 text-red-600 hover:bg-red-50 dark:border-red-900/50 dark:text-red-400 dark:hover:bg-red-900/20"
+                                                        onClick={() => handleDeleteFaculty(faculty.id)}
+                                                    >
+                                                        <Trash2 className="w-3 h-3 mr-1" />
+                                                        Delete
                                                     </Button>
                                                 </div>
                                             </TableCell>

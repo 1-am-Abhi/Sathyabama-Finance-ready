@@ -39,6 +39,18 @@ const EventRequest = sequelize.define('EventRequest', {
         type: DataTypes.STRING,
         allowNull: false
     },
+    isFullDay: {
+        type: DataTypes.BOOLEAN,
+        defaultValue: true
+    },
+    startTime: {
+        type: DataTypes.STRING,
+        allowNull: true
+    },
+    endTime: {
+        type: DataTypes.STRING,
+        allowNull: true
+    },
     participants: {
         type: DataTypes.INTEGER,
         defaultValue: 0

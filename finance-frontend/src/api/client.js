@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001/api';
 
 const apiClient = axios.create({
     baseURL: API_BASE_URL,
@@ -27,7 +27,10 @@ apiClient.interceptors.request.use(
 apiClient.interceptors.response.use(
     (response) => response,
     (error) => {
-        if (error.response?.status === 401) {
+        // Don't intercept auth/login 401s, let the component handle the credentials error
+        const isAuthRequest = error.config?.url?.includes('/auth/login');
+        
+        if (error.response?.status === 401 && !isAuthRequest) {
             // Token expired or invalid
             localStorage.removeItem('token');
             localStorage.removeItem('user');

@@ -4,6 +4,7 @@ import { Badge } from '../../../components/ui/badge';
 import { Button } from '../../../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../../../components/ui/card';
 import { useLayout } from '../../../contexts/LayoutContext';
+import apiClient from '../../../api/client';
 
 const MyRevenueRecords = () => {
     const { setLayout } = useLayout();
@@ -12,26 +13,35 @@ const MyRevenueRecords = () => {
     const [searchTerm, setSearchTerm] = useState('');
     const [yearFilter, setYearFilter] = useState('All');
     const [sourceFilter, setSourceFilter] = useState('All');
+    const [loading, setLoading] = useState(true);
 
     useEffect(() => {
         setLayout("Revenue Ledger", "Historical audit of consultancy income and industrial training yields");
-        const mockData = [
-            { id: 1, title: 'AI Consulting for Smart City', clientName: 'UrbanTech Solutions', year: 2024, revenueSource: 'Consultancy', amount: 1250000, date: '2024-03-15', status: 'verified' },
-            { id: 2, title: 'IoT Training Workshop', clientName: 'Tech Innovators Inc.', year: 2024, revenueSource: 'Events', amount: 300000, date: '2024-02-22', status: 'verified' },
-            { id: 3, title: 'Data Analytics Project', clientName: 'HealthCorp', year: 2023, revenueSource: 'Projects', amount: 800000, date: '2023-11-10', status: 'verified' },
-            { id: 4, title: 'Industrial Safety Audit', clientName: 'Manufacturing Hub', year: 2025, revenueSource: 'Industry', amount: 550000, date: '2025-01-05', status: 'pending' },
-        ];
-        const storedRecords = JSON.parse(localStorage.getItem('revenueRecords') || JSON.stringify(mockData));
-        setRecords(storedRecords);
-        setFilteredRecords(storedRecords);
+        
+        const fetchRecords = async () => {
+            try {
+                setLoading(true);
+                const response = await apiClient.get('/revenue/my-records');
+                if (response.data.success) {
+                    setRecords(response.data.data);
+                    setFilteredRecords(response.data.data);
+                }
+            } catch (error) {
+                console.error('Error fetching revenue records:', error);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchRecords();
     }, [setLayout]);
 
     useEffect(() => {
         let result = records;
         if (searchTerm) {
             result = result.filter(rec =>
-                rec.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                (rec.clientName && rec.clientName.toLowerCase().includes(searchTerm.toLowerCase()))
+                (rec.details && rec.details.toLowerCase().includes(searchTerm.toLowerCase())) ||
+                (rec.revenueSource && rec.revenueSource.toLowerCase().includes(searchTerm.toLowerCase()))
             );
         }
         if (yearFilter !== 'All') result = result.filter(rec => rec.year.toString() === yearFilter);
@@ -93,10 +103,16 @@ const MyRevenueRecords = () => {
 
             {/* Ledger Table - Admin Hub Aesthetic */}
             <Card className="border-0 shadow-sm dark:bg-slate-900 overflow-hidden">
-                <div className="overflow-x-auto">
-                    <table className="w-full text-left border-collapse">
-                        <thead>
-                            <tr className="bg-gray-50 dark:bg-slate-800 text-[10px] uppercase tracking-widest text-gray-500 font-black italic">
+                {loading ? (
+                    <div className="p-20 text-center flex flex-col items-center justify-center">
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-slate-900 mx-auto"></div>
+                        <p className="mt-4 text-xs font-black uppercase tracking-widest italic text-gray-400">Synchronizing Ledger...</p>
+                    </div>
+                ) : (
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-left border-collapse">
+                            <thead>
+                                <tr className="bg-gray-50 dark:bg-slate-800 text-[10px] uppercase tracking-widest text-gray-500 font-black italic">
                                 <th className="px-8 py-5">Stream Entity</th>
                                 <th className="px-8 py-5">Categorization</th>
                                 <th className="px-8 py-5">Yield Amount</th>
@@ -107,15 +123,15 @@ const MyRevenueRecords = () => {
                         <tbody className="divide-y divide-gray-100 dark:divide-slate-800">
                             {filteredRecords.length > 0 ? (
                                 filteredRecords.map((rec) => (
-                                    <tr key={rec.id} className="hover:bg-gray-50 dark:hover:bg-slate-800/50 transition-colors group">
+                                    <tr key={rec._id} className="hover:bg-gray-50 dark:hover:bg-slate-800/50 transition-colors group">
                                         <td className="px-8 py-6">
                                             <div className="flex items-center gap-4">
                                                 <div className="w-10 h-10 bg-gray-50 rounded-xl flex items-center justify-center group-hover:bg-maroon-50 transition-colors">
                                                     <Database className="w-5 h-5 text-gray-300 group-hover:text-maroon-600 transition-colors" />
                                                 </div>
-                                                <div>
-                                                    <p className="text-xs font-black italic uppercase tracking-tighter text-slate-800 dark:text-white line-clamp-1">{rec.title}</p>
-                                                    {rec.clientName && <p className="text-[9px] font-black text-gray-400 italic uppercase mt-0.5">Client: {rec.clientName}</p>}
+                                                <div className="max-w-md">
+                                                    <p className="text-xs font-black italic uppercase tracking-tighter text-slate-800 dark:text-white line-clamp-1">{rec.details || 'UNSPECIFIED ACQUISITION'}</p>
+                                                    <p className="text-[9px] font-black text-gray-400 italic uppercase mt-0.5">SOURCE REF: {rec._id.slice(0, 8)}</p>
                                                 </div>
                                             </div>
                                         </td>
@@ -123,14 +139,14 @@ const MyRevenueRecords = () => {
                                             <Badge variant="outline" className="border-indigo-100 text-indigo-600 bg-indigo-50/30 text-[9px] font-black italic uppercase px-3 py-1">{rec.revenueSource}</Badge>
                                         </td>
                                         <td className="px-8 py-6">
-                                            <p className="text-sm font-black italic text-maroon-600 tracking-tighter">₹{parseInt(rec.amountGenerated).toLocaleString()}</p>
+                                            <p className="text-sm font-black italic text-maroon-600 tracking-tighter">₹{parseFloat(rec.amountGenerated).toLocaleString()}</p>
                                         </td>
                                         <td className="px-8 py-6">
-                                            <p className="text-[10px] font-bold text-slate-500 italic uppercase">{new Date(rec.revenueDate).toLocaleDateString()}</p>
+                                            <p className="text-[10px] font-bold text-slate-500 italic uppercase">{new Date(rec.submittedDate || rec.createdAt).toLocaleDateString()}</p>
                                         </td>
                                         <td className="px-8 py-6 text-right">
                                             <Button variant="ghost" size="sm" className="h-10 px-4 rounded-xl text-maroon-600 font-black text-[9px] uppercase tracking-widest italic hover:bg-maroon-50">
-                                                View Artifact <ArrowUpRight className="w-3 h-3 ml-2" />
+                                                Audit Entry <ArrowUpRight className="w-3 h-3 ml-2" />
                                             </Button>
                                         </td>
                                     </tr>
@@ -148,6 +164,7 @@ const MyRevenueRecords = () => {
                         </tbody>
                     </table>
                 </div>
+            )}
             </Card>
         </div>
     );

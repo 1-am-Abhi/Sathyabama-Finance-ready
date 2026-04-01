@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
+import apiClient from '../../api/client';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
@@ -16,28 +17,21 @@ const Profile = () => {
     const [profilePhoto, setProfilePhoto] = useState(localStorage.getItem('profile_photo') || '');
 
     // Profile data - in real app, this would come from API
+    // Profile data from user context
     const [profileData, setProfileData] = useState({
-        name: user?.name || 'Dr. Bharathi',
-        email: user?.email || 'bharti@sathyabama.ac.in',
-        phone: user?.phone || '+91 98765 43210',
-        department: user?.department || 'Computer Science & Engineering',
-        researchCentre: user?.researchCentre || 'CfNSaN',
-        designation: user?.designation || 'Associate Professor',
-        employeeId: user?.employeeId || 'SIST-CSE-2018-042',
-        joiningDate: user?.joiningDate || '15 August 2018',
-        officeLocation: user?.officeLocation || 'Block 2, Room 304',
-        specialization: user?.specialization || 'Artificial Intelligence, Machine Learning, Deep Learning',
-        bio: user?.bio || 'Dr. Bharathi is an Associate Professor specializing in AI and ML with over 10 years of research experience. She has published 45+ research papers in international journals and conferences.',
-        education: user?.education || [
-            { degree: 'Ph.D. in Computer Science', institution: 'IIT Madras', year: '2015' },
-            { degree: 'M.Tech in Computer Science', institution: 'Anna University', year: '2010' },
-            { degree: 'B.Tech in Computer Science', institution: 'Sathyabama University', year: '2008' }
-        ],
-        achievements: user?.achievements || [
-            'Best Research Paper Award - IEEE Conference 2023',
-            'Excellence in Teaching Award - Sathyabama University 2022',
-            'Young Scientist Award - DST 2021'
-        ]
+        name: user?.name || '',
+        email: user?.email || '',
+        phone: user?.phone || '',
+        department: user?.department || '',
+        researchCentre: user?.centre || '',
+        designation: user?.designation || '',
+        employeeId: user?.employeeId || '',
+        joiningDate: user?.joiningDate || '',
+        officeLocation: user?.officeLocation || '',
+        specialization: user?.specialization || '',
+        bio: user?.bio || '',
+        education: user?.education || [],
+        achievements: user?.achievements || []
     });
 
     const [editData, setEditData] = useState(profileData);
@@ -47,25 +41,22 @@ const Profile = () => {
         setEditData(profileData);
     };
 
-    const handleSave = () => {
+    const handleSave = async () => {
         try {
             console.log("Saving profile data:", editData);
-            setProfileData(editData);
-            // Update global user context so TopBar and other components reflect changes
-            const result = updateUser({ ...editData });
-            console.log("Update user result:", result);
-
-            setIsEditing(false);
-            if (result && result.success) {
+            const response = await apiClient.put('/profile/update', editData);
+            
+            if (response.data.success) {
+                setProfileData(editData);
+                updateUser(response.data.user);
+                setIsEditing(false);
                 alert("Profile updated successfully!");
-                // Force reload to demonstrate persistence if needed, but not strictly necessary if context updates
-                // window.location.reload(); 
             } else {
                 alert("Failed to save changes. Please try again.");
             }
         } catch (error) {
             console.error("Error saving profile:", error);
-            alert("An error occurred while saving: " + error.message);
+            alert("An error occurred while saving: " + (error.response?.data?.message || error.message));
         }
     };
 
@@ -318,18 +309,22 @@ const Profile = () => {
                     </CardHeader>
                     <CardContent>
                         <div className="space-y-4">
-                            {profileData.education.map((edu, index) => (
-                                <div key={index} className="flex items-start gap-4 pb-4 border-b border-gray-200 dark:border-slate-800 last:border-0 last:pb-0">
-                                    <div className="w-12 h-12 bg-maroon-100 dark:bg-maroon-900/30 rounded-lg flex items-center justify-center flex-shrink-0">
-                                        <Award className="w-6 h-6 text-maroon-600 dark:text-maroon-400" />
+                            {profileData.education && profileData.education.length > 0 ? (
+                                profileData.education.map((edu, index) => (
+                                    <div key={index} className="flex items-start gap-4 pb-4 border-b border-gray-200 dark:border-slate-800 last:border-0 last:pb-0">
+                                        <div className="w-12 h-12 bg-maroon-100 dark:bg-maroon-900/30 rounded-lg flex items-center justify-center flex-shrink-0">
+                                            <Award className="w-6 h-6 text-maroon-600 dark:text-maroon-400" />
+                                        </div>
+                                        <div className="flex-1">
+                                            <h4 className="font-semibold text-gray-900 dark:text-white">{edu.degree || (typeof edu === 'string' ? edu : 'Record')}</h4>
+                                            <p className="text-gray-600 dark:text-gray-400 text-sm mt-1">{edu.institution || (typeof edu === 'object' ? 'Institutional Record' : '—')}</p>
+                                            <p className="text-gray-500 dark:text-gray-500 text-sm mt-1">{edu.year || '—'}</p>
+                                        </div>
                                     </div>
-                                    <div className="flex-1">
-                                        <h4 className="font-semibold text-gray-900 dark:text-white">{edu.degree}</h4>
-                                        <p className="text-gray-600 dark:text-gray-400 text-sm mt-1">{edu.institution}</p>
-                                        <p className="text-gray-500 dark:text-gray-500 text-sm mt-1">{edu.year}</p>
-                                    </div>
-                                </div>
-                            ))}
+                                ))
+                            ) : (
+                                <p className="text-[10px] font-black uppercase text-slate-500 italic">No education records found</p>
+                            )}
                         </div>
                     </CardContent>
                 </Card>
@@ -344,12 +339,19 @@ const Profile = () => {
                     </CardHeader>
                     <CardContent>
                         <ul className="space-y-3">
-                            {profileData.achievements.map((achievement, index) => (
-                                <li key={index} className="flex items-start gap-3">
-                                    <div className="w-2 h-2 bg-maroon-600 rounded-full mt-2 flex-shrink-0"></div>
-                                    <p className="text-gray-700 dark:text-gray-300">{achievement}</p>
-                                </li>
-                            ))}
+                            {profileData.achievements && profileData.achievements.length > 0 ? (
+                                profileData.achievements.map((achievement, index) => (
+                                    <li key={index} className="flex items-start gap-3">
+                                        <div className="w-2 h-2 bg-maroon-600 rounded-full mt-2 flex-shrink-0"></div>
+                                        <div>
+                                            <p className="font-bold text-gray-900 dark:text-white text-sm italic">{achievement.title || achievement}</p>
+                                            {achievement.year && <p className="text-[10px] font-black uppercase text-slate-500 italic">{achievement.year}</p>}
+                                        </div>
+                                    </li>
+                                ))
+                            ) : (
+                                <li className="text-[10px] font-black uppercase text-slate-500 italic">No achievements recorded</li>
+                            )}
                         </ul>
                     </CardContent>
                 </Card>

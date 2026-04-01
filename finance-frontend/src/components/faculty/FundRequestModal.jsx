@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { X, Upload, FileText, ChevronRight, AlertCircle, DollarSign, CheckCircle2, LayoutList, Target, Wallet } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
@@ -51,8 +52,8 @@ const FundRequestModal = ({ isOpen, onClose, project, nextInstallment, onSubmit,
         onClose();
     };
 
-    return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fadeIn">
+    const modalContent = (
+        <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fadeIn">
             <div className="bg-white rounded-[2.5rem] w-full max-w-2xl overflow-hidden shadow-2xl animate-scaleIn max-h-[90vh] overflow-y-auto">
                 {/* Header */}
                 <div className={`${isFinalInstallment ? 'bg-orange-600' : 'bg-indigo-900'} p-8 text-white relative transition-colors`}>
@@ -264,6 +265,8 @@ const FundRequestModal = ({ isOpen, onClose, project, nextInstallment, onSubmit,
             </div>
         </div>
     );
+
+    return createPortal(modalContent, document.body);
 };
 
 export default FundRequestModal;

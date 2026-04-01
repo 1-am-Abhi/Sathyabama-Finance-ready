@@ -13,6 +13,7 @@ import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSam
 import AIResultModal from '../../components/shared/AIResultModal';
 import { analyzeEventFeasibility } from '../../services/aiService';
 import apiClient from '../../api/client';
+import { useNotifications } from '../../contexts/NotificationContext';
 
 const API_KEY = 'AIzaSyBj4Crh5DFqWdf49XQNKxvxLMo-5MSyKog';
 const CALENDAR_ID = 'en.indian#holiday@group.v.calendar.google.com';
@@ -134,6 +135,7 @@ const EventCalendar = ({ requests, holidays, onDateClick, selectedDate, onReques
 
 const EventRequests = () => {
     const { setLayout } = useLayout();
+    const { addNotification } = useNotifications();
     const [selectedStatus, setSelectedStatus] = useState('All');
     const [searchTerm, setSearchTerm] = useState('');
     const [rejectModalOpen, setRejectModalOpen] = useState(false);
@@ -234,6 +236,13 @@ const EventRequests = () => {
                         ? { ...req, status: 'APPROVED' }
                         : req
                 ));
+                addNotification({
+                    role: 'FACULTY',
+                    type: 'success',
+                    message: `Event Request "${request.eventTitle}" was APPROVED!`,
+                    actionUrl: '/faculty/event-requests',
+                    targetUserId: request.facultyId
+                });
             } catch (err) {
                 console.error(err);
             }
@@ -252,6 +261,15 @@ const EventRequests = () => {
                 ));
                 setApproveModalOpen(false);
                 setApprovalAmount('');
+                
+                addNotification({
+                    role: 'FACULTY',
+                    type: 'success',
+                    message: `Event Request "${selectedRequest.eventTitle}" was APPROVED with ₹${amount.toLocaleString()} budget!`,
+                    actionUrl: '/faculty/event-requests',
+                    targetUserId: selectedRequest.facultyId
+                });
+                
                 setSelectedRequest(null);
             } catch (err) {
                 console.error(err);
@@ -285,6 +303,15 @@ const EventRequests = () => {
 
                 setRevokeModalOpen(false);
                 setUploadFile(null);
+                
+                addNotification({
+                    role: 'FACULTY',
+                    type: 'info',
+                    message: `Event Request "${selectedRequest.eventTitle}" status updated to REVOKED.`,
+                    actionUrl: '/faculty/event-requests',
+                    targetUserId: selectedRequest.facultyId
+                });
+                
                 setSelectedRequest(null);
             } catch (err) {
                 console.error(err);
@@ -305,6 +332,15 @@ const EventRequests = () => {
                 setRequests(requests.map(req => req.id === selectedRequest.id ? { ...req, status: 'REJECTED', remarks: rejectRemarks } : req));
                 setRejectModalOpen(false);
                 setRejectRemarks('');
+                
+                addNotification({
+                    role: 'FACULTY',
+                    type: 'rejection',
+                    message: `Event Request "${selectedRequest.eventTitle}" was REJECTED: ${rejectRemarks}`,
+                    actionUrl: '/faculty/event-requests',
+                    targetUserId: selectedRequest.facultyId
+                });
+                
                 setSelectedRequest(null);
             } catch (err) {
                 console.error(err);
@@ -321,18 +357,18 @@ const EventRequests = () => {
         // Generate CSV content
         const headers = ["ID", "Faculty", "Event Title", "Event Type", "Venue", "Dates", "Participants", "Funding Type", "Approved Amount", "Status", "Photos Uploaded", "Remarks"];
         const rows = requests.map(req => [
-            req.id,
-            req.faculty,
-            req.eventTitle,
+            req._id,
+            req.facultyName,
+            `"${(req.eventTitle || "").replace(/"/g, '""')}"`,
             req.eventType,
-            req.venue,
-            req.dates,
+            `"${(req.venue || "").replace(/"/g, '""')}"`,
+            `"${(req.dates || "").replace(/"/g, '""')}"`,
             req.participants,
             req.fundingType,
             req.fundingType === 'College Funded' ? req.approvedAmount : 'N/A',
             req.status,
             req.photosUploaded ? "Yes" : "No",
-            req.remarks || ""
+            `"${(req.remarks || "").replace(/"/g, '""')}"`
         ]);
 
         const csvContent = [headers.join(","), ...rows.map(r => r.join(","))].join("\n");

@@ -11,8 +11,9 @@ router.get('/:id', fundRequestController.getFundRequest);
 // Only FACULTY can submit requests
 router.post('/', authorize('FACULTY'), fundRequestController.createFundRequest);
 
-// Only ADMIN can approve initial request
+// Only ADMIN can approve/reject initial request
 router.put('/:id/approve', authorize('ADMIN'), fundRequestController.approveFundRequest);
+router.put('/:id/reject', authorize('ADMIN'), fundRequestController.rejectFundRequest);
 
 // Finance or Faculty can advance appropriate stages (sequentially enforced in controller)
 router.post('/:id/advance', fundRequestController.advanceStage);
