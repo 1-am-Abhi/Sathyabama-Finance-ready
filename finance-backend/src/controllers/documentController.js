@@ -3,7 +3,7 @@ const Document = require('../models/Document');
 exports.createDocument = async (req, res) => {
     try {
         const doc = await Document.create({
-            facultyId: req.user.id,
+            facultyId: req.user.id || req.user._id,
             facultyName: req.user.name,
             fileName: req.body.fileName,
             fileType: req.body.fileType,
@@ -23,7 +23,7 @@ exports.getDocuments = async (req, res) => {
     try {
         let where = {};
         if (req.user.role === 'FACULTY') {
-            where = { facultyId: req.user.id };
+            where = { facultyId: req.user.id || req.user._id };
         }
         const docs = await Document.findAll({ where, order: [['createdAt', 'DESC']] });
         res.status(200).json({ success: true, data: docs });
@@ -34,7 +34,7 @@ exports.getDocuments = async (req, res) => {
 
 exports.updateDocumentStatus = async (req, res) => {
     try {
-        const doc = await (Document.findByPk || Document.findOne)({ where: { _id: req.params.id } });
+        const doc = await Document.findByPk(req.params.id);
         if (!doc) return res.status(404).json({ success: false, message: 'Document not found' });
         doc.status = req.body.status;
         doc.adminRemarks = req.body.adminRemarks || null;
@@ -48,8 +48,8 @@ exports.updateDocumentStatus = async (req, res) => {
 
 exports.updateDocument = async (req, res) => {
     try {
-        const doc = await (Document.findByPk || Document.findOne)({ 
-            where: { _id: req.params.id, facultyId: req.user.id } 
+        const doc = await Document.findOne({ 
+            where: { _id: req.params.id, facultyId: req.user.id || req.user._id } 
         });
         if (!doc) return res.status(404).json({ success: false, message: 'Document not found or access denied' });
         

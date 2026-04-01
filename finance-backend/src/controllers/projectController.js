@@ -49,8 +49,8 @@ exports.getProjects = async (req, res) => {
         if (req.user.role === 'FACULTY') {
             options.where = {
                 [Op.or]: [
-                    { facultyId: req.user.id },
-                    { userId: req.user.id },
+                    { facultyId: req.user.id || req.user._id },
+                    { userId: req.user.id || req.user._id },
                     { pi: req.user.name }
                 ]
             };

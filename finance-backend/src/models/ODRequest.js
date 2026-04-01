@@ -72,7 +72,7 @@ const ODRequest = sequelize.define('ODRequest', {
         allowNull: true
     },
     proofData: {
-        type: DataTypes.TEXT('long'),
+        type: DataTypes.TEXT,
         allowNull: true
     }
 });

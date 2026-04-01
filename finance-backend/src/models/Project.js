@@ -88,7 +88,7 @@ const Project = sequelize.define('Project', {
         allowNull: true
     },
     proofData: {
-        type: DataTypes.TEXT('long'),
+        type: DataTypes.TEXT,
         allowNull: true
     }
 });

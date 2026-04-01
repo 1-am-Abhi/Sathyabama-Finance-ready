@@ -280,7 +280,7 @@ const ApproveFundRequests = () => {
                             <TableBody>
                                 {filteredRequests.map((request) => (
                                     <TableRow
-                                        key={request.id}
+                                        key={request._id || request.id}
                                         className="hover:bg-gray-50 dark:hover:bg-slate-800/50 dark:border-slate-800 cursor-pointer"
                                         onClick={() => setSelectedRequest(request)}
                                     >
@@ -330,7 +330,7 @@ const ApproveFundRequests = () => {
                                                             className="text-red-600 border-red-200 hover:bg-red-50 dark:hover:bg-red-900/20 action-btn"
                                                             onClick={(e) => {
                                                                 e.stopPropagation();
-                                                                handleRejectClick(request.id);
+                                                                handleRejectClick(request._id || request.id);
                                                             }}
                                                         >
                                                             Reject
@@ -341,7 +341,7 @@ const ApproveFundRequests = () => {
                                                             className="bg-green-600 hover:bg-green-700 text-white font-medium shadow-sm px-4 action-btn"
                                                             onClick={(e) => {
                                                                 e.stopPropagation();
-                                                                handleApprove(request.id);
+                                                                handleApprove(request._id || request.id);
                                                             }}
                                                         >
                                                             Approve
@@ -460,13 +460,13 @@ const ApproveFundRequests = () => {
 
                                         <div className="flex justify-end gap-3 mt-4">
                                             {selectedRequest.chequeStatus === 'Pending' && (
-                                                <Button size="sm" className="bg-blue-600 hover:bg-blue-700 text-white" onClick={() => handleApproveCheque(selectedRequest.id)}>
+                                                <Button size="sm" className="bg-blue-600 hover:bg-blue-700 text-white" onClick={() => handleApproveCheque(selectedRequest._id || selectedRequest.id)}>
                                                     Approve Cheque
                                                     <ArrowRight className="w-3 h-3 ml-2" />
                                                 </Button>
                                             )}
                                             {selectedRequest.chequeStatus === 'Approved' && (
-                                                <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white" onClick={() => handleDisburseCheque(selectedRequest.id)}>
+                                                <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white" onClick={() => handleDisburseCheque(selectedRequest._id || selectedRequest.id)}>
                                                     Mark Disbursed
                                                     <CheckCircle className="w-3 h-3 ml-2" />
                                                 </Button>
@@ -505,7 +505,7 @@ const ApproveFundRequests = () => {
                                         <>
                                             <Button
                                                 className="bg-green-600 hover:bg-green-700 text-white shadow-md"
-                                                onClick={() => handleApprove(selectedRequest.id)}
+                                                onClick={() => handleApprove(selectedRequest._id || selectedRequest.id)}
                                             >
                                                 <CheckCircle className="w-4 h-4 mr-2" />
                                                 Approve Request
@@ -513,7 +513,7 @@ const ApproveFundRequests = () => {
                                             <Button
                                                 variant="outline"
                                                 className="text-red-500 border-red-100 hover:bg-red-50 hover:text-red-600"
-                                                onClick={() => handleRejectClick(selectedRequest.id)}
+                                                onClick={() => handleRejectClick(selectedRequest._id || selectedRequest.id)}
                                             >
                                                 <XCircle className="w-4 h-4 mr-2" />
                                                 Reject Request

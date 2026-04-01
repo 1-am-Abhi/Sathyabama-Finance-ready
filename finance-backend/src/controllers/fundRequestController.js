@@ -8,9 +8,10 @@ exports.getFundRequests = async (req, res) => {
         if (req.user.role === 'FACULTY') {
             options.where = { 
                 [Op.or]: [
-                    { facultyId: req.user.id },
-                    { userId: req.user.id },
-                    { pi: req.user.name } // Fallback for legacy
+                    { facultyId: req.user.id || req.user._id },
+                    { userId: req.user.id || req.user._id },
+                    { pi: req.user.name }, // Fallback for legacy
+                    { faculty: req.user.name }
                 ]
             };
         }
@@ -99,9 +100,9 @@ exports.advanceStage = async (req, res) => {
         const request = await FundRequest.findByPk(req.params.id);
         if (!request) return res.status(404).json({ success: false, message: 'Request not found' });
         
-        // Only Finance Officer can advance stages (except for faculty stage)
-        if (req.user.role !== 'FINANCE_OFFICER' && nextStage !== 'UTILIZATION_COMPLETED') {
-            return res.status(403).json({ success: false, message: 'Only Finance Officer can advance this stage' });
+        // Only Finance Officer or Admin can advance stages (except for faculty stage)
+        if (req.user.role !== 'FINANCE_OFFICER' && req.user.role !== 'ADMIN' && nextStage !== 'UTILIZATION_COMPLETED') {
+            return res.status(403).json({ success: false, message: 'Only Admin or Finance Officer can advance this stage' });
         }
         
         // Only Faculty can advance to UTILIZATION_COMPLETED
@@ -110,6 +111,16 @@ exports.advanceStage = async (req, res) => {
         }
         
         await request.advanceStage(nextStage, { _id: req.user.id, name: req.user.name }, remarks);
+        
+        // If amount is disbursed, update the project released amount
+        if (nextStage === 'AMOUNT_DISBURSED') {
+            const project = await Project.findOne({ where: { title: request.projectTitle } });
+            if (project) {
+                await project.update({
+                    releasedBudget: (project.releasedBudget || 0) + request.requestedAmount
+                });
+            }
+        }
         
         // If settlement is closed, update project utilized amount
         if (nextStage === 'SETTLEMENT_CLOSED') {
