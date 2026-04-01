@@ -6,7 +6,7 @@ import { Badge } from '../../components/ui/badge';
 import { Button } from '../../components/ui/button';
 import {
     FileText, Banknote, CheckCircle, Clock, TrendingUp, AlertCircle,
-    UserPlus, BarChart3, Filter, ArrowRight, Wallet, Building2, Award, BarChart2, Brain, Sparkles
+    UserPlus, BarChart3, Filter, ArrowRight, Wallet, Building2, Award, BarChart2, Brain, Sparkles, Activity
 } from 'lucide-react';
 import { useLayout } from '../../contexts/LayoutContext';
 import DateFilter from '../../components/shared/DateFilter';
