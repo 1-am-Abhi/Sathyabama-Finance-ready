@@ -1,6 +1,7 @@
 services:
   - type: web
     name: finance-api
+    plan: free
     runtime: node
     rootDir: finance-backend
     buildCommand: npm install
@@ -17,6 +18,7 @@ services:
 
   - type: web
     name: finance-frontend
+    plan: free
     runtime: static
     rootDir: finance-frontend
     buildCommand: npm install && npm run build
