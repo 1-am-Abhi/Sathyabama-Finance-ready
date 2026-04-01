@@ -15,12 +15,12 @@ services:
       - key: PORT
         value: 5001
 
-  - type: static_site
+  - type: web
     name: finance-frontend
     runtime: static
     rootDir: finance-frontend
     buildCommand: npm install && npm run build
-    publishPath: build
+    staticPublishPath: build
     envVars:
       - key: REACT_APP_API_URL
         value: https://finance-api.onrender.com/api
