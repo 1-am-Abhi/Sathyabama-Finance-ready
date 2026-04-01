@@ -7,7 +7,7 @@ import { Badge } from '../../components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '../../components/ui/dialog';
 import { Label } from '../../components/ui/label';
 import { Input } from '../../components/ui/input';
-import { Calendar, PlusCircle, Sparkles, Building, IndianRupee, MapPin, Users, Briefcase, X, FileText } from 'lucide-react';
+import { Calendar, PlusCircle, Sparkles, Building, IndianRupee, MapPin, Users, Briefcase, X, FileText, Clock } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import apiClient from '../../api/client';
 import { useAuth } from '../../contexts/AuthContext';
