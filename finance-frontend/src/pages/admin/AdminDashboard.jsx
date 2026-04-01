@@ -20,6 +20,7 @@ import {
     RESEARCH_CENTRES
 } from '../../data/dashboardData';
 import ResearchCentreDetail from './ResearchCentreDetail';
+import { formatCurrency } from '../../utils/format';
 import apiClient from '../../api/client';
 
 
@@ -424,8 +425,9 @@ const AdminDashboard = () => {
                     <CardContent className="p-6 h-full flex flex-col justify-between">
                         <div className="flex items-start justify-between">
                             <div>
-                                <p className="text-sm font-medium opacity-80">Total Budget</p>
-                                <p className="text-3xl font-bold mt-2">₹{(totalStats.totalBudget / 10000000).toFixed(1)}Cr</p>
+                                <p className="text-xs font-bold uppercase tracking-wider opacity-70">Allocated Budget</p>
+                                <p className="text-3xl font-bold mt-2">{formatCurrency(totalStats.totalBudget)}</p>
+                                <p className="text-[10px] mt-1 opacity-60">Across {totalStats.totalProjects} Projects</p>
                             </div>
                             <div className="w-12 h-12 bg-green-100 dark:bg-green-800/30 rounded-lg flex items-center justify-center"><Banknote className="w-6 h-6" /></div>
                         </div>
@@ -437,8 +439,9 @@ const AdminDashboard = () => {
                     <CardContent className="p-6 h-full flex flex-col justify-between">
                         <div className="flex items-start justify-between">
                             <div>
-                                <p className="text-sm font-medium opacity-80">Total Disbursed</p>
-                                <p className="text-3xl font-bold mt-2">₹{(totalStats.totalDisbursed / 10000000).toFixed(1)}Cr</p>
+                                <p className="text-xs font-bold uppercase tracking-wider opacity-70">Disbursed Funds</p>
+                                <p className="text-3xl font-bold mt-2">{formatCurrency(totalStats.totalDisbursed)}</p>
+                                <p className="text-[10px] mt-1 opacity-60">Verified Disbursements</p>
                             </div>
                             <div className="w-12 h-12 bg-indigo-100 dark:bg-indigo-800/30 rounded-lg flex items-center justify-center"><TrendingUp className="w-6 h-6" /></div>
                         </div>
@@ -539,8 +542,8 @@ const AdminDashboard = () => {
                                     <TableCell className="font-semibold">{centre.centre}</TableCell>
                                     <TableCell><Badge className="bg-maroon-100 text-maroon-700">{centre.totalProjects}</Badge></TableCell>
                                     <TableCell><Badge className="bg-green-100 text-green-700">{centre.activeProjects}</Badge></TableCell>
-                                    <TableCell>₹{(centre.totalBudget / 10000000).toFixed(1)}Cr</TableCell>
-                                    <TableCell>₹{(centre.disbursed / 10000000).toFixed(1)}Cr</TableCell>
+                                    <TableCell>{formatCurrency(centre.totalBudget)}</TableCell>
+                                    <TableCell>{formatCurrency(centre.disbursed)}</TableCell>
                                     <TableCell className="text-right">{centre.totalBudget > 0 ? ((centre.disbursed / centre.totalBudget) * 100).toFixed(0) : 0}%</TableCell>
                                 </TableRow>
                             ))}
@@ -562,11 +565,11 @@ const AdminDashboard = () => {
                                     <CartesianGrid strokeDasharray="3 3" vertical={false} />
                                     <XAxis dataKey="name" fontSize={12} />
                                     <YAxis fontSize={12} />
-                                    <Tooltip />
+                                    <Tooltip formatter={(value) => formatCurrency(value)} />
                                     <Legend />
                                     {activeMetric === 'projects' && <Bar dataKey={selectedCentre === 'ALL' ? "projects" : "val"} fill="rgba(136, 19, 55, 0.8)" name="Projects" />}
-                                    {activeMetric !== 'projects' && <Bar dataKey="budget" fill="rgba(22, 163, 74, 0.8)" name="Budget (M)" />}
-                                    {activeMetric !== 'projects' && <Bar dataKey="disbursed" fill="rgba(99, 102, 241, 0.8)" name="Disbursed (M)" />}
+                                    {activeMetric !== 'projects' && <Bar dataKey="budget" fill="rgba(22, 163, 74, 0.8)" name="Budget" />}
+                                    {activeMetric !== 'projects' && <Bar dataKey="disbursed" fill="rgba(99, 102, 241, 0.8)" name="Disbursed" />}
                                 </BarChart>
                             </ResponsiveContainer>
                         </div>

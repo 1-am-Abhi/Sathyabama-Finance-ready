@@ -11,7 +11,8 @@ import {
 import { useLayout } from '../../contexts/LayoutContext';
 import DateFilter from '../../components/shared/DateFilter';
 import AIResultModal from '../../components/shared/AIResultModal';
-import { summarizeRequest } from '../../services/aiService';
+import { formatCurrency } from '../../utils/format';
+import { summarizeResearchProposal } from '../../services/aiService';
 import {
     LineChart, Line, BarChart, Bar, PieChart, Pie, Cell,
     XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
@@ -201,7 +202,7 @@ const AdminReports = () => {
                                     {entry.name.toLowerCase().includes('funding') ||
                                         entry.name.toLowerCase().includes('budget') ||
                                         entry.name.toLowerCase().includes('disbursed')
-                                        ? `₹${(entry.value / 100000).toFixed(1)}L`
+                                        ? formatCurrency(entry.value)
                                         : entry.value}
                                 </span>
                             </span>
@@ -268,7 +269,7 @@ const AdminReports = () => {
                                 <div className="flex items-center justify-between">
                                     <div>
                                         <p className="text-sm opacity-90">Total Budget</p>
-                                        <p className="text-3xl font-bold mt-1">₹{(financeStats.totalBudget / 10000000).toFixed(2)}Cr</p>
+                                        <p className="text-3xl font-bold mt-1">{formatCurrency(financeStats.totalBudget)}</p>
                                         <p className="text-xs opacity-80 mt-1">Approved grants</p>
                                     </div>
                                     <div className="w-12 h-12 bg-white/20 rounded-lg flex items-center justify-center"><Banknote className="w-6 h-6" /></div>
@@ -280,7 +281,7 @@ const AdminReports = () => {
                                 <div className="flex items-center justify-between">
                                     <div>
                                         <p className="text-sm opacity-90">Total Disbursed</p>
-                                        <p className="text-3xl font-bold mt-1">₹{(financeStats.disbursed / 10000000).toFixed(2)}Cr</p>
+                                        <p className="text-3xl font-bold mt-1">{formatCurrency(financeStats.disbursed)}</p>
                                         <p className="text-xs opacity-80 mt-1">Released funds</p>
                                     </div>
                                     <div className="w-12 h-12 bg-white/20 rounded-lg flex items-center justify-center"><ArrowUpRight className="w-6 h-6" /></div>
@@ -292,7 +293,7 @@ const AdminReports = () => {
                                 <div className="flex items-center justify-between">
                                     <div>
                                         <p className="text-sm opacity-90">Pending Amount</p>
-                                        <p className="text-3xl font-bold mt-1">₹{(financeStats.pending / 10000000).toFixed(2)}Cr</p>
+                                        <p className="text-3xl font-bold mt-1">{formatCurrency(financeStats.pending)}</p>
                                         <p className="text-xs opacity-80 mt-1">To be released</p>
                                     </div>
                                     <div className="w-12 h-12 bg-white/20 rounded-lg flex items-center justify-center"><Wallet className="w-6 h-6" /></div>
@@ -362,8 +363,8 @@ const AdminReports = () => {
                             <CardContent className="pt-6">
                                 <div className="flex items-center justify-between">
                                     <div>
-                                        <p className="text-sm opacity-90">Total Budget</p>
-                                        <p className="text-3xl font-bold mt-1">₹{(overviewStats.totalBudget / 10000000).toFixed(1)}Cr</p>
+                                        <p className="text-xs font-bold uppercase tracking-wider opacity-70">Total Sanctioned</p>
+                                        <p className="text-3xl font-bold mt-1">{formatCurrency(overviewStats.totalBudget)}</p>
                                         <p className="text-xs opacity-80 mt-1">Approved funding</p>
                                     </div>
                                     <div className="w-12 h-12 bg-white/20 rounded-lg flex items-center justify-center"><Banknote className="w-6 h-6" /></div>
@@ -432,10 +433,10 @@ const AdminReports = () => {
                                             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" className="dark:stroke-slate-800" />
                                             <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#64748b' }} />
                                             <YAxis yAxisId="left" orientation="left" axisLine={false} tickLine={false} tick={{ fill: '#64748b' }}
-                                                tickFormatter={(value) => selectedReport === 'finance' ? `₹${(value / 10000000).toFixed(0)}Cr` : value}
+                                                tickFormatter={(value) => selectedReport === 'finance' ? formatCurrency(value) : value}
                                             />
                                             <YAxis yAxisId="right" orientation="right" axisLine={false} tickLine={false} tick={{ fill: '#64748b' }}
-                                                tickFormatter={(value) => `₹${(value / 10000000).toFixed(0)}Cr`}
+                                                tickFormatter={(value) => formatCurrency(value)}
                                             />
                                             <Tooltip content={<CustomTooltip />} />
                                             <Legend wrapperStyle={{ paddingTop: '20px' }} />
@@ -519,7 +520,7 @@ const AdminReports = () => {
                                         <XAxis dataKey={selectedReport === 'faculty' ? "name" : "name"} axisLine={false} tickLine={false} tick={{ fill: '#64748b' }} />
                                         <YAxis orientation="left" axisLine={false} tickLine={false} tick={{ fill: '#64748b' }} />
                                         {selectedReport === 'finance' &&
-                                            <YAxis yAxisId="right" orientation="right" axisLine={false} tickLine={false} tick={{ fill: '#64748b' }} tickFormatter={(value) => `₹${(value / 10000000).toFixed(0)}Cr`} />
+                                            <YAxis yAxisId="right" orientation="right" axisLine={false} tickLine={false} tick={{ fill: '#64748b' }} tickFormatter={(value) => formatCurrency(value)} />
                                         }
                                         <Tooltip content={<CustomTooltip />} />
                                         <Legend wrapperStyle={{ paddingTop: '20px' }} />
@@ -696,9 +697,9 @@ const AdminReports = () => {
                                                     <Badge variant="default" className="dark:bg-slate-800 dark:text-gray-300 border-0">{dept.projects}</Badge>
                                                 </TableCell>
                                                 <TableCell className="font-semibold text-green-600 dark:text-green-400">
-                                                    ₹{(dept.budget / 10000000).toFixed(1)}Cr
+                                                    {formatCurrency(dept.budget)}
                                                 </TableCell>
-                                                <TableCell className="dark:text-gray-300">₹{(dept.budget / dept.projects / 100000).toFixed(1)}L</TableCell>
+                                                <TableCell className="dark:text-gray-300">{formatCurrency(dept.budget / dept.projects)}</TableCell>
                                                 <TableCell className="text-right">
                                                     <div className="flex items-center justify-end space-x-2">
                                                         <div className="w-24 bg-gray-200 dark:bg-slate-700 rounded-full h-2">
@@ -742,7 +743,7 @@ const AdminReports = () => {
                                                         {project.projectTitle}
                                                     </h3>
                                                     <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                                                        PI: {project.faculty} | Amount: ₹{(project.requestedAmount / 100000).toFixed(1)}L
+                                                        PI: {project.faculty} | Amount: {formatCurrency(project.requestedAmount)}
                                                     </p>
                                                 </div>
                                                 <Badge
@@ -805,8 +806,9 @@ const AdminReports = () => {
                                             onClick={() => setSelectedProject(project)}
                                         >
                                             <TableCell className="font-medium">{project.projectTitle}</TableCell>
-                                            <TableCell>{project.faculty}</TableCell>
-                                            <TableCell>₹{(project.requestedAmount / 100000).toFixed(1)}L</TableCell>
+                                            <TableCell className="text-slate-400 font-bold italic tracking-tighter uppercase">{project.projectType}</TableCell>
+                                            <TableCell>{formatCurrency(project.requestedAmount)}</TableCell>
+                                            <TableCell className="dark:text-gray-300">{new Date(project.createdAt).toLocaleDateString()}</TableCell>
                                             <TableCell>
                                                 <Badge variant={project.status === 'APPROVED' ? 'success' : 'secondary'}
                                                     className={project.status === 'APPROVED' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : ''}>
@@ -880,8 +882,8 @@ const AdminReports = () => {
                                             onClick={() => setSelectedCentreDetail(dept.centre)}
                                         >
                                             <TableCell className="font-medium">{dept.centre}</TableCell>
-                                            <TableCell className="text-green-600 font-bold">₹{(dept.budget / 10000000).toFixed(2)}Cr</TableCell>
-                                            <TableCell>₹{(dept.disbursed / 10000000).toFixed(2)}Cr</TableCell>
+                                            <TableCell className="text-green-600 font-bold">{formatCurrency(dept.budget)}</TableCell>
+                                            <TableCell>{formatCurrency(dept.disbursed)}</TableCell>
                                             <TableCell>
                                                 <div className="flex items-center gap-2">
                                                     <div className="w-24 h-2 bg-gray-100 rounded-full">
@@ -929,8 +931,8 @@ const AdminReports = () => {
                                             <TableCell className="font-medium max-w-[200px] truncate" title={request.projectTitle}>
                                                 {request.projectTitle}
                                             </TableCell>
-                                            <TableCell>{request.faculty}</TableCell>
-                                            <TableCell className="font-semibold">₹{(request.requestedAmount / 100000).toFixed(1)}L</TableCell>
+                                            <TableCell className="text-slate-500 font-bold italic tracking-tighter uppercase">{request.projectTitle}</TableCell>
+                                            <TableCell className="font-semibold">{formatCurrency(request.requestedAmount)}</TableCell>
                                             <TableCell>
                                                 <Badge variant={request.status === 'APPROVED' ? 'success' : 'secondary'}
                                                     className={request.status === 'APPROVED' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : ''}>
@@ -975,7 +977,7 @@ const AdminReports = () => {
                                                     onClick={async (e) => {
                                                         e.stopPropagation();
                                                         setAiModal({ open: true, loading: true, result: null });
-                                                        const r = await summarizeRequest({ title: request.projectTitle, faculty: request.faculty, budget: request.requestedAmount });
+                                                        const r = await summarizeResearchProposal({ title: request.projectTitle, faculty: request.faculty, budget: request.requestedAmount });
                                                         setAiModal({ open: true, loading: false, result: r });
                                                     }}
                                                 >
@@ -1013,10 +1015,10 @@ const AdminReports = () => {
                                 <TableBody>
                                     {facultyMockData.map((fac) => (
                                         <TableRow key={fac.id}>
-                                            <TableCell className="font-medium">{fac.name}</TableCell>
-                                            <TableCell className="text-sm text-gray-500">{fac.centre}</TableCell>
-                                            <TableCell>{fac.projects}</TableCell>
-                                            <TableCell className="text-green-600">₹{(fac.grants / 100000).toFixed(1)}L</TableCell>
+                                            <TableCell className="dark:text-gray-300 font-black italic uppercase tracking-tighter">{fac.name}</TableCell>
+                                            <TableCell className="dark:text-gray-400">{fac.dept}</TableCell>
+                                            <TableCell className="text-blue-600 font-black italic tracking-tighter">{fac.projects}</TableCell>
+                                            <TableCell className="text-green-600">{formatCurrency(fac.grants)}</TableCell>
                                         </TableRow>
                                     ))}
                                 </TableBody>

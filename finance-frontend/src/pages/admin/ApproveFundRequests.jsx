@@ -8,6 +8,7 @@ import { Textarea } from '../../components/ui/textarea';
 import { CheckCircle, XCircle, Banknote, FileText, ArrowRight, Wallet, RefreshCw, Brain } from 'lucide-react';
 import { useLayout } from '../../contexts/LayoutContext';
 import { usePipeline } from '../../contexts/PipelineContext';
+import { formatCurrency } from '../../utils/format';
 import DateFilter from '../../components/shared/DateFilter';
 import { RESEARCH_CENTRES } from '../../constants/researchCentres';
 import { FUND_SOURCES } from '../../constants/fundSources';
@@ -149,7 +150,7 @@ const ApproveFundRequests = () => {
                             <div className="flex items-start justify-between">
                                 <div>
                                     <p className="text-xs font-bold uppercase tracking-wider opacity-70">Approved Amount</p>
-                                    <p className="text-3xl font-bold mt-2">₹{(approvedAmount / 100000).toFixed(1)}L</p>
+                                    <p className="text-3xl font-bold mt-2">{formatCurrency(approvedAmount)}</p>
                                     <p className="text-[10px] mt-1 opacity-60">Total Sanctioned</p>
                                 </div>
                                 <div className="w-12 h-12 bg-blue-100/50 dark:bg-blue-800/20 rounded-xl flex items-center justify-center">
@@ -179,7 +180,7 @@ const ApproveFundRequests = () => {
                             <div className="flex items-start justify-between">
                                 <div>
                                     <p className="text-xs font-bold uppercase tracking-wider opacity-70">Disbursed Amount</p>
-                                    <p className="text-3xl font-bold mt-2">₹{(disbursedAmount / 100000).toFixed(1)}L</p>
+                                    <p className="text-3xl font-bold mt-2">{formatCurrency(disbursedAmount)}</p>
                                     <p className="text-[10px] mt-1 opacity-60">Funds Released</p>
                                 </div>
                                 <div className="w-12 h-12 bg-emerald-100/50 dark:bg-emerald-800/20 rounded-xl flex items-center justify-center">
@@ -294,7 +295,7 @@ const ApproveFundRequests = () => {
                                             </Badge>
                                         </TableCell>
                                         <TableCell className="font-bold text-green-600 dark:text-green-400">
-                                            ₹{(request.requestedAmount / 100000).toFixed(1)}L
+                                            {formatCurrency(request.requestedAmount)}
                                         </TableCell>
                                         <TableCell className="max-w-xs truncate dark:text-gray-400">{request.purpose}</TableCell>
                                         <TableCell className="dark:text-gray-300">{new Date(request.submittedDate).toLocaleDateString()}</TableCell>
@@ -410,7 +411,7 @@ const ApproveFundRequests = () => {
                                     <div className="text-right">
                                         <p className="text-sm font-semibold text-gray-500 dark:text-gray-400">Amount</p>
                                         <p className="text-2xl font-bold text-green-600 dark:text-green-400">
-                                            ₹{(selectedRequest.requestedAmount / 100000).toFixed(1)}L
+                                            {formatCurrency(selectedRequest.requestedAmount)}
                                         </p>
                                     </div>
                                 </div>

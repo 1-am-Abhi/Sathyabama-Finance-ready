@@ -13,6 +13,7 @@ import AcademicWorkModal from '../../components/faculty/NewProjectModal';
 import AIResultModal from '../../components/shared/AIResultModal';
 import { predictResearchImpact, predictGrantSuccess } from '../../services/aiService';
 import { usePipeline } from '../../contexts/PipelineContext';
+import { formatCurrency } from '../../utils/format';
 import apiClient from '../../api/client';
 
 const FacultyProjects = () => {
@@ -218,7 +219,7 @@ const FacultyProjects = () => {
                                     </td>
                                     <td className="px-6 py-4">
                                         {work.sanctionedBudget ? (
-                                            <p className="text-sm font-bold text-maroon-600 italic">₹{(work.sanctionedBudget / 100000).toFixed(1)}L</p>
+                                            <p className="text-sm font-bold text-maroon-600 italic">{formatCurrency(work.sanctionedBudget)}</p>
                                         ) : (
                                             <p className="text-sm font-bold text-slate-400 italic">{work.publicationYear || 'N/A'}</p>
                                         )}

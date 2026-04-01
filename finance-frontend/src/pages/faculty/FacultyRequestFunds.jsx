@@ -11,6 +11,7 @@ import { useLayout } from '../../contexts/LayoutContext';
 import { useNotifications } from '../../contexts/NotificationContext';
 import { usePipeline } from '../../contexts/PipelineContext';
 import { useAuth } from '../../contexts/AuthContext';
+import { formatCurrency } from '../../utils/format';
 import InstallmentStepper from '../../components/faculty/InstallmentStepper';
 import FundRequestModal from '../../components/faculty/FundRequestModal';
 import InitialFundRequestModal from '../../components/faculty/InitialFundRequestModal';
@@ -81,7 +82,7 @@ const FacultyRequestFunds = () => {
                         <div className="flex items-start justify-between">
                             <div>
                                 <p className="text-xs font-bold uppercase tracking-wider opacity-70">Total Sanctioned</p>
-                                <p className="text-3xl font-bold mt-2">₹{((selectedProject?.sanctionedBudget || 0) / 100000).toFixed(1)}L</p>
+                                <p className="text-3xl font-bold mt-2">{formatCurrency(selectedProject?.sanctionedBudget || 0)}</p>
                             </div>
                             <div className="w-12 h-12 bg-blue-100/50 dark:bg-blue-800/20 rounded-xl flex items-center justify-center">
                                 <Banknote className="w-6 h-6" />
@@ -95,7 +96,7 @@ const FacultyRequestFunds = () => {
                         <div className="flex items-start justify-between">
                             <div>
                                 <p className="text-xs font-bold uppercase tracking-wider opacity-70">Released Amount</p>
-                                <p className="text-3xl font-bold mt-2">₹{(releasedAmount / 100000).toFixed(1)}L</p>
+                                <p className="text-3xl font-bold mt-2">{formatCurrency(releasedAmount)}</p>
                             </div>
                             <div className="w-12 h-12 bg-emerald-100/50 dark:bg-emerald-800/20 rounded-xl flex items-center justify-center">
                                 <CheckCircle className="w-6 h-6" />
@@ -109,7 +110,7 @@ const FacultyRequestFunds = () => {
                         <div className="flex items-start justify-between">
                             <div>
                                 <p className="text-xs font-bold uppercase tracking-wider opacity-70">Remaining Balance</p>
-                                <p className="text-3xl font-bold mt-2">₹{(remainingAmount / 100000).toFixed(1)}L</p>
+                                <p className="text-3xl font-bold mt-2">{formatCurrency(remainingAmount)}</p>
                             </div>
                             <div className="w-12 h-12 bg-amber-100/50 dark:bg-amber-800/20 rounded-xl flex items-center justify-center">
                                 <Wallet className="w-6 h-6" />
@@ -142,7 +143,7 @@ const FacultyRequestFunds = () => {
                                         #{project._id.substring(0, 6)}
                                     </Badge>
                                     <span className="text-[10px] font-bold text-gray-400">
-                                        REM: ₹{(((project.sanctionedBudget || 0) - (project.releasedBudget || 0)) / 100000).toFixed(1)}L
+                                        REM: {formatCurrency((project.sanctionedBudget || 0) - (project.releasedBudget || 0))}
                                     </span>
                                 </div>
                             </button>
@@ -224,7 +225,7 @@ const FacultyRequestFunds = () => {
                                                  <p className="text-[9px] font-bold text-gray-400 tracking-tighter mt-1">{req.purpose}</p>
                                              </td>
                                              <td className="px-8 py-6">
-                                                 <p className="text-sm font-black text-maroon-600 italic">₹{(req.requestedAmount / 100000).toFixed(1)}L</p>
+                                                 <p className="text-sm font-black text-maroon-600 italic">{formatCurrency(req.requestedAmount)}</p>
                                              </td>
                                              <td className="px-8 py-6 text-right">
                                                  <Badge className={`border-0 text-[10px] font-black italic px-3 py-1 rounded-full ${
@@ -339,7 +340,7 @@ const FacultyRequestFunds = () => {
                                 </div>
                                 <div>
                                     <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic mb-1">Financial Target</p>
-                                    <p className="text-2xl font-black italic text-maroon-500 tracking-tighter">₹{selectedRequest.requestedAmount?.toLocaleString()}</p>
+                                    <p className="text-2xl font-black italic text-maroon-500 tracking-tighter">{formatCurrency(selectedRequest.requestedAmount)}</p>
                                     <p className="text-[10px] font-black uppercase text-slate-400 italic mt-1">Submitted: {new Date(selectedRequest.createdAt).toLocaleDateString()}</p>
                                 </div>
                             </div>
