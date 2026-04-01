@@ -1,21 +1,21 @@
 const express = require('express');
+require('express-async-errors');
 const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
 const path = require('path');
+const rateLimit = require('express-rate-limit');
 
 const app = express();
 
 // Middleware
+app.set('trust proxy', 1);
 app.use(helmet());
+
 const corsOptions = {
-    origin: [
-        process.env.FRONTEND_URL,
-        'https://finance-frontend-pxh9.onrender.com',
-        'http://localhost:3000',
-        'http://localhost:10000',
-        'http://127.0.0.1:10000'
-    ].filter(Boolean),
+    origin: process.env.NODE_ENV === 'production' 
+        ? [process.env.FRONTEND_URL, 'https://finance-frontend-pxh9.onrender.com'].filter(Boolean)
+        : ['http://localhost:3000', 'http://localhost:10000', 'http://127.0.0.1:10000'],
     credentials: true,
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
 };
@@ -23,6 +23,15 @@ app.use(cors(corsOptions));
 app.use(morgan('dev'));
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+
+// Rate limiting
+const authLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 20, // Limit each IP to 20 login requests per windowMs
+    message: { success: false, message: 'Too many login attempts, please try again after 15 minutes' },
+    standardHeaders: true,
+    legacyHeaders: false,
+});
 
 // Serve static files (for document uploads)
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
@@ -41,6 +50,7 @@ const profileRoutes = require('./routes/profileRoutes');
 const revenueRoutes = require('./routes/revenueRoutes');
 const financeRoutes = require('./routes/financeRoutes');
 
+app.use('/api/auth/login', authLimiter);
 app.use('/api/auth', authRoutes);
 app.use('/api/projects', projectRoutes);
 app.use('/api/fund-requests', fundRequestRoutes);
@@ -89,11 +99,20 @@ app.get('/test-db', async (req, res) => {
 
 // Error handling middleware
 app.use((err, req, res, next) => {
-    console.error(err.stack);
-    res.status(500).json({
+    // Log error for developers
+    console.error(`[ERROR] ${req.method} ${req.url}:`, err.message);
+    if (process.env.NODE_ENV === 'development') {
+        console.error(err.stack);
+    }
+
+    // Default error status and message
+    const status = err.status || err.statusCode || 500;
+    const message = err.message || 'Internal Server Error';
+
+    res.status(status).json({
         success: false,
-        message: 'Internal Server Error',
-        error: process.env.NODE_ENV === 'development' ? err.message : undefined
+        message: message,
+        error: process.env.NODE_ENV === 'development' ? err : undefined
     });
 });
 

@@ -1,5 +1,6 @@
 const ODRequest = require('../models/ODRequest');
 const AcademicMetric = require('../models/AcademicMetric');
+const { Op } = require('sequelize');
 
 exports.createODRequest = async (req, res) => {
     try {
@@ -12,6 +13,24 @@ exports.createODRequest = async (req, res) => {
             return res.status(400).json({ 
                 success: false, 
                 message: 'On-Duty requests must be submitted at least one day in advance. Same-day applications are not permitted.' 
+            });
+        }
+
+        // Idempotency check: prevent duplicate requests within 5 minutes
+        const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+        const duplicate = await ODRequest.findOne({
+            where: {
+                facultyId: req.user.id || req.user._id,
+                odType: req.body.type,
+                startDate: req.body.startDate,
+                createdAt: { [Op.gte]: fiveMinutesAgo }
+            }
+        });
+
+        if (duplicate) {
+            return res.status(400).json({ 
+                success: false, 
+                message: 'A duplicate OD request was already submitted in the last 5 minutes. Please wait.' 
             });
         }
 

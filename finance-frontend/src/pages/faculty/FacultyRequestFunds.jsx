@@ -30,6 +30,7 @@ const FacultyRequestFunds = () => {
     const [requestMode, setRequestMode] = useState('RELEASE');
     const [selectedRequest, setSelectedRequest] = useState(null);
     const [showDetailsModal, setShowDetailsModal] = useState(false);
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
     useEffect(() => {
         if (projects?.length > 0 && !selectedProjectId) {
@@ -253,6 +254,7 @@ const FacultyRequestFunds = () => {
                     maxClaimableAmount={remainingAmount}
                     onSubmit={async (data) => {
                         try {
+                            setIsSubmitting(true);
                             await createRequest({
                                 projectTitle: selectedProject.title,
                                 projectRef: selectedProject._id,
@@ -267,16 +269,12 @@ const FacultyRequestFunds = () => {
                                 message: `Fund Request for ${selectedProject.title}`,
                                 actionUrl: '/admin/fund-requests'
                             });
-                            addNotification({
-                                role: 'FACULTY',
-                                type: 'success',
-                                message: `Successfully pushed fund request for Admin Audit.`
-                            });
                             
                             setIsModalOpen(false);
                         } catch (err) {
-                            const errMsg = err.response?.data?.message || err.message || JSON.stringify(err);
-                            alert(`Request submission failed: ${errMsg}`);
+                            console.error(err);
+                        } finally {
+                            setIsSubmitting(false);
                         }
                     }}
                 />
@@ -287,6 +285,7 @@ const FacultyRequestFunds = () => {
                 onClose={() => setIsModalOpen(false)}
                 onSubmit={async (data) => {
                     try {
+                        setIsSubmitting(true);
                         await createRequest({
                             projectTitle: data.title,
                             requestedAmount: data.amount,
@@ -300,16 +299,12 @@ const FacultyRequestFunds = () => {
                             message: `New Grant Request for ${data.title}`,
                             actionUrl: '/admin/fund-requests'
                         });
-                        addNotification({
-                            role: 'FACULTY',
-                            type: 'success',
-                            message: `Successfully requested new grant. Pending review.`
-                        });
                         
                         setIsModalOpen(false);
                     } catch (err) {
-                        const errMsg = err.response?.data?.message || err.message || JSON.stringify(err);
-                        alert(`Request submission failed: ${errMsg}`);
+                        console.error(err);
+                    } finally {
+                        setIsSubmitting(false);
                     }
                 }}
             />

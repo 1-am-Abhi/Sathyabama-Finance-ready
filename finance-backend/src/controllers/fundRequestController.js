@@ -35,7 +35,24 @@ exports.getFundRequest = async (req, res) => {
 
 exports.createFundRequest = async (req, res) => {
     try {
-        console.log('Creating Fund Request. User:', req.user.name, 'Role:', req.user.role);
+        // Idempotency check: prevent duplicate requests within 5 minutes
+        const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+        const duplicate = await FundRequest.findOne({
+            where: {
+                facultyId: req.user.id || req.user._id,
+                projectTitle: req.body.projectTitle,
+                requestedAmount: req.body.requestedAmount,
+                createdAt: { [Op.gte]: fiveMinutesAgo }
+            }
+        });
+
+        if (duplicate) {
+            return res.status(400).json({ 
+                success: false, 
+                message: 'A duplicate request was already submitted in the last 5 minutes. Please wait.' 
+            });
+        }
+
         const requestData = {
             ...req.body,
             faculty: req.user.name || 'Faculty Member',

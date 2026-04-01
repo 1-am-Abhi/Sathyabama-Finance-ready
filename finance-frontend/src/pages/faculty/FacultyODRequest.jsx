@@ -145,7 +145,6 @@ const FacultyODRequest = () => {
                 setDays(0);
                 setPurpose('');
                 setIsFullDay(true);
-                alert('OD Request Submitted Successfully');
                 
                 // Notify Admin
                 addNotification({
@@ -157,8 +156,6 @@ const FacultyODRequest = () => {
             }
         } catch (err) {
             console.error(err);
-            const errMsg = err.response?.data?.message || err.message || JSON.stringify(err);
-            alert(`Submission Error: ${errMsg}`);
         } finally {
             setIsSubmitting(false);
         }
@@ -309,7 +306,7 @@ const FacultyODRequest = () => {
                                 <Textarea value={purpose} onChange={(e) => setPurpose(e.target.value)} placeholder="Describe the purpose of your OD..." className="min-h-[140px] bg-gray-50 border-0 rounded-[2rem] p-6 font-bold text-slate-800 italic" required />
                             </div>
                             <div className="flex justify-end pt-4">
-                                <Button className="h-16 px-12 bg-maroon-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest italic shadow-xl shadow-maroon-600/20 hover:scale-105 transition-all">
+                                <Button disabled={isSubmitting} className="h-16 px-12 bg-maroon-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest italic shadow-xl shadow-maroon-600/20 hover:scale-105 transition-all">
                                     {isSubmitting ? 'Submitting...' : 'Submit Request'}
                                 </Button>
                             </div>

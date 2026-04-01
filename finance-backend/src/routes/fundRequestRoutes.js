@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const fundRequestController = require('../controllers/fundRequestController');
 const { protect, authorize } = require('../middleware/authMiddleware');
+const { validate, fundRequestSchema } = require('../utils/validation');
 
 router.use(protect); // All routes protected
 
@@ -9,7 +10,7 @@ router.get('/', fundRequestController.getFundRequests);
 router.get('/:id', fundRequestController.getFundRequest);
 
 // Only FACULTY can submit requests
-router.post('/', authorize('FACULTY'), fundRequestController.createFundRequest);
+router.post('/', authorize('FACULTY'), validate(fundRequestSchema), fundRequestController.createFundRequest);
 
 // Only ADMIN can approve/reject initial request
 router.put('/:id/approve', authorize('ADMIN'), fundRequestController.approveFundRequest);

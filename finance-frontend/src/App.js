@@ -5,6 +5,7 @@ import { ProjectProvider } from './contexts/ProjectContext';
 import { PipelineProvider } from './contexts/PipelineContext';
 import { AuthProvider } from './contexts/AuthContext';
 import { NotificationProvider } from './contexts/NotificationContext';
+import { Toaster } from 'sonner';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -30,6 +31,7 @@ function App() {
 
   return (
     <QueryClientProvider client={queryClient}>
+      <Toaster position="top-right" richColors />
       <AuthProvider>
         <NotificationProvider>
           <ProjectProvider>

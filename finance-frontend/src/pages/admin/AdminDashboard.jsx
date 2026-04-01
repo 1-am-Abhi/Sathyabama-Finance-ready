@@ -458,6 +458,24 @@ const AdminDashboard = () => {
                         <p className="text-xs mt-4 opacity-70">Across institutional centres</p>
                     </CardContent>
                 </Card>
+
+                <Card className="h-full border-0 bg-slate-900 text-emerald-400 transition-all duration-300 hover:shadow-lg lg:col-span-1 hidden lg:flex">
+                    <CardContent className="p-6 h-full flex flex-col justify-between">
+                        <div className="flex items-start justify-between">
+                            <div>
+                                <p className="text-[10px] font-black uppercase tracking-widest opacity-60 italic">System Integrity</p>
+                                <p className="text-2xl font-black mt-2 italic tracking-tighter uppercase">Protected</p>
+                            </div>
+                            <div className="w-12 h-12 bg-emerald-500/10 border border-emerald-500/20 rounded-xl flex items-center justify-center">
+                                <Activity className="w-6 h-6" />
+                            </div>
+                        </div>
+                        <div className="flex items-center gap-2 mt-4">
+                            <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></div>
+                            <p className="text-[10px] font-black uppercase tracking-widest italic opacity-70">Zod Validation Active</p>
+                        </div>
+                    </CardContent>
+                </Card>
             </div>
 
             {/* Quick Actions */}
@@ -589,28 +607,47 @@ const AdminDashboard = () => {
                 </Card>
             </div>
 
-            {/* Recent Live Fund Requests */}
-            <Card className="border-0 shadow-sm mt-12 mb-8 dark:bg-slate-900 font-medium">
+            {/* Administrative Audit Trail */}
+            <Card className="border-0 shadow-sm mt-8 mb-8 dark:bg-slate-900">
                 <CardHeader className="border-b bg-gray-50 dark:bg-slate-800/50 dark:border-slate-800 flex flex-row items-center justify-between">
                     <div>
-                        <CardTitle className="text-lg font-semibold">Recent Fund Requests</CardTitle>
-                        <CardDescription>Latest live database records</CardDescription>
+                        <CardTitle className="text-lg font-black italic tracking-tighter uppercase">Administrative Audit Trail</CardTitle>
+                        <CardDescription className="text-[10px] font-black uppercase tracking-widest italic">Successive state transformations and approval history</CardDescription>
                     </div>
+                    <Badge variant="outline" className="border-indigo-200 text-indigo-600 font-bold uppercase italic text-[10px]">immutable logs</Badge>
                 </CardHeader>
                 <CardContent className="p-0">
                     <Table>
-                        <TableHeader><TableRow><TableHead>Project</TableHead><TableHead>Faculty</TableHead><TableHead>Amount</TableHead><TableHead>Status</TableHead><TableHead>Cheque</TableHead></TableRow></TableHeader>
+                        <TableHeader>
+                            <TableRow className="text-[10px] uppercase font-black italic tracking-widest opacity-60">
+                                <TableHead className="pl-8">Action Taken</TableHead>
+                                <TableHead>Executor</TableHead>
+                                <TableHead>Timestamp</TableHead>
+                                <TableHead className="pr-8 text-right">Remarks</TableHead>
+                            </TableRow>
+                        </TableHeader>
                         <TableBody>
-                            {recentRequests.length > 0 ? recentRequests.map((req) => (
-                                <TableRow key={req._id} className="cursor-pointer hover:bg-gray-50 dark:hover:bg-slate-800/50" onClick={() => setSelectedProject(req)}>
-                                    <TableCell className="font-semibold">{req.projectTitle}</TableCell>
-                                    <TableCell className="text-sm">{req.faculty}</TableCell>
-                                    <TableCell className="font-bold">₹{(req.requestedAmount / 100000).toFixed(1)}L</TableCell>
-                                    <TableCell><Badge className={req.status === 'APPROVED' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}>{req.status}</Badge></TableCell>
-                                    <TableCell><Badge variant="outline" className="border-indigo-200 text-indigo-600">{req.chequeStatus}</Badge></TableCell>
-                                </TableRow>
-                            )) : (
-                                <TableRow><TableCell colSpan={5} className="text-center py-10 opacity-50 italic">No recent fund requests found in database.</TableCell></TableRow>
+                            {recentRequests.flatMap(req => (req.auditTrail || []).map((log, idx) => ({ ...log, project: req.projectTitle, id: `${req._id}-${idx}` }))).length > 0 ? (
+                                recentRequests.flatMap(req => (req.auditTrail || []).map((log, idx) => ({ ...log, project: req.projectTitle, id: `${req._id}-${idx}` })))
+                                    .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
+                                    .slice(0, 10)
+                                    .map((log) => (
+                                        <TableRow key={log.id} className="text-xs">
+                                            <TableCell className="pl-8 py-4">
+                                                <div className="flex flex-col">
+                                                    <span className="font-black italic uppercase text-slate-800 dark:text-white truncate max-w-[200px]">{log.project}</span>
+                                                    <span className="text-[9px] font-bold text-indigo-500 uppercase italic mt-0.5">{log.stage}</span>
+                                                </div>
+                                            </TableCell>
+                                            <TableCell className="font-bold italic uppercase text-slate-600 dark:text-slate-400">{log.updatedByName || 'SYSTEM'}</TableCell>
+                                            <TableCell className="text-[10px] font-bold text-gray-400 italic">
+                                                {new Date(log.timestamp).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}
+                                            </TableCell>
+                                            <TableCell className="pr-8 text-right italic font-medium text-gray-500 truncate max-w-[250px]">{log.remarks}</TableCell>
+                                        </TableRow>
+                                    ))
+                            ) : (
+                                <TableRow><TableCell colSpan={4} className="text-center py-10 opacity-30 italic">No administrative logs currently synchronized.</TableCell></TableRow>
                             )}
                         </TableBody>
                     </Table>
