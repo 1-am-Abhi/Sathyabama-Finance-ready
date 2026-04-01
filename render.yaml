@@ -20,10 +20,15 @@ services:
 
   - type: web
     name: finance-frontend
+    plan: free
     runtime: static
     rootDir: finance-frontend
     buildCommand: npm install && npm run build
     staticPublishPath: build
+    routes:
+      - source: /*
+        destination: /index.html
+        type: rewrite
     envVars:
       - key: REACT_APP_API_URL
         value: https://finance-api-x1ig.onrender.com/api
