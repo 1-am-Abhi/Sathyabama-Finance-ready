@@ -61,7 +61,7 @@ exports.createFundRequest = async (req, res) => {
             purpose: req.body.purpose,
             department: req.user.department || 'RESEARCH',
             centre: req.user.centre || 'Research Centre',
-            source: req.body.source || 'PFMS'
+            source: (req.body.source || 'PFMS').toUpperCase().replace(/ /g, '_')
         };
         const request = await FundRequest.create(requestData);
         res.status(201).json({ success: true, data: request });
