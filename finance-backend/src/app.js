@@ -13,7 +13,8 @@ const corsOptions = {
         process.env.FRONTEND_URL,
         'https://finance-frontend-pxh9.onrender.com',
         'http://localhost:3000',
-        'http://localhost:10000'
+        'http://localhost:10000',
+        'http://127.0.0.1:10000'
     ].filter(Boolean),
     credentials: true,
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',

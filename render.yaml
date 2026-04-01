@@ -8,7 +8,7 @@ services:
     startCommand: npm start
     envVars:
       - key: DATABASE_URL
-        sync: false # Set manually in Render Dashboard
+        value: postgresql://college_project_db_user:fTR9h0ig5rFLiNPJg4IJoHzRB3LZ71z1@dpg-d76cnrn5r7bs73c42emg-a.singapore-postgres.render.com/college_project_db
       - key: JWT_SECRET
         generateValue: true
       - key: NODE_ENV
