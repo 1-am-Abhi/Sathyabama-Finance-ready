@@ -89,4 +89,17 @@ const EventRequest = sequelize.define('EventRequest', {
     }
 });
 
+const ProjectMember = require('./ProjectMember');
+const User = require('./User');
+const { FundRequest } = require('./FundRequest');
+
+EventRequest.hasMany(ProjectMember, { foreignKey: 'projectId', as: 'members', constraints: false, scope: { [DataTypes.STRING]: 'EVENT' } }); 
+// Note: We'll use projectId in ProjectMember to store eventId, or just treat Event as a Project type.
+// For now, let's just use the same ProjectMember but differentiate in controllers if needed.
+// A better way is polymorphic or just reuse the field as resourceId.
+// For the purpose of this task, I will treat EventRequest._id as a valid projectId for ProjectMember.
+
+EventRequest.hasMany(ProjectMember, { foreignKey: 'projectId', as: 'members' });
+ProjectMember.belongsTo(EventRequest, { foreignKey: 'projectId', constraints: false });
+
 module.exports = EventRequest;

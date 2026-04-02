@@ -24,6 +24,7 @@ const FacultyDashboard = () => {
 
     // Real data
     const [projects, setProjects] = useState([]);
+    const [events, setEvents] = useState([]);
     const [fundRequests, setFundRequests] = useState([]);
     const [revenueSummary, setRevenueSummary] = useState({ total: 0 });
     const [loading, setLoading] = useState(true);
@@ -36,12 +37,14 @@ const FacultyDashboard = () => {
     const loadData = async () => {
         try {
             const currentYear = new Date().getFullYear();
-            const [projRes, fundRes, revRes] = await Promise.all([
+            const [projRes, eventRes, fundRes, revRes] = await Promise.all([
                 apiClient.get('/projects').catch(() => ({ data: { data: [] } })),
+                apiClient.get('/event-requests').catch(() => ({ data: { data: [] } })),
                 apiClient.get('/fund-requests').catch(() => ({ data: { data: [] } })),
                 apiClient.get(`/revenue/summary?year=${currentYear}`).catch(() => ({ data: { success: true, data: { summary: { total: 0 } } } })),
             ]);
             setProjects(projRes.data.data || []);
+            setEvents(eventRes.data.data || []);
             setFundRequests(fundRes.data.data || []);
             if (revRes.data.success) {
                 setRevenueSummary(revRes.data.data.summary || { total: 0 });
@@ -58,7 +61,9 @@ const FacultyDashboard = () => {
         (p.projectType || '').toUpperCase() === 'PUBLICATION' || 
         (p.status || '').toUpperCase() === 'PUBLISHED'
     ).length;
-    const totalFunding = projects.reduce((sum, p) => sum + parseFloat(p.sanctionedBudget || 0), 0);
+    const totalProjectFunding = projects.reduce((sum, p) => sum + parseFloat(p.sanctionedBudget || 0), 0);
+    const totalEventFunding = events.filter(e => e.status === 'APPROVED').reduce((sum, e) => sum + parseFloat(e.approvedAmount || 0), 0);
+    const totalFunding = totalProjectFunding + totalEventFunding;
     const formattedFunding = formatCurrency(totalFunding);
     const formattedRevenue = formatCurrency(revenueSummary.total || 0);
 
@@ -79,6 +84,16 @@ const FacultyDashboard = () => {
             const amt = parseFloat(r.sanctionedBudget || r.budget || 0) / 100000;
             trendData[mIdx].amount += amt;
             if (amt > 0) trendData[mIdx].titles.push(r.title);
+        }
+    });
+    // Include approved events in funding trend
+    events.filter(e => e.status === 'APPROVED').forEach(e => {
+        const d = e.createdAt ? new Date(e.createdAt) : null;
+        if (d) {
+            const mIdx = d.getMonth();
+            const amt = parseFloat(e.approvedAmount || 0) / 100000;
+            trendData[mIdx].amount += amt;
+            if (amt > 0) trendData[mIdx].titles.push(`Event: ${e.eventTitle}`);
         }
     });
     // Also include fund requests that have been approved

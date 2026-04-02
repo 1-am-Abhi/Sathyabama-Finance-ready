@@ -317,8 +317,15 @@ const FacultyEventRequests = () => {
                                         <p className="text-[10px] font-black uppercase text-gray-400 tracking-wider mt-0.5">{req.dates} • {req.participants} PAX</p>
                                     </td>
                                     <td className="px-8 py-6">
-                                        <p className="font-bold text-sm italic text-maroon-600 line-clamp-1">₹{parseInt(req.requestedAmount || 0).toLocaleString()}</p>
-                                        <p className="text-[9px] font-black uppercase text-gray-400 tracking-wider mt-1">{req.fundingType}</p>
+                                        <div className="flex items-center gap-1 mb-1">
+                                            <p className="font-bold text-sm italic text-maroon-600 line-clamp-1">
+                                                ₹{parseInt(req.status === 'APPROVED' ? (req.approvedAmount || req.requestedAmount) : req.requestedAmount || 0).toLocaleString()}
+                                            </p>
+                                            {req.status === 'APPROVED' && req.approvedAmount !== req.requestedAmount && (
+                                                <Badge className="bg-amber-500/10 text-amber-500 border-0 text-[8px] h-4">Sanctioned</Badge>
+                                            )}
+                                        </div>
+                                        <p className="text-[9px] font-black uppercase text-gray-400 tracking-wider">{req.fundingType}</p>
                                     </td>
                                     <td className="px-8 py-6 text-right">
                                         <Badge variant="outline" className={`border-0 text-[10px] font-black italic uppercase tracking-widest px-4 py-1.5 shadow-sm mb-2 inline-block
@@ -426,6 +433,31 @@ const FacultyEventRequests = () => {
                                     <div className="flex items-center gap-2 mt-2">
                                         <Briefcase className="w-4 h-4 text-emerald-500" />
                                         <p className="text-[10px] font-black uppercase text-slate-400 italic tracking-widest">{selectedRequest.fundingType} ({selectedRequest.fundingSource})</p>
+                                    </div>
+                                </div>
+                                <div className="p-4 bg-indigo-500/5 border border-indigo-500/10 rounded-2xl mb-4">
+                                    <p className="text-[10px] font-black uppercase tracking-widest text-indigo-400 italic mb-2 flex items-center gap-1">
+                                        <Users className="w-3 h-3" /> Research Team
+                                    </p>
+                                    <div className="space-y-2">
+                                        {selectedRequest.members && selectedRequest.members.length > 0 ? (
+                                            selectedRequest.members.map((member, idx) => (
+                                                <div key={idx} className="flex items-center justify-between">
+                                                    <div className="flex flex-col">
+                                                        <span className="text-xs text-white font-bold">{member.user?.name || 'Unknown Faculty'}</span>
+                                                        <span className="text-[9px] text-slate-500 uppercase">{member.user?.centre}</span>
+                                                    </div>
+                                                    <Badge className={`text-[8px] font-black uppercase tracking-widest ${member.role === 'PI' ? 'bg-blue-600 text-white' : 'bg-slate-800 text-slate-400 border-slate-700'}`}>
+                                                        {member.role || 'Member'}
+                                                    </Badge>
+                                                </div>
+                                            ))
+                                        ) : (
+                                            <div className="flex items-center justify-between">
+                                                <span className="text-xs text-white font-bold">{selectedRequest.facultyName}</span>
+                                                <Badge className="text-[8px] bg-blue-600 text-white uppercase italic">Lead Faculty</Badge>
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                                 {selectedRequest.remarks && (

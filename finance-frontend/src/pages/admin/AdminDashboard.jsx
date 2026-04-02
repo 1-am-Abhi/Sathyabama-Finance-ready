@@ -98,29 +98,28 @@ const AdminDashboard = () => {
     }, [stats]);
 
     const pfmsChartData = React.useMemo(() => [
-        { name: 'Consumed', value: totalStats.totalDisbursed, color: '#6366f1' }, 
-        { name: 'Balance', value: Math.max(0, totalStats.totalBudget - totalStats.totalDisbursed), color: '#22c55e' }
-    ], [totalStats]);
+        { name: 'Consumed', value: stats?.pfmsStats?.consumed || 0, color: '#6366f1' }, 
+        { name: 'Balance', value: stats?.pfmsStats?.balance || 0, color: '#22c55e' }
+    ], [stats]);
 
     const institutionalChartData = React.useMemo(() => [
-        { name: 'Utilized', value: totalStats.totalDisbursed * 0.3, color: '#f59e0b' },
-        { name: 'Balance', value: Math.max(0, totalStats.totalBudget * 0.3 - totalStats.totalDisbursed * 0.3), color: '#0ea5e9' }
-    ], [totalStats]);
+        { name: 'Utilized', value: stats?.institutionalStats?.consumed || 0, color: '#f59e0b' },
+        { name: 'Balance', value: stats?.institutionalStats?.balance || 0, color: '#0ea5e9' }
+    ], [stats]);
 
     // Mapping API data to UI structure
     const centreData = React.useMemo(() => {
         return centres.map(name => {
             const centreStat = (centresStats || []).find(c => c.name === name);
-            const count = centreStat ? parseInt(centreStat.count) : 0;
             return {
                 centre: name,
-                totalProjects: count,
-                activeProjects: count,
-                completedProjects: 0,
+                totalProjects: centreStat?.totalProjects || 0,
+                activeProjects: centreStat?.activeProjects || 0,
+                completedProjects: 0, // Backend doesn't currently provide separate completed count per center
                 pendingApproval: 0,
-                totalBudget: count * 10000000, 
-                disbursed: count * 2000000,    
-                faculty: 12 
+                totalBudget: centreStat?.totalBudget || 0,
+                disbursed: centreStat?.disbursed || 0,
+                faculty: 12 // Placeholder for faculty count per center if needed
             };
         });
     }, [centres, centresStats]);
@@ -148,16 +147,19 @@ const AdminDashboard = () => {
             ]
     , [centreData, filteredData, selectedCentre]);
 
-    const pieData = React.useMemo(() => selectedCentre === 'ALL'
-        ? centreData.map(c => ({
-            name: c.centre,
-            value: Number(c.totalProjects) || 0
-        }))
-        : [
-            { name: 'Government Funded', value: Math.max(1, Math.round((filteredData[0]?.totalProjects || 0) * 0.65)) },
-            { name: 'Institutional', value: Math.max(0, Math.round((filteredData[0]?.totalProjects || 0) * 0.25)) },
-            { name: 'Industry Sponsored', value: Math.max(0, Math.round((filteredData[0]?.totalProjects || 0) * 0.10)) },
-        ], [filteredData, selectedCentre, centreData]);
+    const pieData = React.useMemo(() => {
+        const data = selectedCentre === 'ALL'
+            ? centreData.map(c => ({
+                name: c.centre,
+                value: Number(c.totalProjects) || 0
+            }))
+            : [
+                { name: 'Government Funded', value: Math.max(1, Math.round((filteredData[0]?.totalProjects || 0) * 0.65)) },
+                { name: 'Institutional', value: Math.max(0, Math.round((filteredData[0]?.totalProjects || 0) * 0.25)) },
+                { name: 'Industry Sponsored', value: Math.max(0, Math.round((filteredData[0]?.totalProjects || 0) * 0.10)) },
+            ];
+        return data.filter(item => item.value > 0);
+    }, [filteredData, selectedCentre, centreData]);
 
     const totalProjectsOverall = React.useMemo(() =>
         centreData.reduce((sum, c) => sum + (Number(c.totalProjects) || 0), 0)
@@ -302,30 +304,30 @@ const AdminDashboard = () => {
                                 <div className="grid grid-cols-2 gap-4">
                                     <div className="bg-gray-50 dark:bg-slate-800/50 p-3 rounded-lg border border-gray-100 dark:border-slate-800">
                                         <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Sanctioned Amount</p>
-                                        <p className="text-lg font-bold text-gray-800 dark:text-white">₹{(totalStats.totalBudget / 10000000).toFixed(2)} Cr</p>
+                                        <p className="text-lg font-bold text-gray-800 dark:text-white">₹{( (stats?.pfmsStats?.allotted || 0) / 10000000).toFixed(2)} Cr</p>
                                     </div>
                                     <div className="bg-gray-50 dark:bg-slate-800/50 p-3 rounded-lg border border-gray-100 dark:border-slate-800">
                                         <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Rec. in Account</p>
-                                        <p className="text-lg font-bold text-indigo-600 dark:text-indigo-400">₹{(totalStats.totalBudget / 10000000).toFixed(2)} Cr</p>
+                                        <p className="text-lg font-bold text-indigo-600 dark:text-indigo-400">₹{( (stats?.pfmsStats?.allotted || 0) / 10000000).toFixed(2)} Cr</p>
                                     </div>
                                 </div>
                                 <div className="space-y-3 pt-2">
                                     <div>
                                         <div className="flex justify-between text-sm mb-1">
                                             <span className="text-gray-600 dark:text-gray-300">Consumed</span>
-                                            <span className="font-semibold text-gray-900 dark:text-white">₹{(totalStats.totalDisbursed / 10000000).toFixed(2)} Cr</span>
+                                            <span className="font-semibold text-gray-900 dark:text-white">₹{( (stats?.pfmsStats?.consumed || 0) / 10000000).toFixed(2)} Cr</span>
                                         </div>
                                         <div className="w-full bg-gray-200 dark:bg-slate-700 rounded-full h-2">
-                                            <div className="bg-indigo-500 h-2 rounded-full" style={{ width: `${totalStats.totalBudget > 0 ? (totalStats.totalDisbursed / totalStats.totalBudget) * 100 : 0}%` }}></div>
+                                            <div className="bg-indigo-500 h-2 rounded-full" style={{ width: `${ (stats?.pfmsStats?.allotted || 0) > 0 ? ( (stats?.pfmsStats?.consumed || 0) / stats?.pfmsStats?.allotted) * 100 : 0}%` }}></div>
                                         </div>
                                     </div>
                                     <div>
                                         <div className="flex justify-between text-sm mb-1">
                                             <span className="text-gray-600 dark:text-gray-300">Balance</span>
-                                            <span className="font-semibold text-green-600 dark:text-green-400">₹{((totalStats.totalBudget - totalStats.totalDisbursed) / 10000000).toFixed(2)} Cr</span>
+                                            <span className="font-semibold text-green-600 dark:text-green-400">₹{( (stats?.pfmsStats?.balance || 0) / 10000000).toFixed(2)} Cr</span>
                                         </div>
                                         <div className="w-full bg-gray-200 dark:bg-slate-700 rounded-full h-2">
-                                            <div className="bg-green-500 h-2 rounded-full" style={{ width: `${totalStats.totalBudget > 0 ? ((totalStats.totalBudget - totalStats.totalDisbursed) / totalStats.totalBudget) * 100 : 0}%` }}></div>
+                                            <div className="bg-green-500 h-2 rounded-full" style={{ width: `${ (stats?.pfmsStats?.allotted || 0) > 0 ? ( (stats?.pfmsStats?.balance || 0) / stats?.pfmsStats?.allotted) * 100 : 0}%` }}></div>
                                         </div>
                                     </div>
                                 </div>
@@ -369,22 +371,22 @@ const AdminDashboard = () => {
                             <div className="flex-1 space-y-4 w-full">
                                 <div className="bg-gray-50 dark:bg-slate-800/50 p-3 rounded-lg border border-gray-100 dark:border-slate-800 flex justify-between items-center">
                                     <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Total Allocated</p>
-                                    <p className="text-lg font-bold text-amber-600 dark:text-amber-400">₹{(totalStats.totalBudget * 0.3 / 10000000).toFixed(2)} Cr</p>
+                                    <p className="text-lg font-bold text-amber-600 dark:text-amber-400">₹{( (stats?.institutionalStats?.allotted || 0) / 10000000).toFixed(2)} Cr</p>
                                 </div>
                                 <div className="space-y-4 pt-1">
                                     <div>
                                         <div className="flex justify-between text-sm mb-1">
                                             <span className="text-gray-600 dark:text-gray-300">Utilized Amount</span>
-                                            <span className="font-semibold text-gray-900 dark:text-white">₹{(totalStats.totalDisbursed * 0.3 / 10000000).toFixed(2)} Cr</span>
+                                            <span className="font-semibold text-gray-900 dark:text-white">₹{( (stats?.institutionalStats?.consumed || 0) / 10000000).toFixed(2)} Cr</span>
                                         </div>
                                         <div className="w-full bg-gray-200 dark:bg-slate-700 rounded-full h-2">
-                                            <div className="bg-amber-500 h-2 rounded-full" style={{ width: `${totalStats.totalBudget > 0 ? (totalStats.totalDisbursed / totalStats.totalBudget) * 100 : 0}%` }}></div>
+                                            <div className="bg-amber-500 h-2 rounded-full" style={{ width: `${ (stats?.institutionalStats?.allotted || 0) > 0 ? ( (stats?.institutionalStats?.consumed || 0) / stats?.institutionalStats?.allotted) * 100 : 0}%` }}></div>
                                         </div>
-                                        <p className="text-xs text-right mt-1 text-gray-500">{totalStats.totalBudget > 0 ? ((totalStats.totalDisbursed / totalStats.totalBudget) * 100).toFixed(1) : 0}% Used</p>
+                                        <p className="text-xs text-right mt-1 text-gray-500">{ (stats?.institutionalStats?.allotted || 0) > 0 ? ( (stats?.institutionalStats?.consumed || 0) / stats?.institutionalStats?.allotted * 100).toFixed(1) : 0}% Used</p>
                                     </div>
                                     <div className="flex items-center justify-between pt-2 border-t border-gray-100 dark:border-slate-800">
                                         <span className="text-sm font-medium text-gray-500 dark:text-gray-400">Balance Available</span>
-                                        <span className="text-lg font-bold text-sky-600 dark:text-sky-400">₹{((totalStats.totalBudget * 0.3 - totalStats.totalDisbursed * 0.3) / 10000000).toFixed(2)} Cr</span>
+                                        <span className="text-lg font-bold text-sky-600 dark:text-sky-400">₹{( (stats?.institutionalStats?.balance || 0) / 10000000).toFixed(2)} Cr</span>
                                     </div>
                                 </div>
                             </div>

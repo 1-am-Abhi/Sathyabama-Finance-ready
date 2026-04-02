@@ -2,6 +2,7 @@ const Project = require('../models/Project');
 const User = require('../models/User');
 const ProjectMember = require('../models/ProjectMember');
 const { FundRequest } = require('../models/FundRequest');
+const EventRequest = require('../models/EventRequest');
 const { Op } = require('sequelize');
 
 exports.getAdminStats = async (req, res) => {
@@ -10,20 +11,88 @@ exports.getAdminStats = async (req, res) => {
         const activeProjects = await Project.count({ where: { status: 'ACTIVE' } });
         const pendingApprovals = await Project.count({ where: { status: 'PENDING' } });
         
-        // Sums
-        const totalBudgetResult = await Project.sum('sanctionedBudget') || 0;
-        // Disbursed = fund requests where cheque has been issued/amount disbursed
-        const totalDisbursedResult = await FundRequest.sum('requestedAmount', { 
-            where: { chequeStatus: 'Disbursed' } 
+        // --- PFMS (Government) Funding ---
+        const pfmsBudget = await Project.sum('sanctionedBudget', { where: { fundingSource: 'PFMS' } }) || 0;
+        const pfmsDisbursed = await FundRequest.sum('requestedAmount', { 
+            where: { source: 'PFMS', chequeStatus: 'Disbursed' } 
+        }) || 0;
+
+        // --- Institutional Funding (Seed Money + Director's Innovation + Approved Events) ---
+        const projectInstitutionalBudget = await Project.sum('sanctionedBudget', { 
+            where: { fundingSource: { [Op.in]: ['INSTITUTIONAL', 'DIRECTOR_INNOVATION', 'DIRECTOR_INNOVATION_FUND'] } } 
         }) || 0;
         
+        const approvedEventBudget = await EventRequest.sum('approvedAmount', { 
+            where: { status: 'APPROVED', fundingType: 'College Funded' } 
+        }) || 0;
+
+        const institutionalBudgetTotal = projectInstitutionalBudget + approvedEventBudget;
+        
+        const institutionalDisbursed = await FundRequest.sum('requestedAmount', { 
+            where: { source: 'DIRECTOR_INNOVATION', chequeStatus: 'Disbursed' } 
+        }) || 0;
+
         const totalFaculty = await User.count({ where: { role: 'FACULTY' } });
 
-        // Centre-wise distribution
-        const centres = await Project.findAll({
-            attributes: ['centre', [Project.sequelize.fn('COUNT', Project.sequelize.col('_id')), 'count']],
+        // --- Centre-wise Distribution Metrics ---
+        // 1. Projects and Budgets per Centre
+        const projectCentres = await Project.findAll({
+            attributes: [
+                'centre',
+                [Project.sequelize.fn('COUNT', Project.sequelize.col('_id')), 'totalProjects'],
+                [Project.sequelize.literal(`COUNT(CASE WHEN status IN ('ACTIVE', 'Active', 'Approved', 'APPROVED') THEN 1 END)`), 'activeProjects'],
+                [Project.sequelize.fn('SUM', Project.sequelize.col('sanctionedBudget')), 'projectBudget']
+            ],
             group: ['centre']
         });
+
+        // 2. Event Budgets per Centre
+        const eventCentres = await EventRequest.findAll({
+             attributes: [
+                 'researchCentre',
+                 [EventRequest.sequelize.fn('SUM', EventRequest.sequelize.col('approvedAmount')), 'eventBudget']
+             ],
+             where: { status: 'APPROVED', fundingType: 'College Funded' },
+             group: ['researchCentre']
+        });
+
+        // 3. Disbursements per Centre (from FundRequests)
+        const disbursementCentres = await FundRequest.findAll({
+            attributes: [
+                'centre',
+                [FundRequest.sequelize.fn('SUM', FundRequest.sequelize.col('requestedAmount')), 'disbursed']
+            ],
+            where: { chequeStatus: 'Disbursed' },
+            group: ['centre']
+        });
+
+        // --- Merge results by Centre Name ---
+        const centreStatsMap = {};
+
+        projectCentres.forEach(c => {
+            const name = (c.centre || 'General').trim();
+            if (!centreStatsMap[name]) centreStatsMap[name] = { totalProjects: 0, activeProjects: 0, totalBudget: 0, disbursed: 0 };
+            centreStatsMap[name].totalProjects += parseInt(c.get('totalProjects')) || 0;
+            centreStatsMap[name].activeProjects += parseInt(c.get('activeProjects')) || 0;
+            centreStatsMap[name].totalBudget += parseFloat(c.get('projectBudget')) || 0;
+        });
+
+        eventCentres.forEach(e => {
+            const name = (e.researchCentre || 'General').trim();
+            if (!centreStatsMap[name]) centreStatsMap[name] = { totalProjects: 0, activeProjects: 0, totalBudget: 0, disbursed: 0 };
+            centreStatsMap[name].totalBudget += parseFloat(e.get('eventBudget')) || 0;
+        });
+
+        disbursementCentres.forEach(d => {
+            const name = (d.centre || 'General').trim();
+            if (!centreStatsMap[name]) centreStatsMap[name] = { totalProjects: 0, activeProjects: 0, totalBudget: 0, disbursed: 0 };
+            centreStatsMap[name].disbursed += parseFloat(d.get('disbursed')) || 0;
+        });
+
+        const centreStatsList = Object.keys(centreStatsMap).map(name => ({
+            name,
+            ...centreStatsMap[name]
+        }));
 
         res.status(200).json({
             success: true,
@@ -31,14 +100,21 @@ exports.getAdminStats = async (req, res) => {
                 totalProjects,
                 activeProjects,
                 pendingApprovals,
-                totalBudget: totalBudgetResult,
-                totalDisbursed: totalDisbursedResult,
-                totalFaculty
+                totalBudget: pfmsBudget + institutionalBudgetTotal,
+                totalDisbursed: pfmsDisbursed + institutionalDisbursed,
+                totalFaculty,
+                pfmsStats: {
+                    allotted: pfmsBudget,
+                    consumed: pfmsDisbursed,
+                    balance: Math.max(0, pfmsBudget - pfmsDisbursed)
+                },
+                institutionalStats: {
+                    allotted: institutionalBudgetTotal,
+                    consumed: institutionalDisbursed,
+                    balance: Math.max(0, institutionalBudgetTotal - institutionalDisbursed)
+                }
             },
-            centres: centres.map(c => ({
-                name: c.centre,
-                count: parseInt(c.get('count'))
-            }))
+            centres: centreStatsList
         });
     } catch (error) {
         console.error('Get Admin Stats Error:', error);

@@ -9,7 +9,7 @@ import { Label } from '../../components/ui/label';
 import {
     UserPlus, Users, CheckCircle, Shield, Key,
     AtSign, Building2, UserCircle, PlusCircle, AlertCircle, LayoutGrid, FileText,
-    Trash2
+    Trash2, Sparkles
 } from 'lucide-react';
 import { useLayout } from '../../contexts/LayoutContext';
 import { RESEARCH_CENTRES } from '../../constants/researchCentres';
@@ -17,7 +17,7 @@ import apiClient from '../../api/client';
 
 const ManageFaculty = () => {
     const { setLayout } = useLayout();
-    const [activeTab, setActiveTab] = useState('faculty'); // 'faculty' | 'projects'
+    const [activeTab, setActiveTab] = useState('faculty'); // 'faculty' | 'projects' | 'events'
 
     // Escape key listener for modals
     useEffect(() => {
@@ -39,6 +39,7 @@ const ManageFaculty = () => {
     }, [setLayout]);
 
     const [projects, setProjects] = useState([]);
+    const [events, setEvents] = useState([]);
     const [toast, setToast] = useState(null); // { message, type: 'success'|'error' }
 
     const showToast = (message, type = 'success') => {
@@ -67,7 +68,29 @@ const ManageFaculty = () => {
                 console.error("Failed to fetch projects", err);
             }
         };
+        const fetchEvents = async () => {
+            try {
+                const response = await apiClient.get('/event-requests');
+                if (response.data.success) {
+                    const eventsArray = response.data.data || [];
+                    const mappedEvents = eventsArray.filter(e => e.status === 'APPROVED').map(e => ({
+                        id: e._id,
+                        title: e.eventTitle,
+                        status: e.status,
+                        assignedFacultyIds: (e.members || []).map(m => m.userId),
+                        piId: (e.members || []).find(m => m.role === 'PI')?.userId || e.facultyId,
+                        requestedAmount: e.approvedAmount || 0,
+                        type: e.fundingType || 'College Funded'
+                    }));
+                    setEvents(mappedEvents);
+                }
+            } catch (err) {
+                console.error("Failed to fetch events", err);
+            }
+        };
+
         fetchProjects();
+        fetchEvents();
     }, []);
 
     // Faculty State
@@ -206,14 +229,17 @@ const ManageFaculty = () => {
     const handleAssignFacultyToProject = async () => {
         if (selectedProject && (selectedPiId || selectedFacultyIds.length > 0)) {
             try {
-                const response = await apiClient.put(`/projects/${selectedProject.id}/members`, {
+                const isEvent = !!events.find(e => e.id === selectedProject.id);
+                const endpoint = isEvent ? `/event-requests/${selectedProject.id}/members` : `/projects/${selectedProject.id}/members`;
+                
+                const response = await apiClient.put(endpoint, {
                     piId: selectedPiId,
                     memberIds: selectedFacultyIds
                 });
 
                 if (response.data.success) {
                     const updatedMembers = response.data.data;
-                    setProjects(projects.map(p =>
+                    const updateList = (list) => list.map(p =>
                         p.id === selectedProject.id
                             ? { 
                                 ...p, 
@@ -221,7 +247,10 @@ const ManageFaculty = () => {
                                 piId: updatedMembers.find(m => m.role === 'PI')?.userId
                               }
                             : p
-                    ));
+                    );
+
+                    if (isEvent) setEvents(updateList(events));
+                    else setProjects(updateList(projects));
 
                     setIsProjectAssignModalOpen(false);
                     setSelectedProject(null);
@@ -382,7 +411,7 @@ const ManageFaculty = () => {
                         <div className="flex items-center justify-between mb-4">
                             <div>
                                 <CardTitle className="text-xl dark:text-white mb-1">
-                                    {activeTab === 'faculty' ? 'Research Faculty Directory' : 'Project Allocations'}
+                                    {activeTab === 'faculty' ? 'Research Faculty Directory' : activeTab === 'projects' ? 'Project Allocations' : 'Event Allocations'}
                                 </CardTitle>
                                 <CardDescription className="dark:text-gray-400">
                                     {activeTab === 'faculty'
@@ -410,6 +439,15 @@ const ManageFaculty = () => {
                                 >
                                     <FileText className="w-4 h-4 mr-2" />
                                     Projects
+                                </button>
+                                <button
+                                    onClick={() => setActiveTab('events')}
+                                    className={`px-4 py-2 text-sm font-medium rounded-md transition-all flex items-center ${activeTab === 'events'
+                                        ? 'bg-white dark:bg-slate-700 text-maroon-600 shadow-sm'
+                                        : 'text-slate-500 hover:text-slate-700 dark:text-slate-400'}`}
+                                >
+                                    <Sparkles className="w-4 h-4 mr-2" />
+                                    Events
                                 </button>
                             </div>
                         </div>
@@ -441,7 +479,7 @@ const ManageFaculty = () => {
                                     <UserPlus className="w-4 h-4 mr-2" />
                                     Add New Faculty
                                 </Button>
-                            ) : (
+                            ) : activeTab === 'projects' ? (
                                 <Button
                                     className="bg-maroon-600 hover:bg-maroon-700 text-white shadow-lg"
                                     onClick={() => setIsAddProjectModalOpen(true)}
@@ -449,7 +487,16 @@ const ManageFaculty = () => {
                                     <PlusCircle className="w-4 h-4 mr-2" />
                                     Add New Project
                                 </Button>
-                            )}
+                            ) : activeTab === 'events' ? (
+                                <Button
+                                    className="bg-maroon-600 hover:bg-maroon-700 text-white shadow-lg opacity-50 cursor-not-allowed"
+                                    disabled
+                                    title="Events must be requested by faculty and approved via Event Requests"
+                                >
+                                    <Sparkles className="w-4 h-4 mr-2" />
+                                    Institutional Events
+                                </Button>
+                            ) : null}
                         </div>
                     </div>
 
@@ -495,7 +542,8 @@ const ManageFaculty = () => {
                                             <TableCell className="dark:text-gray-300 max-w-xs truncate text-xs">{faculty.centre}</TableCell>
                                             <TableCell className="text-center">
                                                 <Badge variant="default" className="bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 border-0">
-                                                    {projects.filter(p => p.assignedFacultyIds?.includes(faculty.id)).length}
+                                                    {projects.filter(p => p.assignedFacultyIds?.includes(faculty.id)).length + 
+                                                     events.filter(e => e.assignedFacultyIds?.includes(faculty.id)).length}
                                                 </Badge>
                                             </TableCell>
                                             <TableCell>
@@ -625,6 +673,81 @@ const ManageFaculty = () => {
                                             </TableCell>
                                         </TableRow>
                                     ))}
+                                </TableBody>
+                            </Table>
+                        )}
+
+                        {/* VIEW 3: EVENTS LIST (NEW) */}
+                        {activeTab === 'events' && (
+                            <Table>
+                                <TableHeader>
+                                    <TableRow className="dark:border-slate-800 bg-gray-50/30 dark:bg-slate-800/20">
+                                        <TableHead className="dark:text-gray-400 pl-6">Event Title</TableHead>
+                                        <TableHead className="dark:text-gray-400">Funding</TableHead>
+                                        <TableHead className="dark:text-gray-400">Approved Fund</TableHead>
+                                        <TableHead className="dark:text-gray-400">Assigned Team</TableHead>
+                                        <TableHead className="dark:text-gray-400">Status</TableHead>
+                                        <TableHead className="text-right dark:text-gray-400 pr-6">Allocation</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {events.map((event) => (
+                                        <TableRow key={event.id} className="hover:bg-gray-50 dark:hover:bg-slate-800/50 dark:border-slate-800">
+                                            <TableCell className="pl-6 font-semibold dark:text-gray-200">
+                                                {event.title}
+                                            </TableCell>
+                                            <TableCell>
+                                                <Badge variant="outline" className={`border-0 ${event.type === 'College Funded' ? 'bg-blue-50 text-blue-700' : 'bg-purple-50 text-purple-700'}`}>
+                                                    {event.type}
+                                                </Badge>
+                                            </TableCell>
+                                            <TableCell className="dark:text-green-400 font-bold text-xs italic">
+                                                {event.requestedAmount > 0 ? `₹${event.requestedAmount.toLocaleString()}` : <span className="opacity-40">N/A</span>}
+                                            </TableCell>
+                                            <TableCell>
+                                                <div className="flex -space-x-2 overflow-hidden">
+                                                    {event.assignedFacultyIds && event.assignedFacultyIds.length > 0 ? (
+                                                        event.assignedFacultyIds.map((facId, idx) => (
+                                                            <div
+                                                                key={idx}
+                                                                className="inline-block h-6 w-6 rounded-full ring-2 ring-white dark:ring-slate-900 bg-emerald-100 flex items-center justify-center text-[9px] font-bold text-emerald-600"
+                                                                title={faculties.find(f => f.id === facId)?.name || 'Unknown'}
+                                                            >
+                                                                <Users className="w-3 h-3" />
+                                                            </div>
+                                                        ))
+                                                    ) : (
+                                                        <span className="text-xs text-gray-400 italic">Unassigned</span>
+                                                    )}
+                                                </div>
+                                            </TableCell>
+                                            <TableCell>
+                                                <Badge variant="success" className="bg-emerald-500/10 text-emerald-500 border-0">APPROVED</Badge>
+                                            </TableCell>
+                                            <TableCell className="pr-6 text-right">
+                                                <Button
+                                                    size="sm"
+                                                    className="h-7 px-3 text-xs bg-slate-900 text-white hover:bg-slate-800"
+                                                    onClick={() => {
+                                                        setSelectedProject(event);
+                                                        setSelectedFacultyIds(event.assignedFacultyIds || []);
+                                                        setSelectedPiId(event.piId || null);
+                                                        setIsProjectAssignModalOpen(true);
+                                                    }}
+                                                >
+                                                    <Users className="w-3 h-3 mr-1.5" />
+                                                    Manage Team
+                                                </Button>
+                                            </TableCell>
+                                        </TableRow>
+                                    ))}
+                                    {events.length === 0 && (
+                                        <TableRow>
+                                            <TableCell colSpan={6} className="text-center py-10 text-slate-400 italic text-sm">
+                                                No approved events available for team allocation.
+                                            </TableCell>
+                                        </TableRow>
+                                    )}
                                 </TableBody>
                             </Table>
                         )}

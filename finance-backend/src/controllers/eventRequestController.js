@@ -1,4 +1,7 @@
 const EventRequest = require('../models/EventRequest');
+const ProjectMember = require('../models/ProjectMember');
+const User = require('../models/User');
+const { Op } = require('sequelize');
 
 exports.createEventRequest = async (req, res) => {
     try {
@@ -26,13 +29,39 @@ exports.createEventRequest = async (req, res) => {
 
 exports.getEventRequests = async (req, res) => {
     try {
-        let options = { order: [['createdAt', 'DESC']] };
+        let options = { 
+            order: [['createdAt', 'DESC']],
+            include: [
+                {
+                    model: ProjectMember,
+                    as: 'members',
+                    include: [{ model: User, as: 'user', attributes: ['_id', 'name', 'email'] }]
+                }
+            ]
+        };
+        
         if (req.user.role === 'FACULTY') {
-            options.where = { facultyId: req.user.id };
+            const userId = req.user.id || req.user._id;
+            
+            // Get all event IDs where this user is a member
+            const memberships = await ProjectMember.findAll({
+                where: { userId: userId },
+                attributes: ['projectId']
+            });
+            const eventIds = memberships.map(m => m.projectId);
+
+            options.where = {
+                [Op.or]: [
+                    { facultyId: userId },
+                    { _id: { [Op.in]: eventIds } }
+                ]
+            };
         }
+        
         const requests = await EventRequest.findAll(options);
         res.status(200).json({ success: true, data: requests });
     } catch (error) {
+        console.error('Get Event Requests Error:', error);
         res.status(500).json({ success: false, message: error.message });
     }
 };
@@ -60,8 +89,70 @@ exports.updateEventRequestStatus = async (req, res) => {
         }
 
         await evt.save();
+
+        // If newly approved and no members exist, add the requesting faculty as the PI
+        if (evt.status === 'APPROVED') {
+            const existingMembers = await ProjectMember.count({ where: { projectId: evt._id } });
+            if (existingMembers === 0) {
+                await ProjectMember.create({
+                    projectId: evt._id,
+                    userId: evt.facultyId,
+                    role: 'PI'
+                });
+            }
+        }
+
         res.status(200).json({ success: true, data: evt });
     } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+exports.updateEventMembers = async (req, res) => {
+    try {
+        const { piId, memberIds } = req.body;
+        const eventId = req.params.id;
+
+        const evt = await EventRequest.findByPk(eventId);
+        if (!evt) {
+            return res.status(404).json({ success: false, message: 'Event not found' });
+        }
+
+        // Delete existing members
+        await ProjectMember.destroy({ where: { projectId: eventId } });
+
+        const members = [];
+        if (piId) {
+            const piUser = await User.findByPk(piId);
+            if (piUser) {
+                members.push({ projectId: eventId, userId: piId, role: 'PI' });
+                // If the PI is changed, update the main event's faculty record for legacy compatibility
+                evt.facultyId = piId;
+                evt.facultyName = piUser.name;
+                await evt.save();
+            }
+        }
+
+        if (memberIds && Array.isArray(memberIds)) {
+            memberIds.forEach(mId => {
+                if (mId !== piId) {
+                    members.push({ projectId: eventId, userId: mId, role: 'MEMBER' });
+                }
+            });
+        }
+
+        if (members.length > 0) {
+            await ProjectMember.bulkCreate(members);
+        }
+
+        const updatedMembers = await ProjectMember.findAll({
+            where: { projectId: eventId },
+            include: [{ model: User, as: 'user', attributes: ['_id', 'name', 'email'] }]
+        });
+
+        res.status(200).json({ success: true, data: updatedMembers });
+    } catch (error) {
+        console.error('Update Event Members Error:', error);
         res.status(500).json({ success: false, message: error.message });
     }
 };

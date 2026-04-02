@@ -575,11 +575,11 @@ const ApproveProjects = () => {
                                                 { name: 'Pending', value: filteredProjects.filter(p => p.status === 'PENDING').length, color: '#f59e0b' },
                                                 { name: 'Approved', value: filteredProjects.filter(p => p.status === 'APPROVED').length, color: '#10b981' },
                                                 { name: 'Rejected', value: filteredProjects.filter(p => p.status === 'REJECTED').length, color: '#64748b' }
-                                            ]}
+                                            ].filter(item => item.value > 0)}
                                             cx="50%"
                                             cy="50%"
                                             labelLine={true}
-                                            label={({ name, percent }) => percent > 0 ? `${name}: ${(percent * 100).toFixed(0)}%` : null}
+                                            label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
                                             outerRadius={80}
                                             minAngle={15}
                                             fill="#8884d8"

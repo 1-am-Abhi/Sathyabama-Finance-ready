@@ -148,6 +148,10 @@ const EventRequests = () => {
     const [rejectRemarks, setRejectRemarks] = useState('');
     const [approvalAmount, setApprovalAmount] = useState('');
     const [calDateFilter, setCalDateFilter] = useState(null);
+    const [faculties, setFaculties] = useState([]);
+    const [teamModalOpen, setTeamModalOpen] = useState(false);
+    const [selectedFacultyIds, setSelectedFacultyIds] = useState([]);
+    const [selectedPiId, setSelectedPiId] = useState(null);
     const [holidays, setHolidays] = useState([]);
     const [uploadFile, setUploadFile] = useState(null);
 
@@ -162,20 +166,29 @@ const EventRequests = () => {
     useEffect(() => {
         setLayout("Event Requests", "Manage institutional event requests");
 
-        const fetchRequests = async () => {
+        const fetchData = async () => {
             try {
-                const response = await apiClient.get('/event-requests');
-                const formattedRequests = response.data.data.map(req => ({
-                    ...req,
-                    id: req._id,
-                    faculty: req.facultyName
-                }));
-                setRequests(formattedRequests);
+                const [reqsRes, usersRes] = await Promise.all([
+                    apiClient.get('/event-requests'),
+                    apiClient.get('/auth/users')
+                ]);
+                
+                if (reqsRes.data.success) {
+                    const formattedRequests = reqsRes.data.data.map(req => ({
+                        ...req,
+                        id: req._id,
+                        faculty: req.facultyName
+                    }));
+                    setRequests(formattedRequests);
+                }
+                if (usersRes.data.success) {
+                    setFaculties(usersRes.data.users);
+                }
             } catch (err) {
-                console.error("Failed to fetch events:", err);
+                console.error("Failed to fetch data:", err);
             }
         };
-        fetchRequests();
+        fetchData();
 
         // Fetch Google Calendar Holidays
         const fetchHolidays = async () => {
@@ -284,9 +297,43 @@ const EventRequests = () => {
     };
 
     const handleRevokeClick = (request, e) => {
-        e.stopPropagation();
+        if (e) e.stopPropagation();
         setSelectedRequest(request);
         setRevokeModalOpen(true);
+    };
+
+    const handleManageTeam = (req) => {
+        setSelectedRequest(req);
+        setSelectedFacultyIds(req.members?.map(m => m.userId) || []);
+        setSelectedPiId(req.members?.find(m => m.role === 'PI')?.userId || req.facultyId);
+        setTeamModalOpen(true);
+    };
+
+    const saveTeam = async () => {
+        try {
+            const response = await apiClient.put(`/event-requests/${selectedRequest._id}/members`, {
+                piId: selectedPiId,
+                memberIds: selectedFacultyIds
+            });
+            if (response.data.success) {
+                setRequests(requests.map(r => 
+                    r._id === selectedRequest._id ? { ...r, members: response.data.data } : r
+                ));
+                setTeamModalOpen(false);
+                addNotification({
+                    title: 'Team Updated',
+                    message: `Event team for "${selectedRequest.eventTitle}" has been updated successfully.`,
+                    type: 'success'
+                });
+            }
+        } catch (error) {
+            console.error("Error saving team:", error);
+            addNotification({
+                title: 'Error',
+                message: 'Failed to update event team.',
+                type: 'error'
+            });
+        }
     };
 
     const handleConfirmRevoke = async () => {
@@ -592,14 +639,27 @@ const EventRequests = () => {
                                                 </>
                                             )}
                                             {req.status === 'APPROVED' && !req.photosUploaded && (
-                                                <Button
-                                                    size="sm"
-                                                    variant="outline"
-                                                    className="h-7 text-xs text-orange-600 border-orange-200 hover:bg-orange-50 dark:hover:bg-orange-900/20 action-btn"
-                                                    onClick={(e) => handleRevokeClick(req, e)}
-                                                >
-                                                    Revoke
-                                                </Button>
+                                                <>
+                                                    <Button
+                                                        size="sm"
+                                                        variant="ghost"
+                                                        className="h-7 text-xs text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 action-btn"
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            handleManageTeam(req);
+                                                        }}
+                                                    >
+                                                        <Users className="w-3.5 h-3.5 mr-1" /> Team
+                                                    </Button>
+                                                    <Button
+                                                        size="sm"
+                                                        variant="outline"
+                                                        className="h-7 text-xs text-orange-600 border-orange-200 hover:bg-orange-50 dark:hover:bg-orange-900/20 action-btn"
+                                                        onClick={(e) => handleRevokeClick(req, e)}
+                                                    >
+                                                        Revoke
+                                                    </Button>
+                                                </>
                                             )}
                                             {/* Allow Re-approving Revoked Events */}
                                             {req.status === 'REVOKED' && (
@@ -937,6 +997,74 @@ const EventRequests = () => {
                 result={aiModal.result}
                 onClose={() => setAiModal({ ...aiModal, open: false })}
             />
+
+            {/* Team Management Dialog */}
+            <Dialog open={teamModalOpen} onOpenChange={setTeamModalOpen}>
+                <DialogContent className="max-w-2xl dark:bg-slate-900 border-slate-800">
+                    <DialogHeader>
+                        <DialogTitle className="text-xl dark:text-white flex items-center gap-2">
+                            <Users className="w-5 h-5 text-blue-500" />
+                            Manage Event Team
+                        </DialogTitle>
+                        <DialogDescription className="dark:text-slate-400">
+                            Allocate faculty members to "{selectedRequest?.eventTitle}"
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <div className="space-y-4 my-4 max-h-[50vh] overflow-y-auto pr-2 custom-scrollbar">
+                        {faculties.filter(f => f.status === 'Active' || f.status === 'active').map(faculty => {
+                            const isPi = selectedPiId === faculty._id;
+                            const isMember = selectedFacultyIds.includes(faculty._id) && !isPi;
+                            const isActive = isPi || isMember;
+
+                            return (
+                                <div key={faculty._id} className={`flex items-center p-3 rounded-lg border transition-all ${isActive ? 'bg-blue-500/5 border-blue-500/30' : 'border-slate-800 hover:border-slate-700'}`}>
+                                    <div 
+                                        className={`w-5 h-5 rounded border mr-3 flex items-center justify-center cursor-pointer transition-colors ${isActive ? 'bg-blue-500 border-blue-500' : 'border-slate-700 bg-slate-800'}`}
+                                        onClick={() => {
+                                            if (selectedFacultyIds.includes(faculty._id)) {
+                                                setSelectedFacultyIds(selectedFacultyIds.filter(id => id !== faculty._id));
+                                                if (selectedPiId === faculty._id) setSelectedPiId(null);
+                                            } else {
+                                                setSelectedFacultyIds([...selectedFacultyIds, faculty._id]);
+                                            }
+                                        }}
+                                    >
+                                        {isActive && <CheckCircle className="w-3.5 h-3.5 text-white" />}
+                                    </div>
+                                    <div className="flex-1">
+                                        <div className="flex items-center justify-between">
+                                            <p className={`text-sm font-medium ${isActive ? 'text-blue-400' : 'text-slate-300'}`}>{faculty.name}</p>
+                                            <div className="flex items-center gap-2">
+                                                {isActive && (
+                                                    <Button
+                                                        variant={isPi ? "default" : "outline"}
+                                                        size="sm"
+                                                        className={`h-6 text-[10px] px-2 ${isPi ? 'bg-blue-600 text-white hover:bg-blue-700' : 'text-slate-400 border-slate-700'}`}
+                                                        onClick={() => {
+                                                            if (isPi) setSelectedPiId(null);
+                                                            else setSelectedPiId(faculty._id);
+                                                        }}
+                                                    >
+                                                        {isPi ? 'Principal Investigator' : 'Make PI'}
+                                                    </Button>
+                                                )}
+                                                {isMember && <Badge className="text-[9px] bg-slate-800 text-slate-400 border-slate-700">Team Member</Badge>}
+                                            </div>
+                                        </div>
+                                        <p className="text-[10px] text-slate-500">{faculty.centre} • {faculty.email}</p>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setTeamModalOpen(false)} className="border-slate-700 text-slate-300">Cancel</Button>
+                        <Button onClick={saveTeam} className="bg-blue-600 hover:bg-blue-700 text-white">Save Team Changes</Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 };
