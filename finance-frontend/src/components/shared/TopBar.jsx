@@ -6,7 +6,7 @@ import { useNotifications } from '../../contexts/NotificationContext';
 
 const TopBar = ({ title, subtitle, onMenuClick }) => {
     const { user, logout } = useAuth();
-    const { notifications, markAsRead: contextMarkAsRead, getNotificationsByRole } = useNotifications();
+    const { notifications, markAsRead: contextMarkAsRead, getNotificationsByRole, clearAll } = useNotifications();
     
     // Filter by role
     const filteredNotifications = getNotificationsByRole(user?.role);
@@ -266,7 +266,7 @@ const TopBar = ({ title, subtitle, onMenuClick }) => {
                                         )}
                                     </div>
                                     {filteredNotifications.length > 0 && (
-                                        <div className="p-3 border-t border-gray-100 dark:border-slate-800 bg-gray-50/50 dark:bg-slate-800/50 text-center">
+                                        <div className="p-3 border-t border-gray-100 dark:border-slate-800 bg-gray-50/50 dark:bg-slate-800/50 flex justify-between items-center">
                                             <button 
                                                 onClick={() => {
                                                     filteredNotifications.forEach(n => contextMarkAsRead(n.id));
@@ -274,6 +274,18 @@ const TopBar = ({ title, subtitle, onMenuClick }) => {
                                                 className="text-xs font-semibold text-maroon-600 hover:text-maroon-700 dark:text-maroon-400 transition-colors"
                                             >
                                                 Mark all as read
+                                            </button>
+                                            
+                                            <button 
+                                                onClick={() => {
+                                                    // In a real app we'd call an API to delete, but clearing locally works
+                                                    // if clearAll is supported in context
+                                                    if(typeof clearAll === 'function') clearAll();
+                                                    setShowNotifications(false);
+                                                }}
+                                                className="text-xs font-semibold text-gray-500 hover:text-red-600 transition-colors"
+                                            >
+                                                Clear all
                                             </button>
                                         </div>
                                     )}

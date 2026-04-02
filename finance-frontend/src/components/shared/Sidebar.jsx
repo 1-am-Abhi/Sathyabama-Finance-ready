@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { NavLink, Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
+import { useNotifications } from '../../contexts/NotificationContext';
 import { ROLES } from '../../constants/roles';
 import { Button } from '../ui/button';
 import {
@@ -10,6 +11,12 @@ import {
 
 const Sidebar = ({ isOpen, onClose }) => {
     const { user, logout } = useAuth();
+    const { getNotificationsByRole } = useNotifications();
+    
+    // Filter unread notifications to show dots
+    const filteredNotifications = getNotificationsByRole(user?.role);
+    const unreadNotifications = filteredNotifications.filter(n => !n.read);
+
     const navigate = useNavigate();
     const location = useLocation();
     const profilePhoto = localStorage.getItem('profile_photo');
@@ -19,11 +26,16 @@ const Sidebar = ({ isOpen, onClose }) => {
         setExpandedMenu(prev => ({ ...prev, [label]: !prev[label] }));
     };
 
-    console.log('Sidebar render - User:', user?.role, 'Path:', location.pathname);
-
     const handleLogout = () => {
         logout();
         navigate('/login');
+    };
+
+    // Helper to check if item has a related unread notification
+    const hasUnread = (path) => {
+        if (!path) return false;
+        // Check if any unread notification's actionUrl matches the path exactly or loosely
+        return unreadNotifications.some(n => n.actionUrl && n.actionUrl.includes(path));
     };
 
     const getNavItems = () => {
@@ -140,36 +152,46 @@ const Sidebar = ({ isOpen, onClose }) => {
                 <nav className="flex-1 py-4 overflow-y-auto">
                     {getNavItems().map((item) => {
                         const Icon = item.icon;
+                        const itemHasUnread = hasUnread(item.path);
+
                         if (item.subItems) {
                             return (
                                 <div key={item.label}>
                                     <button
                                         onClick={() => toggleMenu(item.label)}
-                                        className={`flex items-center justify-between w-full px-6 py-3 transition-colors hover:bg-maroon-800/50 text-white`}
+                                        className={`flex items-center justify-between w-full px-6 py-3 transition-colors hover:bg-maroon-800/50 text-white relative`}
                                     >
                                         <div className="flex items-center space-x-3">
                                             <Icon className="w-5 h-5" />
                                             <span className="text-sm font-medium">{item.label}</span>
+                                            {/* Sub item parent unread dot (assume any subitem has unread) */}
                                         </div>
                                         {expandedMenu[item.label] ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
                                     </button>
                                     {expandedMenu[item.label] && (
                                         <div className="bg-maroon-900/40">
-                                            {item.subItems.map((subItem) => (
+                                            {item.subItems.map((subItem) => {
+                                                const subItemHasUnread = hasUnread(subItem.path);
+                                                return (
                                                 <NavLink
                                                     key={subItem.path}
                                                     to={subItem.path}
                                                     onClick={onClose}
                                                     className={({ isActive }) =>
-                                                        `flex items-center space-x-3 pl-14 pr-6 py-2 transition-colors ${isActive
+                                                        `flex items-center space-x-3 pl-14 pr-6 py-2 transition-colors relative ${isActive
                                                             ? 'text-amber-400 font-medium'
                                                             : 'text-maroon-100 hover:text-white hover:bg-maroon-800/30'
                                                         }`
                                                     }
                                                 >
-                                                    <span className="text-sm">{subItem.label}</span>
+                                                    <div className="flex items-center">
+                                                        <span className="text-sm">{subItem.label}</span>
+                                                        {subItemHasUnread && (
+                                                            <span className="ml-2 w-2 h-2 bg-red-500 rounded-full shadow-[0_0_8px_rgba(239,68,68,0.8)] animate-pulse"></span>
+                                                        )}
+                                                    </div>
                                                 </NavLink>
-                                            ))}
+                                            )})}
                                         </div>
                                     )}
                                 </div>
@@ -181,14 +203,22 @@ const Sidebar = ({ isOpen, onClose }) => {
                                 to={item.path}
                                 onClick={onClose}
                                 className={({ isActive }) =>
-                                    `flex items-center space-x-3 px-6 py-3 transition-colors ${isActive
+                                    `flex items-center justify-between px-6 py-3 transition-colors relative ${isActive
                                         ? 'bg-[#5c1227] border-l-4 border-amber-400'
                                         : 'hover:bg-maroon-800/50'
                                     }`
                                 }
                             >
-                                <Icon className="w-5 h-5" />
-                                <span className="text-sm font-medium">{item.label}</span>
+                                <div className="flex items-center space-x-3">
+                                    <Icon className="w-5 h-5" />
+                                    <span className="text-sm font-medium">{item.label}</span>
+                                </div>
+                                {itemHasUnread && (
+                                    <span className="flex h-2.5 w-2.5 mr-2">
+                                        <span className="animate-ping absolute inline-flex h-2.5 w-2.5 rounded-full bg-red-400 opacity-75"></span>
+                                        <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500"></span>
+                                    </span>
+                                )}
                             </NavLink>
                         );
                     })}

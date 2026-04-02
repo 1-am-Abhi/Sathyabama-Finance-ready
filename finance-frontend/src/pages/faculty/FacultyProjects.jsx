@@ -15,6 +15,7 @@ import { predictResearchImpact, predictGrantSuccess } from '../../services/aiSer
 import { usePipeline } from '../../contexts/PipelineContext';
 import { formatCurrency } from '../../utils/format';
 import apiClient from '../../api/client';
+import { toast } from 'sonner';
 
 const FacultyProjects = () => {
     const { setLayout } = useLayout();
@@ -115,13 +116,12 @@ const FacultyProjects = () => {
             }
             setIsModalOpen(false);
         } catch (error) {
-            console.error(error);
             const errData = error.response?.data;
             let msg = errData?.message || "Failed to save work";
             if (errData?.errors && Array.isArray(errData.errors)) {
                 msg = errData.errors.map(e => e.message).join(', ');
             }
-            alert(`Error: ${msg}`);
+            toast.error(`Error: ${msg}`);
         }
     };
 
@@ -143,10 +143,10 @@ const FacultyProjects = () => {
                     proofData: base64data,
                     proofStatus: 'PENDING' 
                 } : p));
-                alert('Success: Artifact Uploaded for Verification');
+                toast.success('Success: Artifact Uploaded for Verification');
             } catch (err) {
                 console.error(err);
-                alert('Upload failed');
+                toast.error('Upload failed');
             }
         };
     };

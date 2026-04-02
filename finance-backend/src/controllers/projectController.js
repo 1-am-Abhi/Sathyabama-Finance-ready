@@ -95,7 +95,25 @@ exports.createProject = async (req, res) => {
         res.status(201).json({ success: true, data: project });
     } catch (error) {
         console.error('Create Project Error:', error);
-        res.status(400).json({ success: false, message: error.errors ? error.errors[0].message : error.message });
+        let errorMessage = 'Failed to create work';
+        if (error.issues && error.issues.length > 0) {
+            errorMessage = error.issues[0].message;
+        } else if (error.errors && error.errors.length > 0) {
+            errorMessage = error.errors[0].message;
+        } else {
+            // Unparse if it's a stringified JSON array from Zod
+            try {
+                const parsed = JSON.parse(error.message);
+                if (Array.isArray(parsed) && parsed[0].message) {
+                    errorMessage = parsed[0].message;
+                } else {
+                    errorMessage = error.message;
+                }
+            } catch (e) {
+                errorMessage = error.message;
+            }
+        }
+        res.status(400).json({ success: false, message: errorMessage });
     }
 };
 
