@@ -6,8 +6,9 @@ import { Button } from '../../components/ui/button';
 import {
     BarChart3, Download, FileText, TrendingUp, Users,
     PieChart as PieIcon, Activity, Banknote, Wallet, ArrowUpRight,
-    FileSpreadsheet, Filter, Brain
+    FileSpreadsheet, Filter, Brain, CheckCircle, Clock
 } from 'lucide-react';
+import { summarizeResearchProposal } from '../../services/aiService';
 import { useLayout } from '../../contexts/LayoutContext';
 import DateFilter from '../../components/shared/DateFilter';
 import AIResultModal from '../../components/shared/AIResultModal';
@@ -27,6 +28,7 @@ import apiClient from '../../api/client';
 
 const AdminReports = () => {
     const { setLayout } = useLayout();
+    const { updateProjectStatus } = useProjects();
     const [selectedReport, setSelectedReport] = useState('overview');
     const [selectedDate, setSelectedDate] = useState(null);
     const [selectedProject, setSelectedProject] = useState(null);
@@ -1028,7 +1030,7 @@ const AdminReports = () => {
                                     {facultyMockData.map((fac) => (
                                         <TableRow key={fac.id}>
                                             <TableCell className="dark:text-gray-300 font-black italic uppercase tracking-tighter">{fac.name}</TableCell>
-                                            <TableCell className="dark:text-gray-400">{fac.dept}</TableCell>
+                                            <TableCell className="dark:text-gray-400">{fac.centre}</TableCell>
                                             <TableCell className="text-blue-600 font-black italic tracking-tighter">{fac.projects}</TableCell>
                                             <TableCell className="text-green-600">{formatCurrency(fac.grants)}</TableCell>
                                         </TableRow>
