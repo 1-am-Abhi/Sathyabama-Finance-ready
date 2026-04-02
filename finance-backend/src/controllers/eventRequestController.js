@@ -44,10 +44,20 @@ exports.updateEventRequestStatus = async (req, res) => {
             return res.status(404).json({ success: false, message: 'Event Not found' });
         }
         
-        if (req.body.status) evt.status = req.body.status;
-        if (req.body.approvedAmount !== undefined) evt.approvedAmount = req.body.approvedAmount;
-        if (req.body.photosUploaded !== undefined) evt.photosUploaded = req.body.photosUploaded;
-        if (req.body.remarks !== undefined) evt.remarks = req.body.remarks;
+        const userRole = (req.user.role || '').toUpperCase();
+        
+        if (userRole === 'FACULTY') {
+            // Faculty can only update photo proof fields
+            if (req.body.photosUploaded !== undefined) evt.photosUploaded = req.body.photosUploaded;
+            if (req.body.photoData !== undefined) evt.photoData = req.body.photoData;
+        } else {
+            // Admins can update everything
+            if (req.body.status) evt.status = req.body.status;
+            if (req.body.approvedAmount !== undefined) evt.approvedAmount = req.body.approvedAmount;
+            if (req.body.photosUploaded !== undefined) evt.photosUploaded = req.body.photosUploaded;
+            if (req.body.photoData !== undefined) evt.photoData = req.body.photoData;
+            if (req.body.remarks !== undefined) evt.remarks = req.body.remarks;
+        }
 
         await evt.save();
         res.status(200).json({ success: true, data: evt });

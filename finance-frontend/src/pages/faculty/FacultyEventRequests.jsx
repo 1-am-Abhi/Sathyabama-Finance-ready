@@ -7,7 +7,7 @@ import { Badge } from '../../components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '../../components/ui/dialog';
 import { Label } from '../../components/ui/label';
 import { Input } from '../../components/ui/input';
-import { Calendar, PlusCircle, Sparkles, Building, IndianRupee, MapPin, Users, Briefcase, X, FileText, Clock } from 'lucide-react';
+import { Calendar, PlusCircle, Sparkles, Building, IndianRupee, MapPin, Users, Briefcase, X, FileText, Clock, Upload, FileCheck } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import apiClient from '../../api/client';
 import { useAuth } from '../../contexts/AuthContext';
@@ -119,6 +119,37 @@ const FacultyEventRequests = () => {
         } finally {
             setIsSubmitting(false);
         }
+    };
+
+    const handlePhotoUpload = async (id, file) => {
+        if (!file) return;
+        
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onloadend = async () => {
+            try {
+                const base64data = reader.result;
+                await apiClient.put(`/event-requests/${id}/status`, { 
+                    photosUploaded: true, 
+                    photoData: base64data,
+                    status: 'APPROVED' // Keep status same, update photo proof
+                }); 
+                setRequests(requests.map(item => (item._id || item.id) === id ? { ...item, photosUploaded: true, photoData: base64data } : item));
+                
+                // Notify Admin
+                addNotification({
+                    role: 'ADMIN',
+                    type: 'info',
+                    message: `${user?.name || 'Faculty'} uploaded proof photos for their Event Request.`,
+                    actionUrl: `/admin/event-requests?request_id=${id}`
+                });
+                
+                alert('Success');
+            } catch (err) {
+                console.error(err);
+                alert('File upload failed. Payload might be too large.');
+            }
+        };
     };
 
     return (
@@ -269,12 +300,40 @@ const FacultyEventRequests = () => {
                                         <p className="text-[9px] font-black uppercase text-gray-400 tracking-wider mt-1">{req.fundingType}</p>
                                     </td>
                                     <td className="px-8 py-6 text-right">
-                                        <Badge variant="outline" className={`border-0 text-[10px] font-black italic uppercase tracking-widest px-4 py-1.5 shadow-sm
+                                        <Badge variant="outline" className={`border-0 text-[10px] font-black italic uppercase tracking-widest px-4 py-1.5 shadow-sm mb-2 inline-block
                                             ${req.status === 'APPROVED' ? 'bg-green-100 text-green-700' :
                                               req.status === 'REJECTED' ? 'bg-red-100 text-red-700' :
                                               'bg-amber-100 text-amber-700'}`}>
                                             {req.status}
                                         </Badge>
+                                        
+                                        {/* Upload Evidence action for Approved non-uploaded requests */}
+                                        {req.status === 'APPROVED' && !req.photosUploaded && (
+                                            <div className="flex justify-end mt-1" onClick={e => e.stopPropagation()}>
+                                                <input
+                                                    type="file"
+                                                    id={`faculty-evt-proof-${req._id || req.id}`}
+                                                    className="hidden"
+                                                    onChange={(e) => {
+                                                        if (e.target.files && e.target.files[0]) {
+                                                            handlePhotoUpload(req._id || req.id, e.target.files[0]);
+                                                            e.target.value = null;
+                                                        }
+                                                    }}
+                                                />
+                                                <label 
+                                                    htmlFor={`faculty-evt-proof-${req._id || req.id}`}
+                                                    className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-[9px] font-black uppercase tracking-widest italic transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-gray-950 disabled:pointer-events-none disabled:opacity-50 border border-indigo-500/30 text-indigo-400 hover:bg-indigo-500/10 h-8 px-3 py-2 cursor-pointer"
+                                                >
+                                                    Upload Image <Upload className="w-3 h-3 ml-2" />
+                                                </label>
+                                            </div>
+                                        )}
+                                        {req.status === 'APPROVED' && req.photosUploaded && (
+                                            <span className="text-emerald-500 text-[10px] font-black italic uppercase flex items-center justify-end mt-1">
+                                                <FileCheck className="w-3 h-3 mr-1" /> Documented
+                                            </span>
+                                        )}
                                     </td>
                                 </tr>
                             ))}
@@ -356,6 +415,27 @@ const FacultyEventRequests = () => {
                                 )}
                             </div>
                         </div>
+
+                        {selectedRequest.photosUploaded && (
+                            <div className="mb-10">
+                                <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic mb-4">Event Documentary Evidence</p>
+                                <div className="p-6 bg-white/5 border border-white/10 rounded-[2rem] overflow-hidden group relative">
+                                    {selectedRequest.photoData?.startsWith('data:image') ? (
+                                        <img src={selectedRequest.photoData} alt="Event Proof" className="max-h-80 mx-auto rounded-xl object-contain shadow-2xl" />
+                                    ) : (
+                                        <div className="flex flex-col items-center py-10">
+                                            <FileCheck className="w-16 h-16 text-emerald-500/50 mb-4" />
+                                            <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest italic mb-4">Documentary Evidence Encrypted</p>
+                                            {selectedRequest.photoData && (
+                                                <a href={selectedRequest.photoData} download={`Event_Proof_${(selectedRequest._id || selectedRequest.id).substring(0,6)}.png`} className="px-8 py-3 bg-rose-700 hover:bg-rose-600 text-white rounded-full text-xs font-black uppercase tracking-widest italic transition-all">
+                                                    Download Artifact
+                                                </a>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        )}
 
                         <Button onClick={() => setShowDetailsModal(false)} className="w-full h-16 bg-slate-800 hover:bg-slate-700 text-white rounded-2xl font-black text-xs uppercase tracking-widest italic border border-white/10 mt-4">
                             Terminate View

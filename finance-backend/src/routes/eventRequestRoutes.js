@@ -8,6 +8,6 @@ router.use(protect);
 
 router.post('/', authorize('FACULTY', 'ADMIN'), createEventRequest);
 router.get('/', authorize('FACULTY', 'ADMIN'), getEventRequests);
-router.put('/:id/status', authorize('ADMIN'), updateEventRequestStatus);
+router.put('/:id/status', authorize('FACULTY', 'ADMIN'), updateEventRequestStatus);
 
 module.exports = router;

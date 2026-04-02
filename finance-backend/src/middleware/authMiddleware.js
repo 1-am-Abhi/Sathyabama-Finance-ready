@@ -29,19 +29,27 @@ exports.protect = async (req, res, next) => {
     }
 };
 
-exports.authorize = (...roles) => {
+exports.authorizeRoles = (...roles) => {
     return (req, res, next) => {
-        const userRole = (req.user?.role || '').toUpperCase();
-        const requiredRoles = roles.map(r => r.toUpperCase());
+        if (!req.user || !req.user.role) {
+            return res.status(401).json({ success: false, message: 'Not authorized, user missing' });
+        }
+
+        const userRole = req.user.role.toLowerCase();
+        const requiredRoles = roles.map(r => r.toLowerCase());
         
+        console.log(`[RBAC] Authorizing role: "${userRole}" against [${requiredRoles.join(', ')}]`);
+
         if (!requiredRoles.includes(userRole)) {
-            console.log('--- Authorization Failed Detail ---');
-            console.log(`Required Roles: [${requiredRoles.join(', ')}]`);
-            console.log(`User's Role in Session: "${userRole}"`);
-            console.log(`User's Role Type: ${typeof userRole}`);
-            console.log('-----------------------------------');
-            return res.status(403).json({ success: false, message: 'Not authorized for this role' });
+            console.warn(`[RBAC] Access Denied: User "${req.user.name}" with role "${userRole}" attempted to access restricted route.`);
+            // Send exact structured error to help frontend debugging
+            return res.status(403).json({ 
+                success: false, 
+                message: 'Not authorized for this role'
+            });
         }
         next();
     };
 };
+
+exports.authorize = exports.authorizeRoles;

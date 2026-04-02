@@ -75,27 +75,29 @@ exports.updateODRequestStatus = async (req, res) => {
         if (!od) {
             return res.status(404).json({ success: false, message: 'OD Request not found' });
         }
-        od.status = req.body.status;
-        if (req.body.proofUploaded !== undefined) {
-            od.proofUploaded = req.body.proofUploaded;
-        }
-        if (req.body.proofData !== undefined) {
-            od.proofData = req.body.proofData;
-        }
-        if (req.body.remarks !== undefined) {
-            od.remarks = req.body.remarks;
-        }
-        if (req.body.proofStatus !== undefined) {
-            od.proofStatus = req.body.proofStatus;
-            // If proof is rejected, we might want to allow re-upload
-            if (req.body.proofStatus === 'REJECTED') {
-                od.proofUploaded = false; 
+        const userRole = (req.user.role || '').toUpperCase();
+        
+        if (userRole === 'FACULTY') {
+            // Faculty can only update proof-related fields. Ignore status change requests.
+            if (req.body.proofUploaded !== undefined) od.proofUploaded = req.body.proofUploaded;
+            if (req.body.proofData !== undefined) od.proofData = req.body.proofData;
+        } else {
+            // Admins can update everything including status
+            if (req.body.status) od.status = req.body.status;
+            if (req.body.proofUploaded !== undefined) od.proofUploaded = req.body.proofUploaded;
+            if (req.body.proofData !== undefined) od.proofData = req.body.proofData;
+            if (req.body.remarks !== undefined) od.remarks = req.body.remarks;
+            if (req.body.proofStatus !== undefined) {
+                od.proofStatus = req.body.proofStatus;
+                if (req.body.proofStatus === 'REJECTED') {
+                    od.proofUploaded = false; 
+                }
             }
+            if (req.body.proofRemarks !== undefined) od.proofRemarks = req.body.proofRemarks;
         }
-        if (req.body.proofRemarks !== undefined) {
-            od.proofRemarks = req.body.proofRemarks;
-        }
+        
         await od.save();
+
 
         // Auto-sync with AcademicMetrics if APPROVED
         if (od.status === 'APPROVED') {

@@ -84,9 +84,9 @@ exports.createProject = async (req, res) => {
         const projectData = {
             ...data,
             sanctionedBudget: Number(data.sanctionedBudget || 0),
-            userId: req.user.role === 'ADMIN' ? (req.body.facultyId || req.user.id) : req.user.id,
-            facultyId: req.user.role === 'ADMIN' ? (req.body.facultyId || req.user.id) : req.user.id,
-            pi: req.user.role === 'ADMIN' ? (req.body.pi || 'Admin Created') : (req.user.name || req.body.pi || 'Faculty Member'),
+            userId: (req.user.role || '').toUpperCase() === 'ADMIN' ? (req.body.facultyId || req.user.id) : req.user.id,
+            facultyId: (req.user.role || '').toUpperCase() === 'ADMIN' ? (req.body.facultyId || req.user.id) : req.user.id,
+            pi: (req.user.role || '').toUpperCase() === 'ADMIN' ? (req.body.pi || 'Admin Created') : (req.user.name || req.body.pi || 'Faculty Member'),
             department: req.body.department || req.user.department || 'RESEARCH',
             centre: req.body.centre || req.user.centre || 'Research Centre'
         };

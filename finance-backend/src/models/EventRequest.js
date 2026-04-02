@@ -75,6 +75,10 @@ const EventRequest = sequelize.define('EventRequest', {
         type: DataTypes.BOOLEAN,
         defaultValue: false
     },
+    photoData: {
+        type: DataTypes.TEXT,
+        allowNull: true
+    },
     remarks: {
         type: DataTypes.TEXT,
         allowNull: true

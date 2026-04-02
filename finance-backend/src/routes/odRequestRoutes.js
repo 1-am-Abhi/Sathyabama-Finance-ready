@@ -9,6 +9,6 @@ router.use(protect);
 
 router.post('/', authorize('FACULTY', 'ADMIN'), validate(odRequestSchema), createODRequest);
 router.get('/', authorize('FACULTY', 'ADMIN'), getODRequests);
-router.put('/:id/status', authorize('ADMIN'), updateODRequestStatus);
+router.put('/:id/status', authorize('FACULTY', 'ADMIN'), updateODRequestStatus);
 
 module.exports = router;
