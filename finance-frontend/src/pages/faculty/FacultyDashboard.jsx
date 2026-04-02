@@ -47,24 +47,34 @@ const FacultyDashboard = () => {
         }
     };
 
-    const activeProjects = projects.filter(p => p.status === 'active' || p.status === 'ACTIVE' || p.status === 'Approved').length;
-    const totalFunding = fundRequests.reduce((sum, r) => sum + (parseFloat(r.approvedAmount || r.requestedAmount || 0)), 0);
+    const activeProjects = projects.filter(p => ['active', 'ACTIVE', 'Approved', 'APPROVED'].includes(p.status)).length;
+    const publications = projects.filter(p => p.projectType === 'PUBLICATION').length;
+    const totalFunding = projects.reduce((sum, p) => sum + parseFloat(p.sanctionedBudget || 0), 0);
     const formattedFunding = formatCurrency(totalFunding);
 
     const stats = [
         { title: 'Active Projects', value: loading ? '…' : String(activeProjects), icon: FileText, color: 'text-rose-400', bg: 'bg-rose-500/10', border: 'border-rose-500/20', subtitle: 'Ongoing research' },
         { title: 'Total Funding', value: loading ? '…' : formattedFunding, icon: Banknote, color: 'text-emerald-400', bg: 'bg-emerald-500/10', border: 'border-emerald-500/20', subtitle: 'Sanctioned grants' },
-        { title: 'Publications', value: projects.length > 0 ? String(projects.length) : '0', icon: Award, color: 'text-violet-400', bg: 'bg-violet-500/10', border: 'border-violet-500/20', subtitle: 'Research output' },
+        { title: 'Publications', value: String(publications), icon: Award, color: 'text-violet-400', bg: 'bg-violet-500/10', border: 'border-violet-500/20', subtitle: 'Research output' },
         { title: 'h-Index', value: '0', icon: Target, color: 'text-amber-400', bg: 'bg-amber-500/10', border: 'border-amber-500/20', subtitle: 'Author impact' }
     ];
 
-    // Build funding trend from real fund requests
+    // Build funding trend from real projects (by creation month)
     const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
     const trendData = monthNames.map(m => ({ month: m, amount: 0 }));
+    projects.forEach(r => {
+        const d = r.createdAt ? new Date(r.createdAt) : null;
+        if (d) trendData[d.getMonth()].amount += parseFloat(r.sanctionedBudget || r.budget || 0) / 100000;
+    });
+    // Also include fund requests that have been approved
     fundRequests.forEach(r => {
         const d = r.createdAt ? new Date(r.createdAt) : null;
-        if (d) trendData[d.getMonth()].amount += parseFloat(r.approvedAmount || 0) / 100000;
+        if (d && (r.status === 'APPROVED')) {
+            trendData[d.getMonth()].amount += parseFloat(r.requestedAmount || 0) / 100000;
+        }
     });
+    // Round to 2 decimal places
+    trendData.forEach(d => { d.amount = Math.round(d.amount * 100) / 100; });
 
     // Project status breakdown
     const statusMap = { Active: 0, Completed: 0, Pending: 0, Rejected: 0 };
@@ -133,8 +143,12 @@ const FacultyDashboard = () => {
                                         <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
                                         <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 10, fontWeight: 900 }} />
                                         <YAxis axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 10, fontWeight: 900 }} tickFormatter={(v) => `₹${v}L`} />
-                                        <Tooltip contentStyle={{ background: '#1e293b', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', color: '#f8fafc' }} />
-                                        <Area type="monotone" dataKey="amount" stroke="#f43f5e" strokeWidth={2} fill="url(#fundGrad)" />
+                                        <Tooltip 
+                                            contentStyle={{ background: '#1e293b', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', color: '#f8fafc' }}
+                                            formatter={(value) => [`₹${value.toFixed(2)}L`, 'Sanctioned Funding']}
+                                            labelFormatter={(label) => `Month: ${label}`}
+                                        />
+                                        <Area type="monotone" dataKey="amount" name="Sanctioned Funding (L)" stroke="#f43f5e" strokeWidth={2} fill="url(#fundGrad)" />
                                     </AreaChart>
                                 </ResponsiveContainer>
                             ) : (
