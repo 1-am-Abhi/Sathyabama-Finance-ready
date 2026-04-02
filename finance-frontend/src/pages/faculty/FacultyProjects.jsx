@@ -116,7 +116,11 @@ const FacultyProjects = () => {
             setIsModalOpen(false);
         } catch (error) {
             console.error(error);
-            const msg = error.response?.data?.message || "Failed to save work";
+            const errData = error.response?.data;
+            let msg = errData?.message || "Failed to save work";
+            if (errData?.errors && Array.isArray(errData.errors)) {
+                msg = errData.errors.map(e => e.message).join(', ');
+            }
             alert(`Error: ${msg}`);
         }
     };

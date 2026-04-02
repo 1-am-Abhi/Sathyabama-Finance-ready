@@ -67,6 +67,20 @@ const FacultyODRequest = () => {
 
     const handleProofUpload = async (id, file) => {
         if (!file) return;
+
+        const isPDF = file.type === 'application/pdf';
+        const isImage = file.type.startsWith('image/');
+        
+        if (!isPDF && !isImage) {
+            alert('Please upload only images or PDF documents.');
+            return;
+        }
+
+        const maxSize = isPDF ? 250 * 1024 * 1024 : 5 * 1024 * 1024;
+        if (file.size > maxSize) {
+            alert(`File size too large. Maximum allowed is ${isPDF ? '250MB for PDFs' : '5MB for Images'}.`);
+            return;
+        }
         
         const reader = new FileReader();
         reader.readAsDataURL(file);
@@ -91,7 +105,7 @@ const FacultyODRequest = () => {
                 alert('Success');
             } catch (err) {
                 console.error(err);
-                alert('File upload failed. Payload might be too large.');
+                alert(err.response?.data?.message || 'File upload failed. Payload might be too large.');
             }
         };
     };
@@ -123,6 +137,14 @@ const FacultyODRequest = () => {
     async function handleSubmit(e) {
         e.preventDefault();
         setIsSubmitting(true);
+        
+        const today = new Date().toISOString().split('T')[0];
+        if (startDate <= today) {
+            alert('On-Duty requests must be submitted at least one day in advance. Same-day or past applications are not permitted.');
+            setIsSubmitting(false);
+            return;
+        }
+
         const form = e.target;
         const payload = {
             type: odType,
@@ -156,6 +178,7 @@ const FacultyODRequest = () => {
             }
         } catch (err) {
             console.error(err);
+            alert(err.response?.data?.message || 'Failed to submit request');
         } finally {
             setIsSubmitting(false);
         }

@@ -835,15 +835,30 @@ const ODRequests = () => {
                             {selectedRequest.photosUploaded && (
                                 <div className="mt-4">
                                     <p className="text-sm font-medium mb-2">Uploaded Evidence</p>
-                                    <div className="flex gap-2 overflow-x-auto pb-2">
-                                        {selectedRequest.proofData ? (
-                                            <div className="h-16 w-24 bg-gray-100 rounded border flex items-center justify-center flex-shrink-0 overflow-hidden cursor-pointer" onClick={() => setPhotoModalOpen(true)}>
-                                                <img src={selectedRequest.proofData} alt="Proof Thumbnail" className="w-full h-full object-cover" />
-                                            </div>
-                                        ) : (
-                                            <div className="h-16 w-24 bg-gray-100 rounded border flex items-center justify-center flex-shrink-0 cursor-pointer" onClick={() => setPhotoModalOpen(true)}>
+                                    <div className="flex items-center gap-4">
+                                        <div className="h-16 w-24 bg-gray-100 rounded border flex items-center justify-center flex-shrink-0 overflow-hidden cursor-pointer hover:ring-2 hover:ring-blue-500 transition-all" onClick={() => setPhotoModalOpen(true)}>
+                                            {selectedRequest.proofData ? (
+                                                selectedRequest.proofData.startsWith('data:application/pdf') ? (
+                                                    <div className="text-[10px] font-bold text-gray-400">PDF</div>
+                                                ) : (
+                                                    <img src={selectedRequest.proofData} alt="Proof Thumbnail" className="w-full h-full object-cover" />
+                                                )
+                                            ) : (
                                                 <ImageIcon className="w-4 h-4 text-gray-400" />
+                                            )}
+                                        </div>
+                                        
+                                        {selectedRequest.proofStatus !== 'VERIFIED' && (
+                                            <div className="flex flex-col gap-2 w-full">
+                                                <div className="flex gap-2">
+                                                    <Button size="sm" variant="destructive" className="w-full" onClick={() => setProofRejectModalOpen(true)}>Reject Proof</Button>
+                                                    <Button size="sm" className="w-full bg-green-600 hover:bg-green-700 text-white" onClick={() => handleVerifyProof(selectedRequest.id)}>Verify Proof</Button>
+                                                </div>
+                                                <p className="text-[10px] text-gray-400 italic">Faculty will be asked to re-upload if rejected.</p>
                                             </div>
+                                        )}
+                                        {selectedRequest.proofStatus === 'VERIFIED' && (
+                                            <Badge className="bg-green-50 text-green-700 border-green-200 py-1.5 px-3">Proof Verified</Badge>
                                         )}
                                     </div>
                                 </div>

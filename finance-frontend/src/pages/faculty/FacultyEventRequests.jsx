@@ -114,7 +114,11 @@ const FacultyEventRequests = () => {
 
         } catch (error) {
             console.error("Submission failed", error);
-            const errMsg = error.response?.data?.message || error.message;
+            const errData = error.response?.data;
+            let errMsg = errData?.message || error.message;
+            if (errData?.errors && Array.isArray(errData.errors)) {
+                errMsg = errData.errors.map(e => e.message).join(', ');
+            }
             alert(`Submission Failed: ${errMsg}`);
         } finally {
             setIsSubmitting(false);
@@ -123,6 +127,20 @@ const FacultyEventRequests = () => {
 
     const handlePhotoUpload = async (id, file) => {
         if (!file) return;
+
+        const isPDF = file.type === 'application/pdf';
+        const isImage = file.type.startsWith('image/');
+        
+        if (!isPDF && !isImage) {
+            alert('Please upload only images or PDF documents.');
+            return;
+        }
+
+        const maxSize = isPDF ? 250 * 1024 * 1024 : 5 * 1024 * 1024;
+        if (file.size > maxSize) {
+            alert(`File size too large. Maximum allowed is ${isPDF ? '250MB for PDFs' : '5MB for Images'}.`);
+            return;
+        }
         
         const reader = new FileReader();
         reader.readAsDataURL(file);
@@ -147,7 +165,7 @@ const FacultyEventRequests = () => {
                 alert('Success');
             } catch (err) {
                 console.error(err);
-                alert('File upload failed. Payload might be too large.');
+                alert(err.response?.data?.message || 'File upload failed. Payload might be too large.');
             }
         };
     };

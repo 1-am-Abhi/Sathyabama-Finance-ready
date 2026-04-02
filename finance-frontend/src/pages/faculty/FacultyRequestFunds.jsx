@@ -51,11 +51,11 @@ const FacultyRequestFunds = () => {
     
     const releasedAmount = selectedProject 
         ? (selectedProject.releasedBudget || 0)
-        : (projects || []).reduce((acc, p) => acc + (p.releasedBudget || 0), 0);
+        : (fundRequests || []).filter(r => r.status === 'APPROVED' && ['CHEQUE_RELEASED', 'AMOUNT_DISBURSED'].includes(r.currentStage || r.status)).reduce((acc, req) => acc + (req.requestedAmount || 0), 0);
         
     const sanctionedAmount = selectedProject
         ? (selectedProject.sanctionedBudget || 0)
-        : (projects || []).reduce((acc, p) => acc + (p.sanctionedBudget || 0), 0);
+        : (fundRequests || []).filter(r => r.status === 'APPROVED').reduce((acc, req) => acc + (req.requestedAmount || 0), 0);
 
     const remainingAmount = sanctionedAmount - releasedAmount;
 
