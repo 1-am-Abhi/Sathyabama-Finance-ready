@@ -40,7 +40,7 @@ exports.getAdminStats = async (req, res) => {
             attributes: [
                 'centre',
                 [Project.sequelize.fn('COUNT', Project.sequelize.col('_id')), 'totalProjects'],
-                [Project.sequelize.literal(`COUNT(CASE WHEN status IN ('ACTIVE', 'Active', 'Approved', 'APPROVED') THEN 1 END)`), 'activeProjects'],
+                [Project.sequelize.literal(`COUNT(CASE WHEN status IN ('ACTIVE', 'APPROVED') THEN 1 END)`), 'activeProjects'],
                 [Project.sequelize.fn('SUM', Project.sequelize.col('sanctionedBudget')), 'projectBudget']
             ],
             group: ['centre']
@@ -180,7 +180,7 @@ exports.createProject = async (req, res) => {
             ...data,
             sanctionedBudget: Number(data.sanctionedBudget || 0),
             // Admin-created projects are auto-approved; faculty-created ones go to PENDING
-            status: isAdmin ? (data.status || 'ACTIVE') : 'PENDING',
+            status: isAdmin ? (req.body.status || 'ACTIVE').toUpperCase() : 'PENDING',
             userId: isAdmin ? (req.body.facultyId || req.user.id) : req.user.id,
             facultyId: isAdmin ? (req.body.facultyId || null) : req.user.id,
             pi: isAdmin ? (req.body.pi || 'Admin Created') : (req.user.name || req.body.pi || 'Faculty Member'),
@@ -229,6 +229,7 @@ exports.updateProject = async (req, res) => {
         if (req.body.proofStatus === 'REJECTED') {
             updateData.proofUploaded = false;
         }
+        if (req.body.status) updateData.status = req.body.status.toUpperCase();
         await project.update(updateData);
         res.status(200).json({ success: true, data: project });
     } catch (error) {

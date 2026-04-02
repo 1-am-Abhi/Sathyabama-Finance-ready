@@ -48,7 +48,7 @@ const Project = sequelize.define('Project', {
         defaultValue: 0
     },
     status: {
-        type: DataTypes.ENUM('ACTIVE', 'COMPLETED', 'PENDING', 'REJECTED', 'PUBLISHED', 'SUBMITTED'),
+        type: DataTypes.ENUM('ACTIVE', 'APPROVED', 'COMPLETED', 'PENDING', 'REJECTED', 'PUBLISHED', 'SUBMITTED'),
         defaultValue: 'PENDING'
     },
     projectType: {

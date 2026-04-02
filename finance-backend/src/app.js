@@ -12,13 +12,23 @@ app.set('trust proxy', 1);
 app.use(helmet());
 
 const corsOptions = {
-    origin: process.env.NODE_ENV === 'production' 
-        ? [process.env.FRONTEND_URL, 'https://finance-frontend-pxh9.onrender.com'].filter(Boolean)
-        : ['http://localhost:3000', 'http://localhost:10000', 'http://127.0.0.1:10000'],
+    origin: [
+        "https://finance-frontend-pxh9.onrender.com",
+        "http://localhost:3000",
+        "http://localhost:10000",
+        "http://127.0.0.1:10000"
+    ],
     credentials: true,
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
 };
 app.use(cors(corsOptions));
+
+// Request Logging Middleware
+app.use((req, res, next) => {
+    console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
+    next();
+});
+
 app.use(morgan('dev'));
 app.use(express.json({ limit: '250mb' }));
 app.use(express.urlencoded({ extended: true, limit: '250mb' }));

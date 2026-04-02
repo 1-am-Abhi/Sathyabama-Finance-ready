@@ -113,7 +113,7 @@ exports.approveFundRequest = async (req, res) => {
         };
 
         await request.update({
-            status: 'APPROVED',
+            status: (req.body.status || 'APPROVED').toUpperCase(),
             currentStage: 'FUND_APPROVED',
             auditTrail: [...currentAudit, newAuditEntry]
         });
