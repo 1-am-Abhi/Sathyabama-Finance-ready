@@ -39,6 +39,12 @@ const ManageFaculty = () => {
     }, [setLayout]);
 
     const [projects, setProjects] = useState([]);
+    const [toast, setToast] = useState(null); // { message, type: 'success'|'error' }
+
+    const showToast = (message, type = 'success') => {
+        setToast({ message, type });
+        setTimeout(() => setToast(null), 3500);
+    };
 
     useEffect(() => {
         const fetchProjects = async () => {
@@ -102,7 +108,7 @@ const ManageFaculty = () => {
     const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
     const [isProjectAssignModalOpen, setIsProjectAssignModalOpen] = useState(false); // Assign Faculty to Project (One Proj -> Many Fac)
     const [isAddProjectModalOpen, setIsAddProjectModalOpen] = useState(false);
-    const [newProject, setNewProject] = useState({ title: '', type: 'Agency', budget: '', status: 'APPROVED', agency: '' });
+    const [newProject, setNewProject] = useState({ title: '', type: 'Agency', budget: '', status: 'ACTIVE', agency: '', assignedFacultyId: '' });
 
     const [selectedCentre, setSelectedCentre] = useState('All');
 
@@ -127,13 +133,16 @@ const ManageFaculty = () => {
     const handleAddProject = async (e) => {
         e.preventDefault();
         try {
+            const assignedFaculty = faculties.find(f => f.id === newProject.assignedFacultyId);
             const response = await apiClient.post('/projects', {
                 title: newProject.title,
                 description: `Agency: ${newProject.agency || 'Internal'}`,
                 sanctionedBudget: parseInt(newProject.budget) || 0,
                 fundingSource: newProject.type === 'Agency' ? 'PFMS' : 'INSTITUTIONAL',
-                status: newProject.status,
-                projectType: 'PROJECT'
+                status: 'ACTIVE', // Admin-created projects are auto-approved
+                projectType: 'PROJECT',
+                facultyId: assignedFaculty?.id || null,
+                pi: assignedFaculty?.name || 'Admin Created'
             });
 
             if (response.data.success) {
@@ -142,17 +151,17 @@ const ManageFaculty = () => {
                     id: p._id,
                     title: p.title,
                     status: p.status,
-                    assignedFacultyIds: [p.pi],
+                    assignedFacultyIds: [p.facultyId || p.userId].filter(Boolean),
                     requestedAmount: p.sanctionedBudget || 0,
-                    type: p.fundingSource || 'College'
+                    type: newProject.type
                 }]);
                 setIsAddProjectModalOpen(false);
-                setNewProject({ title: '', type: 'Agency', budget: '', status: 'APPROVED', agency: '' });
-                alert("Project created and saved permanently.");
+                setNewProject({ title: '', type: 'Agency', budget: '', status: 'ACTIVE', agency: '', assignedFacultyId: '' });
+                showToast('Project created and assigned successfully.');
             }
         } catch (error) {
             console.error("Error creating project:", error);
-            alert("Failed to create project in database.");
+            showToast('Failed to create project. Please try again.', 'error');
         }
     };
 
@@ -182,11 +191,11 @@ const ManageFaculty = () => {
                     setIsAssignModalOpen(false);
                     setSelectedProject(null);
                     setSelectedFaculty(null);
-                    alert("Assignment saved permanently.");
+                    showToast('Faculty assigned to project successfully.');
                 }
             } catch (error) {
                 console.error("Error assigning project:", error);
-                alert("Failed to save assignment to database.");
+                showToast('Failed to save assignment.', 'error');
             }
         }
     };
@@ -218,11 +227,11 @@ const ManageFaculty = () => {
                     setIsProjectAssignModalOpen(false);
                     setSelectedProject(null);
                     setSelectedFacultyIds([]);
-                    alert("Team assignment saved permanently.");
+                    showToast('Team assignment saved successfully.');
                 }
             } catch (error) {
                 console.error("Error updating team:", error);
-                alert("Failed to save team assignment.");
+                showToast('Failed to save team assignment.', 'error');
             }
         }
     };
@@ -255,7 +264,7 @@ const ManageFaculty = () => {
             }
         } catch (error) {
             console.error("Error creating user:", error);
-            alert("Failed to create faculty account: " + (error.response?.data?.message || error.message));
+            showToast('Failed to create faculty account: ' + (error.response?.data?.message || error.message), 'error');
         }
     };
 
@@ -278,7 +287,7 @@ const ManageFaculty = () => {
             }
         } catch (error) {
             console.error("Error updating user:", error);
-            alert("Failed to update faculty profile");
+            showToast('Failed to update faculty profile.', 'error');
         }
     };
 
@@ -291,11 +300,11 @@ const ManageFaculty = () => {
             const response = await apiClient.delete(`/auth/users/${id}`);
             if (response.data.success) {
                 setFaculties(faculties.filter(f => f.id !== id));
-                alert("Faculty account deleted successfully");
+                showToast('Faculty account deleted successfully.');
             }
         } catch (error) {
             console.error("Error deleting user:", error);
-            alert("Failed to delete faculty account");
+            showToast('Failed to delete faculty account.', 'error');
         }
     };
 
@@ -311,6 +320,15 @@ const ManageFaculty = () => {
 
     return (
         <div className="flex-1 overflow-y-auto overflow-x-hidden">
+            {/* Toast Notification */}
+            {toast && (
+                <div className={`fixed top-5 right-5 z-[9999] flex items-center gap-3 px-5 py-3 rounded-xl shadow-2xl text-white text-sm font-semibold animate-in slide-in-from-top-2 duration-300 ${
+                    toast.type === 'error' ? 'bg-red-600' : 'bg-emerald-600'
+                }`}>
+                    {toast.type === 'error' ? '✕' : '✓'} {toast.message}
+                    <button onClick={() => setToast(null)} className="ml-2 opacity-70 hover:opacity-100 text-base leading-none">&times;</button>
+                </div>
+            )}
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
 
                 {/* Stats Dashboard */}
@@ -548,7 +566,7 @@ const ManageFaculty = () => {
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                    {projects.filter(p => ['College', 'Agency'].includes(p.type)).map((project) => (
+                                    {projects.map((project) => (
                                         <TableRow key={project.id} className="hover:bg-gray-50 dark:hover:bg-slate-800/50 dark:border-slate-800">
                                             <TableCell className="pl-6 font-semibold dark:text-gray-200">
                                                 {project.title}
@@ -865,9 +883,25 @@ const ManageFaculty = () => {
                                             {newProject.type === 'Agency' && (
                                                 <div className="space-y-2">
                                                     <Label className="dark:text-gray-300 text-xs">Funding Agency</Label>
-                                                    <Input required className="dark:bg-slate-800 dark:border-slate-700 dark:text-white h-9" placeholder="e.g. DST, SERB" value={newProject.agency} onChange={(e) => setNewProject({ ...newProject, agency: e.target.value })} />
+                                                    <Input className="dark:bg-slate-800 dark:border-slate-700 dark:text-white h-9" placeholder="e.g. DST, SERB" value={newProject.agency} onChange={(e) => setNewProject({ ...newProject, agency: e.target.value })} />
                                                 </div>
                                             )}
+                                            <div className="space-y-2">
+                                                <Label className="dark:text-gray-300 text-xs">Assign Faculty (Principal Investigator)</Label>
+                                                <select
+                                                    className="w-full h-9 px-3 bg-white dark:bg-slate-800 border dark:border-slate-700 dark:text-white rounded-md text-sm outline-none"
+                                                    value={newProject.assignedFacultyId}
+                                                    onChange={(e) => setNewProject({ ...newProject, assignedFacultyId: e.target.value })}
+                                                >
+                                                    <option value="">— Select Faculty (Optional) —</option>
+                                                    {faculties.filter(f => f.status === 'Active' && f.name !== 'Dr. Bharathi').map(f => (
+                                                        <option key={f.id} value={f.id}>{f.name} — {f.centre}</option>
+                                                    ))}
+                                                </select>
+                                            </div>
+                                            <div className="p-3 bg-emerald-50 dark:bg-emerald-900/20 rounded-lg border border-emerald-200 dark:border-emerald-800 text-xs text-emerald-700 dark:text-emerald-400 font-medium">
+                                                ✓ Admin-created projects are <strong>automatically approved</strong> — no review needed.
+                                            </div>
                                         </CardContent>
                                         <CardContent className="flex justify-end space-x-3 pt-4 border-t dark:border-slate-800">
                                             <Button type="button" variant="outline" size="sm" onClick={() => setIsAddProjectModalOpen(false)}>Discard</Button>

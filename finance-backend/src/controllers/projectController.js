@@ -84,12 +84,15 @@ exports.createProject = async (req, res) => {
         const validated = projectSchema.parse({ body: req.body });
         const data = validated.body;
 
+        const isAdmin = (req.user.role || '').toUpperCase() === 'ADMIN';
         const projectData = {
             ...data,
             sanctionedBudget: Number(data.sanctionedBudget || 0),
-            userId: (req.user.role || '').toUpperCase() === 'ADMIN' ? (req.body.facultyId || req.user.id) : req.user.id,
-            facultyId: (req.user.role || '').toUpperCase() === 'ADMIN' ? (req.body.facultyId || req.user.id) : req.user.id,
-            pi: (req.user.role || '').toUpperCase() === 'ADMIN' ? (req.body.pi || 'Admin Created') : (req.user.name || req.body.pi || 'Faculty Member'),
+            // Admin-created projects are auto-approved; faculty-created ones go to PENDING
+            status: isAdmin ? (data.status || 'ACTIVE') : 'PENDING',
+            userId: isAdmin ? (req.body.facultyId || req.user.id) : req.user.id,
+            facultyId: isAdmin ? (req.body.facultyId || null) : req.user.id,
+            pi: isAdmin ? (req.body.pi || 'Admin Created') : (req.user.name || req.body.pi || 'Faculty Member'),
             department: req.body.department || req.user.department || 'RESEARCH',
             centre: req.body.centre || req.user.centre || 'Research Centre'
         };

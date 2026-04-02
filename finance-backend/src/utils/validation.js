@@ -28,12 +28,17 @@ const registerSchema = z.object({
 const projectSchema = z.object({
   body: z.object({
     title: z.string().min(3, 'Title must be at least 3 characters'),
-    description: z.string().min(10, 'Description must be at least 10 characters'),
+    description: z.string().min(3, 'Description must be at least 3 characters'),
     sanctionedBudget: z.number().nonnegative(),
     fundingSource: z.enum(['PFMS', 'INSTITUTIONAL', 'DIRECTOR_INNOVATION', 'DIRECTOR_INNOVATION_FUND', 'Director Innovation Fund']),
     projectType: z.string().optional(),
     publisher: z.string().optional(),
-    publicationYear: z.number().optional()
+    publicationYear: z.number().optional(),
+    status: z.enum(['ACTIVE', 'PENDING', 'APPROVED', 'COMPLETED', 'REJECTED']).optional(),
+    facultyId: z.string().uuid().optional().nullable(),
+    pi: z.string().optional(),
+    department: z.string().optional(),
+    centre: z.string().optional(),
   })
 });
 
