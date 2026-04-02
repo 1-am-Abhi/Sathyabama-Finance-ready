@@ -39,11 +39,6 @@ const AcademicSupportDashboard = () => {
         }
     };
 
-    useEffect(() => {
-        setLayout("Academic Intelligence Hub", "Comprehensive oversight of pedagogical contributions and scholarly mentoring");
-        fetchMetrics();
-    }, [selectedYear, user, setLayout, fetchMetrics]);
-
     const fetchMetrics = useCallback(async () => {
         const userId = user?.id;
         if (!userId) return;
@@ -79,6 +74,11 @@ const AcademicSupportDashboard = () => {
             console.error('Fetch metrics failed', e);
         }
     }, [selectedYear, user?.id]);
+
+    useEffect(() => {
+        setLayout("Academic Intelligence Hub", "Comprehensive oversight of pedagogical contributions and scholarly mentoring");
+        fetchMetrics();
+    }, [selectedYear, user, setLayout, fetchMetrics]);
 
     const handleSave = async (newData) => {
         try {
