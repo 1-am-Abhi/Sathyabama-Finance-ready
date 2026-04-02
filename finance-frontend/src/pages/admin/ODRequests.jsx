@@ -18,7 +18,7 @@ import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSam
 import * as XLSX from 'xlsx';
 import useToast from '../../hooks/useToast';
 
-const API_KEY = 'AIzaSyBj4Crh5DFqWdf49XQNKxvxLMo-5MSyKog';
+const API_KEY = process.env.REACT_APP_GOOGLE_API_KEY;
 const CALENDAR_ID = 'en.indian#holiday@group.v.calendar.google.com';
 
 const ODCalendar = ({ requests, holidays, onDateClick, selectedDate, onRequestClick }) => {

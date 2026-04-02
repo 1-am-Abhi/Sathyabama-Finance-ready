@@ -15,7 +15,7 @@ import { analyzeEventFeasibility } from '../../services/aiService';
 import apiClient from '../../api/client';
 import { useNotifications } from '../../contexts/NotificationContext';
 
-const API_KEY = 'AIzaSyBj4Crh5DFqWdf49XQNKxvxLMo-5MSyKog';
+const API_KEY = process.env.REACT_APP_GOOGLE_API_KEY;
 const CALENDAR_ID = 'en.indian#holiday@group.v.calendar.google.com';
 
 const EventCalendar = ({ requests, holidays, onDateClick, selectedDate, onRequestClick }) => {
