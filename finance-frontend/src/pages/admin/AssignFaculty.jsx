@@ -45,11 +45,12 @@ const ManageFaculty = () => {
             try {
                 const response = await apiClient.get('/projects');
                 if (response.data.success) {
-                    const mappedProjects = response.data.projects.map(p => ({
+                    const projectsArray = response.data.data || response.data.projects || [];
+                    const mappedProjects = projectsArray.map(p => ({
                         id: p._id,
                         title: p.title,
                         status: p.status,
-                        assignedFacultyIds: [p.facultyId || p.userId],
+                        assignedFacultyIds: [p.facultyId || p.userId].filter(Boolean),
                         requestedAmount: p.sanctionedBudget || 0,
                         type: p.fundingSource || 'College'
                     }));

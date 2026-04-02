@@ -92,7 +92,21 @@ const AdminReports = () => {
                 ]);
 
                 if (statsRes.data?.success) {
-                    setStats(statsRes.data.data);
+                    const s = statsRes.data.stats;
+                    setStats({
+                        totalProjects: s.totalProjects || 0,
+                        activeProjects: s.activeProjects || 0,
+                        pendingProjects: s.pendingApprovals || 0,
+                        totalBudget: s.totalBudget || 0,
+                        totalDisbursed: s.totalDisbursed || 0,
+                        totalFaculty: s.totalFaculty || 0,
+                        centres: (statsRes.data.centres || []).map(c => ({
+                            centre: c.name,
+                            totalProjects: c.count || 0,
+                            totalBudget: 0,
+                            disbursed: 0
+                        }))
+                    });
                 }
                 if (requestsRes.data?.success) {
                     setAllRequests(requestsRes.data.data);
@@ -142,7 +156,7 @@ const AdminReports = () => {
         assigned: stats.activeProjects
     };
 
-    const projectsByCentre = stats.centres.map(c => ({
+    const projectsByCentre = (stats.centres || []).map(c => ({
         centre: c.centre,
         projects: c.totalProjects,
         budget: c.totalBudget,
