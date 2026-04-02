@@ -49,7 +49,7 @@ const ManageFaculty = () => {
                         id: p._id,
                         title: p.title,
                         status: p.status,
-                        assignedFacultyIds: [p.pi], // In a real app we might allow multiple, here we map PI as the assignee
+                        assignedFacultyIds: [p.facultyId || p.userId],
                         requestedAmount: p.sanctionedBudget || 0,
                         type: p.fundingSource || 'College'
                     }));
@@ -333,7 +333,7 @@ const ManageFaculty = () => {
                             <div className="flex items-center justify-between">
                                 <div>
                                     <p className="text-sm opacity-90 text-amber-50">Active Projects</p>
-                                    <p className="text-3xl font-bold mt-1">{projects.length}</p>
+                                    <p className="text-3xl font-bold mt-1">{projects.filter(p => ['APPROVED', 'ACTIVE'].includes(p.status)).length}</p>
                                 </div>
                                 <div className="w-12 h-12 bg-white/20 rounded-lg flex items-center justify-center">
                                     <Shield className="w-6 h-6" />
@@ -476,7 +476,7 @@ const ManageFaculty = () => {
                                             <TableCell className="dark:text-gray-300 max-w-xs truncate text-xs">{faculty.centre}</TableCell>
                                             <TableCell className="text-center">
                                                 <Badge variant="default" className="bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 border-0">
-                                                    {faculty.projectsCount}
+                                                    {projects.filter(p => p.assignedFacultyIds?.includes(faculty.id)).length}
                                                 </Badge>
                                             </TableCell>
                                             <TableCell>
@@ -754,7 +754,7 @@ const ManageFaculty = () => {
                                                 </div>
                                             </div>
                                             <Badge className="bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 border-0 h-6">
-                                                {selectedFaculty.projectsCount} Active Projects
+                                                {projects.filter(p => p.assignedFacultyIds?.includes(selectedFaculty.id)).length} Active Projects
                                             </Badge>
                                         </div>
                                     </CardHeader>

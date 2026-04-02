@@ -119,7 +119,8 @@ const ApproveFundRequests = () => {
     if (isLoading) return <div className="p-8 text-center">Loading Pipeline Data...</div>;
 
     const filteredRequests = (fundRequests || []).filter(r => {
-        const matchesDate = !selectedDate || r.submittedDate === selectedDate;
+        const requestDate = r.submittedDate || r.createdAt;
+        const matchesDate = !selectedDate || (requestDate && new Date(requestDate).toDateString() === new Date(selectedDate).toDateString());
         const matchesCentre = selectedCentre === 'All' || r.centre === selectedCentre;
         const matchesSource = selectedSource === 'All' || r.source === selectedSource;
         return matchesDate && matchesCentre && matchesSource;
@@ -131,11 +132,12 @@ const ApproveFundRequests = () => {
         .reduce((sum, r) => sum + r.requestedAmount, 0);
 
     const pendingChequesCount = filteredRequests
-        .filter(r => r.status === 'APPROVED' && r.chequeStatus === 'Pending')
+        .filter(r => r.status === 'APPROVED' && r.currentStage !== 'CHEQUE_RELEASED' && r.currentStage !== 'AMOUNT_DISBURSED')
         .length;
 
+    // Disbursed = requests where cheque has been released/amount disbursed
     const disbursedAmount = filteredRequests
-        .filter(r => r.chequeStatus === 'Disbursed')
+        .filter(r => r.currentStage === 'AMOUNT_DISBURSED' || r.currentStage === 'CHEQUE_RELEASED' || r.chequeStatus === 'Disbursed')
         .reduce((sum, r) => sum + r.requestedAmount, 0);
 
 
@@ -298,7 +300,7 @@ const ApproveFundRequests = () => {
                                             {formatCurrency(request.requestedAmount)}
                                         </TableCell>
                                         <TableCell className="max-w-xs truncate dark:text-gray-400">{request.purpose}</TableCell>
-                                        <TableCell className="dark:text-gray-300">{new Date(request.submittedDate).toLocaleDateString()}</TableCell>
+                                        <TableCell className="dark:text-gray-300">{new Date(request.submittedDate || request.createdAt).toLocaleDateString()}</TableCell>
                                         <TableCell>
                                             <div className="flex flex-col gap-1">
                                                 <Badge
@@ -430,7 +432,7 @@ const ApproveFundRequests = () => {
                                     <div>
                                         <p className="text-sm font-semibold text-gray-500 dark:text-gray-400">Submitted On</p>
                                         <p className="text-base font-semibold mt-1 dark:text-white">
-                                            {new Date(selectedRequest.submittedDate).toLocaleDateString()}
+                                            {new Date(selectedRequest.submittedDate || selectedRequest.createdAt).toLocaleDateString()}
                                         </p>
                                     </div>
                                     <div>

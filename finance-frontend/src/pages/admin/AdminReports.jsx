@@ -765,7 +765,7 @@ const AdminReports = () => {
                                                     </span>
                                                 </div>
                                                 <span className="text-xs text-gray-500 dark:text-gray-400">
-                                                    {new Date(project.submittedDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+                                                    {new Date(project.submittedDate || project.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
                                                 </span>
                                             </div>
                                         </div>
@@ -1077,7 +1077,7 @@ const AdminReports = () => {
                                     <div>
                                         <p className="text-sm font-semibold text-gray-500 dark:text-gray-400">Submitted Date</p>
                                         <p className="text-base font-semibold mt-1 dark:text-white">
-                                            {new Date(activeProject.submittedDate).toLocaleDateString('en-IN', { year: 'numeric', month: 'long', day: 'numeric' })}
+                                            {new Date(activeProject.submittedDate || activeProject.createdAt).toLocaleDateString('en-IN', { year: 'numeric', month: 'long', day: 'numeric' })}
                                         </p>
                                     </div>
                                 </div>

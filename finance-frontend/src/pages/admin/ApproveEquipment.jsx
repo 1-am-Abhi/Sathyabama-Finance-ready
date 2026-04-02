@@ -14,7 +14,7 @@ const ApproveEquipment = () => {
     const { addNotification } = useNotifications();
     const [allRequests, setAllRequests] = useState([]);
     const [searchTerm, setSearchTerm] = useState('');
-    const [statusFilter, setStatusFilter] = useState('Pending');
+    const [statusFilter, setStatusFilter] = useState('All');
     const [selectedRequest, setSelectedRequest] = useState(null);
 
     useEffect(() => {

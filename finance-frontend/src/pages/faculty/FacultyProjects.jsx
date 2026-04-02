@@ -233,10 +233,13 @@ const FacultyProjects = () => {
                                         {/* Status badge + Impact badge */}
                                         <div className="flex flex-col gap-1.5">
                                             <Badge className={`border-0 text-[10px] font-black italic px-3 py-1 rounded-full w-fit ${
-                                                work.status === 'Active' || work.status === 'Published' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'
-                                            }`}>
-                                                {work.status}
-                                            </Badge>
+                                            work.status === 'ACTIVE' || work.status === 'PUBLISHED' ? 'bg-green-100 text-green-700' : 
+                                            work.status === 'PENDING' ? 'bg-blue-100 text-blue-700' :
+                                            work.status === 'REJECTED' ? 'bg-red-100 text-red-700' :
+                                            'bg-amber-100 text-amber-700'
+                                        }`}>
+                                            {work.status === 'PENDING' ? 'Pending Approval' : work.status}
+                                        </Badge>
                                             {work.sanctionedBudget > 3000000 && (
                                                 <span className="inline-flex items-center gap-1 text-[9px] font-black uppercase px-2 py-0.5 rounded-full bg-emerald-100 border border-emerald-200 text-emerald-700 w-fit">
                                                     <Award className="w-2.5 h-2.5" /> High Impact
@@ -370,8 +373,9 @@ const FacultyProjects = () => {
                                         <Badge className={`px-3 py-1 font-black italic uppercase text-[10px] border ${
                                             ['ACTIVE', 'PUBLISHED'].includes(viewedProject.status) ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 
                                             viewedProject.status === 'REJECTED' ? 'bg-red-500/10 text-red-400 border-red-500/20' : 
+                                            viewedProject.status === 'PENDING' ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' :
                                             'bg-amber-500/10 text-amber-400 border-amber-500/20'
-                                        }`}>{viewedProject.status}</Badge>
+                                        }`}>{viewedProject.status === 'PENDING' ? 'Pending Approval' : viewedProject.status}</Badge>
                                     </div>
                                 </div>
                                 <div>
@@ -390,7 +394,7 @@ const FacultyProjects = () => {
                                     </div>
                                     <div className="flex items-center gap-2 text-white font-bold italic mt-2">
                                         <Calendar className="w-4 h-4 text-blue-500" />
-                                        <span className="text-xs uppercase">Cycle/Year: {viewedProject.publicationYear || new Date(viewedProject.startDate).getFullYear() || 'N/A'}</span>
+                                        <span className="text-xs uppercase">Cycle/Year: {viewedProject.publicationYear || (viewedProject.startDate ? new Date(viewedProject.startDate).getFullYear() : null) || new Date(viewedProject.createdAt).getFullYear()}</span>
                                     </div>
                                 </div>
                                 <div>

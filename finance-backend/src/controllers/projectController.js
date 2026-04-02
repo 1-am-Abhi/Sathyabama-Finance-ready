@@ -11,11 +11,14 @@ exports.getAdminStats = async (req, res) => {
         
         // Sums
         const totalBudgetResult = await Project.sum('sanctionedBudget') || 0;
-        const totalDisbursedResult = await FundRequest.sum('requestedAmount', { where: { status: 'APPROVED' } }) || 0;
+        // Disbursed = fund requests where cheque has been issued/amount disbursed
+        const totalDisbursedResult = await FundRequest.sum('requestedAmount', { 
+            where: { chequeStatus: 'Disbursed' } 
+        }) || 0;
         
         const totalFaculty = await User.count({ where: { role: 'FACULTY' } });
 
-        // Centre-wise distribution (mocking the structure but using real-ish logic or just grouping)
+        // Centre-wise distribution
         const centres = await Project.findAll({
             attributes: ['centre', [Project.sequelize.fn('COUNT', Project.sequelize.col('_id')), 'count']],
             group: ['centre']
