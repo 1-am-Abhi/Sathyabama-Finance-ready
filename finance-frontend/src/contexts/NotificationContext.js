@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import apiClient from '../api/client';
 import { useAuth } from './AuthContext';
 
@@ -8,7 +8,7 @@ export const NotificationProvider = ({ children }) => {
     const { user } = useAuth();
     const [notifications, setNotifications] = useState([]);
 
-    const fetchNotifications = async () => {
+    const fetchNotifications = useCallback(async () => {
         if (!user) {
             setNotifications([]);
             return;
@@ -19,14 +19,14 @@ export const NotificationProvider = ({ children }) => {
         } catch (error) {
             console.error('Failed to fetch real-time notifications', error);
         }
-    };
+    }, [user]);
 
     useEffect(() => {
         fetchNotifications();
         // Ping database every 5 seconds for ultra-real-time synchronization between clients
         const interval = setInterval(fetchNotifications, 5000);
         return () => clearInterval(interval);
-    }, [user]);
+    }, [fetchNotifications]);
 
     const addNotification = React.useCallback(async (notif) => {
         try {

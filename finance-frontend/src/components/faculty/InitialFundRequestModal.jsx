@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Upload, FileText, ChevronRight, DollarSign, LayoutList, Target, Briefcase, BookOpen, GraduationCap, FileSpreadsheet } from 'lucide-react';
+import { X, Upload, FileText, ChevronRight, DollarSign, Target, Briefcase, BookOpen, GraduationCap, FileSpreadsheet } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
 

@@ -1,5 +1,5 @@
 import React from 'react';
-import { CheckCircle2, Clock, Lock, ChevronRight } from 'lucide-react';
+import { CheckCircle2, Clock, Lock } from 'lucide-react';
 
 const InstallmentStepper = ({ installments, currentPhase }) => {
     return (
@@ -9,7 +9,6 @@ const InstallmentStepper = ({ installments, currentPhase }) => {
                 {installments.map((inst, index) => {
                     const isReleased = inst.status === 'RELEASED';
                     const isPending = inst.status === 'PENDING';
-                    const isUpcoming = inst.status === 'UPCOMING';
 
                     return (
                         <div key={index} className="flex flex-col items-center">

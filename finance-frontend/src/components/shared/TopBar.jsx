@@ -6,7 +6,7 @@ import { useNotifications } from '../../contexts/NotificationContext';
 
 const TopBar = ({ title, subtitle, onMenuClick }) => {
     const { user, logout } = useAuth();
-    const { notifications, markAsRead: contextMarkAsRead, getNotificationsByRole, clearAll } = useNotifications();
+    const { markAsRead: contextMarkAsRead, getNotificationsByRole, clearAll } = useNotifications();
     
     // Filter by role
     const filteredNotifications = getNotificationsByRole(user?.role);

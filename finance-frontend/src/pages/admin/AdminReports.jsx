@@ -6,15 +6,14 @@ import { Button } from '../../components/ui/button';
 import {
     BarChart3, Download, FileText, TrendingUp, Users,
     PieChart as PieIcon, Activity, Banknote, Wallet, ArrowUpRight,
-    FileSpreadsheet, Filter, Search, CheckCircle, Clock, Brain
+    FileSpreadsheet, Filter, Brain
 } from 'lucide-react';
 import { useLayout } from '../../contexts/LayoutContext';
 import DateFilter from '../../components/shared/DateFilter';
 import AIResultModal from '../../components/shared/AIResultModal';
 import { formatCurrency } from '../../utils/format';
-import { summarizeResearchProposal } from '../../services/aiService';
 import {
-    LineChart, Line, BarChart, Bar, PieChart, Pie, Cell,
+    BarChart, Bar, PieChart, Pie, Cell,
     XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
     AreaChart, Area
 } from 'recharts';
@@ -28,7 +27,6 @@ import apiClient from '../../api/client';
 
 const AdminReports = () => {
     const { setLayout } = useLayout();
-    const { projects: projectContext, updateProjectStatus } = useProjects();
     const [selectedReport, setSelectedReport] = useState('overview');
     const [selectedDate, setSelectedDate] = useState(null);
     const [selectedProject, setSelectedProject] = useState(null);

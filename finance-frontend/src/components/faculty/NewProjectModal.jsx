@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { X, BookOpen, DollarSign, Briefcase, Calendar, Building, FileText, Plus, Trash2 } from 'lucide-react';
+import { X, BookOpen, Briefcase, Plus, Trash2 } from 'lucide-react';
 import { Button } from '../ui/button';
-import { Badge } from '../ui/badge';
 
 const AcademicWorkModal = ({ isOpen, onClose, onSubmit, initialData = null, mode = 'create' }) => {
     const [formData, setFormData] = useState({
@@ -41,13 +40,12 @@ const AcademicWorkModal = ({ isOpen, onClose, onSubmit, initialData = null, mode
 
     useEffect(() => {
         if (initialData && mode === 'edit') {
-            setFormData({
-                ...formData,
+            setFormData(prev => ({
+                ...prev,
                 ...initialData,
                 indexing: Array.isArray(initialData.indexing) ? initialData.indexing : (initialData.indexing ? [initialData.indexing] : [])
-            });
+            }));
         } else if (!initialData) {
-            // Reset form on open if no initial data
             setFormData({
                 mainType: 'PROJECT',
                 title: '',

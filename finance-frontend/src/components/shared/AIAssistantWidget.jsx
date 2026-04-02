@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Brain, Sparkles, Send, X, MessageSquare, Bot, User } from 'lucide-react';
+import { Brain, Send, X, Bot, User } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { getChatResponse } from '../../services/aiService';

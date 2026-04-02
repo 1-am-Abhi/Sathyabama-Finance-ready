@@ -1,12 +1,11 @@
-import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
 import { Badge } from '../../components/ui/badge';
 import { Button } from '../../components/ui/button';
 import {
-    FileText, Banknote, CheckCircle, Clock, TrendingUp, AlertCircle,
-    UserPlus, BarChart3, Filter, ArrowRight, Wallet, Building2, Award, BarChart2, Brain, Sparkles, Activity
+    FileText, Banknote, CheckCircle, TrendingUp,
+    UserPlus, BarChart3, Filter, Wallet, Building2, Sparkles, Activity
 } from 'lucide-react';
 import { useLayout } from '../../contexts/LayoutContext';
 import DateFilter from '../../components/shared/DateFilter';
@@ -14,7 +13,7 @@ import AIResultModal from '../../components/shared/AIResultModal';
 import { generateResearchInsights } from '../../services/aiService';
 import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
-    PieChart, Pie, Cell, LineChart, Line, Sector
+    PieChart, Pie, Cell, Sector
 } from 'recharts';
 import {
     RESEARCH_CENTRES
@@ -27,7 +26,7 @@ import apiClient from '../../api/client';
 const AdminDashboard = () => {
     const { setLayout } = useLayout();
     const navigate = useNavigate();
-    const [activeMetric, setActiveMetric] = useState('projects'); // 'projects' | 'budget' | 'disbursed'
+    const [activeMetric] = useState('projects'); // 'projects' | 'budget' | 'disbursed'
     const [selectedCentre, setSelectedCentre] = useState('ALL');
     const [selectedMonth, setSelectedMonth] = useState('ALL');
     const [selectedDate, setSelectedDate] = useState(null);
@@ -35,7 +34,6 @@ const AdminDashboard = () => {
     const [activeIndex, setActiveIndex] = useState(-1);
     const [detailModalOpen, setDetailModalOpen] = useState(false);
     const [selectedCentreDetail, setSelectedCentreDetail] = useState(null);
-    const [selectedProject, setSelectedProject] = useState(null);
     const [aiModal, setAiModal] = useState({ open: false, loading: false, result: null });
 
 

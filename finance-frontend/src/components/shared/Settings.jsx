@@ -4,7 +4,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
-import { User, Bell, Shield, Server, Palette, Upload, Moon, Sun } from 'lucide-react';
+import { User, Bell, Shield, Server, Upload } from 'lucide-react';
 import apiClient from '../../api/client';
 import useToast from '../../hooks/useToast';
 
@@ -12,7 +12,6 @@ const Settings = () => {
     const { setLayout } = useLayout();
     const { user, updateUser } = useAuth();
     const { showToast, ToastPortal } = useToast();
-    const [activeTab, setActiveTab] = useState('profile');
     const [profilePhoto, setProfilePhoto] = useState(null);
 
     // Initialize with user data or defaults
@@ -77,7 +76,7 @@ const Settings = () => {
     return (
         <div className="p-6 max-w-6xl">
             <ToastPortal />
-            <Tabs defaultValue="profile" className="w-full" onValueChange={setActiveTab}>
+            <Tabs defaultValue="profile" className="w-full">
                 <TabsList className="flex flex-wrap justify-center md:grid w-full md:grid-cols-4 mb-8 h-auto gap-2">
                     <TabsTrigger value="profile" className="flex-1 flex items-center justify-center gap-2"><User className="w-4 h-4" /> Profile</TabsTrigger>
                     <TabsTrigger value="notifications" className="flex-1 flex items-center justify-center gap-2"><Bell className="w-4 h-4" /> Notifications</TabsTrigger>

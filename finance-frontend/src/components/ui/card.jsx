@@ -22,7 +22,7 @@ const CardHeader = React.forwardRef(({ className, ...props }, ref) => (
 ))
 CardHeader.displayName = "CardHeader"
 
-const CardTitle = React.forwardRef(({ className, ...props }, ref) => (
+const CardTitle = React.forwardRef(({ className, children, ...props }, ref) => (
     <h3
         ref={ref}
         className={cn(
@@ -30,7 +30,7 @@ const CardTitle = React.forwardRef(({ className, ...props }, ref) => (
             className
         )}
         {...props}
-    />
+    >{children}</h3>
 ))
 CardTitle.displayName = "CardTitle"
 

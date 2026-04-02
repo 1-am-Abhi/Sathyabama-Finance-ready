@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+
 import { useAuth } from '../../contexts/AuthContext';
 import { ROLES } from '../../constants/roles';
 import { Eye, EyeOff } from 'lucide-react';
@@ -14,7 +14,6 @@ const LoginPage = () => {
     const [showPassword, setShowPassword] = useState(false);
 
     const { login } = useAuth();
-    const navigate = useNavigate();
 
     const handleSubmit = async (e) => {
         e.preventDefault();

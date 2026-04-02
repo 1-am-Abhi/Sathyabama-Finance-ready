@@ -3,10 +3,9 @@ import { NavLink, Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNotifications } from '../../contexts/NotificationContext';
 import { ROLES } from '../../constants/roles';
-import { Button } from '../ui/button';
 import {
-    LogOut, Home, FileText, IndianRupee, DollarSign, Users, Building2,
-    Settings, CheckCircle, UserPlus, BarChart3, Clock, Calendar, TrendingUp, ChevronDown, ChevronRight, Briefcase, GraduationCap, X, Sparkles, ShieldCheck
+    LogOut, Home, FileText, IndianRupee, Users, Building2,
+    Settings, CheckCircle, BarChart3, Clock, Calendar, TrendingUp, ChevronDown, ChevronRight, Briefcase, GraduationCap, X, Sparkles, ShieldCheck
 } from 'lucide-react';
 
 const Sidebar = ({ isOpen, onClose }) => {
