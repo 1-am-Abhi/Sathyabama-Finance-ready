@@ -1,6 +1,5 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { ProjectProvider } from '../contexts/ProjectContext';
 import ProtectedRoute from '../components/auth/ProtectedRoute';
 import LoginPage from '../components/auth/LoginPage';
 import { ROLES } from '../constants/roles';

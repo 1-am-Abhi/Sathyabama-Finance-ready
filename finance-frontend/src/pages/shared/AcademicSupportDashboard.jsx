@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
-import { BookOpen, GraduationCap, Users, PenTool, Globe, Award, FileText, ChevronDown, Activity, Sparkles, Edit3, X, Save, RefreshCw, Clock } from 'lucide-react';
+import { BookOpen, GraduationCap, Users, PenTool, Globe, Award, FileText, Activity, Sparkles, Edit3, X, Save, RefreshCw } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useLayout } from '../../contexts/LayoutContext';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../../components/ui/card';
@@ -42,9 +42,9 @@ const AcademicSupportDashboard = () => {
     useEffect(() => {
         setLayout("Academic Intelligence Hub", "Comprehensive oversight of pedagogical contributions and scholarly mentoring");
         fetchMetrics();
-    }, [selectedYear, user, setLayout]);
+    }, [selectedYear, user, setLayout, fetchMetrics]);
 
-    const fetchMetrics = async () => {
+    const fetchMetrics = useCallback(async () => {
         const userId = user?.id;
         if (!userId) return;
         try {
@@ -78,7 +78,7 @@ const AcademicSupportDashboard = () => {
         } catch (e) {
             console.error('Fetch metrics failed', e);
         }
-    };
+    }, [selectedYear, user?.id]);
 
     const handleSave = async (newData) => {
         try {
@@ -88,7 +88,7 @@ const AcademicSupportDashboard = () => {
                 ...newData.sectionA,
                 ...newData.sectionB
             };
-            const res = await apiClient.post('/academic-metrics', flatData);
+            await apiClient.post('/academic-metrics', flatData);
             
             // Re-fetch or update state
             fetchMetrics();
