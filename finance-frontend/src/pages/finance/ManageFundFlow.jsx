@@ -4,12 +4,13 @@ import { Button } from '../../components/ui/button';
 import { Badge } from '../../components/ui/badge';
 import { CheckCircle, Circle, Clock, ArrowRight, AlertTriangle } from 'lucide-react';
 import { useLayout } from '../../contexts/LayoutContext';
-
 import { usePipeline } from '../../contexts/PipelineContext';
+import useToast from '../../hooks/useToast';
 
 const ManageFundFlow = () => {
     const { setLayout } = useLayout();
     const { fundRequests, advanceStage, isLoading } = usePipeline();
+    const { showToast, ToastPortal } = useToast();
     const [selectedRequest, setSelectedRequest] = useState(null);
 
     React.useEffect(() => {
@@ -61,12 +62,13 @@ const ManageFundFlow = () => {
                 remarks: `Stage ${stageId} completed by Finance` 
             });
         } catch (error) {
-            alert(error.response?.data?.message || 'Failed to advance stage');
+            showToast(error.response?.data?.message || 'Failed to advance stage', 'error');
         }
     };
 
     return (
         <div className="flex min-h-screen bg-gray-50">
+            <ToastPortal />
             <div className="flex-1">
 
                 <div className="p-8">

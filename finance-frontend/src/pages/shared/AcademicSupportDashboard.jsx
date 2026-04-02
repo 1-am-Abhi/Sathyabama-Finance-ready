@@ -7,10 +7,12 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../..
 import { Badge } from '../../components/ui/badge';
 import { Button } from '../../components/ui/button';
 import apiClient from '../../api/client';
+import useToast from '../../hooks/useToast';
 
 const AcademicSupportDashboard = () => {
     const { setLayout } = useLayout();
     const { user } = useAuth();
+    const { showToast, ToastPortal } = useToast();
     const [academicData, setAcademicData] = useState(null);
     const [selectedYear, setSelectedYear] = useState('2024-25');
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -91,10 +93,10 @@ const AcademicSupportDashboard = () => {
             // Re-fetch or update state
             fetchMetrics();
             setIsEditModalOpen(false);
-            alert('Academic metrics submitted for Admin Approval.');
+            showToast('Academic metrics submitted for Admin Approval.');
         } catch (e) {
             console.error('Save metrics failed', e);
-            alert('Submission failed: ' + (e.response?.data?.message || e.message));
+            showToast('Submission failed: ' + (e.response?.data?.message || e.message), 'error');
         }
     };
 
@@ -130,10 +132,10 @@ const AcademicSupportDashboard = () => {
             await apiClient.post('/academic-metrics', flatData);
             
             fetchMetrics();
-            alert('Academic metrics synced and submitted for Admin Approval.');
+            showToast('Academic metrics synced and submitted for Admin Approval.');
         } catch (e) {
             console.error('Sync failed', e);
-            alert('Sync failed: ' + (e.response?.data?.message || e.message));
+            showToast('Sync failed: ' + (e.response?.data?.message || e.message), 'error');
         } finally {
             setIsSyncing(false);
         }
@@ -229,6 +231,7 @@ const AcademicSupportDashboard = () => {
 
     return (
         <div className="p-6 space-y-8 pb-20">
+            <ToastPortal />
             {/* Header / Selector */}
             <div className="flex flex-col md:flex-row items-center justify-between gap-6 px-2">
                 <div>

@@ -6,11 +6,12 @@ import { Label } from '../../components/ui/label';
 import { Button } from '../../components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
 import { useLayout } from '../../contexts/LayoutContext';
-
 import apiClient from '../../api/client';
+import useToast from '../../hooks/useToast';
 
 const ManagePFMS = () => {
     const { setLayout } = useLayout();
+    const { showToast, ToastPortal } = useToast();
     const [pfmsEntries, setPfmsEntries] = useState([]);
     const [projects, setProjects] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -54,7 +55,7 @@ const ManagePFMS = () => {
         e.preventDefault();
         try {
             await apiClient.post('/finance/pfms', formData);
-            alert('PFMS entry created successfully!');
+            showToast('PFMS entry created successfully!');
             setShowForm(false);
             setFormData({
                 projectId: '',
@@ -70,7 +71,7 @@ const ManagePFMS = () => {
             });
             fetchData();
         } catch (error) {
-            alert(error.response?.data?.message || 'Failed to save PFMS entry');
+            showToast(error.response?.data?.message || 'Failed to save PFMS entry', 'error');
         }
     };
 
@@ -83,6 +84,7 @@ const ManagePFMS = () => {
 
     return (
         <div className="min-h-screen bg-gray-50">
+            <ToastPortal />
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
                 <div className="mb-8 flex justify-between items-center">
                     <div>

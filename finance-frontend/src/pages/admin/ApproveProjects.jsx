@@ -20,11 +20,13 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Label } from '../../components/ui/label';
 import { Textarea } from '../../components/ui/textarea';
 import apiClient from '../../api/client';
+import useToast from '../../hooks/useToast';
 
 const ApproveProjects = () => {
     const { setLayout } = useLayout();
     const { addNotification } = useNotifications();
     const { projects: pipelineProjects, updateProject, isLoading } = usePipeline();
+    const { showToast, ToastPortal } = useToast();
     const [selectedDate, setSelectedDate] = useState(null);
     const [selectedCentre, setSelectedCentre] = useState('All');
     const [selectedAgency, setSelectedAgency] = useState('All');
@@ -88,7 +90,7 @@ const ApproveProjects = () => {
             });
             fetchPendingMetrics();
             setSelectedMetric(null);
-            alert('Academic Record Approved');
+            showToast('Academic Record Approved!');
         } catch (error) {
             console.error(error);
         }
@@ -107,7 +109,7 @@ const ApproveProjects = () => {
             });
             fetchPendingMetrics();
             setSelectedMetric(null);
-            alert('Academic Record Rejected');
+            showToast('Academic Record Rejected.', 'warning');
         } catch (error) {
             console.error(error);
         }
@@ -121,7 +123,7 @@ const ApproveProjects = () => {
                 updates: { faculty: manageFacultyModal.selectedFaculty }
             });
             setManageFacultyModal({ isOpen: false, project: null, selectedFaculty: '' });
-            alert('Faculty assigned successfully');
+            showToast('Faculty assigned successfully!');
         } catch (error) {
             console.error(error);
         }
@@ -183,7 +185,7 @@ const ApproveProjects = () => {
             if (selectedProject?.id === id) {
                 setSelectedProject({ ...selectedProject, proofStatus: 'VERIFIED' });
             }
-            alert('Proof Verified');
+            showToast('Proof Verified successfully!');
             const proj = projects.find(p => p.id === id);
             addNotification({
                 role: 'FACULTY',
@@ -210,7 +212,7 @@ const ApproveProjects = () => {
             });
             setProofRejectModalOpen(false);
             setSelectedProject(null);
-            alert('Proof Rejected. Faculty notified for re-upload.');
+            showToast('Proof Rejected. Faculty notified for re-upload.', 'warning');
             addNotification({
                 role: 'FACULTY',
                 type: 'rejection',
@@ -243,6 +245,7 @@ const ApproveProjects = () => {
 
     return (
         <div className="flex-1 overflow-y-auto overflow-x-hidden">
+            <ToastPortal />
             <div className="p-8 pt-6">
 
                 {/* Pending Academic Metric Updates */}

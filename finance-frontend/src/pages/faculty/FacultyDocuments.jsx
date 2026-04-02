@@ -10,6 +10,7 @@ import { useLayout } from '../../contexts/LayoutContext';
 import { useNotifications } from '../../contexts/NotificationContext';
 import { useAuth } from '../../contexts/AuthContext';
 import apiClient from '../../api/client';
+import useToast from '../../hooks/useToast';
 
 const DOC_TYPES = ['PROPOSAL', 'INVOICE', 'REPORT', 'CERTIFICATE', 'COMPLIANCE', 'PUBLICATION', 'GENERAL'];
 
@@ -27,6 +28,7 @@ const FacultyDocuments = () => {
     const { setLayout } = useLayout();
     const { addNotification } = useNotifications();
     const { user } = useAuth();
+    const { showToast, ToastPortal } = useToast();
     const [documents, setDocuments] = useState([]);
     const [searchTerm, setSearchTerm] = useState('');
     const [showUploadModal, setShowUploadModal] = useState(false);
@@ -122,7 +124,7 @@ const FacultyDocuments = () => {
                 sendUpdate();
             }
         } catch (e) {
-            alert('Operation failed: ' + e.message);
+            showToast('Operation failed: ' + e.message, 'error');
         } finally {
             if (!selectedFile) setUploading(false);
         }
@@ -158,6 +160,7 @@ const FacultyDocuments = () => {
 
     return (
         <div className="p-6 space-y-8 pb-20">
+            <ToastPortal />
             {/* Stats */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                 {stats.map((stat, i) => (

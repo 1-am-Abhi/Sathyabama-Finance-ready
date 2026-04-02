@@ -18,11 +18,13 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useNotifications } from '../../contexts/NotificationContext';
 import apiClient from '../../api/client';
 import * as XLSX from 'xlsx';
+import useToast from '../../hooks/useToast';
 
 const FacultyODRequest = () => {
     const { setLayout } = useLayout();
     const { user } = useAuth();
     const { addNotification } = useNotifications();
+    const { showToast, ToastPortal } = useToast();
 
     useEffect(() => {
         setLayout("OD Management Portal", "Deployment lifecycle supervision and institutional duty tracking");
@@ -72,13 +74,13 @@ const FacultyODRequest = () => {
         const isImage = file.type.startsWith('image/');
         
         if (!isPDF && !isImage) {
-            alert('Please upload only images or PDF documents.');
+            showToast('Please upload only images or PDF documents.', 'warning');
             return;
         }
 
         const maxSize = isPDF ? 250 * 1024 * 1024 : 5 * 1024 * 1024;
         if (file.size > maxSize) {
-            alert(`File size too large. Maximum allowed is ${isPDF ? '250MB for PDFs' : '5MB for Images'}.`);
+            showToast(`File size too large. Maximum allowed is ${isPDF ? '250MB for PDFs' : '5MB for Images'}.`, 'warning');
             return;
         }
         
@@ -102,10 +104,10 @@ const FacultyODRequest = () => {
                     actionUrl: `/admin/od-requests?request_id=${id}`
                 });
                 
-                alert('Success');
+                showToast('Proof uploaded successfully!');
             } catch (err) {
                 console.error(err);
-                alert(err.response?.data?.message || 'File upload failed. Payload might be too large.');
+                showToast(err.response?.data?.message || 'File upload failed. Payload might be too large.', 'error');
             }
         };
     };
@@ -140,7 +142,7 @@ const FacultyODRequest = () => {
         
         const today = new Date().toISOString().split('T')[0];
         if (startDate <= today) {
-            alert('On-Duty requests must be submitted at least one day in advance. Same-day or past applications are not permitted.');
+            showToast('On-Duty requests must be submitted at least one day in advance. Same-day or past applications are not permitted.', 'warning');
             setIsSubmitting(false);
             return;
         }
@@ -178,7 +180,7 @@ const FacultyODRequest = () => {
             }
         } catch (err) {
             console.error(err);
-            alert(err.response?.data?.message || 'Failed to submit request');
+            showToast(err.response?.data?.message || 'Failed to submit request', 'error');
         } finally {
             setIsSubmitting(false);
         }
@@ -186,6 +188,7 @@ const FacultyODRequest = () => {
 
     return (
         <div className="p-6 space-y-8 pb-20">
+            <ToastPortal />
             {/* Quick Metrics - Admin Style */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                 {[

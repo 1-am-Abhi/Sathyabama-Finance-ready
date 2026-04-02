@@ -18,6 +18,7 @@ const FundRequestModal = ({ isOpen, onClose, project, nextInstallment, onSubmit,
         fundSource: '' // New Mandatory Field
     });
     const [files, setFiles] = useState([]);
+    const [fundSourceError, setFundSourceError] = useState(false);
 
     useEffect(() => {
         if (isOpen && nextInstallment) {
@@ -40,9 +41,10 @@ const FundRequestModal = ({ isOpen, onClose, project, nextInstallment, onSubmit,
     const handleFormSubmit = (e) => {
         e.preventDefault();
         if (!formData.fundSource) {
-            alert("Please select a Fund Source Type (PFMS or Director Innovation Fund)");
+            setFundSourceError(true);
             return;
         }
+        setFundSourceError(false);
         onSubmit({
             projectId: project.id,
             installmentNo: nextInstallment.phase,
@@ -140,6 +142,9 @@ const FundRequestModal = ({ isOpen, onClose, project, nextInstallment, onSubmit,
                                 <span className="text-xs font-bold uppercase tracking-wider">Director Innovation Fund</span>
                             </button>
                         </div>
+                        {fundSourceError && (
+                            <p className="text-red-500 text-xs font-bold mt-1 ml-1">⚠ Please select a Fund Source Type.</p>
+                        )}
                     </div>
 
                     {/* Detailed Fields */}

@@ -6,10 +6,12 @@ import { useLayout } from '../../contexts/LayoutContext';
 import { useNotifications } from '../../contexts/NotificationContext';
 import { Eye, CheckCircle, XCircle, FileText, Clock, X } from 'lucide-react';
 import apiClient from '../../api/client';
+import useToast from '../../hooks/useToast';
 
 const AdminDocuments = () => {
     const { setLayout } = useLayout();
     const { addNotification } = useNotifications();
+    const { showToast, ToastPortal } = useToast();
     const [docs, setDocs] = useState([]);
     const [selectedDoc, setSelectedDoc] = useState(null);
     const [remarks, setRemarks] = useState('');
@@ -47,7 +49,7 @@ const AdminDocuments = () => {
                 });
             }
         } catch (e) {
-            alert('Action failed: ' + e.message);
+            showToast('Action failed: ' + e.message, 'error');
         }
     };
 
@@ -64,6 +66,7 @@ const AdminDocuments = () => {
 
     return (
         <div className="p-6 space-y-8 pb-20">
+            <ToastPortal />
             {/* Stat cards */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 {[

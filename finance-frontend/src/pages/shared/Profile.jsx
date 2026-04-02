@@ -10,9 +10,11 @@ import {
     User, Mail, Phone, MapPin, Briefcase, Calendar,
     Building2, Award, BookOpen, Edit2, Save, X, Camera
 } from 'lucide-react';
+import useToast from '../../hooks/useToast';
 
 const Profile = () => {
     const { user, updateUser } = useAuth();
+    const { showToast, ToastPortal } = useToast();
     const [isEditing, setIsEditing] = useState(false);
     const [profilePhoto, setProfilePhoto] = useState(localStorage.getItem('profile_photo') || '');
 
@@ -50,13 +52,13 @@ const Profile = () => {
                 setProfileData(editData);
                 updateUser(response.data.user);
                 setIsEditing(false);
-                alert("Profile updated successfully!");
+                showToast('Profile updated successfully!');
             } else {
-                alert("Failed to save changes. Please try again.");
+                showToast('Failed to save changes. Please try again.', 'error');
             }
         } catch (error) {
             console.error("Error saving profile:", error);
-            alert("An error occurred while saving: " + (error.response?.data?.message || error.message));
+            showToast('Error: ' + (error.response?.data?.message || error.message), 'error');
         }
     };
 
@@ -79,6 +81,7 @@ const Profile = () => {
 
     return (
         <div className="min-h-screen bg-gray-50 dark:bg-slate-950 p-8">
+            <ToastPortal />
             <div className="max-w-6xl mx-auto space-y-6">
                 {/* Header */}
                 <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">

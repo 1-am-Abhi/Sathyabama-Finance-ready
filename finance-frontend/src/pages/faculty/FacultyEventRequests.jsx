@@ -11,11 +11,13 @@ import { Calendar, PlusCircle, Sparkles, Building, IndianRupee, MapPin, Users, B
 import * as XLSX from 'xlsx';
 import apiClient from '../../api/client';
 import { useAuth } from '../../contexts/AuthContext';
+import useToast from '../../hooks/useToast';
 
 const FacultyEventRequests = () => {
     const { setLayout } = useLayout();
     const { addNotification } = useNotifications();
     const { user } = useAuth();
+    const { showToast, ToastPortal } = useToast();
     const [requests, setRequests] = useState([]);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -94,7 +96,7 @@ const FacultyEventRequests = () => {
                 eventTitle: '', eventType: 'Seminar', venue: '', startDate: '', endDate: '', participants: '', fundingType: 'College Funded', fundingSource: '', requestedAmount: '', isFullDay: true, startTime: '09:00', endTime: '17:00'
             });
 
-            alert('Event Proposal Submitted Successfully');
+            showToast('Event Proposal Submitted Successfully');
 
             // Notify Admin
             addNotification({
@@ -119,7 +121,7 @@ const FacultyEventRequests = () => {
             if (errData?.errors && Array.isArray(errData.errors)) {
                 errMsg = errData.errors.map(e => e.message).join(', ');
             }
-            alert(`Submission Failed: ${errMsg}`);
+            showToast(`Submission Failed: ${errMsg}`, 'error');
         } finally {
             setIsSubmitting(false);
         }
@@ -132,13 +134,13 @@ const FacultyEventRequests = () => {
         const isImage = file.type.startsWith('image/');
         
         if (!isPDF && !isImage) {
-            alert('Please upload only images or PDF documents.');
+            showToast('Please upload only images or PDF documents.', 'warning');
             return;
         }
 
         const maxSize = isPDF ? 250 * 1024 * 1024 : 5 * 1024 * 1024;
         if (file.size > maxSize) {
-            alert(`File size too large. Maximum allowed is ${isPDF ? '250MB for PDFs' : '5MB for Images'}.`);
+            showToast(`File size too large. Maximum allowed is ${isPDF ? '250MB for PDFs' : '5MB for Images'}.`, 'warning');
             return;
         }
         
@@ -162,16 +164,17 @@ const FacultyEventRequests = () => {
                     actionUrl: `/admin/event-requests?request_id=${id}`
                 });
                 
-                alert('Success');
+                showToast('Proof uploaded successfully!');
             } catch (err) {
                 console.error(err);
-                alert(err.response?.data?.message || 'File upload failed. Payload might be too large.');
+                showToast(err.response?.data?.message || 'File upload failed. Payload might be too large.', 'error');
             }
         };
     };
 
     return (
         <div className="p-6 space-y-8 pb-20">
+            <ToastPortal />
                 <div className="flex items-center gap-3">
                     <Button onClick={handleExportExcel} variant="outline" className="h-14 px-6 border-white/10 bg-white/5 text-slate-800 dark:text-white rounded-2xl font-black text-xs uppercase tracking-widest italic hover:bg-white/10">
                         Export Excel

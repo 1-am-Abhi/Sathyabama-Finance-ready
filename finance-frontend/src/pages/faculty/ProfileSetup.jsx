@@ -11,10 +11,12 @@ import {
     Briefcase, Building2, Calendar, MapPin, Phone, GraduationCap 
 } from 'lucide-react';
 import apiClient from '../../api/client';
+import useToast from '../../hooks/useToast';
 
 const ProfileSetup = () => {
     const { user, updateUser } = useAuth();
     const navigate = useNavigate();
+    const { showToast } = useToast();
     const [step, setStep] = useState(1);
     const [isLoading, setIsLoading] = useState(false);
     const [photo, setPhoto] = useState(null);
@@ -86,7 +88,7 @@ const ProfileSetup = () => {
         } catch (error) {
             console.error('Profile setup error:', error);
             if (shouldNavigate) {
-                alert('Failed to save profile. Please try again.');
+                showToast('Failed to save profile. Please try again.', 'error');
             }
         } finally {
             setIsLoading(false);

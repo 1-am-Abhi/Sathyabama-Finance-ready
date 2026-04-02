@@ -8,9 +8,11 @@ import { Textarea } from '../../components/ui/textarea';
 import { Button } from '../../components/ui/button';
 import apiClient from '../../api/client';
 import { FUND_SOURCES } from '../../constants/fundSources';
+import useToast from '../../hooks/useToast';
 
 const CreateProject = () => {
     const { setLayout } = useLayout();
+    const { showToast, ToastPortal } = useToast();
     const [formData, setFormData] = useState({
         title: '',
         description: '',
@@ -38,12 +40,12 @@ const CreateProject = () => {
             };
             const response = await apiClient.post('/projects', payload);
             if (response.data.success) {
-                alert('Project created successfully!');
+                showToast('Project created successfully!');
                 setFormData({ title: '', description: '', principalInvestigator: '', researchCentre: '', budget: '', duration: '', startDate: '', fundingSource: 'PFMS' });
             }
         } catch (error) {
             console.error('Error creating project:', error);
-            alert('Failed to create project: ' + (error.response?.data?.message || error.message));
+            showToast('Failed to create project: ' + (error.response?.data?.message || error.message), 'error');
         }
     };
 
@@ -60,6 +62,7 @@ const CreateProject = () => {
 
     return (
         <div className="flex-1 overflow-y-auto overflow-x-hidden">
+            <ToastPortal />
             <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
                 {/* ... (rest of the content) */}
 

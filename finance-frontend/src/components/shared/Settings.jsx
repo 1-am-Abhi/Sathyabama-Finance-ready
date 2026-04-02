@@ -6,10 +6,12 @@ import { Button } from '../../components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
 import { User, Bell, Shield, Server, Palette, Upload, Moon, Sun } from 'lucide-react';
 import apiClient from '../../api/client';
+import useToast from '../../hooks/useToast';
 
 const Settings = () => {
     const { setLayout } = useLayout();
     const { user, updateUser } = useAuth();
+    const { showToast, ToastPortal } = useToast();
     const [activeTab, setActiveTab] = useState('profile');
     const [profilePhoto, setProfilePhoto] = useState(null);
 
@@ -45,45 +47,36 @@ const Settings = () => {
 
     const handleProfileUpdate = () => {
         try {
-            updateUser({
-                name,
-                email,
-                phone,
-                department
-            });
-            alert("Profile updated successfully!");
-            // Optional: Force reload if needed, but Context matches
+            updateUser({ name, email, phone, department });
+            showToast('Profile updated successfully!');
         } catch (error) {
             console.error(error);
-            alert("Failed to update profile.");
+            showToast('Failed to update profile.', 'error');
         }
     };
 
     const handlePasswordUpdate = async () => {
         if (!currentPassword || !newPassword) {
-            alert("Please fill in all password fields.");
+            showToast('Please fill in all password fields.', 'warning');
             return;
         }
 
         try {
-            const response = await apiClient.put('/auth/update-password', {
-                currentPassword,
-                newPassword
-            });
-            
+            const response = await apiClient.put('/auth/update-password', { currentPassword, newPassword });
             if (response.data.success) {
-                alert("Password updated successfully!");
+                showToast('Password updated successfully!');
                 setCurrentPassword('');
                 setNewPassword('');
             }
         } catch (error) {
             console.error("Error updating password:", error);
-            alert(error.response?.data?.message || "Failed to update password");
+            showToast(error.response?.data?.message || 'Failed to update password', 'error');
         }
     };
 
     return (
         <div className="p-6 max-w-6xl">
+            <ToastPortal />
             <Tabs defaultValue="profile" className="w-full" onValueChange={setActiveTab}>
                 <TabsList className="flex flex-wrap justify-center md:grid w-full md:grid-cols-4 mb-8 h-auto gap-2">
                     <TabsTrigger value="profile" className="flex-1 flex items-center justify-center gap-2"><User className="w-4 h-4" /> Profile</TabsTrigger>

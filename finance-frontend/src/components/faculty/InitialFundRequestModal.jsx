@@ -17,6 +17,7 @@ const InitialFundRequestModal = ({ isOpen, onClose, onSubmit }) => {
         fundSource: '' // New Field
     });
     const [files, setFiles] = useState([]);
+    const [fundSourceError, setFundSourceError] = useState(false);
 
     if (!isOpen) return null;
 
@@ -28,9 +29,10 @@ const InitialFundRequestModal = ({ isOpen, onClose, onSubmit }) => {
     const handleFormSubmit = (e) => {
         e.preventDefault();
         if (!formData.fundSource) {
-            alert("Please select a Fund Source Type (PFMS or Director Innovation Fund)");
+            setFundSourceError(true);
             return;
         }
+        setFundSourceError(false);
         onSubmit({
             ...formData,
             files
@@ -157,6 +159,9 @@ const InitialFundRequestModal = ({ isOpen, onClose, onSubmit }) => {
                                     <span className="text-xs font-bold uppercase tracking-wider">Director Innovation Fund</span>
                                 </button>
                             </div>
+                            {fundSourceError && (
+                                <p className="text-red-500 text-xs font-bold mt-1 ml-1">⚠ Please select a Fund Source Type.</p>
+                            )}
                         </div>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

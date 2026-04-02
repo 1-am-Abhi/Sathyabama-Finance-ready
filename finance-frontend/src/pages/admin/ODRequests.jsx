@@ -16,6 +16,7 @@ import { useNotifications } from '../../contexts/NotificationContext';
 import apiClient from '../../api/client';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSameDay, addMonths, subMonths, isWithinInterval, parseISO, isPast, addHours, differenceInHours } from 'date-fns';
 import * as XLSX from 'xlsx';
+import useToast from '../../hooks/useToast';
 
 const API_KEY = 'AIzaSyBj4Crh5DFqWdf49XQNKxvxLMo-5MSyKog';
 const CALENDAR_ID = 'en.indian#holiday@group.v.calendar.google.com';
@@ -139,6 +140,7 @@ const ODRequests = () => {
     const { setLayout } = useLayout();
     const { addNotification } = useNotifications();
     const location = useLocation();
+    const { showToast, ToastPortal } = useToast();
     const [selectedStatus, setSelectedStatus] = useState('All');
     const [searchTerm, setSearchTerm] = useState('');
     const [rejectModalOpen, setRejectModalOpen] = useState(false);
@@ -351,7 +353,7 @@ const ODRequests = () => {
             if (selectedRequest?.id === id) {
                 setSelectedRequest({ ...selectedRequest, proofStatus: 'VERIFIED' });
             }
-            alert('Proof Verified');
+            showToast('Proof Verified successfully!');
             
             addNotification({
                 role: 'FACULTY',
@@ -381,7 +383,7 @@ const ODRequests = () => {
             } : req));
             setProofRejectModalOpen(false);
             setPhotoModalOpen(false);
-            alert('Proof Rejected. Faculty can re-upload.');
+            showToast('Proof Rejected. Faculty can re-upload.', 'warning');
             
             addNotification({
                 role: 'FACULTY',
@@ -456,6 +458,7 @@ const ODRequests = () => {
 
     return (
         <div className="p-6 space-y-6">
+            <ToastPortal />
             {/* Status Cards */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                 {['PENDING', 'APPROVED', 'REJECTED', 'CANCELLED'].map(status => {

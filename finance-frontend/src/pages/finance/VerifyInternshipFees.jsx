@@ -7,11 +7,12 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '.
 import { Badge } from '../../components/ui/badge';
 import { AlertCircle } from 'lucide-react';
 import { useLayout } from '../../contexts/LayoutContext';
-
 import apiClient from '../../api/client';
+import useToast from '../../hooks/useToast';
 
 const VerifyInternshipFees = () => {
     const { setLayout } = useLayout();
+    const { showToast, ToastPortal } = useToast();
     const [internships, setInternships] = useState([]);
     const [loading, setLoading] = useState(true);
 
@@ -57,12 +58,12 @@ const VerifyInternshipFees = () => {
                 ...paymentData,
                 paymentStatus: 'PAID'
             });
-            alert('Payment status updated successfully!');
+            showToast('Payment status updated successfully!');
             setSelectedInternship(null);
             setPaymentData({ paymentMode: '', receiptNumber: '', paymentDate: '' });
             fetchFees();
         } catch (error) {
-            alert(error.response?.data?.message || 'Failed to update payment status');
+            showToast(error.response?.data?.message || 'Failed to update payment status', 'error');
         }
     };
 
@@ -70,6 +71,7 @@ const VerifyInternshipFees = () => {
 
     return (
         <div className="flex min-h-screen bg-gray-50">
+            <ToastPortal />
             <div className="flex-1">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
                     <div className="mb-8">
