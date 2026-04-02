@@ -5,6 +5,7 @@ const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001/api
 
 const apiClient = axios.create({
     baseURL: API_BASE_URL,
+    withCredentials: true,
     headers: {
         'Content-Type': 'application/json',
     },
@@ -19,12 +20,10 @@ apiClient.interceptors.request.use(
         }
         return config;
     },
-    (error) => {
-        return Promise.reject(error);
-    }
+    (error) => Promise.reject(error)
 );
 
-// Response interceptor for error handling
+// Response interceptor for error handling and retry logic
 apiClient.interceptors.response.use(
     (response) => {
         // Success toasts for mutations (POST/PUT/DELETE)
@@ -36,18 +35,30 @@ apiClient.interceptors.response.use(
         }
         return response;
     },
-    (error) => {
-        const isAuthRequest = error.config?.url?.includes('/auth/login');
-        const errorMessage = error.response?.data?.message || error.message || 'Something went wrong';
+    async (error) => {
+        const { config, response } = error;
+        
+        // --- Render Cold Start Retry Logic ---
+        // If it's a 503 (Service Unavailable) or a network error and we haven't retried yet
+        if ((!response || response.status === 503) && !config._retry) {
+            config._retry = true;
+            console.log('Detected potential cold start, retrying request...');
+            // Wait 2 seconds before retrying
+            await new Promise(resolve => setTimeout(resolve, 2000));
+            return apiClient(config);
+        }
 
-        if (error.response?.status === 401 && !isAuthRequest) {
+        const isAuthRequest = config?.url?.includes('/auth/login');
+        const errorMessage = response?.data?.message || error.message || 'Something went wrong';
+
+        if (response?.status === 401 && !isAuthRequest) {
             toast.error('Session expired. Please login again.');
             localStorage.removeItem('token');
             localStorage.removeItem('user');
             window.location.href = '/login';
-        } else if (error.response?.status === 400 && error.response?.data?.errors) {
-            // Handle validation errors
-            error.response.data.errors.forEach(err => toast.error(err.message));
+        } else if (response?.status === 400 && response?.data?.errors) {
+            // Handle validation errors from Zod/Sequelize
+            response.data.errors.forEach(err => toast.error(err.message));
         } else {
             toast.error(errorMessage);
         }

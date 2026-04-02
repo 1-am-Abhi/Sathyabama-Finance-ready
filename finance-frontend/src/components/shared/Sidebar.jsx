@@ -12,7 +12,7 @@ import {
 const Sidebar = ({ isOpen, onClose }) => {
     const { user, logout } = useAuth();
     const { getNotificationsByRole } = useNotifications();
-    
+
     // Filter unread notifications to show dots
     const filteredNotifications = getNotificationsByRole(user?.role);
     const unreadNotifications = filteredNotifications.filter(n => !n.read);
@@ -173,25 +173,26 @@ const Sidebar = ({ isOpen, onClose }) => {
                                             {item.subItems.map((subItem) => {
                                                 const subItemHasUnread = hasUnread(subItem.path);
                                                 return (
-                                                <NavLink
-                                                    key={subItem.path}
-                                                    to={subItem.path}
-                                                    onClick={onClose}
-                                                    className={({ isActive }) =>
-                                                        `flex items-center space-x-3 pl-14 pr-6 py-2 transition-colors relative ${isActive
-                                                            ? 'text-amber-400 font-medium'
-                                                            : 'text-maroon-100 hover:text-white hover:bg-maroon-800/30'
-                                                        }`
-                                                    }
-                                                >
-                                                    <div className="flex items-center">
-                                                        <span className="text-sm">{subItem.label}</span>
-                                                        {subItemHasUnread && (
-                                                            <span className="ml-2 w-2 h-2 bg-red-500 rounded-full shadow-[0_0_8px_rgba(239,68,68,0.8)] animate-pulse"></span>
-                                                        )}
-                                                    </div>
-                                                </NavLink>
-                                            )})}
+                                                    <NavLink
+                                                        key={subItem.path}
+                                                        to={subItem.path}
+                                                        onClick={onClose}
+                                                        className={({ isActive }) =>
+                                                            `flex items-center space-x-3 pl-14 pr-6 py-2 transition-colors relative ${isActive
+                                                                ? 'text-amber-400 font-medium'
+                                                                : 'text-maroon-100 hover:text-white hover:bg-maroon-800/30'
+                                                            }`
+                                                        }
+                                                    >
+                                                        <div className="flex items-center">
+                                                            <span className="text-sm">{subItem.label}</span>
+                                                            {subItemHasUnread && (
+                                                                <span className="ml-2 w-2 h-2 bg-red-500 rounded-full shadow-[0_0_8px_rgba(239,68,68,0.8)] animate-pulse"></span>
+                                                            )}
+                                                        </div>
+                                                    </NavLink>
+                                                )
+                                            })}
                                         </div>
                                     )}
                                 </div>
