@@ -25,6 +25,7 @@ const FacultyDashboard = () => {
     // Real data
     const [projects, setProjects] = useState([]);
     const [fundRequests, setFundRequests] = useState([]);
+    const [revenueSummary, setRevenueSummary] = useState({ total: 0 });
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
@@ -34,12 +35,17 @@ const FacultyDashboard = () => {
 
     const loadData = async () => {
         try {
-            const [projRes, fundRes] = await Promise.all([
+            const currentYear = new Date().getFullYear();
+            const [projRes, fundRes, revRes] = await Promise.all([
                 apiClient.get('/projects').catch(() => ({ data: { data: [] } })),
                 apiClient.get('/fund-requests').catch(() => ({ data: { data: [] } })),
+                apiClient.get(`/revenue/summary?year=${currentYear}`).catch(() => ({ data: { success: true, data: { summary: { total: 0 } } } })),
             ]);
             setProjects(projRes.data.data || []);
             setFundRequests(fundRes.data.data || []);
+            if (revRes.data.success) {
+                setRevenueSummary(revRes.data.data.summary || { total: 0 });
+            }
         } catch (e) {
             console.error(e);
         } finally {
@@ -48,23 +54,32 @@ const FacultyDashboard = () => {
     };
 
     const activeProjects = projects.filter(p => ['active', 'ACTIVE', 'Approved', 'APPROVED'].includes(p.status)).length;
-    const publications = projects.filter(p => p.projectType === 'PUBLICATION').length;
+    const publications = projects.filter(p => 
+        (p.projectType || '').toUpperCase() === 'PUBLICATION' || 
+        (p.status || '').toUpperCase() === 'PUBLISHED'
+    ).length;
     const totalFunding = projects.reduce((sum, p) => sum + parseFloat(p.sanctionedBudget || 0), 0);
     const formattedFunding = formatCurrency(totalFunding);
+    const formattedRevenue = formatCurrency(revenueSummary.total || 0);
 
     const stats = [
         { title: 'Active Projects', value: loading ? '…' : String(activeProjects), icon: FileText, color: 'text-rose-400', bg: 'bg-rose-500/10', border: 'border-rose-500/20', subtitle: 'Ongoing research' },
+        { title: 'Revenue Generated', value: loading ? '…' : formattedRevenue, icon: TrendingUp, color: 'text-amber-400', bg: 'bg-amber-500/10', border: 'border-amber-500/20', subtitle: 'Institutional income' },
         { title: 'Total Funding', value: loading ? '…' : formattedFunding, icon: Banknote, color: 'text-emerald-400', bg: 'bg-emerald-500/10', border: 'border-emerald-500/20', subtitle: 'Sanctioned grants' },
-        { title: 'Publications', value: String(publications), icon: Award, color: 'text-violet-400', bg: 'bg-violet-500/10', border: 'border-violet-500/20', subtitle: 'Research output' },
-        { title: 'h-Index', value: '0', icon: Target, color: 'text-amber-400', bg: 'bg-amber-500/10', border: 'border-amber-500/20', subtitle: 'Author impact' }
+        { title: 'Publications', value: String(publications), icon: Award, color: 'text-violet-400', bg: 'bg-violet-500/10', border: 'border-violet-500/20', subtitle: 'Research output' }
     ];
 
     // Build funding trend from real projects (by creation month)
     const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-    const trendData = monthNames.map(m => ({ month: m, amount: 0 }));
+    const trendData = monthNames.map(m => ({ month: m, amount: 0, titles: [] }));
     projects.forEach(r => {
         const d = r.createdAt ? new Date(r.createdAt) : null;
-        if (d) trendData[d.getMonth()].amount += parseFloat(r.sanctionedBudget || r.budget || 0) / 100000;
+        if (d) {
+            const mIdx = d.getMonth();
+            const amt = parseFloat(r.sanctionedBudget || r.budget || 0) / 100000;
+            trendData[mIdx].amount += amt;
+            if (amt > 0) trendData[mIdx].titles.push(r.title);
+        }
     });
     // Also include fund requests that have been approved
     fundRequests.forEach(r => {
@@ -145,7 +160,24 @@ const FacultyDashboard = () => {
                                         <YAxis axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 10, fontWeight: 900 }} tickFormatter={(v) => `₹${v}L`} />
                                         <Tooltip 
                                             contentStyle={{ background: '#1e293b', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', color: '#f8fafc' }}
-                                            formatter={(value) => [`₹${value.toFixed(2)}L`, 'Sanctioned Funding']}
+                                            formatter={(value, name, props) => {
+                                                const titles = props.payload?.titles || [];
+                                                return [
+                                                    <div className="flex flex-col gap-1">
+                                                        <span className="font-bold">₹{value.toFixed(2)}L</span>
+                                                        {titles.length > 0 && (
+                                                            <div className="mt-1 border-t border-white/10 pt-1">
+                                                                <p className="text-[8px] text-slate-500 uppercase font-black mb-1">Projects:</p>
+                                                                {titles.slice(0, 2).map((t, i) => (
+                                                                    <p key={i} className="text-[9px] truncate max-w-[150px] italic">• {t}</p>
+                                                                ))}
+                                                                {titles.length > 2 && <p className="text-[8px] text-slate-500 font-bold">+{titles.length - 2} more...</p>}
+                                                            </div>
+                                                        )}
+                                                    </div>,
+                                                    'Sanctioned Funding'
+                                                ];
+                                            }}
                                             labelFormatter={(label) => `Month: ${label}`}
                                         />
                                         <Area type="monotone" dataKey="amount" name="Sanctioned Funding (L)" stroke="#f43f5e" strokeWidth={2} fill="url(#fundGrad)" />

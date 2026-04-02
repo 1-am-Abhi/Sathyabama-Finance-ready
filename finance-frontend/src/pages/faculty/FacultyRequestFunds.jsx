@@ -40,6 +40,7 @@ const FacultyRequestFunds = () => {
     }, [projects, selectedProjectId]);
 
     const selectedProject = projects?.find(p => p._id === selectedProjectId);
+    const isPI = selectedProject && (selectedProject.piId === user?._id || selectedProject.userId === user?._id);
     
     // Adapted installment logic
     const installments = [
@@ -163,6 +164,9 @@ const FacultyRequestFunds = () => {
                         >
                             <PlusCircle className="w-4 h-4 mr-2" /> New Grant Request
                         </Button>
+                        <p className="text-[9px] text-gray-400 mt-2 text-center italic uppercase leading-tight font-bold">
+                            * Only Principal Investigators can initiate new grant applications
+                        </p>
                     </div>
                 </Card>
 
@@ -175,8 +179,13 @@ const FacultyRequestFunds = () => {
                                     <Badge className="bg-maroon-600 text-white border-0 text-[10px] font-black italic tracking-widest px-3 py-1 uppercase">Subsequent Installment</Badge>
                                     <CardTitle className="text-2xl font-black italic tracking-tighter uppercase text-slate-800">{selectedProject.title}</CardTitle>
                                 </div>
-                                <div className="w-16 h-16 bg-maroon-50 text-maroon-600 rounded-2xl flex items-center justify-center">
+                                <div className="w-16 h-16 bg-maroon-50 text-maroon-600 rounded-2xl flex items-center justify-center relative">
                                     <Activity className="w-8 h-8" />
+                                    {!isPI && (
+                                        <div className="absolute -top-2 -right-2 bg-amber-500 text-white p-1 rounded-full shadow-lg" title="Read Only Access">
+                                            <Clock className="w-3 h-3" />
+                                        </div>
+                                    )}
                                 </div>
                             </CardHeader>
                             <CardContent className="p-10">
@@ -186,15 +195,25 @@ const FacultyRequestFunds = () => {
                                 />
                                 <div className="mt-12 flex flex-col items-center text-center space-y-6">
                                     <div className="max-w-md">
-                                        <h4 className="text-xl font-bold text-slate-800 italic uppercase tracking-tighter">Request Disbursement</h4>
-                                        <p className="text-sm font-medium italic text-gray-400 mt-2">Submit your progress report and expense justification to trigger the next phase release.</p>
+                                        <h4 className="text-xl font-bold text-slate-800 italic uppercase tracking-tighter">
+                                            {isPI ? 'Request Disbursement' : 'Restricted Access'}
+                                        </h4>
+                                        <p className="text-sm font-medium italic text-gray-400 mt-2">
+                                            {isPI 
+                                                ? 'Submit your progress report and expense justification to trigger the next phase release.'
+                                                : "You are a team member on this project. Only the Principal Investigator can process fund release phases."}
+                                        </p>
                                     </div>
                                     <Button
-                                        disabled={!nextInstallment || nextInstallment.status === 'PENDING'}
+                                        disabled={!isPI || !nextInstallment || nextInstallment.status === 'PENDING'}
                                         onClick={() => { setRequestMode('RELEASE'); setIsModalOpen(true); }}
-                                        className="h-16 px-12 bg-maroon-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest italic shadow-xl shadow-maroon-600/20 hover:scale-105 transition-all flex items-center gap-3"
+                                        className={`h-16 px-12 rounded-2xl font-black text-xs uppercase tracking-widest italic transition-all flex items-center gap-3 ${
+                                            isPI 
+                                            ? 'bg-maroon-600 text-white shadow-xl shadow-maroon-600/20 hover:scale-105' 
+                                            : 'bg-gray-100 text-gray-400 cursor-not-allowed border border-gray-200 shadow-none'
+                                        }`}
                                     >
-                                        {nextInstallment?.status === 'PENDING' ? 'Request Under Review' : 'Process Next Phase'}
+                                        {nextInstallment?.status === 'PENDING' ? 'Request Under Review' : isPI ? 'Process Next Phase' : 'PI Only Action'}
                                         <ArrowRight className="w-4 h-4" />
                                     </Button>
                                 </div>

@@ -1,5 +1,6 @@
 const Project = require('../models/Project');
 const User = require('../models/User');
+const ProjectMember = require('../models/ProjectMember');
 const { FundRequest } = require('../models/FundRequest');
 const { Op } = require('sequelize');
 
@@ -47,21 +48,35 @@ exports.getAdminStats = async (req, res) => {
 
 exports.getProjects = async (req, res) => {
     try {
-        let options = { order: [['createdAt', 'DESC']] };
-        // If faculty, only show their projects
+        const includeMembers = {
+            include: [{
+                model: ProjectMember,
+                as: 'members',
+                include: [{ model: User, as: 'user', attributes: ['_id', 'name', 'email', 'centre', 'department'] }]
+            }],
+            order: [['createdAt', 'DESC']]
+        };
+
         if (req.user.role === 'FACULTY') {
-            options.where = {
+            const userId = req.user.id || req.user._id;
+            // Find project IDs where this user is a member
+            const memberRows = await ProjectMember.findAll({ where: { userId }, attributes: ['projectId'] });
+            const memberProjectIds = memberRows.map(m => m.projectId);
+
+            includeMembers.where = {
                 [Op.or]: [
-                    { facultyId: req.user.id || req.user._id },
-                    { userId: req.user.id || req.user._id },
-                    { pi: req.user.name }
+                    { facultyId: userId },
+                    { userId: userId },
+                    { pi: req.user.name },
+                    ...(memberProjectIds.length > 0 ? [{ _id: { [Op.in]: memberProjectIds } }] : [])
                 ]
             };
         }
-        
-        const projects = await Project.findAll(options);
+
+        const projects = await Project.findAll(includeMembers);
         res.status(200).json({ success: true, count: projects.length, data: projects });
     } catch (error) {
+        console.error('Get Projects Error:', error);
         res.status(500).json({ success: false, message: error.message });
     }
 };
@@ -154,6 +169,67 @@ exports.deleteProject = async (req, res) => {
         await project.destroy();
         res.status(200).json({ success: true, data: {} });
     } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+// Get members for a specific project
+exports.getProjectMembers = async (req, res) => {
+    try {
+        const members = await ProjectMember.findAll({
+            where: { projectId: req.params.id },
+            include: [{ model: User, as: 'user', attributes: ['_id', 'name', 'email', 'centre', 'department'] }]
+        });
+        res.status(200).json({ success: true, data: members });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+// Update team: receives { piId, memberIds[] }
+exports.updateProjectMembers = async (req, res) => {
+    try {
+        const { piId, memberIds } = req.body;
+        const projectId = req.params.id;
+
+        const project = await Project.findByPk(projectId);
+        if (!project) {
+            return res.status(404).json({ success: false, message: 'Project not found' });
+        }
+
+        // Remove all existing members for this project
+        await ProjectMember.destroy({ where: { projectId } });
+
+        const newMembers = [];
+
+        // Add PI
+        if (piId) {
+            newMembers.push({ projectId, userId: piId, role: 'PI' });
+            // Also update the legacy fields on Project for backward compat
+            const piUser = await User.findByPk(piId);
+            await project.update({ facultyId: piId, pi: piUser ? piUser.name : 'PI' });
+        }
+
+        // Add other members (exclude PI to avoid duplicate)
+        if (memberIds && memberIds.length > 0) {
+            for (const memberId of memberIds) {
+                if (memberId !== piId) {
+                    newMembers.push({ projectId, userId: memberId, role: 'MEMBER' });
+                }
+            }
+        }
+
+        await ProjectMember.bulkCreate(newMembers);
+
+        // Fetch the updated members with user details
+        const updatedMembers = await ProjectMember.findAll({
+            where: { projectId },
+            include: [{ model: User, as: 'user', attributes: ['_id', 'name', 'email', 'centre', 'department'] }]
+        });
+
+        res.status(200).json({ success: true, data: updatedMembers });
+    } catch (error) {
+        console.error('Update Project Members Error:', error);
         res.status(500).json({ success: false, message: error.message });
     }
 };

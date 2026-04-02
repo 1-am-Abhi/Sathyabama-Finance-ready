@@ -11,7 +11,7 @@ import apiClient from '../../../api/client';
 
 const RevenueSummary = () => {
     const { setLayout } = useLayout();
-    const [selectedYear, setSelectedYear] = useState(2026);
+    const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
     const [loading, setLoading] = useState(true);
     const [summary, setSummary] = useState({
         total: 0, consultancy: 0, events: 0, projects: 0, industry: 0, analysis: 0, other: 0,
@@ -83,7 +83,9 @@ const RevenueSummary = () => {
                         onChange={(e) => setSelectedYear(Number(e.target.value))}
                         className="h-12 px-4 bg-slate-800 border border-white/10 text-white rounded-xl text-xs font-black italic uppercase tracking-widest outline-none focus:ring-2 focus:ring-rose-500"
                     >
-                        {[2026, 2025, 2024, 2023].map(y => <option key={y} value={y}>{y}</option>)}
+                        {Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i).map(y => (
+                            <option key={y} value={y}>{y}</option>
+                        ))}
                     </select>
                 </div>
             </div>

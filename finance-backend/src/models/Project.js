@@ -95,11 +95,19 @@ const Project = sequelize.define('Project', {
 
 const { FundRequest } = require('./FundRequest');
 const PFMSTransaction = require('./PFMSTransaction');
+const ProjectMember = require('./ProjectMember');
+const User = require('./User');
 
 Project.hasMany(FundRequest, { foreignKey: 'projectId' });
 FundRequest.belongsTo(Project, { foreignKey: 'projectId' });
 
 Project.hasMany(PFMSTransaction, { foreignKey: 'projectId' });
 PFMSTransaction.belongsTo(Project, { foreignKey: 'projectId' });
+
+Project.hasMany(ProjectMember, { foreignKey: 'projectId', as: 'members' });
+ProjectMember.belongsTo(Project, { foreignKey: 'projectId' });
+
+ProjectMember.belongsTo(User, { foreignKey: 'userId', as: 'user' });
+User.hasMany(ProjectMember, { foreignKey: 'userId' });
 
 module.exports = Project;

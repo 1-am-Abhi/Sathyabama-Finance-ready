@@ -56,7 +56,8 @@ const ManageFaculty = () => {
                         id: p._id,
                         title: p.title,
                         status: p.status,
-                        assignedFacultyIds: [p.facultyId || p.userId].filter(Boolean),
+                        assignedFacultyIds: (p.members || []).map(m => m.userId),
+                        piId: (p.members || []).find(m => m.role === 'PI')?.userId,
                         requestedAmount: p.sanctionedBudget || 0,
                         type: p.fundingSource || 'College'
                     }));
@@ -114,6 +115,7 @@ const ManageFaculty = () => {
 
     // Multi-select for Project->Faculty assignment
     const [selectedFacultyIds, setSelectedFacultyIds] = useState([]);
+    const [selectedPiId, setSelectedPiId] = useState(null);
 
     // Form State
     const [newFaculty, setNewFaculty] = useState({
@@ -202,32 +204,30 @@ const ManageFaculty = () => {
 
     // 2. Assign Multiple Faculty TO A Project
     const handleAssignFacultyToProject = async () => {
-        if (selectedProject && selectedFacultyIds.length > 0) {
+        if (selectedProject && (selectedPiId || selectedFacultyIds.length > 0)) {
             try {
-                // In this simplified model, we'll just update the project with the first selected faculty as PI
-                // Real implementation would support multiple assignees if the model allows
-                const response = await apiClient.put(`/projects/${selectedProject.id}`, {
-                    facultyId: selectedFacultyIds[0],
-                    pi: faculties.find(f => f.id === selectedFacultyIds[0])?.name || 'Assigned PI'
+                const response = await apiClient.put(`/projects/${selectedProject.id}/members`, {
+                    piId: selectedPiId,
+                    memberIds: selectedFacultyIds
                 });
 
                 if (response.data.success) {
+                    const updatedMembers = response.data.data;
                     setProjects(projects.map(p =>
                         p.id === selectedProject.id
-                            ? { ...p, assignedFacultyIds: [...p.assignedFacultyIds, ...selectedFacultyIds.filter(id => !p.assignedFacultyIds.includes(id))] }
+                            ? { 
+                                ...p, 
+                                assignedFacultyIds: updatedMembers.map(m => m.userId),
+                                piId: updatedMembers.find(m => m.role === 'PI')?.userId
+                              }
                             : p
-                    ));
-
-                    setFaculties(faculties.map(f =>
-                        selectedFacultyIds.includes(f.id)
-                            ? { ...f, projectsCount: f.projectsCount + 1 }
-                            : f
                     ));
 
                     setIsProjectAssignModalOpen(false);
                     setSelectedProject(null);
                     setSelectedFacultyIds([]);
-                    showToast('Team assignment saved successfully.');
+                    setSelectedPiId(null);
+                    showToast('Project team updated successfully.');
                 }
             } catch (error) {
                 console.error("Error updating team:", error);
@@ -610,11 +610,12 @@ const ManageFaculty = () => {
                                             <TableCell className="pr-6 text-right">
                                                 <Button
                                                     size="sm"
-                                                    disabled={project.status !== 'APPROVED'}
-                                                    className={`h-7 px-3 text-xs ${project.status === 'APPROVED' ? 'bg-slate-900 text-white hover:bg-slate-800' : 'bg-gray-100 text-gray-400 cursor-not-allowed'}`}
+                                                    disabled={project.status !== 'APPROVED' && project.status !== 'ACTIVE'}
+                                                    className={`h-7 px-3 text-xs ${(project.status === 'APPROVED' || project.status === 'ACTIVE') ? 'bg-slate-900 text-white hover:bg-slate-800' : 'bg-gray-100 text-gray-400 cursor-not-allowed'}`}
                                                     onClick={() => {
                                                         setSelectedProject(project);
                                                         setSelectedFacultyIds(project.assignedFacultyIds || []);
+                                                        setSelectedPiId(project.piId || null);
                                                         setIsProjectAssignModalOpen(true);
                                                     }}
                                                 >
@@ -939,36 +940,58 @@ const ManageFaculty = () => {
 
                                         <div className="space-y-3 max-h-[40vh] overflow-y-auto pr-2 custom-scrollbar">
                                             {faculties.filter(f => f.status === 'Active').map((faculty) => {
-                                                const isAssigned = selectedProject.assignedFacultyIds.includes(faculty.id);
-                                                const isSelected = selectedFacultyIds.includes(faculty.id);
-                                                const isActive = isAssigned || isSelected;
+                                                const isPi = selectedPiId === faculty.id;
+                                                const isMember = selectedFacultyIds.includes(faculty.id) && !isPi;
+                                                const isActive = isPi || isMember;
 
                                                 return (
                                                     <div
                                                         key={faculty.id}
-                                                        onClick={() => {
-                                                            if (isAssigned) return; // Can't remove already assigned in this simple view
-                                                            if (isSelected) {
-                                                                setSelectedFacultyIds(selectedFacultyIds.filter(id => id !== faculty.id));
-                                                            } else {
-                                                                setSelectedFacultyIds([...selectedFacultyIds, faculty.id]);
-                                                            }
-                                                        }}
-                                                        className={`group flex items-center p-3 rounded-lg border transition-all cursor-pointer ${isAssigned
-                                                            ? 'bg-slate-50 border-slate-200 opacity-60 cursor-not-allowed'
-                                                            : isActive
+                                                        className={`group flex items-center p-3 rounded-lg border transition-all cursor-pointer ${
+                                                            isActive
                                                                 ? 'bg-maroon-50 border-maroon-200 shadow-sm'
                                                                 : 'border-gray-200 hover:border-gray-300'
                                                             }`}
                                                     >
-                                                        <div className={`w-5 h-5 rounded border mr-3 flex items-center justify-center transition-colors ${isActive ? 'bg-maroon-600 border-maroon-600' : 'border-gray-300 bg-white'
-                                                            }`}>
+                                                        <div 
+                                                            className={`w-5 h-5 rounded border mr-3 flex items-center justify-center transition-colors ${isActive ? 'bg-maroon-600 border-maroon-600' : 'border-gray-300 bg-white'}`}
+                                                            onClick={() => {
+                                                                if (selectedFacultyIds.includes(faculty.id)) {
+                                                                    setSelectedFacultyIds(selectedFacultyIds.filter(id => id !== faculty.id));
+                                                                    if (selectedPiId === faculty.id) setSelectedPiId(null);
+                                                                } else {
+                                                                    setSelectedFacultyIds([...selectedFacultyIds, faculty.id]);
+                                                                }
+                                                            }}
+                                                        >
                                                             {isActive && <CheckCircle className="w-3.5 h-3.5 text-white" />}
                                                         </div>
-                                                        <div className="flex-1">
+                                                        <div className="flex-1" onClick={() => {
+                                                            if (!selectedFacultyIds.includes(faculty.id)) {
+                                                                setSelectedFacultyIds([...selectedFacultyIds, faculty.id]);
+                                                            }
+                                                        }}>
                                                             <div className="flex items-center justify-between">
                                                                 <p className={`text-sm font-medium ${isActive ? 'text-maroon-900' : 'text-gray-900'}`}>{faculty.name}</p>
-                                                                {isAssigned && <span className="text-[10px] bg-slate-200 text-slate-600 px-1.5 rounded">Joined</span>}
+                                                                <div className="flex items-center space-x-2">
+                                                                    {isActive && (
+                                                                        <Button
+                                                                            variant={isPi ? "default" : "outline"}
+                                                                            size="sm"
+                                                                            className={`h-6 text-[10px] px-2 ${isPi ? 'bg-maroon-600 text-white' : 'text-slate-500'}`}
+                                                                            onClick={(e) => {
+                                                                                e.stopPropagation();
+                                                                                if (isPi) setSelectedPiId(null);
+                                                                                else setSelectedPiId(faculty.id);
+                                                                            }}
+                                                                        >
+                                                                            {isPi ? 'Principal Investigator' : 'Make PI'}
+                                                                        </Button>
+                                                                    )}
+                                                                    {!isPi && isMember && (
+                                                                        <Badge variant="secondary" className="text-[9px] bg-emerald-100 text-emerald-700">Team Member</Badge>
+                                                                    )}
+                                                                </div>
                                                             </div>
                                                             <p className="text-xs text-gray-500">{faculty.centre}</p>
                                                         </div>

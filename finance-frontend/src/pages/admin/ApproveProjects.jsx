@@ -578,9 +578,10 @@ const ApproveProjects = () => {
                                             ]}
                                             cx="50%"
                                             cy="50%"
-                                            labelLine={false}
-                                            label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                                            labelLine={true}
+                                            label={({ name, percent }) => percent > 0 ? `${name}: ${(percent * 100).toFixed(0)}%` : null}
                                             outerRadius={80}
+                                            minAngle={15}
                                             fill="#8884d8"
                                             dataKey="value"
                                         >

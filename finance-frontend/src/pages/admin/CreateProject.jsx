@@ -21,7 +21,8 @@ const CreateProject = () => {
         budget: '',
         duration: '',
         startDate: '',
-        fundingSource: 'PFMS'
+        fundingSource: 'PFMS',
+        projectType: 'PROJECT'
     });
 
     const handleSubmit = async (e) => {
@@ -36,12 +37,13 @@ const CreateProject = () => {
                 sanctionedBudget: Number(formData.budget),
                 fundingSource: formData.fundingSource,
                 startDate: formData.startDate,
-                status: 'PENDING'
+                projectType: formData.projectType,
+                status: formData.projectType === 'PUBLICATION' ? 'PUBLISHED' : 'ACTIVE'
             };
             const response = await apiClient.post('/projects', payload);
             if (response.data.success) {
-                showToast('Project created successfully!');
-                setFormData({ title: '', description: '', principalInvestigator: '', researchCentre: '', budget: '', duration: '', startDate: '', fundingSource: 'PFMS' });
+                showToast(`${formData.projectType === 'PUBLICATION' ? 'Publication' : 'Project'} created and approved successfully!`);
+                setFormData({ title: '', description: '', principalInvestigator: '', researchCentre: '', budget: '', duration: '', startDate: '', fundingSource: 'PFMS', projectType: 'PROJECT' });
             }
         } catch (error) {
             console.error('Error creating project:', error);
@@ -84,6 +86,21 @@ const CreateProject = () => {
                                     className="dark:bg-slate-800 dark:border-slate-700 dark:text-white dark:placeholder-gray-500"
                                     required
                                 />
+                            </div>
+
+                            <div className="space-y-2">
+                                <Label htmlFor="projectType" className="dark:text-gray-300">Work Classification *</Label>
+                                <select
+                                    id="projectType"
+                                    name="projectType"
+                                    value={formData.projectType}
+                                    onChange={handleChange}
+                                    className="flex h-10 w-full rounded-md border border-input bg-background dark:bg-slate-800 dark:border-slate-700 dark:text-white px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-maroon-500 focus-visible:ring-offset-2"
+                                    required
+                                >
+                                    <option value="PROJECT">Research Project</option>
+                                    <option value="PUBLICATION">Academic Publication</option>
+                                </select>
                             </div>
 
                             <div className="space-y-2">

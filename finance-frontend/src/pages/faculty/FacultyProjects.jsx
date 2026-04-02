@@ -55,8 +55,8 @@ const FacultyProjects = () => {
         const totalBudgetSum = safeProjects.reduce((sum, p) => sum + (p.sanctionedBudget || 0), 0);
         return [
             { title: 'Total Works', value: safeProjects.length, icon: Layers, color: 'text-maroon-600', bg: 'bg-maroon-50' },
-            { title: 'Active Projects', value: safeProjects.filter(p => p.status === 'ACTIVE').length, icon: CheckCircle, color: 'text-green-600', bg: 'bg-green-50' },
-            { title: 'Publications', value: safeProjects.filter(p => p.projectType === 'PUBLICATION').length, icon: BookOpen, color: 'text-indigo-600', bg: 'bg-indigo-50' },
+            { title: 'Active Projects', value: safeProjects.filter(p => ['ACTIVE', 'Active', 'Approved', 'APPROVED'].includes(p.status)).length, icon: CheckCircle, color: 'text-green-600', bg: 'bg-green-50' },
+            { title: 'Publications', value: safeProjects.filter(p => (p.projectType || '').toUpperCase() === 'PUBLICATION' || (p.status || '').toUpperCase() === 'PUBLISHED').length, icon: BookOpen, color: 'text-indigo-600', bg: 'bg-indigo-50' },
             { title: 'Total Budget', value: formatCurrency(totalBudgetSum), icon: TrendingUp, color: 'text-amber-600', bg: 'bg-amber-50' }
         ];
     }, [localProjects]);
@@ -269,9 +269,12 @@ const FacultyProjects = () => {
                                     </td>
                                     <td className="px-6 py-4 text-right">
                                         <div className="flex items-center justify-end gap-1 flex-wrap">
-                                            <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); setSelectedWork({...work, id: work._id, type: work.projectType, budget: work.sanctionedBudget, year: work.publicationYear }); setModalMode('edit'); setIsModalOpen(true); }} className="text-slate-400 hover:text-maroon-600">
-                                                <Edit2 className="w-4 h-4" />
-                                            </Button>
+                                            {/* Only PI can edit */}
+                                            {(work.piId === user?._id || user?.role === 'ADMIN') && (
+                                                <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); setSelectedWork({...work, id: work._id, type: work.projectType, budget: work.sanctionedBudget, year: work.publicationYear }); setModalMode('edit'); setIsModalOpen(true); }} className="text-slate-400 hover:text-maroon-600">
+                                                    <Edit2 className="w-4 h-4" />
+                                                </Button>
+                                            )}
 
                                             {(work.projectType === 'PUBLICATION' || work.status === 'PUBLISHED') && !work.proofUploaded && (
                                                 <div onClick={e => e.stopPropagation()}>
@@ -398,8 +401,24 @@ const FacultyProjects = () => {
                                     </div>
                                 </div>
                                 <div>
-                                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic mb-1">Principal Investigator</p>
-                                    <p className="text-sm text-slate-200 font-bold italic leading-relaxed">{viewedProject.pi || 'Current Faculty'}</p>
+                                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic mb-3">Research Team</p>
+                                    <div className="space-y-3">
+                                        {viewedProject.members && viewedProject.members.length > 0 ? (
+                                            viewedProject.members.sort((a,b) => a.role === 'PI' ? -1 : 1).map((member, idx) => (
+                                                <div key={idx} className="flex items-center gap-3 p-2 bg-white/5 rounded-xl border border-white/5">
+                                                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-black ${member.role === 'PI' ? 'bg-maroon-500/20 text-maroon-400 border border-maroon-500/30' : 'bg-slate-700 text-slate-400'}`}>
+                                                        {member.role === 'PI' ? 'PI' : 'M'}
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-[11px] font-bold text-white uppercase italic">{member.user?.name || 'Unknown Faculty'}</p>
+                                                        <p className="text-[9px] text-slate-500 uppercase font-black">{member.role === 'PI' ? 'Principal Investigator' : 'Team Member'}</p>
+                                                    </div>
+                                                </div>
+                                            ))
+                                        ) : (
+                                            <p className="text-sm text-slate-200 font-bold italic leading-relaxed">{viewedProject.pi || 'Current Faculty'}</p>
+                                        )}
+                                    </div>
                                 </div>
                             </div>
                         </div>

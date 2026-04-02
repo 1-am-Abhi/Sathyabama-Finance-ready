@@ -14,4 +14,8 @@ router.post('/', authorizeRoles('faculty', 'admin'), projectController.createPro
 router.put('/:id', authorizeRoles('faculty', 'admin'), projectController.updateProject);
 router.delete('/:id', authorize('ADMIN'), projectController.deleteProject);
 
+// Team management
+router.get('/:id/members', projectController.getProjectMembers);
+router.put('/:id/members', authorize('ADMIN'), projectController.updateProjectMembers);
+
 module.exports = router;
