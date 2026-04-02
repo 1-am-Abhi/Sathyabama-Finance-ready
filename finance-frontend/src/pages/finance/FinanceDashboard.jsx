@@ -1,17 +1,12 @@
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
-import { Button } from '../../components/ui/button';
 import { Badge } from '../../components/ui/badge';
 import {
     DollarSign, FileText, Users, Clock, CheckCircle,
-    AlertTriangle, ArrowRight, Calendar, Building, Brain
+    AlertTriangle, ArrowRight, Calendar, Building
 } from 'lucide-react';
-import AIResultModal from '../../components/shared/AIResultModal';
-import { analyzeInstitutionalFinance } from '../../services/aiService';
-import Sidebar from '../../components/shared/Sidebar';
-// import TopBar from '../../components/shared/TopBar';
-import { useLayout } from '../../contexts/LayoutContext';
 import apiClient from '../../api/client';
+import { useLayout } from '../../contexts/LayoutContext';
 
 const FinanceDashboard = () => {
     const { setLayout } = useLayout();
@@ -25,14 +20,6 @@ const FinanceDashboard = () => {
     const [fundFlowData, setFundFlowData] = useState([]);
     const [internshipData, setInternshipData] = useState([]);
     const [pfmsData, setPfmsData] = useState([]);
-    const [aiModal, setAiModal] = useState({ open: false, loading: false, result: null });
-
-
-
-    React.useEffect(() => {
-        setLayout("Finance Dashboard", "Fund releases, PFMS tracking & settlements");
-        fetchDashboardData();
-    }, [setLayout]);
 
     const fetchDashboardData = async () => {
         try {
@@ -54,6 +41,11 @@ const FinanceDashboard = () => {
             setLoading(false);
         }
     };
+
+    React.useEffect(() => {
+        setLayout("Finance Dashboard", "Fund releases, PFMS tracking & settlements");
+        fetchDashboardData();
+    }, [setLayout]);
 
     const stats = [
         {
@@ -90,11 +82,13 @@ const FinanceDashboard = () => {
         },
     ];
 
+    if (loading) {
+        return <div className="flex items-center justify-center min-h-screen font-black italic uppercase tracking-widest text-slate-400">Loading Dashboard Data...</div>;
+    }
+
     return (
         <div className="flex min-h-screen bg-gray-50">
             <div className="flex-1">
-
-
                 <div className="p-8">
                     {/* Stats Cards */}
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
@@ -118,8 +112,6 @@ const FinanceDashboard = () => {
                             );
                         })}
                     </div>
-
-
 
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                         {/* Fund Flow Actions */}
@@ -174,7 +166,6 @@ const FinanceDashboard = () => {
                                             <FileText className="w-5 h-5 mr-2 text-blue-600" />
                                             Recent PFMS Transactions
                                         </CardTitle>
-
                                     </div>
                                 </CardHeader>
                                 <CardContent className="p-6">
@@ -243,7 +234,7 @@ const FinanceDashboard = () => {
                         </div>
 
                         {/* Internship Payments Sidebar */}
-                        <div>
+                        <div className="lg:col-span-1">
                             <Card className="border-0 shadow-sm">
                                 <CardHeader className="border-b bg-orange-50 dark:bg-orange-950/20">
                                     <CardTitle className="text-lg font-semibold flex items-center">
@@ -274,47 +265,10 @@ const FinanceDashboard = () => {
                                     </div>
                                 </CardContent>
                             </Card>
-
-                            {/* AI Financial Analytics */}
-                            <Card className="border-0 shadow-sm mt-6 bg-slate-900 text-white overflow-hidden relative">
-                                <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/10 rounded-full blur-2xl"></div>
-                                <CardHeader className="pb-2">
-                                    <CardTitle className="text-sm font-bold flex items-center text-emerald-400 uppercase tracking-wider">
-                                        <Brain className="w-4 h-4 mr-2" />
-                                        AI Financial Insights
-                                    </CardTitle>
-                                </CardHeader>
-                                <CardContent className="space-y-4">
-                                    <div className="p-3 bg-white/5 rounded-lg border border-white/5">
-                                        <p className="text-[10px] text-emerald-500 font-bold uppercase mb-1 underline">Audit Alert</p>
-                                        <p className="text-[11px] text-slate-300 italic">
-                                            "Mechanical Engineering department shows 22% increase in funding usage. Re-allocation recommended for unused Electronics budget."
-                                        </p>
-                                    </div>
-                                    <Button 
-                                        size="sm" 
-                                        className="w-full bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold uppercase tracking-widest"
-                                        onClick={async () => {
-                                            setAiModal({ open: true, loading: true, result: null });
-                                            const r = await analyzeInstitutionalFinance();
-                                            setAiModal({ open: true, loading: false, result: r });
-                                        }}
-                                    >
-                                        Analyze Budget
-                                    </Button>
-                                </CardContent>
-                            </Card>
                         </div>
                     </div>
                 </div>
             </div>
-
-            <AIResultModal
-                open={aiModal.open}
-                loading={aiModal.loading}
-                result={aiModal.result}
-                onClose={() => setAiModal({ ...aiModal, open: false })}
-            />
         </div>
     );
 };

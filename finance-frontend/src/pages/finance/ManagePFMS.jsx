@@ -1,5 +1,4 @@
-
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card';
 import { Input } from '../../components/ui/input';
 import { Label } from '../../components/ui/label';
@@ -14,16 +13,9 @@ const ManagePFMS = () => {
     const { showToast, ToastPortal } = useToast();
     const [pfmsEntries, setPfmsEntries] = useState([]);
     const [projects, setProjects] = useState([]);
-    const [loading, setLoading] = useState(true);
-
-    React.useEffect(() => {
-        setLayout("PFMS Management", "Public Financial Management System data");
-        fetchData();
-    }, [setLayout]);
 
     const fetchData = async () => {
         try {
-            setLoading(true);
             const [pfmsRes, projRes] = await Promise.all([
                 apiClient.get('/finance/pfms'),
                 apiClient.get('/projects')
@@ -32,10 +24,14 @@ const ManagePFMS = () => {
             setProjects(projRes.data.data);
         } catch (error) {
             console.error('Error fetching PFMS data:', error);
-        } finally {
-            setLoading(false);
         }
     };
+
+    React.useEffect(() => {
+        setLayout("PFMS Management", "Public Financial Management System data");
+        fetchData();
+    }, [setLayout]);
+
     const [showForm, setShowForm] = useState(false);
     const [formData, setFormData] = useState({
         projectId: '',

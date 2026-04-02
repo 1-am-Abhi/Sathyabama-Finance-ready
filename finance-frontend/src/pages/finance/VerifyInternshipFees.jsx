@@ -14,24 +14,21 @@ const VerifyInternshipFees = () => {
     const { setLayout } = useLayout();
     const { showToast, ToastPortal } = useToast();
     const [internships, setInternships] = useState([]);
-    const [loading, setLoading] = useState(true);
+
+    const fetchFees = async () => {
+        try {
+            const response = await apiClient.get('/finance/internship-fees');
+            setInternships(response.data.data);
+        } catch (error) {
+            console.error('Error fetching internship fees:', error);
+        }
+    };
 
     React.useEffect(() => {
         setLayout("Internship Fee Verification", "Verify and update internship fee payment status");
         fetchFees();
     }, [setLayout]);
 
-    const fetchFees = async () => {
-        try {
-            setLoading(true);
-            const response = await apiClient.get('/finance/internship-fees');
-            setInternships(response.data.data);
-        } catch (error) {
-            console.error('Error fetching internship fees:', error);
-        } finally {
-            setLoading(false);
-        }
-    };
     const [selectedInternship, setSelectedInternship] = useState(null);
     const [paymentData, setPaymentData] = useState({
         paymentMode: '',

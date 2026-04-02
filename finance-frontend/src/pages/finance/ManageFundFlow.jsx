@@ -1,23 +1,20 @@
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
-import { Badge } from '../../components/ui/badge';
-import { CheckCircle, Circle, Clock, ArrowRight, AlertTriangle } from 'lucide-react';
+import { CheckCircle, Circle, Clock, AlertTriangle } from 'lucide-react';
 import { useLayout } from '../../contexts/LayoutContext';
 import { usePipeline } from '../../contexts/PipelineContext';
 import useToast from '../../hooks/useToast';
 
 const ManageFundFlow = () => {
     const { setLayout } = useLayout();
-    const { fundRequests, advanceStage, isLoading } = usePipeline();
+    const { fundRequests, advanceStage } = usePipeline();
     const { showToast, ToastPortal } = useToast();
     const [selectedRequest, setSelectedRequest] = useState(null);
 
     React.useEffect(() => {
         setLayout("Fund Flow", "Track fund flow stages");
     }, [setLayout]);
-
-    if (isLoading) return <div className="p-8 text-center">Loading Fund Flow Pipeline...</div>;
 
     // Use selectedRequest or first available request for demo
     const activeRequest = selectedRequest || (fundRequests && fundRequests[0]);
