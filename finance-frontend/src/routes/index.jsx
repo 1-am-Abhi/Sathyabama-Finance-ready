@@ -36,9 +36,12 @@ import ProfileSetup from '../pages/faculty/ProfileSetup';
 
 // Finance Pages
 import FinanceDashboard from '../pages/finance/FinanceDashboard';
-import ManageFundFlow from '../pages/finance/ManageFundFlow';
+import FinanceManagerDashboard from '../pages/finance/FinanceManagerDashboard';
+import FundReleasesPage from '../pages/finance/FundReleasesPage';
 import ManagePFMS from '../pages/finance/ManagePFMS';
 import VerifyInternshipFees from '../pages/finance/VerifyInternshipFees';
+import FunctionFundRequestsPage from '../pages/finance/FunctionFundRequestsPage';
+import FinanceSettings from '../pages/finance/Settings';
 
 const AppRoutes = () => {
     // Apply theme on initial load
@@ -133,12 +136,13 @@ const AppRoutes = () => {
                             <ProtectedRoute allowedRoles={[ROLES.FINANCE_OFFICER]}>
                                 <DashboardLayout>
                                     <Routes>
-                                        <Route path="dashboard" element={<FinanceDashboard />} />
-                                        <Route path="fund-flow" element={<ManageFundFlow />} />
+                                        <Route path="dashboard" element={<FinanceManagerDashboard />} />
+                                        <Route path="fund-flow" element={<FundReleasesPage />} />
                                         <Route path="pfms" element={<ManagePFMS />} />
+                                        <Route path="function-requests" element={<FunctionFundRequestsPage />} />
                                         <Route path="internships" element={<VerifyInternshipFees />} />
-                                        <Route path="reports" element={<FinanceDashboard />} />
-                                        <Route path="settings" element={<Settings />} />
+                                        <Route path="reports" element={<FinanceManagerDashboard />} />
+                                        <Route path="settings" element={<FinanceSettings />} />
                                         <Route path="profile" element={<Profile />} />
                                     </Routes>
                                 </DashboardLayout>
