@@ -8,26 +8,36 @@ const { Op } = require('sequelize');
 
 exports.getAdminStats = async (req, res) => {
     try {
-        const totalProjects = await Project.count();
-        const activeProjects = await Project.count({ where: { status: 'ACTIVE' } });
-        const pendingApprovals = await Project.count({ where: { status: 'PENDING' } });
+        const FundSource = require('../models/FundSource');
+        const [totalProjects, activeProjects, pendingApprovals, allSources] = await Promise.all([
+            Project.count(),
+            Project.count({ where: { status: 'ACTIVE' } }),
+            Project.count({ where: { status: 'PENDING' } }),
+            FundSource.findAll()
+        ]);
         
-        // --- PFMS (Government) Funding ---
-        const pfmsBudget = await Project.sum('sanctionedBudget', { where: { fundingSource: 'PFMS' } }) || 0;
-        const pfmsDisbursed = await FundRequest.sum('requestedAmount', { 
-            where: { source: 'PFMS', chequeStatus: 'Disbursed' } 
-        }) || 0;
+        let pfmsBudget = allSources.find(s => s.sourceType === 'pfmsFunds')?.totalAllocated || 0;
+        let institutionalBudgetTotal = allSources.find(s => s.sourceType === 'collegeFunds')?.totalAllocated || 0;
 
-        // --- Institutional Funding (Seed Money + Director's Innovation + Approved Events) ---
+        // Fallbacks if not set manually by Finance Admin
+        if (pfmsBudget === 0) {
+            pfmsBudget = await Project.sum('sanctionedBudget', { where: { fundingSource: 'PFMS' } }) || 0;
+        }
+
         const projectInstitutionalBudget = await Project.sum('sanctionedBudget', { 
             where: { fundingSource: { [Op.in]: ['INSTITUTIONAL', 'DIRECTOR_INNOVATION', 'DIRECTOR_INNOVATION_FUND'] } } 
         }) || 0;
-        
         const approvedEventBudget = await EventRequest.sum('approvedAmount', { 
             where: { status: 'APPROVED', fundingType: 'College Funded' } 
         }) || 0;
+        
+        if (institutionalBudgetTotal === 0) {
+            institutionalBudgetTotal = projectInstitutionalBudget + approvedEventBudget;
+        }
 
-        const institutionalBudgetTotal = projectInstitutionalBudget + approvedEventBudget;
+        const pfmsDisbursed = await FundRequest.sum('requestedAmount', { 
+            where: { source: 'PFMS', chequeStatus: 'Disbursed' } 
+        }) || 0;
         
         const institutionalDisbursed = await FundRequest.sum('requestedAmount', { 
             where: { source: 'DIRECTOR_INNOVATION', chequeStatus: 'Disbursed' } 
