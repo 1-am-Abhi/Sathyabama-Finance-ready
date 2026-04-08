@@ -102,6 +102,8 @@ exports.verifyInternshipFee = async (req, res) => {
     }
 };
 
+const FundSource = require('../models/FundSource');
+
 // New Finance Dashboard Controllers (Serving baseline data for UI stability)
 exports.getFundSourcesOverview = async (req, res) => {
     try {
@@ -110,29 +112,53 @@ exports.getFundSourcesOverview = async (req, res) => {
         const collegeProjects = projects.filter(p => ['INSTITUTIONAL', 'DIRECTOR_INNOVATION', 'DIRECTOR_INNOVATION_FUND'].includes(p.fundingSource));
         const pfmsProjects = projects.filter(p => p.fundingSource === 'PFMS');
         
+        const allSources = await FundSource.findAll();
+        let collegeCeiling = allSources.find(s => s.sourceType === 'collegeFunds')?.totalAllocated || 0;
+        let pfmsCeiling = allSources.find(s => s.sourceType === 'pfmsFunds')?.totalAllocated || 0;
+
+        // If the ceiling hasn't been set by admin yet, fallback to sum of project allocations
+        if (collegeCeiling === 0) collegeCeiling = collegeProjects.reduce((sum, p) => sum + (p.sanctionedBudget || 0), 0);
+        if (pfmsCeiling === 0) pfmsCeiling = pfmsProjects.reduce((sum, p) => sum + (p.sanctionedBudget || 0), 0);
+        
+        const collegeUsed = collegeProjects.reduce((sum, p) => sum + (p.releasedBudget || 0), 0);
+        const pfmsUsed = pfmsProjects.reduce((sum, p) => sum + (p.releasedBudget || 0), 0);
+
         const data = {
             collegeFunds: {
-                totalAllocated: collegeProjects.reduce((sum, p) => sum + (p.sanctionedBudget || 0), 0),
-                totalUsed: collegeProjects.reduce((sum, p) => sum + (p.releasedBudget || 0), 0),
-                remainingBalance: collegeProjects.reduce((sum, p) => sum + ((p.sanctionedBudget || 0) - (p.releasedBudget || 0)), 0),
+                totalAllocated: collegeCeiling,
+                totalUsed: collegeUsed,
+                remainingBalance: collegeCeiling - collegeUsed,
             },
             pfmsFunds: {
-                totalAllocated: pfmsProjects.reduce((sum, p) => sum + (p.sanctionedBudget || 0), 0),
-                totalUsed: pfmsProjects.reduce((sum, p) => sum + (p.releasedBudget || 0), 0),
-                remainingBalance: pfmsProjects.reduce((sum, p) => sum + ((p.sanctionedBudget || 0) - (p.releasedBudget || 0)), 0),
+                totalAllocated: pfmsCeiling,
+                totalUsed: pfmsUsed,
+                remainingBalance: pfmsCeiling - pfmsUsed,
             }
         };
         res.status(200).json(data);
     } catch (error) {
+        console.error('getFundSources Error:', error);
         res.status(500).json({ success: false, message: error.message });
     }
 };
 
 exports.updateFundSourceAmount = async (req, res) => {
     try {
-        // Simulate update logic
-        res.status(200).json({ success: true, message: 'Fund source updated' });
+        const { source, allocatedAmount } = req.body;
+        
+        // Use UPSERT (Find or Create)
+        const [fundSource, created] = await FundSource.findOrCreate({
+            where: { sourceType: source },
+            defaults: { totalAllocated: Number(allocatedAmount) }
+        });
+
+        if (!created) {
+            await fundSource.update({ totalAllocated: Number(allocatedAmount) });
+        }
+
+        res.status(200).json({ success: true, message: 'Fund source updated successfully', data: fundSource });
     } catch (error) {
+        console.error('updateFundSource Error:', error);
         res.status(500).json({ success: false, message: error.message });
     }
 };
