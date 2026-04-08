@@ -551,10 +551,6 @@ const AdminDashboard = () => {
                                 <Activity className="w-6 h-6" />
                             </div>
                         </div>
-                        <div className="flex items-center gap-2 mt-4">
-                            <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></div>
-                            <p className="text-[10px] font-black uppercase tracking-widest italic opacity-70">Zod Validation Active</p>
-                        </div>
                     </CardContent>
                 </Card>
             </div>
