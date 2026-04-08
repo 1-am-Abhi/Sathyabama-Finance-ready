@@ -16,52 +16,56 @@ exports.getAdminStats = async (req, res) => {
             FundSource.findAll()
         ]);
         
+        // ── PFMS Budget ──
         let pfmsBudget = allSources.find(s => s.sourceType === 'pfmsFunds')?.totalAllocated || 0;
-        let institutionalBudgetTotal = allSources.find(s => s.sourceType === 'collegeFunds')?.totalAllocated || 0;
-
-        // Fallbacks if not set manually by Finance Admin
         if (pfmsBudget === 0) {
             pfmsBudget = await Project.sum('sanctionedBudget', { where: { fundingSource: 'PFMS' } }) || 0;
         }
 
-        const projectInstitutionalBudget = await Project.sum('sanctionedBudget', { 
-            where: { fundingSource: { [Op.in]: ['INSTITUTIONAL', 'DIRECTOR_INNOVATION', 'DIRECTOR_INNOVATION_FUND'] } } 
-        }) || 0;
-        const approvedEventBudget = await EventRequest.sum('approvedAmount', { 
-            where: { status: 'APPROVED', fundingType: 'College Funded' } 
-        }) || 0;
-        
+        // ── Institutional (College) Budget — pure institutional overhead only ──
+        let institutionalBudgetTotal = allSources.find(s => s.sourceType === 'collegeFunds')?.totalAllocated || 0;
         if (institutionalBudgetTotal === 0) {
-            institutionalBudgetTotal = projectInstitutionalBudget + approvedEventBudget;
+            const approvedEventBudget = await EventRequest.sum('approvedAmount', { 
+                where: { status: 'APPROVED', fundingType: 'College Funded' } 
+            }) || 0;
+            institutionalBudgetTotal = (await Project.sum('sanctionedBudget', {
+                where: { fundingSource: 'INSTITUTIONAL' }
+            }) || 0) + approvedEventBudget;
         }
 
+        // ── Others Budget — Director Innovation & Director Innovation Fund ──
+        let othersBudget = allSources.find(s => s.sourceType === 'directorFunds')?.totalAllocated || 0;
+        if (othersBudget === 0) {
+            othersBudget = await Project.sum('sanctionedBudget', {
+                where: { fundingSource: { [Op.in]: ['DIRECTOR_INNOVATION', 'DIRECTOR_INNOVATION_FUND'] } }
+            }) || 0;
+        }
+
+        // ── Disbursements: use currentStage/chequeStatus (both are maintained) ──
         const pfmsDisbursed = await FundRequest.sum('requestedAmount', { 
-            where: { source: 'PFMS', chequeStatus: 'Disbursed' } 
+            where: { source: 'PFMS', currentStage: { [Op.in]: ['AMOUNT_DISBURSED', 'UTILIZATION_COMPLETED', 'SETTLEMENT_CLOSED'] } }
         }) || 0;
         
         const institutionalDisbursed = await FundRequest.sum('requestedAmount', { 
-            where: { source: 'DIRECTOR_INNOVATION', chequeStatus: 'Disbursed' } 
+            where: {
+                source: { [Op.notIn]: ['PFMS', 'DIRECTOR_INNOVATION'] },
+                currentStage: { [Op.in]: ['AMOUNT_DISBURSED', 'UTILIZATION_COMPLETED', 'SETTLEMENT_CLOSED'] }
+            }
+        }) || 0;
+
+        const othersDisbursed = await FundRequest.sum('requestedAmount', { 
+            where: { source: 'DIRECTOR_INNOVATION', currentStage: { [Op.in]: ['AMOUNT_DISBURSED', 'UTILIZATION_COMPLETED', 'SETTLEMENT_CLOSED'] } }
         }) || 0;
 
         const totalFaculty = await User.count({ where: { role: 'FACULTY' } });
 
-        // --- Revenue Generation (Consultancy, Events, Internships) ---
+        // ── Revenue Generation ──
         const totalRevenue = await Revenue.sum('verifiedAmount', { where: { status: 'VERIFIED' } }) || 0;
-        
-        const consultancyRevenue = await Revenue.sum('verifiedAmount', { 
-            where: { status: 'VERIFIED', revenueSource: 'Consultancy' } 
-        }) || 0;
-        
-        const internshipRevenue = await Revenue.sum('verifiedAmount', { 
-            where: { status: 'VERIFIED', revenueSource: 'Internships' } 
-        }) || 0;
-        
-        const eventsRevenue = await Revenue.sum('verifiedAmount', { 
-            where: { status: 'VERIFIED', revenueSource: 'Events' } 
-        }) || 0;
+        const consultancyRevenue = await Revenue.sum('verifiedAmount', { where: { status: 'VERIFIED', revenueSource: 'Consultancy' } }) || 0;
+        const internshipRevenue = await Revenue.sum('verifiedAmount', { where: { status: 'VERIFIED', revenueSource: 'Internships' } }) || 0;
+        const eventsRevenue = await Revenue.sum('verifiedAmount', { where: { status: 'VERIFIED', revenueSource: 'Events' } }) || 0;
 
-        // --- Centre-wise Distribution Metrics ---
-        // 1. Projects and Budgets per Centre
+        // ── Centre-wise Distribution Metrics ──
         const projectCentres = await Project.findAll({
             attributes: [
                 'centre',
@@ -72,7 +76,6 @@ exports.getAdminStats = async (req, res) => {
             group: ['centre']
         });
 
-        // 2. Event Budgets per Centre
         const eventCentres = await EventRequest.findAll({
              attributes: [
                  'researchCentre',
@@ -82,17 +85,16 @@ exports.getAdminStats = async (req, res) => {
              group: ['researchCentre']
         });
 
-        // 3. Disbursements per Centre (from FundRequests)
         const disbursementCentres = await FundRequest.findAll({
             attributes: [
                 'centre',
                 [FundRequest.sequelize.fn('SUM', FundRequest.sequelize.col('requestedAmount')), 'disbursed']
             ],
-            where: { chequeStatus: 'Disbursed' },
+            where: { currentStage: { [Op.in]: ['AMOUNT_DISBURSED', 'UTILIZATION_COMPLETED', 'SETTLEMENT_CLOSED'] } },
             group: ['centre']
         });
 
-        // --- Merge results by Centre Name ---
+        // ── Merge by Centre Name ──
         const centreStatsMap = {};
 
         projectCentres.forEach(c => {
@@ -126,8 +128,8 @@ exports.getAdminStats = async (req, res) => {
                 totalProjects,
                 activeProjects,
                 pendingApprovals,
-                totalBudget: pfmsBudget + institutionalBudgetTotal,
-                totalDisbursed: pfmsDisbursed + institutionalDisbursed,
+                totalBudget: pfmsBudget + institutionalBudgetTotal + othersBudget,
+                totalDisbursed: pfmsDisbursed + institutionalDisbursed + othersDisbursed,
                 totalFaculty,
                 pfmsStats: {
                     allotted: pfmsBudget,
@@ -138,6 +140,12 @@ exports.getAdminStats = async (req, res) => {
                     allotted: institutionalBudgetTotal,
                     consumed: institutionalDisbursed,
                     balance: Math.max(0, institutionalBudgetTotal - institutionalDisbursed)
+                },
+                // NEW: Director Innovation / Other Funds
+                othersStats: {
+                    allotted: othersBudget,
+                    consumed: othersDisbursed,
+                    balance: Math.max(0, othersBudget - othersDisbursed)
                 },
                 revenueStats: {
                     total: totalRevenue,

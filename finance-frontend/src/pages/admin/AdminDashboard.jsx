@@ -6,7 +6,7 @@ import { Badge } from '../../components/ui/badge';
 import { Button } from '../../components/ui/button';
 import {
     FileText, Banknote, CheckCircle, TrendingUp,
-    UserPlus, BarChart3, Filter, Wallet, Building2, Sparkles, Activity
+    UserPlus, BarChart3, Filter, Wallet, Building2, Sparkles, Activity, CircleDollarSign
 } from 'lucide-react';
 import { useLayout } from '../../contexts/LayoutContext';
 import DateFilter from '../../components/shared/DateFilter';
@@ -110,12 +110,17 @@ const AdminDashboard = () => {
 
     const pfmsChartData = React.useMemo(() => [
         { name: 'Consumed', value: stats?.pfmsStats?.consumed || 0, color: '#6366f1' },
-        { name: 'Balance', value: stats?.pfmsStats?.balance || 0, color: '#22c55e' }
+        { name: 'Balance', value: Math.max(0, (stats?.pfmsStats?.allotted || 0) - (stats?.pfmsStats?.consumed || 0)), color: '#22c55e' }
     ], [stats]);
 
     const institutionalChartData = React.useMemo(() => [
         { name: 'Utilized', value: stats?.institutionalStats?.consumed || 0, color: '#f59e0b' },
-        { name: 'Balance', value: stats?.institutionalStats?.balance || 0, color: '#0ea5e9' }
+        { name: 'Balance', value: Math.max(0, (stats?.institutionalStats?.allotted || 0) - (stats?.institutionalStats?.consumed || 0)), color: '#0ea5e9' }
+    ], [stats]);
+
+    const othersChartData = React.useMemo(() => [
+        { name: 'Consumed', value: stats?.othersStats?.consumed || 0, color: '#10b981' },
+        { name: 'Balance', value: Math.max(0, (stats?.othersStats?.allotted || 0) - (stats?.othersStats?.consumed || 0)), color: '#a78bfa' }
     ], [stats]);
 
     // Mapping API data to UI structure
@@ -290,8 +295,8 @@ const AdminDashboard = () => {
     return (
         <div className="flex-1 overflow-y-auto overflow-x-hidden p-6 bg-gray-50 dark:bg-slate-950">
 
-            {/* Funds Overview Section */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+            {/* Funds Overview Section - 3 columns: PFMS | Director's Innovation | Others */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
                 {/* PFMS / Government Funds */}
                 <Card className="border-0 shadow-md bg-white dark:bg-slate-900 overflow-hidden relative">
                     <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-50 dark:bg-indigo-900/10 rounded-full -mr-10 -mt-10 blur-2xl"></div>
@@ -329,7 +334,7 @@ const AdminDashboard = () => {
                                             <span className="font-semibold text-gray-900 dark:text-white">₹{((stats?.pfmsStats?.consumed || 0) / 10000000).toFixed(2)} Cr</span>
                                         </div>
                                         <div className="w-full bg-gray-200 dark:bg-slate-700 rounded-full h-2">
-                                            <div className="bg-indigo-500 h-2 rounded-full" style={{ width: `${(stats?.pfmsStats?.allotted || 0) > 0 ? ((stats?.pfmsStats?.consumed || 0) / stats?.pfmsStats?.allotted) * 100 : 0}%` }}></div>
+                                            <div className="bg-indigo-500 h-2 rounded-full" style={{ width: `${(stats?.pfmsStats?.allotted || 0) > 0 ? Math.min(100, ((stats?.pfmsStats?.consumed || 0) / stats?.pfmsStats?.allotted) * 100) : 0}%` }}></div>
                                         </div>
                                     </div>
                                     <div>
@@ -338,29 +343,31 @@ const AdminDashboard = () => {
                                             <span className="font-semibold text-green-600 dark:text-green-400">₹{((stats?.pfmsStats?.balance || 0) / 10000000).toFixed(2)} Cr</span>
                                         </div>
                                         <div className="w-full bg-gray-200 dark:bg-slate-700 rounded-full h-2">
-                                            <div className="bg-green-500 h-2 rounded-full" style={{ width: `${(stats?.pfmsStats?.allotted || 0) > 0 ? ((stats?.pfmsStats?.balance || 0) / stats?.pfmsStats?.allotted) * 100 : 0}%` }}></div>
+                                            <div className="bg-green-500 h-2 rounded-full" style={{ width: `${(stats?.pfmsStats?.allotted || 0) > 0 ? Math.min(100, ((stats?.pfmsStats?.balance || 0) / stats?.pfmsStats?.allotted) * 100) : 0}%` }}></div>
                                         </div>
                                     </div>
                                 </div>
                             </div>
-                            <div className="w-32 h-32 flex-shrink-0 relative">
+                            <div className="w-28 h-28 flex-shrink-0 relative">
                                 <ResponsiveContainer width="100%" height="100%">
                                     <PieChart>
-                                        <Pie data={pfmsChartData} cx="50%" cy="50%" innerRadius={35} outerRadius={55} paddingAngle={5} dataKey="value">
+                                        <Pie data={pfmsChartData} cx="50%" cy="50%" innerRadius={30} outerRadius={48} paddingAngle={5} dataKey="value">
                                             {pfmsChartData.map((entry, index) => <Cell key={`cell-${index}`} fill={entry.color} />)}
                                         </Pie>
                                         <Tooltip formatter={(value) => `₹${(value / 10000000).toFixed(2)} Cr`} />
                                     </PieChart>
                                 </ResponsiveContainer>
                                 <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                                    <span className="text-xs font-bold text-gray-500 dark:text-gray-400">{totalStats.totalBudget > 0 ? ((totalStats.totalDisbursed / totalStats.totalBudget) * 100).toFixed(0) : 0}%</span>
+                                    <span className="text-xs font-bold text-gray-500 dark:text-gray-400">
+                                        {(stats?.pfmsStats?.allotted || 0) > 0 ? (((stats?.pfmsStats?.consumed || 0) / stats.pfmsStats.allotted) * 100).toFixed(0) : 0}%
+                                    </span>
                                 </div>
                             </div>
                         </div>
                     </CardContent>
                 </Card>
 
-                {/* Institutional Funds */}
+                {/* Director's Innovation Fund */}
                 <Card className="border-0 shadow-md bg-white dark:bg-slate-900 overflow-hidden relative">
                     <div className="absolute top-0 right-0 w-32 h-32 bg-amber-50 dark:bg-amber-900/10 rounded-full -mr-10 -mt-10 blur-2xl"></div>
                     <CardHeader className="pb-2 border-b border-gray-100 dark:border-slate-800 z-10 relative">
@@ -370,8 +377,8 @@ const AdminDashboard = () => {
                                     <Wallet className="w-6 h-6" />
                                 </div>
                                 <div>
-                                    <CardTitle className="text-lg font-bold text-gray-800 dark:text-white">Director's Innovation Fund</CardTitle>
-                                    <CardDescription className="text-xs dark:text-gray-400">Institutional Seed Money & Grants</CardDescription>
+                                    <CardTitle className="text-lg font-bold text-gray-800 dark:text-white">Director's Innovation</CardTitle>
+                                    <CardDescription className="text-xs dark:text-gray-400">Institutional Seed Money &amp; Grants</CardDescription>
                                 </div>
                             </div>
                             <Badge variant="outline" className="bg-emerald-500/10 text-emerald-500 border-emerald-500/20 dark:bg-emerald-900/30 dark:text-emerald-400 dark:border-emerald-800 animate-pulse">Live Status</Badge>
@@ -391,7 +398,7 @@ const AdminDashboard = () => {
                                             <span className="font-semibold text-gray-900 dark:text-white">₹{((stats?.institutionalStats?.consumed || 0) / 10000000).toFixed(2)} Cr</span>
                                         </div>
                                         <div className="w-full bg-gray-200 dark:bg-slate-700 rounded-full h-2">
-                                            <div className="bg-amber-500 h-2 rounded-full" style={{ width: `${(stats?.institutionalStats?.allotted || 0) > 0 ? ((stats?.institutionalStats?.consumed || 0) / stats?.institutionalStats?.allotted) * 100 : 0}%` }}></div>
+                                            <div className="bg-amber-500 h-2 rounded-full" style={{ width: `${(stats?.institutionalStats?.allotted || 0) > 0 ? Math.min(100, ((stats?.institutionalStats?.consumed || 0) / stats?.institutionalStats?.allotted) * 100) : 0}%` }}></div>
                                         </div>
                                         <p className="text-xs text-right mt-1 text-gray-500">{(stats?.institutionalStats?.allotted || 0) > 0 ? ((stats?.institutionalStats?.consumed || 0) / stats?.institutionalStats?.allotted * 100).toFixed(1) : 0}% Used</p>
                                     </div>
@@ -401,17 +408,79 @@ const AdminDashboard = () => {
                                     </div>
                                 </div>
                             </div>
-                            <div className="w-32 h-32 flex-shrink-0 relative">
+                            <div className="w-28 h-28 flex-shrink-0 relative">
                                 <ResponsiveContainer width="100%" height="100%">
                                     <PieChart>
-                                        <Pie data={institutionalChartData} cx="50%" cy="50%" innerRadius={35} outerRadius={55} paddingAngle={5} dataKey="value">
+                                        <Pie data={institutionalChartData} cx="50%" cy="50%" innerRadius={30} outerRadius={48} paddingAngle={5} dataKey="value">
                                             {institutionalChartData.map((entry, index) => <Cell key={`cell-${index}`} fill={entry.color} />)}
                                         </Pie>
                                         <Tooltip formatter={(value) => `₹${(value / 10000000).toFixed(2)} Cr`} />
                                     </PieChart>
                                 </ResponsiveContainer>
                                 <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                                    <span className="text-xs font-bold text-gray-500 dark:text-gray-400">{totalStats.totalBudget > 0 ? ((totalStats.totalDisbursed / totalStats.totalBudget) * 100).toFixed(0) : 0}%</span>
+                                    <span className="text-xs font-bold text-gray-500 dark:text-gray-400">
+                                        {(stats?.institutionalStats?.allotted || 0) > 0 ? (((stats?.institutionalStats?.consumed || 0) / stats.institutionalStats.allotted) * 100).toFixed(0) : 0}%
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    </CardContent>
+                </Card>
+
+                {/* Others Fund — Director Innovation / External Grants */}
+                <Card className="border-0 shadow-md bg-white dark:bg-slate-900 overflow-hidden relative">
+                    <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-50 dark:bg-emerald-900/10 rounded-full -mr-10 -mt-10 blur-2xl"></div>
+                    <CardHeader className="pb-2 border-b border-gray-100 dark:border-slate-800 z-10 relative">
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center space-x-3">
+                                <div className="p-2 bg-emerald-100 dark:bg-emerald-900/30 rounded-lg text-emerald-600 dark:text-emerald-400">
+                                    <CircleDollarSign className="w-6 h-6" />
+                                </div>
+                                <div>
+                                    <CardTitle className="text-lg font-bold text-gray-800 dark:text-white">Others Fund</CardTitle>
+                                    <CardDescription className="text-xs dark:text-gray-400">Director Innovation &amp; External Grants</CardDescription>
+                                </div>
+                            </div>
+                            <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400 dark:border-emerald-800">Live Status</Badge>
+                        </div>
+                    </CardHeader>
+                    <CardContent className="p-6 z-10 relative">
+                        <div className="flex flex-col md:flex-row items-center gap-6">
+                            <div className="flex-1 space-y-4 w-full">
+                                <div className="bg-gray-50 dark:bg-slate-800/50 p-3 rounded-lg border border-gray-100 dark:border-slate-800 flex justify-between items-center">
+                                    <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Total Allocated</p>
+                                    <p className="text-lg font-bold text-emerald-600 dark:text-emerald-400">₹{((stats?.othersStats?.allotted || 0) / 10000000).toFixed(2)} Cr</p>
+                                </div>
+                                <div className="space-y-4 pt-1">
+                                    <div>
+                                        <div className="flex justify-between text-sm mb-1">
+                                            <span className="text-gray-600 dark:text-gray-300">Utilized Amount</span>
+                                            <span className="font-semibold text-gray-900 dark:text-white">₹{((stats?.othersStats?.consumed || 0) / 10000000).toFixed(2)} Cr</span>
+                                        </div>
+                                        <div className="w-full bg-gray-200 dark:bg-slate-700 rounded-full h-2">
+                                            <div className="bg-emerald-500 h-2 rounded-full" style={{ width: `${(stats?.othersStats?.allotted || 0) > 0 ? Math.min(100, ((stats?.othersStats?.consumed || 0) / stats?.othersStats?.allotted) * 100) : 0}%` }}></div>
+                                        </div>
+                                        <p className="text-xs text-right mt-1 text-gray-500">{(stats?.othersStats?.allotted || 0) > 0 ? ((stats?.othersStats?.consumed || 0) / stats?.othersStats?.allotted * 100).toFixed(1) : 0}% Used</p>
+                                    </div>
+                                    <div className="flex items-center justify-between pt-2 border-t border-gray-100 dark:border-slate-800">
+                                        <span className="text-sm font-medium text-gray-500 dark:text-gray-400">Balance Available</span>
+                                        <span className="text-lg font-bold text-violet-600 dark:text-violet-400">₹{((stats?.othersStats?.balance || 0) / 10000000).toFixed(2)} Cr</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="w-28 h-28 flex-shrink-0 relative">
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <PieChart>
+                                        <Pie data={othersChartData} cx="50%" cy="50%" innerRadius={30} outerRadius={48} paddingAngle={5} dataKey="value">
+                                            {othersChartData.map((entry, index) => <Cell key={`cell-${index}`} fill={entry.color} />)}
+                                        </Pie>
+                                        <Tooltip formatter={(value) => `₹${(value / 10000000).toFixed(2)} Cr`} />
+                                    </PieChart>
+                                </ResponsiveContainer>
+                                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                                    <span className="text-xs font-bold text-gray-500 dark:text-gray-400">
+                                        {(stats?.othersStats?.allotted || 0) > 0 ? (((stats?.othersStats?.consumed || 0) / stats.othersStats.allotted) * 100).toFixed(0) : 0}%
+                                    </span>
                                 </div>
                             </div>
                         </div>
