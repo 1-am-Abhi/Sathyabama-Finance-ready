@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { X, Upload, FileText, ChevronRight, AlertCircle, DollarSign, CheckCircle2, LayoutList, Target, Wallet } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
+import { toast } from 'sonner';
 
 const FundRequestModal = ({ isOpen, onClose, project, nextInstallment, onSubmit, maxClaimableAmount, isFinalInstallment }) => {
     // maxClaimableAmount is the specific amount allocated for this phase OR the total remaining grant, dependent on business logic. 
@@ -13,21 +14,29 @@ const FundRequestModal = ({ isOpen, onClose, project, nextInstallment, onSubmit,
         workCompleted: '',
         reasonForFunds: '',
         usagePlan: '',
-        sufficiencyExplanation: '', // New field for Final Installment
-        confirmation: false, // New field for Final Installment
-        fundSource: '' // New Mandatory Field
+        sufficiencyExplanation: '',
+        confirmation: false,
+        fundSource: ''
     });
     const [files, setFiles] = useState([]);
     const [fundSourceError, setFundSourceError] = useState(false);
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
     useEffect(() => {
         if (isOpen && nextInstallment) {
             setFormData(prev => ({
                 ...prev,
                 amount: isFinalInstallment ? maxClaimableAmount : nextInstallment.amount,
+                workCompleted: '',
+                reasonForFunds: '',
+                usagePlan: '',
                 sufficiencyExplanation: '',
-                confirmation: false
+                confirmation: false,
+                fundSource: ''
             }));
+            setFiles([]);
+            setFundSourceError(false);
+            setIsSubmitting(false);
         }
     }, [isOpen, nextInstallment, isFinalInstallment, maxClaimableAmount]);
 
@@ -38,20 +47,40 @@ const FundRequestModal = ({ isOpen, onClose, project, nextInstallment, onSubmit,
         setFiles(prev => [...prev, ...uploadedFiles.map(f => ({ name: f.name, id: Math.random() }))]);
     };
 
-    const handleFormSubmit = (e) => {
+    const handleFormSubmit = async (e) => {
         e.preventDefault();
+        if (isSubmitting) return;
         if (!formData.fundSource) {
             setFundSourceError(true);
             return;
         }
         setFundSourceError(false);
-        onSubmit({
-            projectId: project.id,
-            installmentNo: nextInstallment.phase,
-            ...formData,
-            files
-        });
-        onClose();
+        setIsSubmitting(true);
+        try {
+            await onSubmit({
+                projectId: project.id,
+                installmentNo: nextInstallment.phase,
+                ...formData,
+                files
+            });
+            // FIX: Reset form after successful submission
+            setFormData({
+                amount: 0,
+                workCompleted: '',
+                reasonForFunds: '',
+                usagePlan: '',
+                sufficiencyExplanation: '',
+                confirmation: false,
+                fundSource: ''
+            });
+            setFiles([]);
+            toast.success('Installment request submitted successfully!');
+            onClose();
+        } catch (err) {
+            // Parent handles the error toast  
+        } finally {
+            setIsSubmitting(false);
+        }
     };
 
     const modalContent = (

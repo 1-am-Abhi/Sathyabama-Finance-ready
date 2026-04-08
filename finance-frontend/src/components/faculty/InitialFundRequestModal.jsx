@@ -1,11 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { X, Upload, FileText, ChevronRight, DollarSign, Target, Briefcase, BookOpen, GraduationCap, FileSpreadsheet } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
+import { toast } from 'sonner';
 
 const InitialFundRequestModal = ({ isOpen, onClose, onSubmit }) => {
-    const [formData, setFormData] = useState({
+    const defaultFormData = {
         title: '',
         type: 'Project',
         description: '',
@@ -14,10 +15,23 @@ const InitialFundRequestModal = ({ isOpen, onClose, onSubmit }) => {
         reason: '',
         usagePlan: '',
         expectedOutcome: '',
-        fundSource: '' // New Field
-    });
+        fundSource: ''
+    };
+    const [formData, setFormData] = useState(defaultFormData);
     const [files, setFiles] = useState([]);
     const [fundSourceError, setFundSourceError] = useState(false);
+    const [isSubmitting, setIsSubmitting] = useState(false);
+
+    // FIX: Reset form state whenever modal closes
+    useEffect(() => {
+        if (!isOpen) {
+            setFormData(defaultFormData);
+            setFiles([]);
+            setFundSourceError(false);
+            setIsSubmitting(false);
+        }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [isOpen]);
 
     if (!isOpen) return null;
 
@@ -26,18 +40,30 @@ const InitialFundRequestModal = ({ isOpen, onClose, onSubmit }) => {
         setFiles(prev => [...prev, ...uploadedFiles.map(f => ({ name: f.name, id: Math.random() }))]);
     };
 
-    const handleFormSubmit = (e) => {
+    const handleFormSubmit = async (e) => {
         e.preventDefault();
+        if (isSubmitting) return;
         if (!formData.fundSource) {
             setFundSourceError(true);
             return;
         }
         setFundSourceError(false);
-        onSubmit({
-            ...formData,
-            files
-        });
-        onClose();
+        setIsSubmitting(true);
+        try {
+            await onSubmit({
+                ...formData,
+                files
+            });
+            // FIX: Reset form after successful submission
+            setFormData(defaultFormData);
+            setFiles([]);
+            toast.success('Fund request submitted successfully!');
+            onClose();
+        } catch (err) {
+            // Parent handles the error toast
+        } finally {
+            setIsSubmitting(false);
+        }
     };
 
     const workTypes = [

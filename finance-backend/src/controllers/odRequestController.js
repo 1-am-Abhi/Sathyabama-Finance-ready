@@ -7,9 +7,11 @@ exports.createODRequest = async (req, res) => {
         console.log('Creating OD Request. User:', req.user?.name, 'Dept:', req.user?.department);
         console.log('Payload:', req.body);
         
-        // Validation: Cannot apply for OD of the same day (must apply at least 1 day in advance)
-        const today = new Date().toISOString().split('T')[0];
-        if (req.body.startDate <= today) {
+        // Validation: Cannot apply for OD same-day or past (must be at least tomorrow)
+        const tomorrow = new Date();
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        const tomorrowStr = tomorrow.toISOString().split('T')[0];
+        if (req.body.startDate < tomorrowStr) {
             return res.status(400).json({ 
                 success: false, 
                 message: 'On-Duty requests must be submitted at least one day in advance. Same-day applications are not permitted.' 

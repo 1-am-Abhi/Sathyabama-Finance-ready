@@ -31,6 +31,7 @@ const FacultyProjects = () => {
     const [selectedYear, setSelectedYear] = useState('All');
     const [showDetailsModal, setShowDetailsModal] = useState(false);
     const [viewedProject, setViewedProject] = useState(null);
+    const [isSubmitting, setIsSubmitting] = useState(false);
     const { user } = useAuth();
     const { projects, isLoading, updateProject } = usePipeline();
     const [localProjects, setLocalProjects] = useState([]);
@@ -83,45 +84,64 @@ const FacultyProjects = () => {
     };
 
     const handleWorkSubmit = async (data) => {
+        if (isSubmitting) return;
+        setIsSubmitting(true);
         try {
+            // Map fundingSource ensuring DB-valid enum values
+            const rawSource = (data.fundingSource || data.mainType === 'PUBLICATION' ? 'INSTITUTIONAL' : 'INSTITUTIONAL');
+            const fundingSourceMap = {
+                'PFMS': 'PFMS',
+                'INSTITUTIONAL': 'INSTITUTIONAL',
+                'DIRECTOR_INNOVATION': 'DIRECTOR_INNOVATION',
+                'DIRECTOR_INNOVATION_FUND': 'DIRECTOR_INNOVATION_FUND',
+                'Director Innovation Fund': 'DIRECTOR_INNOVATION'
+            };
+            const fundingSource = fundingSourceMap[rawSource] || 'INSTITUTIONAL';
+
             if (modalMode === 'create') {
                 const payload = {
                     title: data.title,
-                    description: data.description || 'description not provided',
-                    pi: data.pi || 'Current Faculty',
-                    department: data.department || 'General',
-                    centre: 'General',
+                    description: data.description || 'Research project submission',
+                    pi: user?.name || 'Faculty Member',
+                    department: user?.department || data.department || 'Research',
+                    centre: user?.centre || 'Research Centre',
                     sanctionedBudget: Number(data.amount || data.budget || 0),
-                    status: (data.projectStatus || data.status || 'PENDING').toUpperCase(),
-                    fundingSource: (data.fundingSource || 'INSTITUTIONAL').toUpperCase().replace(' ', '_'),
-                    projectType: (data.mainType || data.type || 'PROJECT').toUpperCase(),
-                    publisher: data.publisher,
+                    status: 'PENDING',
+                    fundingSource,
+                    projectType: (data.mainType || 'PROJECT').toUpperCase(),
+                    publisher: data.publisher || null,
                     publicationYear: Number(data.year || new Date().getFullYear())
                 };
                 const res = await apiClient.post('/projects', payload);
-                setLocalProjects([res.data.data, ...localProjects]);
+                if (!res.data.success) throw new Error(res.data.message);
+                setLocalProjects(prev => [res.data.data, ...prev]);
+                toast.success('Work submitted successfully! Pending admin approval.');
             } else {
                 const payload = {
                     title: data.title,
-                    description: data.description,
+                    description: data.description || 'Updated research project',
                     sanctionedBudget: Number(data.amount || data.budget || 0),
-                    status: (data.projectStatus || data.status || 'PENDING').toUpperCase(),
-                    fundingSource: (data.fundingSource || 'INSTITUTIONAL').toUpperCase().replace(' ', '_'),
+                    fundingSource,
                     projectType: (data.mainType || data.type || 'PROJECT').toUpperCase(),
-                    publisher: data.publisher,
+                    publisher: data.publisher || null,
                     publicationYear: Number(data.year || new Date().getFullYear())
                 };
                 const res = await apiClient.put(`/projects/${data._id || data.id}`, payload);
-                setLocalProjects(localProjects.map(p => (p._id === (data._id || data.id)) ? res.data.data : p));
+                if (!res.data.success) throw new Error(res.data.message);
+                setLocalProjects(prev => prev.map(p => (p._id === (data._id || data.id)) ? res.data.data : p));
+                toast.success('Work updated successfully!');
             }
             setIsModalOpen(false);
+            setSelectedWork(null);
         } catch (error) {
             const errData = error.response?.data;
-            let msg = errData?.message || "Failed to save work";
+            let msg = errData?.message || error.message || 'Failed to save work';
             if (errData?.errors && Array.isArray(errData.errors)) {
                 msg = errData.errors.map(e => e.message).join(', ');
             }
-            toast.error(`Error: ${msg}`);
+            toast.error(`Submission failed: ${msg}`);
+        } finally {
+            setIsSubmitting(false);
         }
     };
 
@@ -194,7 +214,10 @@ const FacultyProjects = () => {
                         <Button onClick={handleExportExcel} variant="outline" className="h-10 border-gray-200 text-gray-400 hover:text-maroon-600 font-black text-[10px] uppercase tracking-widest italic">
                             Export Excel
                         </Button>
-                        <Button onClick={() => { setModalMode('create'); setIsModalOpen(true); }} className="bg-maroon-600 hover:bg-maroon-700">
+                        <Button
+                            onClick={() => { setModalMode('create'); setSelectedWork(null); setIsModalOpen(true); }}
+                            className="bg-maroon-600 hover:bg-maroon-700"
+                        >
                             <Plus className="w-4 h-4 mr-2" /> Add Work
                         </Button>
                     </div>
@@ -339,10 +362,11 @@ const FacultyProjects = () => {
 
             <AcademicWorkModal
                 isOpen={isModalOpen}
-                onClose={() => setIsModalOpen(false)}
+                onClose={() => { setIsModalOpen(false); setSelectedWork(null); }}
                 onSubmit={handleWorkSubmit}
                 initialData={selectedWork}
                 mode={modalMode}
+                isSubmitting={isSubmitting}
             />
             {/* AI Result Modal */}
             <AIResultModal

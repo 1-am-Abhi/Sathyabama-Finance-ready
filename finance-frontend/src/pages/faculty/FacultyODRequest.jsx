@@ -139,10 +139,20 @@ const FacultyODRequest = () => {
     async function handleSubmit(e) {
         e.preventDefault();
         setIsSubmitting(true);
-        
-        const today = new Date().toISOString().split('T')[0];
-        if (startDate <= today) {
+
+        // FIX: Use tomorrow's date as the minimum - past dates and today are blocked
+        const tomorrow = new Date();
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        const tomorrowStr = tomorrow.toISOString().split('T')[0];
+
+        if (!startDate || startDate < tomorrowStr) {
             showToast('On-Duty requests must be submitted at least one day in advance. Same-day or past applications are not permitted.', 'warning');
+            setIsSubmitting(false);
+            return;
+        }
+
+        if (endDate && endDate < startDate) {
+            showToast('End date cannot be before start date.', 'warning');
             setIsSubmitting(false);
             return;
         }
@@ -169,7 +179,9 @@ const FacultyODRequest = () => {
                 setDays(0);
                 setPurpose('');
                 setIsFullDay(true);
-                
+                setOdType('ACADEMIC');
+                showToast('OD Request submitted successfully! Pending admin approval.', 'success');
+
                 // Notify Admin
                 addNotification({
                     role: 'ADMIN',
@@ -257,9 +269,27 @@ const FacultyODRequest = () => {
                                 <div className="space-y-3">
                                     <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-1 italic">Date Duration</Label>
                                     <div className="flex flex-col sm:flex-row items-center gap-2">
-                                        <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} required className="h-14 bg-gray-50 border-0 rounded-2xl font-bold italic w-full" />
+                                        {/* FIX: min=tomorrow blocks past date + today selection in UI */}
+                                        {/* FIX: colorScheme:light makes calendar visible in dark mode */}
+                                        <Input
+                                            type="date"
+                                            value={startDate}
+                                            min={(() => { const d = new Date(); d.setDate(d.getDate() + 1); return d.toISOString().split('T')[0]; })()}
+                                            onChange={(e) => setStartDate(e.target.value)}
+                                            required
+                                            className="h-14 bg-gray-50 border-0 rounded-2xl font-bold italic w-full"
+                                            style={{ colorScheme: 'light' }}
+                                        />
                                         <span className="text-gray-300 font-black italic text-xs uppercase hidden sm:inline">to</span>
-                                        <Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} required className="h-14 bg-gray-50 border-0 rounded-2xl font-bold italic w-full" />
+                                        <Input
+                                            type="date"
+                                            value={endDate}
+                                            min={startDate || (() => { const d = new Date(); d.setDate(d.getDate() + 1); return d.toISOString().split('T')[0]; })()}
+                                            onChange={(e) => setEndDate(e.target.value)}
+                                            required
+                                            className="h-14 bg-gray-50 border-0 rounded-2xl font-bold italic w-full"
+                                            style={{ colorScheme: 'light' }}
+                                        />
                                     </div>
                                 </div>
                                 <div className="space-y-3">

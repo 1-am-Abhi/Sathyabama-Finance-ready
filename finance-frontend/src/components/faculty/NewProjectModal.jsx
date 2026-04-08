@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { X, BookOpen, Briefcase, Plus, Trash2 } from 'lucide-react';
 import { Button } from '../ui/button';
 
-const AcademicWorkModal = ({ isOpen, onClose, onSubmit, initialData = null, mode = 'create' }) => {
+const AcademicWorkModal = ({ isOpen, onClose, onSubmit, initialData = null, mode = 'create', isSubmitting = false }) => {
     const [formData, setFormData] = useState({
         // Common
         mainType: 'PROJECT',
@@ -13,6 +13,7 @@ const AcademicWorkModal = ({ isOpen, onClose, onSubmit, initialData = null, mode
         // Project Specific
         projectStatus: 'On-Going',
         role: 'PI',
+        fundingSource: 'INSTITUTIONAL',
         fundingAgency: '',
         amount: '',
         startDate: '',
@@ -20,8 +21,8 @@ const AcademicWorkModal = ({ isOpen, onClose, onSubmit, initialData = null, mode
         description: '',
 
         // Project Resources
-        equipments: [], // Array of { name, quantity, cost, vendor, description }
-        consumables: [], // Array of { name, quantity, cost, usage }
+        equipments: [],
+        consumables: [],
         patientDetails: {
             count: '',
             category: 'Adult',
@@ -31,9 +32,9 @@ const AcademicWorkModal = ({ isOpen, onClose, onSubmit, initialData = null, mode
         // Publication Specific
         publicationType: 'JOURNAL',
         authorRole: 'First Author',
-        publisher: '', // Reused for Journal Name / Conference Name
-        doi: '', // DOI or ISBN
-        indexing: [], // Changed to array for multi-select
+        publisher: '',
+        doi: '',
+        indexing: [],
         impactFactor: '',
         abstract: ''
     });
@@ -43,6 +44,7 @@ const AcademicWorkModal = ({ isOpen, onClose, onSubmit, initialData = null, mode
             setFormData(prev => ({
                 ...prev,
                 ...initialData,
+                fundingSource: initialData.fundingSource || initialData.fundingSource || 'INSTITUTIONAL',
                 indexing: Array.isArray(initialData.indexing) ? initialData.indexing : (initialData.indexing ? [initialData.indexing] : [])
             }));
         } else if (!initialData) {
@@ -52,6 +54,7 @@ const AcademicWorkModal = ({ isOpen, onClose, onSubmit, initialData = null, mode
                 year: new Date().getFullYear(),
                 projectStatus: 'On-Going',
                 role: 'PI',
+                fundingSource: 'INSTITUTIONAL',
                 fundingAgency: '',
                 amount: '',
                 startDate: '',
@@ -73,13 +76,14 @@ const AcademicWorkModal = ({ isOpen, onClose, onSubmit, initialData = null, mode
 
     if (!isOpen) return null;
 
+    const today = new Date().toISOString().split('T')[0];
+
     const handleSubmit = (e) => {
         e.preventDefault();
         onSubmit({
             ...formData,
             id: mode === 'edit' ? initialData.id : `WORK-${Math.floor(Math.random() * 10000)}`
         });
-        onClose();
     };
 
     const handleIndexingChange = (e) => {
@@ -155,7 +159,7 @@ const AcademicWorkModal = ({ isOpen, onClose, onSubmit, initialData = null, mode
                         <h3 className="text-xl font-bold">{mode === 'edit' ? 'Edit Work' : 'Add New Work'}</h3>
                         <p className="text-blue-100 text-xs mt-1">Fill in the details for your academic work</p>
                     </div>
-                    <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-lg">
+                    <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-lg" disabled={isSubmitting}>
                         <X className="w-5 h-5" />
                     </button>
                 </div>
@@ -181,7 +185,7 @@ const AcademicWorkModal = ({ isOpen, onClose, onSubmit, initialData = null, mode
                     </div>
 
                     <div className="space-y-4">
-                        {/* Mandatory Fields */}
+                        {/* Title */}
                         <div className="grid grid-cols-2 gap-4">
                             <div className="col-span-2">
                                 <label className="text-xs font-bold text-gray-500 uppercase italic">Title</label>
@@ -226,7 +230,21 @@ const AcademicWorkModal = ({ isOpen, onClose, onSubmit, initialData = null, mode
                                     </div>
                                 </div>
 
+                                {/* FIX #1 — Funding Source selector (maps to DB-valid ENUM) */}
                                 <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="text-xs font-bold text-gray-500 uppercase italic">Funding Source *</label>
+                                        <select
+                                            value={formData.fundingSource}
+                                            onChange={(e) => setFormData({ ...formData, fundingSource: e.target.value })}
+                                            className="w-full mt-1 px-4 py-2 border dark:border-slate-700 bg-white dark:bg-slate-800 dark:text-white rounded-lg outline-none italic font-bold"
+                                        >
+                                            <option value="INSTITUTIONAL">Institutional</option>
+                                            <option value="PFMS">PFMS</option>
+                                            <option value="DIRECTOR_INNOVATION">Director Innovation</option>
+                                            <option value="DIRECTOR_INNOVATION_FUND">Director Innovation Fund</option>
+                                        </select>
+                                    </div>
                                     <div>
                                         <label className="text-xs font-bold text-gray-500 uppercase italic">Funding Agency</label>
                                         <input
@@ -236,7 +254,10 @@ const AcademicWorkModal = ({ isOpen, onClose, onSubmit, initialData = null, mode
                                             placeholder="e.g. DST, AICTE"
                                         />
                                     </div>
-                                    <div>
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="col-span-2">
                                         <label className="text-xs font-bold text-gray-500 uppercase italic">Amount (₹)</label>
                                         <input
                                             type="number"
@@ -244,27 +265,33 @@ const AcademicWorkModal = ({ isOpen, onClose, onSubmit, initialData = null, mode
                                             onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
                                             className="w-full mt-1 px-4 py-2 border dark:border-slate-700 bg-white dark:bg-slate-800 dark:text-white rounded-lg outline-none italic font-bold"
                                             placeholder="Budget amount"
+                                            min="0"
                                         />
                                     </div>
                                 </div>
 
+                                {/* FIX #5, #6 — min date blocks past date selection, colorScheme:light fixes dark mode calendar */}
                                 <div className="grid grid-cols-3 gap-4">
                                     <div>
                                         <label className="text-xs font-bold text-gray-500 uppercase italic">Start Date</label>
                                         <input
                                             type="date"
+                                            min={today}
                                             value={formData.startDate}
                                             onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
                                             className="w-full mt-1 px-4 py-2 border dark:border-slate-700 bg-white dark:bg-slate-800 dark:text-white rounded-lg outline-none italic font-bold"
+                                            style={{ colorScheme: 'light' }}
                                         />
                                     </div>
                                     <div>
                                         <label className="text-xs font-bold text-gray-500 uppercase italic">End Date</label>
                                         <input
                                             type="date"
+                                            min={formData.startDate || today}
                                             value={formData.endDate}
                                             onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
                                             className="w-full mt-1 px-4 py-2 border dark:border-slate-700 bg-white dark:bg-slate-800 dark:text-white rounded-lg outline-none italic font-bold"
+                                            style={{ colorScheme: 'light' }}
                                         />
                                     </div>
                                     <div>
@@ -611,7 +638,7 @@ const AcademicWorkModal = ({ isOpen, onClose, onSubmit, initialData = null, mode
                                             <input
                                                 value={formData.doi}
                                                 onChange={(e) => setFormData({ ...formData, doi: e.target.value })}
-                                                className="w-full mt-1 px-4 py-2 border dark:border-slate-700 bg-white dark:bg-slate-800 dark:text-white rounded-lg outline-none font-bold italic"
+                                                className="w-full mt-1 px-4 py-2 border dark:border-slate-700 bg-white dark:bg-slate-800 dark:text-white rounded-lg outline-none italic font-bold italic"
                                                 placeholder="ISBN"
                                             />
                                         </div>
@@ -636,11 +663,11 @@ const AcademicWorkModal = ({ isOpen, onClose, onSubmit, initialData = null, mode
                     </div>
 
                     <div className="flex gap-4 pt-4">
-                        <Button type="button" variant="ghost" onClick={onClose} className="flex-1 rounded-xl font-bold italic">
+                        <Button type="button" variant="ghost" onClick={onClose} className="flex-1 rounded-xl font-bold italic" disabled={isSubmitting}>
                             Cancel
                         </Button>
-                        <Button type="submit" className="flex-1 bg-blue-600 hover:bg-blue-700 rounded-xl font-bold italic text-white">
-                            {mode === 'edit' ? 'Update' : 'Add Work'}
+                        <Button type="submit" disabled={isSubmitting} className="flex-1 bg-blue-600 hover:bg-blue-700 rounded-xl font-bold italic text-white">
+                            {isSubmitting ? 'Saving...' : (mode === 'edit' ? 'Update' : 'Add Work')}
                         </Button>
                     </div>
                 </form>

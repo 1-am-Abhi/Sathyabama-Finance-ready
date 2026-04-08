@@ -30,11 +30,12 @@ const projectSchema = z.object({
     title: z.string().min(3, 'Title must be at least 3 characters'),
     description: z.string().min(3, 'Description must be at least 3 characters'),
     sanctionedBudget: z.number().nonnegative(),
-    fundingSource: z.enum(['PFMS', 'INSTITUTIONAL', 'DIRECTOR_INNOVATION', 'DIRECTOR_INNOVATION_FUND', 'Director Innovation Fund']),
+    // Exactly matches DB ENUM values in Project model
+    fundingSource: z.enum(['PFMS', 'INSTITUTIONAL', 'DIRECTOR_INNOVATION', 'DIRECTOR_INNOVATION_FUND']),
     projectType: z.string().optional(),
-    publisher: z.string().optional(),
+    publisher: z.string().optional().nullable(),
     publicationYear: z.number().optional(),
-    status: z.enum(['ACTIVE', 'PENDING', 'APPROVED', 'COMPLETED', 'REJECTED']).optional(),
+    // status is intentionally excluded — backend controller always overrides it
     facultyId: z.string().uuid().optional().nullable(),
     pi: z.string().optional(),
     department: z.string().optional(),

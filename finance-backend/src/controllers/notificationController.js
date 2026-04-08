@@ -8,9 +8,15 @@ exports.createNotification = async (req, res) => {
             type: req.body.type || 'info',
             message: req.body.message,
             actionUrl: req.body.actionUrl || null,
+            // Store creator identity to prevent anonymous notifications
+            createdBy: req.user ? (req.user.name || req.user.email || 'System') : 'System',
             // Only store targetUserId for FACULTY-targeted notifications
             targetUserId: req.body.role === 'FACULTY' ? (req.body.targetUserId || null) : null
         };
+        // Ensure message contains creator identity if message is generic
+        if (!payload.message) {
+            return res.status(400).json({ success: false, message: 'Notification message is required' });
+        }
         const newNotif = await Notification.create(payload);
         res.status(201).json({ success: true, data: newNotif });
     } catch (error) {
@@ -53,7 +59,8 @@ exports.getNotifications = async (req, res) => {
             role: n.role,
             type: n.type,
             message: n.message,
-            actionUrl: n.actionUrl
+            actionUrl: n.actionUrl,
+            createdBy: n.createdBy || 'System'
         }));
 
         res.status(200).json({ success: true, data: mapped });

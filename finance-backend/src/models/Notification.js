@@ -16,7 +16,7 @@ const Notification = sequelize.define('Notification', {
         defaultValue: 'info'
     },
     message: {
-        type: DataTypes.STRING,
+        type: DataTypes.STRING(1000),
         allowNull: false
     },
     actionUrl: {
@@ -32,6 +32,12 @@ const Notification = sequelize.define('Notification', {
         // For ADMIN notifications, this is null (all admins see it)
         type: DataTypes.UUID,
         allowNull: true
+    },
+    createdBy: {
+        // Name of the user who triggered this notification (prevents anonymous display)
+        type: DataTypes.STRING,
+        allowNull: true,
+        defaultValue: 'System'
     }
 });
 

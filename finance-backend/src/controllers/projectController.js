@@ -209,9 +209,14 @@ exports.createProject = async (req, res) => {
 
         const isAdmin = (req.user.role || '').toUpperCase() === 'ADMIN';
         const projectData = {
-            ...data,
+            title: data.title,
+            description: data.description,
             sanctionedBudget: Number(data.sanctionedBudget || 0),
-            // Admin-created projects are auto-approved; faculty-created ones go to PENDING
+            fundingSource: data.fundingSource,
+            projectType: (data.projectType || 'PROJECT').toUpperCase(),
+            publisher: data.publisher || null,
+            publicationYear: data.publicationYear || null,
+            // Status is ALWAYS set server-side — never trust client
             status: isAdmin ? (req.body.status || 'ACTIVE').toUpperCase() : 'PENDING',
             userId: isAdmin ? (req.body.facultyId || req.user.id) : req.user.id,
             facultyId: isAdmin ? (req.body.facultyId || null) : req.user.id,
@@ -230,7 +235,6 @@ exports.createProject = async (req, res) => {
         } else if (error.errors && error.errors.length > 0) {
             errorMessage = error.errors[0].message;
         } else {
-            // Unparse if it's a stringified JSON array from Zod
             try {
                 const parsed = JSON.parse(error.message);
                 if (Array.isArray(parsed) && parsed[0].message) {
