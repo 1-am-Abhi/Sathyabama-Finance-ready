@@ -1,6 +1,4 @@
-import React, { useState } from 'react';
-import Sidebar from '../../components/shared/Sidebar';
-import TopBar from '../../components/shared/TopBar';
+import React, { useState, useEffect } from 'react';
 import FundSourceCard from './finance/FundSourceCard';
 import FundSourceCardSkeleton from './finance/FundSourceCardSkeleton';
 import DepartmentFundingTable from './finance/DepartmentFundingTable';
@@ -9,9 +7,15 @@ import FinancialAnalytics from './finance/FinancialAnalytics';
 import { Label } from '../../components/ui/label';
 import { useFundSourcesOverview, useDepartments, useDepartmentFunding, useUpdateFundSource } from '../../hooks/useFinance';
 import { Building2, Landmark, AlertCircle, CircleDollarSign } from 'lucide-react';
+import { useLayout } from '../../contexts/LayoutContext';
 
 const FinanceManagerDashboard = () => {
+    const { setLayout } = useLayout();
     const [selectedDepartmentId, setSelectedDepartmentId] = useState('');
+
+    useEffect(() => {
+        setLayout("Finance Dashboard", "Overview of total funding, research center allocations, and financial analytics");
+    }, [setLayout]);
     const [fundSourceModalOpen, setFundSourceModalOpen] = useState(false);
     const [selectedFundSource, setSelectedFundSource] = useState(null);
 
@@ -62,16 +66,7 @@ const FinanceManagerDashboard = () => {
     };
 
     return (
-        <div className="flex min-h-screen bg-gray-50 dark:bg-slate-900 transition-colors duration-200">
-            <Sidebar />
-
-            <div className="flex-1 ml-64">
-                <TopBar
-                    title="Finance Manager Dashboard"
-                    subtitle="Fund sources overview & research center-wise funding management"
-                />
-
-                <div className="p-8">
+        <div className="p-8">
                     {/* Fund Sources Overview Section */}
                     <div className="mb-8">
                         <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">Fund Sources Overview</h2>
@@ -191,19 +186,17 @@ const FinanceManagerDashboard = () => {
                             isLoading={isLoadingDepartmentFunding}
                         />
                     </div>
+                    
+                    {/* Update Fund Source Modal */}
+                    <UpdateFundSourceModal
+                        isOpen={fundSourceModalOpen}
+                        onClose={() => setFundSourceModalOpen(false)}
+                        fundSource={selectedFundSource}
+                        onSubmit={handleFundSourceUpdate}
+                        isLoading={updateFundSourceMutation.isPending}
+                    />
                 </div>
-            </div>
-
-            {/* Update Fund Source Modal */}
-            <UpdateFundSourceModal
-                isOpen={fundSourceModalOpen}
-                onClose={() => setFundSourceModalOpen(false)}
-                fundSource={selectedFundSource}
-                onSubmit={handleFundSourceUpdate}
-                isLoading={updateFundSourceMutation.isPending}
-            />
-        </div>
-    );
+            );
 };
 
 export default FinanceManagerDashboard;

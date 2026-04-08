@@ -1,4 +1,5 @@
 const AcademicMetric = require('../models/AcademicMetric');
+const User = require('../models/User');
 
 exports.getMetrics = async (req, res) => {
     try {
@@ -13,6 +14,16 @@ exports.getMetrics = async (req, res) => {
         }
         
         res.status(200).json({ success: true, data: metrics });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+exports.getAllMetrics = async (req, res) => {
+    try {
+        const cycle = req.query.cycle || '2024-25';
+        const metrics = await AcademicMetric.findAll({ where: { cycle } });
+        res.status(200).json({ success: true, count: metrics.length, data: metrics });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
     }

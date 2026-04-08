@@ -1,6 +1,4 @@
-import React, { useState } from 'react';
-import Sidebar from '../../components/shared/Sidebar';
-import TopBar from '../../components/shared/TopBar';
+import React, { useState, useEffect } from 'react';
 import ProjectStatusBadge from './finance/ProjectStatusBadge';
 import UpdateProjectStatusModal from './finance/UpdateProjectStatusModal';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
@@ -17,15 +15,22 @@ import {
     TableRow,
 } from '../../components/ui/table';
 import { useDepartments, useProjects, useUpdateProjectStatus } from '../../hooks/useFinance';
+import { useLayout } from '../../contexts/LayoutContext';
 import { formatCurrency } from '../../utils/currency';
 import { Search, Filter, Eye, Edit, Loader2 } from 'lucide-react';
 
 const FundReleasesPage = () => {
+    const { setLayout } = useLayout();
     const [filters, setFilters] = useState({
         departmentId: '',
         status: '',
         search: '',
     });
+
+    useEffect(() => {
+        setLayout("Fund Releases", "Manage and track project fund disbursements");
+    }, [setLayout]);
+
     const [selectedProject, setSelectedProject] = useState(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
 
@@ -76,16 +81,7 @@ const FundReleasesPage = () => {
     ];
 
     return (
-        <div className="flex min-h-screen bg-gray-50">
-            <Sidebar />
-
-            <div className="flex-1 ml-64">
-                <TopBar
-                    title="Fund Releases Management"
-                    subtitle="Track and update project funding status"
-                />
-
-                <div className="p-8">
+        <div className="p-8">
                     {/* Filters Section */}
                     <Card className="mb-6 border-0 shadow-sm">
                         <CardHeader className="border-b bg-gray-50">
@@ -261,22 +257,20 @@ const FundReleasesPage = () => {
                             )}
                         </CardContent>
                     </Card>
-                </div>
-            </div>
 
-            {/* Update Status Modal */}
-            <UpdateProjectStatusModal
-                isOpen={isModalOpen}
-                onClose={() => {
-                    setIsModalOpen(false);
-                    setSelectedProject(null);
-                }}
-                project={selectedProject}
-                onSubmit={handleStatusUpdate}
-                isLoading={updateProjectStatusMutation.isPending}
-            />
-        </div>
-    );
+                    {/* Update Status Modal */}
+                    <UpdateProjectStatusModal
+                        isOpen={isModalOpen}
+                        onClose={() => {
+                            setIsModalOpen(false);
+                            setSelectedProject(null);
+                        }}
+                        project={selectedProject}
+                        onSubmit={handleStatusUpdate}
+                        isLoading={updateProjectStatusMutation.isPending}
+                    />
+                </div>
+            );
 };
 
 export default FundReleasesPage;

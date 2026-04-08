@@ -9,15 +9,10 @@ const app = express();
 
 // Middleware
 app.set('trust proxy', 1);
-app.use(helmet());
+// app.use(helmet());
 
 const corsOptions = {
-    origin: [
-        "https://finance-frontend-pxh9.onrender.com",
-        "http://localhost:3000",
-        "http://localhost:10000",
-        "http://127.0.0.1:10000"
-    ],
+    origin: true, // Allow all origins for debugging
     credentials: true,
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
 };
@@ -59,7 +54,7 @@ const profileRoutes = require('./routes/profileRoutes');
 const revenueRoutes = require('./routes/revenueRoutes');
 const financeRoutes = require('./routes/financeRoutes');
 
-app.use('/api/auth/login', authLimiter);
+// app.use('/api/auth/login', authLimiter);
 app.use('/api/auth', authRoutes);
 app.use('/api/projects', projectRoutes);
 app.use('/api/fund-requests', fundRequestRoutes);

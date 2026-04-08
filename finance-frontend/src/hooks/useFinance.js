@@ -8,7 +8,90 @@ import {
     getProjects,
     getProjectDetails,
     updateProjectStatus,
+    getDisbursementQueue,
+    executeDisbursement,
+    getRevenueVerificationQueue,
+    verifyRevenue,
+    getFinancialReports,
+    getFinanceStats,
+    getFundFlowProjects,
+    getPFMSTransactions,
+    getInternshipFees,
+    verifyInternshipFee,
+    createPFMSTransaction
 } from '../services/financeService';
+
+/**
+ * Hook to fetch finance dashboard stats
+ */
+export const useFinanceStats = () => {
+    return useQuery({
+        queryKey: ['financeStats'],
+        queryFn: getFinanceStats,
+        staleTime: 60 * 1000, // 1 minute
+    });
+};
+
+/**
+ * Hook to fetch fund flow projects
+ */
+export const useFundFlowProjects = () => {
+    return useQuery({
+        queryKey: ['fundFlowProjects'],
+        queryFn: getFundFlowProjects,
+        staleTime: 2 * 60 * 1000, // 2 minutes
+    });
+};
+
+/**
+ * Hook to fetch PFMS transactions
+ */
+export const usePFMSTransactions = () => {
+    return useQuery({
+        queryKey: ['pfmsTransactions'],
+        queryFn: getPFMSTransactions,
+        staleTime: 5 * 60 * 1000, // 5 minutes
+    });
+};
+
+/**
+ * Hook to create PFMS transaction
+ */
+export const useCreatePFMSTransaction = () => {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: createPFMSTransaction,
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['pfmsTransactions'] });
+            queryClient.invalidateQueries({ queryKey: ['financeStats'] });
+        },
+    });
+};
+
+/**
+ * Hook to fetch internship fees
+ */
+export const useInternshipFees = () => {
+    return useQuery({
+        queryKey: ['internshipFees'],
+        queryFn: getInternshipFees,
+        staleTime: 5 * 60 * 1000, // 5 minutes
+    });
+};
+
+/**
+ * Hook to verify internship fee
+ */
+export const useVerifyInternshipFee = () => {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: ({ id, data }) => verifyInternshipFee(id, data),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['internshipFees'] });
+            queryClient.invalidateQueries({ queryKey: ['financeStats'] });
+        },
+    });
+};
 
 /**
  * Hook to fetch fund sources overview
@@ -113,5 +196,66 @@ export const useUpdateProjectStatus = () => {
             queryClient.invalidateQueries({ queryKey: ['projects'] });
             queryClient.invalidateQueries({ queryKey: ['projectDetails'] });
         },
+    });
+};
+/**
+ * Hook to fetch disbursement queue
+ */
+export const useDisbursementQueue = () => {
+    return useQuery({
+        queryKey: ['disbursementQueue'],
+        queryFn: getDisbursementQueue,
+        staleTime: 2 * 60 * 1000, // 2 minutes
+    });
+};
+
+/**
+ * Hook to execute disbursement
+ */
+export const useExecuteDisbursement = () => {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: ({ requestId, data }) => executeDisbursement(requestId, data),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['disbursementQueue'] });
+            queryClient.invalidateQueries({ queryKey: ['projects'] });
+        },
+    });
+};
+
+/**
+ * Hook to fetch revenue verification queue
+ */
+export const useRevenueVerificationQueue = () => {
+    return useQuery({
+        queryKey: ['revenueVerificationQueue'],
+        queryFn: getRevenueVerificationQueue,
+        staleTime: 5 * 60 * 1000, // 5 minutes
+    });
+};
+
+/**
+ * Hook to verify revenue
+ */
+export const useVerifyRevenue = () => {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: ({ revenueId, data }) => verifyRevenue(revenueId, data),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['revenueVerificationQueue'] });
+        },
+    });
+};
+
+/**
+ * Hook to fetch financial reports
+ */
+export const useFinancialReports = (params = {}) => {
+    return useQuery({
+        queryKey: ['financialReports', params],
+        queryFn: () => getFinancialReports(params),
+        staleTime: 10 * 60 * 1000, // 10 minutes
     });
 };

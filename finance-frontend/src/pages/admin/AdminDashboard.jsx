@@ -44,31 +44,43 @@ const AdminDashboard = () => {
     const [loading, setLoading] = useState(true);
 
     React.useEffect(() => {
+        let isMounted = true;
         const fetchDashboardData = async () => {
             try {
-                setLoading(true);
+                if (isMounted && !stats) setLoading(true); // Only show spinner on first load
                 const [statsRes, requestsRes] = await Promise.all([
                     apiClient.get('/projects/stats'),
                     apiClient.get('/fund-requests')
                 ]);
 
-                if (statsRes.data.success) {
+                if (isMounted && statsRes.data.success) {
                     setStats(statsRes.data.stats);
                     setCentresStats(statsRes.data.centres);
                 }
-                if (requestsRes.data.success) {
+                if (isMounted && requestsRes.data.success) {
                     setRecentRequests(requestsRes.data.data.slice(0, 5));
                 }
             } catch (error) {
                 console.error("Error fetching admin data:", error);
             } finally {
-                setLoading(false);
+                if (isMounted) setLoading(false);
             }
         };
+
         fetchDashboardData();
+        const intervalId = setInterval(fetchDashboardData, 30000); // Poll every 30 seconds
+
+        return () => {
+            isMounted = false;
+            clearInterval(intervalId);
+        };
     }, []);
 
-    const centres = RESEARCH_CENTRES;
+    const centres = React.useMemo(() => {
+        if (!centresStats || centresStats.length === 0) return RESEARCH_CENTRES;
+        const dynamicCentres = [...new Set(centresStats.map(c => c.name))];
+        return dynamicCentres.length > 0 ? dynamicCentres : RESEARCH_CENTRES;
+    }, [centresStats]);
 
     const fyOptions = ['2023-24', '2024-25', '2025-26'];
 
@@ -362,7 +374,7 @@ const AdminDashboard = () => {
                                     <CardDescription className="text-xs dark:text-gray-400">Institutional Seed Money & Grants</CardDescription>
                                 </div>
                             </div>
-                             <Badge variant="outline" className="bg-emerald-500/10 text-emerald-500 border-emerald-500/20 dark:bg-emerald-900/30 dark:text-emerald-400 dark:border-emerald-800 animate-pulse">Live Status</Badge>
+                            <Badge variant="outline" className="bg-emerald-500/10 text-emerald-500 border-emerald-500/20 dark:bg-emerald-900/30 dark:text-emerald-400 dark:border-emerald-800 animate-pulse">Live Status</Badge>
                         </div>
                     </CardHeader>
                     <CardContent className="p-6 z-10 relative">
@@ -466,10 +478,6 @@ const AdminDashboard = () => {
                 <Card className="h-full border-0 bg-slate-900 text-emerald-400 transition-all duration-300 hover:shadow-lg lg:col-span-1 hidden lg:flex">
                     <CardContent className="p-6 h-full flex flex-col justify-between">
                         <div className="flex items-start justify-between">
-                            <div>
-                                <p className="text-[10px] font-black uppercase tracking-widest opacity-60 italic">System Integrity</p>
-                                <p className="text-2xl font-black mt-2 italic tracking-tighter uppercase">Protected</p>
-                            </div>
                             <div className="w-12 h-12 bg-emerald-500/10 border border-emerald-500/20 rounded-xl flex items-center justify-center">
                                 <Activity className="w-6 h-6" />
                             </div>

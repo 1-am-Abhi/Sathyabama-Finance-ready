@@ -3,12 +3,15 @@ import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/ca
 import { Button } from '../../components/ui/button';
 import { Badge } from '../../components/ui/badge';
 import { CheckCircle, Circle, Clock, ArrowRight, AlertTriangle } from 'lucide-react';
-import Sidebar from '../../components/shared/Sidebar';
-import TopBar from '../../components/shared/TopBar';
+import { useLayout } from '../../contexts/LayoutContext';
 
 const ManageFundFlow = () => {
+    const { setLayout } = useLayout();
     const [selectedProject, setSelectedProject] = useState(null);
-    const [currentStage, setCurrentStage] = useState('FUND_APPROVED');
+
+    React.useEffect(() => {
+        setLayout("Fund Flow Management", "Track and manage the progress of fund disbursement stages");
+    }, [setLayout]);
 
     const stages = [
         {
@@ -76,13 +79,7 @@ const ManageFundFlow = () => {
     };
 
     return (
-        <div className="flex min-h-screen bg-gray-50">
-            <Sidebar />
-
-            <div className="flex-1 ml-64">
-                <TopBar title="Finance Dashboard" subtitle="Fund releases, PFMS tracking & settlements" />
-
-                <div className="p-8">
+        <div className="p-8">
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                         {/* Fund Flow Timeline */}
                         <div className="lg:col-span-2">
@@ -189,8 +186,6 @@ const ManageFundFlow = () => {
                             </Card>
                         </div>
                     </div>
-                </div>
-            </div>
         </div>
     );
 };

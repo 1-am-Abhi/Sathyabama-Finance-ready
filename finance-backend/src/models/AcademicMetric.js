@@ -38,7 +38,19 @@ const AcademicMetric = sequelize.define('AcademicMetric', {
     phdCompleted: { type: DataTypes.INTEGER, defaultValue: 0 },
     
     // Section B: Qualitative
-    internationalVisit: { type: DataTypes.TEXT, allowNull: true, defaultValue: '' },
+    // Scopus & Publication Metrics
+    journals: { type: DataTypes.INTEGER, defaultValue: 0 },
+    proceedings: { type: DataTypes.INTEGER, defaultValue: 0 },
+    books: { type: DataTypes.INTEGER, defaultValue: 0 },
+    bookChapters: { type: DataTypes.INTEGER, defaultValue: 0 },
+    patents: { type: DataTypes.INTEGER, defaultValue: 0 },
+
+    // Institutional Outcomes (CEER Paper tracking)
+    products: { type: DataTypes.INTEGER, defaultValue: 0 },
+    startups: { type: DataTypes.INTEGER, defaultValue: 0 },
+    mous: { type: DataTypes.INTEGER, defaultValue: 0 },
+    editorialRole: { type: DataTypes.INTEGER, defaultValue: 0 },
+    internationalVisit: { type: DataTypes.INTEGER, defaultValue: 0 }, // Changed to INT to match spreadsheet tracking 
     fellowship: { type: DataTypes.TEXT, allowNull: true, defaultValue: '' },
     coordinators: { type: DataTypes.TEXT, allowNull: true, defaultValue: '' },
     grants: { type: DataTypes.TEXT, allowNull: true, defaultValue: '' }

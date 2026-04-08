@@ -120,6 +120,7 @@ const AddRevenueRecord = () => {
                                     <SelectContent className="border-0 shadow-xl rounded-2xl bg-white font-black text-xs italic uppercase">
                                         <SelectItem value="Consultancy">Consultancy</SelectItem>
                                         <SelectItem value="Events">Events / Workshops</SelectItem>
+                                        <SelectItem value="Internships">Internships / Project Guidance</SelectItem>
                                         <SelectItem value="Projects">Projects</SelectItem>
                                         <SelectItem value="Industry">Industry Training</SelectItem>
                                         <SelectItem value="Analysis">Analysis / Testing</SelectItem>

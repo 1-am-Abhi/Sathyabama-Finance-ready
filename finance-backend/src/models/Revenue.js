@@ -20,7 +20,7 @@ const Revenue = sequelize.define('Revenue', {
         allowNull: false
     },
     revenueSource: {
-        type: DataTypes.ENUM('Consultancy', 'Events', 'Projects', 'Industry', 'Analysis', 'Other'),
+        type: DataTypes.ENUM('Consultancy', 'Events', 'Projects', 'Industry', 'Analysis', 'Internships', 'Other'),
         allowNull: false
     },
     amountGenerated: {
@@ -32,23 +32,39 @@ const Revenue = sequelize.define('Revenue', {
         type: DataTypes.TEXT,
         allowNull: true
     },
-    // Metrics that are typically updated by Finance
-    growthRate: {
-        type: DataTypes.DECIMAL(5, 2),
-        allowNull: true,
-        defaultValue: 0
+    status: {
+        type: DataTypes.ENUM('PENDING', 'VERIFIED', 'REJECTED'),
+        defaultValue: 'PENDING'
     },
-    efficiency: {
-        type: DataTypes.DECIMAL(5, 2),
-        allowNull: true,
-        defaultValue: 0
+    verifiedAmount: {
+        type: DataTypes.DECIMAL(15, 2),
+        allowNull: true
     },
-    submittedDate: {
+    bankReference: {
+        type: DataTypes.STRING,
+        allowNull: true
+    },
+    financeRemarks: {
+        type: DataTypes.TEXT,
+        allowNull: true
+    },
+    verifiedAt: {
         type: DataTypes.DATE,
-        defaultValue: DataTypes.NOW
+        allowNull: true
+    },
+    verifiedBy: {
+        type: DataTypes.UUID,
+        allowNull: true,
+        references: {
+            model: 'Users',
+            key: '_id'
+        }
     }
 }, {
     timestamps: true
 });
+const User = require('./User');
+Revenue.belongsTo(User, { foreignKey: 'userId' });
+User.hasMany(Revenue, { foreignKey: 'userId' });
 
 module.exports = Revenue;

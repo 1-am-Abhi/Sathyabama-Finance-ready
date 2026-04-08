@@ -18,7 +18,7 @@ const Sidebar = ({ isOpen, onClose }) => {
 
     const navigate = useNavigate();
     const location = useLocation();
-    const profilePhoto = localStorage.getItem('profile_photo');
+    const profilePhoto = localStorage.getItem(`profile_photo_${user?._id || user?.id}`);
     const [expandedMenu, setExpandedMenu] = useState({});
 
     const toggleMenu = (label) => {
@@ -83,10 +83,12 @@ const Sidebar = ({ isOpen, onClose }) => {
             case ROLES.FINANCE_OFFICER:
                 return [
                     { label: 'Dashboard', path: '/finance/dashboard', icon: Home },
-                    { label: 'Fund Releases', path: '/finance/fund-flow', icon: IndianRupee },
+                    { label: 'Disbursements', path: '/finance/disbursements', icon: CheckCircle }, // Modified from 'Fund Releases' to 'Disbursements'
+                    { label: 'Revenue Verification', path: '/finance/revenue-verification', icon: TrendingUp }, // New
                     { label: 'PFMS Tracking', path: '/finance/pfms', icon: FileText },
                     { label: 'Internship Fees', path: '/finance/internships', icon: Users },
                     { label: 'Settlement', path: '/finance/reports', icon: Clock },
+                    { label: 'Financial Reports', path: '/finance/financial-reports', icon: BarChart3 }, // New
                 ];
             default:
                 return [];

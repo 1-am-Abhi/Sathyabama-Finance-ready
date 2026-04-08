@@ -10,4 +10,8 @@ router.get('/summary', protect, revenueController.getRevenueSummary);
 // Admin-only metrics update (Finance department access)
 router.patch('/:id/finance', protect, authorize('ADMIN'), revenueController.updateFinanceMetrics);
 
+// Finance Verification Pipeline
+router.get('/verification-queue', protect, authorize('FINANCE_OFFICER'), revenueController.getAllRevenueForVerification);
+router.put('/:id/verify', protect, authorize('FINANCE_OFFICER'), revenueController.verifyRevenue);
+
 module.exports = router;

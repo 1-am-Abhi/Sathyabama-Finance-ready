@@ -66,7 +66,12 @@ const LoginPage = () => {
                                 <select
                                     id="role"
                                     value={selectedRole}
-                                    onChange={(e) => setSelectedRole(e.target.value)}
+                                    onChange={(e) => {
+                                        setSelectedRole(e.target.value);
+                                        setEmail('');
+                                        setPassword('');
+                                        setError('');
+                                    }}
                                     className="form-select"
                                 >
                                     <option value={ROLES.ADMIN}>Admin</option>

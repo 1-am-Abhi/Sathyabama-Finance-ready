@@ -24,11 +24,12 @@ const RevenueSummary = () => {
     }, [setLayout]);
 
     useEffect(() => {
+        let isMounted = true;
         const fetchSummary = async () => {
             try {
-                setLoading(true);
+                if (isMounted && summary.total === 0) setLoading(true);
                 const response = await apiClient.get(`/revenue/summary?year=${selectedYear}`);
-                if (response.data.success) {
+                if (isMounted && response.data.success) {
                     const data = response.data.data.summary;
                     // Ensure all values are proper numbers
                     const cleanSummary = {
@@ -54,11 +55,17 @@ const RevenueSummary = () => {
             } catch (error) {
                 console.error('Error fetching revenue summary:', error);
             } finally {
-                setLoading(false);
+                if (isMounted) setLoading(false);
             }
         };
 
         fetchSummary();
+        const intervalId = setInterval(fetchSummary, 30000); // Poll every 30 seconds
+
+        return () => {
+            isMounted = false;
+            clearInterval(intervalId);
+        };
     }, [selectedYear]);
 
     if (loading) {

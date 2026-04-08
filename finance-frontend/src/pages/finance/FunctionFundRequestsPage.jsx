@@ -1,6 +1,4 @@
-import React, { useState } from 'react';
-import Sidebar from '../../components/shared/Sidebar';
-import TopBar from '../../components/shared/TopBar';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
 import { Badge } from '../../components/ui/badge';
@@ -23,12 +21,13 @@ import {
 } from '../../components/ui/dialog';
 import { Input } from '../../components/ui/input';
 import { Label } from '../../components/ui/label';
-import { mockFunctionRequests } from '../../services/mockData';
 import { formatCurrency } from '../../utils/currency';
 import { Calendar, CheckCircle, Clock, Search, FileText } from 'lucide-react';
+import { useLayout } from '../../contexts/LayoutContext';
 
 const FunctionFundRequestsPage = () => {
-    const [requests, setRequests] = useState(mockFunctionRequests);
+    const { setLayout } = useLayout();
+    const [requests, setRequests] = useState([]);
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedRequest, setSelectedRequest] = useState(null);
     const [isReleaseModalOpen, setIsReleaseModalOpen] = useState(false);
@@ -88,15 +87,7 @@ const FunctionFundRequestsPage = () => {
     };
 
     return (
-        <div className="flex min-h-screen bg-gray-50 dark:bg-slate-900 transition-colors duration-200">
-            <Sidebar />
-            <div className="flex-1 ml-64">
-                <TopBar
-                    title="Function Fund Requests"
-                    subtitle="Manage fund requests for departmental functions and events"
-                />
-
-                <div className="p-8">
+        <div className="p-8">
                     {/* Stats Overview */}
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
                         <Card className="bg-white border-0 shadow-sm dark:bg-slate-800 dark:border-slate-700">
@@ -227,76 +218,74 @@ const FunctionFundRequestsPage = () => {
                             </div>
                         </CardContent>
                     </Card>
+
+                    {/* Fund Release Modal */}
+                    <Dialog open={isReleaseModalOpen} onOpenChange={setIsReleaseModalOpen}>
+                        <DialogContent>
+                            <DialogHeader>
+                                <DialogTitle>Release Funds for Function</DialogTitle>
+                                <DialogDescription>
+                                    Enter transaction details to release funds for "{selectedRequest?.functionName}"
+                                </DialogDescription>
+                            </DialogHeader>
+
+                            <form onSubmit={handleReleaseSubmit} className="space-y-4 py-4">
+                                <div className="p-4 bg-gray-50 rounded-lg space-y-2">
+                                    <div className="flex justify-between">
+                                        <span className="text-sm text-gray-500">Amount to Release:</span>
+                                        <span className="font-bold text-lg">{selectedRequest && formatCurrency(selectedRequest.amount)}</span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                        <span className="text-sm text-gray-500">Faculty:</span>
+                                        <span className="font-medium">{selectedRequest?.facultyName}</span>
+                                    </div>
+                                </div>
+
+                                <div className="space-y-2">
+                                    <Label htmlFor="transactionId">Transaction ID *</Label>
+                                    <Input
+                                        id="transactionId"
+                                        required
+                                        value={releaseFormData.transactionId}
+                                        onChange={(e) => setReleaseFormData({ ...releaseFormData, transactionId: e.target.value })}
+                                        placeholder="Enter bank transaction reference"
+                                    />
+                                </div>
+
+                                <div className="space-y-2">
+                                    <Label htmlFor="releaseDate">Release Date *</Label>
+                                    <Input
+                                        id="releaseDate"
+                                        type="date"
+                                        required
+                                        value={releaseFormData.releaseDate}
+                                        onChange={(e) => setReleaseFormData({ ...releaseFormData, releaseDate: e.target.value })}
+                                    />
+                                </div>
+
+                                <div className="space-y-2">
+                                    <Label htmlFor="remarks">Remarks (Optional)</Label>
+                                    <Input
+                                        id="remarks"
+                                        value={releaseFormData.remarks}
+                                        onChange={(e) => setReleaseFormData({ ...releaseFormData, remarks: e.target.value })}
+                                        placeholder="Any additional notes"
+                                    />
+                                </div>
+
+                                <DialogFooter className="mt-6">
+                                    <Button type="button" variant="outline" onClick={() => setIsReleaseModalOpen(false)}>
+                                        Cancel
+                                    </Button>
+                                    <Button type="submit" className="bg-green-600 hover:bg-green-700">
+                                        Confirm Release
+                                    </Button>
+                                </DialogFooter>
+                            </form>
+                        </DialogContent>
+                    </Dialog>
                 </div>
-            </div>
-
-            {/* Fund Release Modal */}
-            <Dialog open={isReleaseModalOpen} onOpenChange={setIsReleaseModalOpen}>
-                <DialogContent>
-                    <DialogHeader>
-                        <DialogTitle>Release Funds for Function</DialogTitle>
-                        <DialogDescription>
-                            Enter transaction details to release funds for "{selectedRequest?.functionName}"
-                        </DialogDescription>
-                    </DialogHeader>
-
-                    <form onSubmit={handleReleaseSubmit} className="space-y-4 py-4">
-                        <div className="p-4 bg-gray-50 rounded-lg space-y-2">
-                            <div className="flex justify-between">
-                                <span className="text-sm text-gray-500">Amount to Release:</span>
-                                <span className="font-bold text-lg">{selectedRequest && formatCurrency(selectedRequest.amount)}</span>
-                            </div>
-                            <div className="flex justify-between">
-                                <span className="text-sm text-gray-500">Faculty:</span>
-                                <span className="font-medium">{selectedRequest?.facultyName}</span>
-                            </div>
-                        </div>
-
-                        <div className="space-y-2">
-                            <Label htmlFor="transactionId">Transaction ID *</Label>
-                            <Input
-                                id="transactionId"
-                                required
-                                value={releaseFormData.transactionId}
-                                onChange={(e) => setReleaseFormData({ ...releaseFormData, transactionId: e.target.value })}
-                                placeholder="Enter bank transaction reference"
-                            />
-                        </div>
-
-                        <div className="space-y-2">
-                            <Label htmlFor="releaseDate">Release Date *</Label>
-                            <Input
-                                id="releaseDate"
-                                type="date"
-                                required
-                                value={releaseFormData.releaseDate}
-                                onChange={(e) => setReleaseFormData({ ...releaseFormData, releaseDate: e.target.value })}
-                            />
-                        </div>
-
-                        <div className="space-y-2">
-                            <Label htmlFor="remarks">Remarks (Optional)</Label>
-                            <Input
-                                id="remarks"
-                                value={releaseFormData.remarks}
-                                onChange={(e) => setReleaseFormData({ ...releaseFormData, remarks: e.target.value })}
-                                placeholder="Any additional notes"
-                            />
-                        </div>
-
-                        <DialogFooter className="mt-6">
-                            <Button type="button" variant="outline" onClick={() => setIsReleaseModalOpen(false)}>
-                                Cancel
-                            </Button>
-                            <Button type="submit" className="bg-green-600 hover:bg-green-700">
-                                Confirm Release
-                            </Button>
-                        </DialogFooter>
-                    </form>
-                </DialogContent>
-            </Dialog>
-        </div>
-    );
+            );
 };
 
 export default FunctionFundRequestsPage;

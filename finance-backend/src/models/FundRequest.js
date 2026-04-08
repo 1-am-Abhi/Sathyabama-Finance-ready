@@ -97,6 +97,12 @@ FundRequest.init({
         type: DataTypes.ENUM('PFMS', 'DIRECTOR_INNOVATION'),
         allowNull: false
     },
+    // CEER Budget Granularity details:
+    majorEquipments: { type: DataTypes.FLOAT, defaultValue: 0 },
+    minorEquipments: { type: DataTypes.FLOAT, defaultValue: 0 },
+    consumables: { type: DataTypes.FLOAT, defaultValue: 0 },
+    services: { type: DataTypes.FLOAT, defaultValue: 0 },
+    amc: { type: DataTypes.FLOAT, defaultValue: 0 },
     auditTrail: {
         type: DataTypes.JSON,
         defaultValue: []

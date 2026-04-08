@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
 import { Badge } from '../../components/ui/badge';
@@ -6,16 +6,27 @@ import {
     DollarSign, FileText, Users, Clock, CheckCircle,
     AlertTriangle, ArrowRight, Calendar, Building
 } from 'lucide-react';
-import Sidebar from '../../components/shared/Sidebar';
-import TopBar from '../../components/shared/TopBar';
+import { useNavigate } from 'react-router-dom';
+import { useLayout } from '../../contexts/LayoutContext';
+import { useFinanceStats, useFundFlowProjects, useInternshipFees, usePFMSTransactions } from '../../hooks/useFinance';
 
 const FinanceDashboard = () => {
-    const [selectedProject, setSelectedProject] = useState(null);
+    const { setLayout } = useLayout();
+    const navigate = useNavigate();
+    
+    const { data: financeStats = {}, isLoading: isLoadingStats } = useFinanceStats();
+    const { data: fundFlowProjects = [], isLoading: isLoadingFundFlow } = useFundFlowProjects();
+    const { data: internshipPayments = [], isLoading: isLoadingInternships } = useInternshipFees();
+    const { data: pfmsTransactions = [], isLoading: isLoadingPFMS } = usePFMSTransactions();
+
+    useEffect(() => {
+        setLayout("Settlement & Activities", "Manage fund releases, PFMS tracking, and internship payments");
+    }, [setLayout]);
 
     const stats = [
         {
             title: 'Pending Releases',
-            value: '0',
+            value: financeStats.pendingReleases || '0',
             subtitle: 'Awaiting fund release',
             icon: DollarSign,
             color: 'bg-yellow-50 text-yellow-600',
@@ -23,7 +34,7 @@ const FinanceDashboard = () => {
         },
         {
             title: 'Pending Disbursements',
-            value: '0',
+            value: financeStats.pendingDisbursements || '0',
             subtitle: 'Cheques to be credited',
             icon: FileText,
             color: 'bg-blue-50 text-blue-600',
@@ -31,7 +42,7 @@ const FinanceDashboard = () => {
         },
         {
             title: 'Pending Settlements',
-            value: '1',
+            value: financeStats.pendingSettlements || '0',
             subtitle: 'Awaiting closure',
             icon: Clock,
             color: 'bg-purple-50 text-purple-600',
@@ -39,7 +50,7 @@ const FinanceDashboard = () => {
         },
         {
             title: 'Internship Fees',
-            value: '2',
+            value: financeStats.pendingInternships || '0',
             subtitle: 'Payments pending',
             icon: Users,
             color: 'bg-orange-50 text-orange-600',
@@ -47,100 +58,30 @@ const FinanceDashboard = () => {
         },
     ];
 
-    const fundFlowProjects = [
-        {
-            id: 1,
-            title: 'AI-Powered Healthcare Diagnostics System',
-            pi: 'Dr. Priya Sharma',
-            department: 'Department of Science & Technology (DST)',
-            amount: '₹25.0L',
-            status: 'AMOUNT_DISBURSED',
-            statusLabel: 'AMOUNT DISBURSED'
-        },
-        {
-            id: 2,
-            title: 'Sustainable Energy Solutions for Rural Areas',
-            pi: 'Dr. Arun Venkatesh',
-            department: 'Ministry of New & Renewable Energy (MNRE)',
-            amount: '₹48.0L',
-            status: 'FUND_RELEASED',
-            statusLabel: 'FUND RELEASED'
-        },
-        {
-            id: 3,
-            title: 'IoT-Based Smart Agriculture Monitoring',
-            pi: 'Dr. Meena Krishnan',
-            department: 'Indian Council of Agricultural Research (ICAR)',
-            amount: '₹18.0L',
-            status: 'UTILIZATION_COMPLETED',
-            statusLabel: 'UTILIZATION COMPLETED'
-        },
-    ];
-
-    const internshipPayments = [
-        { id: 1, name: 'Rahul Krishnamurthy', internship: 'AI Research Lab Internship', amount: '₹15,000', status: 'paid' },
-        { id: 2, name: 'Ananya Sharma', internship: 'IoT Development Internship', amount: '₹12,000', status: 'pending' },
-        { id: 3, name: 'Vikram Patel', internship: 'Machine Learning Internship', amount: '₹15,000', status: 'pending' },
-        { id: 4, name: 'Divya Rajan', internship: 'Renewable Energy Research Internship', amount: '₹10,000', status: 'paid' },
-    ];
-
-    const pfmsTransactions = [
-        {
-            id: 'DST-2024-AIHD-001',
-            organization: 'Department of Science & Technology',
-            sanctionOrder: 'DST/CS/2024/0125',
-            sanctionDate: '10 Mar 2024',
-            installment: 1,
-            amount: '₹10,00,000',
-            creditDate: '25 Mar 2024',
-            utr: 'UTR20240325000012345',
-            transactionId: 'TXN-DST-001-2024',
-            status: 'Submitted'
-        },
-        {
-            id: 'DST-2024-AIHD-001',
-            organization: 'Department of Science & Technology',
-            sanctionOrder: 'DST/CS/2024/0256',
-            sanctionDate: '15 Sept 2024',
-            installment: 2,
-            amount: '₹7,50,000',
-            creditDate: '28 Sept 2024',
-            utr: 'UTR20240928000045678',
-            transactionId: 'TXN-DST-002-2024',
-            status: 'Pending'
-        },
-    ];
-
     return (
-        <div className="flex min-h-screen bg-gray-50">
-            <Sidebar />
-
-            <div className="flex-1 ml-64">
-                <TopBar title="Finance Dashboard" subtitle="Fund releases, PFMS tracking & settlements" />
-
-                <div className="p-8">
-                    {/* Stats Cards */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-                        {stats.map((stat, index) => {
-                            const Icon = stat.icon;
-                            return (
-                                <Card key={index} className={`border-0 ${stat.color}`}>
-                                    <CardContent className="p-6">
-                                        <div className="flex items-start justify-between">
-                                            <div>
-                                                <p className="text-sm font-medium opacity-80">{stat.title}</p>
-                                                <p className="text-3xl font-bold mt-2">{stat.value}</p>
-                                                <p className="text-xs mt-1 opacity-70">{stat.subtitle}</p>
-                                            </div>
-                                            <div className={`w-12 h-12 ${stat.iconBg} rounded-lg flex items-center justify-center`}>
-                                                <Icon className="w-6 h-6" />
-                                            </div>
-                                        </div>
-                                    </CardContent>
-                                </Card>
-                            );
-                        })}
-                    </div>
+        <div className="p-8">
+            {/* Stats Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                {stats.map((stat, index) => {
+                    const Icon = stat.icon;
+                    return (
+                        <Card key={index} className={`border-0 ${stat.color}`}>
+                            <CardContent className="p-6">
+                                <div className="flex items-start justify-between">
+                                    <div>
+                                        <p className="text-sm font-medium opacity-80">{stat.title}</p>
+                                        <p className="text-3xl font-bold mt-2">{stat.value}</p>
+                                        <p className="text-xs mt-1 opacity-70">{stat.subtitle}</p>
+                                    </div>
+                                    <div className={`w-12 h-12 ${stat.iconBg} rounded-lg flex items-center justify-center`}>
+                                        <Icon className="w-6 h-6" />
+                                    </div>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    );
+                })}
+            </div>
 
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                         {/* Fund Flow Actions */}
@@ -152,7 +93,10 @@ const FinanceDashboard = () => {
                                             <FileText className="w-5 h-5 mr-2 text-blue-600" />
                                             Fund Flow Actions
                                         </CardTitle>
-                                        <button className="text-sm text-blue-600 hover:text-blue-700 flex items-center">
+                                        <button 
+                                            className="text-sm text-blue-600 hover:text-blue-700 flex items-center"
+                                            onClick={() => navigate('/finance/reports')}
+                                        >
                                             View All <ArrowRight className="w-4 h-4 ml-1" />
                                         </button>
                                     </div>
@@ -193,7 +137,10 @@ const FinanceDashboard = () => {
                                             <FileText className="w-5 h-5 mr-2 text-blue-600" />
                                             Recent PFMS Transactions
                                         </CardTitle>
-                                        <button className="text-sm text-blue-600 hover:text-blue-700 flex items-center">
+                                        <button 
+                                            className="text-sm text-blue-600 hover:text-blue-700 flex items-center"
+                                            onClick={() => navigate('/finance/pfms')}
+                                        >
                                             View All <ArrowRight className="w-4 h-4 ml-1" />
                                         </button>
                                     </div>
@@ -295,7 +242,7 @@ const FinanceDashboard = () => {
                                                     )}
                                                 </div>
                                                 {payment.status === 'pending' && (
-                                                    <Button size="sm" className="w-full mt-2 bg-blue-600 hover:bg-blue-700">
+                                                    <Button size="sm" className="w-full mt-2 bg-blue-600 hover:bg-blue-700" onClick={() => navigate('/finance/internships')}>
                                                         Verify
                                                     </Button>
                                                 )}
@@ -306,8 +253,6 @@ const FinanceDashboard = () => {
                             </Card>
                         </div>
                     </div>
-                </div>
-            </div>
         </div>
     );
 };

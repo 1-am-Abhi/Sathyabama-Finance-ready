@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../../components/ui/dialog';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
@@ -7,46 +7,130 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/ta
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import ProjectDetail from './ProjectDetail';
 import FacultyDetail from './FacultyDetail';
-import { CENTRE_PROJECTS_MOCK, CENTRE_FACULTY_MOCK } from '../../data/dashboardData';
+import apiClient from '../../api/client';
 
 const ResearchCentreDetail = ({ isOpen, onClose, centreName, isDark }) => {
     const [selectedProject, setSelectedProject] = useState(null);
     const [selectedFaculty, setSelectedFaculty] = useState(null);
     const [projectDetailOpen, setProjectDetailOpen] = useState(false);
     const [facultyDetailOpen, setFacultyDetailOpen] = useState(false);
+    
+    const [loading, setLoading] = useState(true);
+    const [details, setDetails] = useState({
+        summary: {
+            totalProjects: 0, activeProjects: 0, completedProjects: 0,
+            totalBudget: 0, fundsReleased: 0, fundsUtilized: 0, fundsRemaining: 0, utilizationRate: 0
+        },
+        projects: [],
+        faculty: [],
+        publications: {
+            journals: 0, proceedings: 0, books: 0, bookChapters: 0, patents: 0
+        }
+    });
 
-    // Mock detailed data for the selected centre
-    const getCentreDetails = (name) => {
-        const projects = CENTRE_PROJECTS_MOCK[name] || CENTRE_PROJECTS_MOCK['default'];
-        const faculty = CENTRE_FACULTY_MOCK[name] || CENTRE_FACULTY_MOCK['default'];
+    useEffect(() => {
+        if (!isOpen || !centreName) return;
+        
+        let isMounted = true;
+        
+        const fetchDetails = async () => {
+            try {
+                if (isMounted && details.projects.length === 0) setLoading(true);
+                
+                // Fetch all projects (we filter client-side for simplicity, or modify API)
+                const [projectsRes, usersRes, metricsRes] = await Promise.all([
+                    apiClient.get('/projects'),
+                    apiClient.get('/profile/all'),
+                    apiClient.get('/academic-metrics/all')
+                ]);
+                
+                if (!isMounted) return;
+                
+                let centreProjects = [];
+                if (projectsRes.data.success) {
+                    // Match projects to centre dynamically
+                    centreProjects = projectsRes.data.data.filter(p => 
+                        (p.department === centreName || p.centre === centreName)
+                    );
+                }
+                
+                // Transform to match UI schema
+                const uiProjects = centreProjects.map(p => ({
+                    id: p._id || p.id,
+                    name: p.title,
+                    pi: p.pi || 'N/A',
+                    status: p.status === 'ACTIVE' ? 'Active' : (p.status === 'COMPLETED' ? 'Completed' : p.status),
+                    budget: p.sanctionedBudget || 0,
+                    released: p.releasedBudget || 0,
+                    utilized: p.utilizedBudget || 0
+                }));
+                
+                let centreFaculty = [];
+                let pubStats = { journals: 0, proceedings: 0, books: 0, bookChapters: 0, patents: 0 };
+                
+                if (usersRes.data && usersRes.data.success) {
+                    const centreUsers = usersRes.data.data.filter(u => 
+                        (u.department === centreName || u.centre === centreName)
+                    );
 
-        const totalBudget = projects.reduce((sum, p) => sum + p.budget, 0);
-        const totalReleased = projects.reduce((sum, p) => sum + p.released, 0);
-        const totalUtilized = projects.reduce((sum, p) => sum + p.utilized, 0);
-        const totalRemaining = totalReleased - totalUtilized;
+                    centreFaculty = centreUsers.filter(u => u.role === 'FACULTY').map(u => ({
+                        id: u._id,
+                        name: u.name,
+                        role: u.designation || 'Faculty Member',
+                        projects: uiProjects.filter(p => p.pi === u.name).length,
+                        specialization: u.specialization || 'Research'
+                    }));
 
-        const activeProjects = projects.filter(p => p.status === 'Active').length;
-        const completedProjects = projects.filter(p => p.status === 'Completed').length;
+                    // Aggregate publications for these users
+                    if (metricsRes.data && metricsRes.data.success) {
+                        const centreUserIds = centreUsers.map(u => u._id);
+                        const centreMetrics = metricsRes.data.data.filter(m => centreUserIds.includes(m.facultyId));
+                        
+                        centreMetrics.forEach(m => {
+                            pubStats.journals += (m.journals || 0);
+                            pubStats.proceedings += (m.proceedings || 0);
+                            pubStats.books += (m.books || 0);
+                            pubStats.bookChapters += (m.bookChapters || 0);
+                            pubStats.patents += (m.patents || 0);
+                        });
+                    }
+                }
 
-        return {
-            summary: {
-                totalProjects: projects.length,
-                activeProjects,
-                completedProjects,
-                totalBudget,
-                fundsReleased: totalReleased,
-                fundsUtilized: totalUtilized,
-                fundsRemaining: totalRemaining,
-                utilizationRate: ((totalUtilized / totalReleased) * 100).toFixed(1)
-            },
-            projects,
-            faculty
+                const totalBudget = uiProjects.reduce((sum, p) => sum + p.budget, 0);
+                const totalReleased = uiProjects.reduce((sum, p) => sum + p.released, 0);
+                const totalUtilized = uiProjects.reduce((sum, p) => sum + p.utilized, 0);
+                const totalRemaining = totalReleased - totalUtilized;
+
+                const activeProjects = uiProjects.filter(p => p.status === 'Active' || p.status === 'ACTIVE').length;
+                const completedProjects = uiProjects.filter(p => p.status === 'Completed' || p.status === 'COMPLETED').length;
+
+                setDetails({
+                    summary: {
+                        totalProjects: uiProjects.length,
+                        activeProjects,
+                        completedProjects,
+                        totalBudget,
+                        fundsReleased: totalReleased,
+                        fundsUtilized: totalUtilized,
+                        fundsRemaining: totalRemaining,
+                        utilizationRate: totalReleased > 0 ? ((totalUtilized / totalReleased) * 100).toFixed(1) : 0
+                    },
+                    projects: uiProjects,
+                    faculty: centreFaculty,
+                    publications: pubStats
+                });
+
+            } catch (error) {
+                console.error("Error fetching centre details:", error);
+            } finally {
+                if (isMounted) setLoading(false);
+            }
         };
-    };
 
-    if (!centreName) return null;
+        fetchDetails();
+    }, [isOpen, centreName]);
 
-    const details = getCentreDetails(centreName);
+    if (!isOpen || !centreName) return null;
 
     // Chart data
     const budgetChartData = [
@@ -128,9 +212,10 @@ const ResearchCentreDetail = ({ isOpen, onClose, centreName, isDark }) => {
 
                     {/* Tabs for different sections */}
                     <Tabs defaultValue="projects" className="mt-6">
-                        <TabsList className="grid w-full grid-cols-3">
+                        <TabsList className="grid w-full grid-cols-4">
                             <TabsTrigger value="projects">Projects</TabsTrigger>
                             <TabsTrigger value="faculty">Faculty</TabsTrigger>
+                            <TabsTrigger value="publications">Publications (Scopus)</TabsTrigger>
                             <TabsTrigger value="financials">Financials</TabsTrigger>
                         </TabsList>
 
@@ -218,6 +303,40 @@ const ResearchCentreDetail = ({ isOpen, onClose, centreName, isDark }) => {
                                     </div>
                                 </CardContent>
                             </Card>
+                        </TabsContent>
+
+                        {/* Publications Tab */}
+                        <TabsContent value="publications" className="mt-4">
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                                <Card className="bg-blue-50 dark:bg-blue-900/20 border-0 outline-none">
+                                    <CardContent className="p-4 text-center">
+                                        <div className="text-3xl font-bold text-blue-700 dark:text-blue-400">{details.publications.journals}</div>
+                                        <div className="text-sm font-medium text-blue-600 dark:text-blue-500 mt-1">Journals (WoS/Scopus)</div>
+                                    </CardContent>
+                                </Card>
+                                <Card className="bg-purple-50 dark:bg-purple-900/20 border-0 outline-none">
+                                    <CardContent className="p-4 text-center">
+                                        <div className="text-3xl font-bold text-purple-700 dark:text-purple-400">{details.publications.proceedings}</div>
+                                        <div className="text-sm font-medium text-purple-600 dark:text-purple-500 mt-1">Proceedings</div>
+                                    </CardContent>
+                                </Card>
+                                <Card className="bg-amber-50 dark:bg-amber-900/20 border-0 outline-none">
+                                    <CardContent className="p-4 text-center">
+                                        <div className="text-3xl font-bold text-amber-700 dark:text-amber-400">{details.publications.books + details.publications.bookChapters}</div>
+                                        <div className="text-sm font-medium text-amber-600 dark:text-amber-500 mt-1">Books & Chapters</div>
+                                    </CardContent>
+                                </Card>
+                                <Card className="bg-emerald-50 dark:bg-emerald-900/20 border-0 outline-none">
+                                    <CardContent className="p-4 text-center">
+                                        <div className="text-3xl font-bold text-emerald-700 dark:text-emerald-400">{details.publications.patents}</div>
+                                        <div className="text-sm font-medium text-emerald-600 dark:text-emerald-500 mt-1">Patents</div>
+                                    </CardContent>
+                                </Card>
+                            </div>
+                            <div className="flex flex-col items-center justify-center p-8 bg-gray-50 dark:bg-slate-800/50 rounded-xl border border-gray-100 dark:border-slate-800 border-dashed">
+                                <p className="text-gray-500 text-sm text-center">These metrics are continuously synchronized with the Scopus/Elsevier integration endpoint based on assigned faculty Scopus ID.</p>
+                                <Badge variant="outline" className="mt-4 border-orange-200 text-orange-600 bg-orange-50 dark:bg-orange-900/30 dark:border-orange-800 dark:text-orange-400">Scopus Insights Live</Badge>
+                            </div>
                         </TabsContent>
 
                         {/* Financials Tab */}

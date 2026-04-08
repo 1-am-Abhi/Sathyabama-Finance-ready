@@ -41,7 +41,9 @@ import FundReleasesPage from '../pages/finance/FundReleasesPage';
 import ManagePFMS from '../pages/finance/ManagePFMS';
 import VerifyInternshipFees from '../pages/finance/VerifyInternshipFees';
 import FunctionFundRequestsPage from '../pages/finance/FunctionFundRequestsPage';
-import FinanceSettings from '../pages/finance/Settings';
+import DisbursementQueue from '../pages/finance/DisbursementQueue';
+import RevenueVerification from '../pages/finance/RevenueVerification';
+import FinancialReports from '../pages/finance/FinancialReports';
 
 const AppRoutes = () => {
     // Apply theme on initial load
@@ -137,12 +139,15 @@ const AppRoutes = () => {
                                 <DashboardLayout>
                                     <Routes>
                                         <Route path="dashboard" element={<FinanceManagerDashboard />} />
+                                        <Route path="disbursements" element={<DisbursementQueue />} />
+                                        <Route path="revenue-verification" element={<RevenueVerification />} />
                                         <Route path="fund-flow" element={<FundReleasesPage />} />
                                         <Route path="pfms" element={<ManagePFMS />} />
                                         <Route path="function-requests" element={<FunctionFundRequestsPage />} />
                                         <Route path="internships" element={<VerifyInternshipFees />} />
-                                        <Route path="reports" element={<FinanceManagerDashboard />} />
-                                        <Route path="settings" element={<FinanceSettings />} />
+                                        <Route path="reports" element={<FinanceDashboard />} />
+                                        <Route path="financial-reports" element={<FinancialReports />} />
+                                        <Route path="settings" element={<Settings />} />
                                         <Route path="profile" element={<Profile />} />
                                     </Routes>
                                 </DashboardLayout>

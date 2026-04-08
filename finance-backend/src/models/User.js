@@ -61,6 +61,14 @@ const User = sequelize.define('User', {
         type: DataTypes.TEXT,
         allowNull: true
     },
+    scopusId: {
+        type: DataTypes.STRING,
+        allowNull: true
+    },
+    designationCategory: {
+        type: DataTypes.ENUM('FACULTY', 'SCIENTIFIC_ASSISTANT', 'TECHNICAL_ASSISTANT', 'JRF', 'SRF', 'PDF', 'OTHER'),
+        defaultValue: 'FACULTY'
+    },
     bio: {
         type: DataTypes.TEXT,
         allowNull: true

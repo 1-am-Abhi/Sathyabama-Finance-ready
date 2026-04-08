@@ -3,6 +3,7 @@ const User = require('../models/User');
 const ProjectMember = require('../models/ProjectMember');
 const { FundRequest } = require('../models/FundRequest');
 const EventRequest = require('../models/EventRequest');
+const Revenue = require('../models/Revenue');
 const { Op } = require('sequelize');
 
 exports.getAdminStats = async (req, res) => {
@@ -33,6 +34,21 @@ exports.getAdminStats = async (req, res) => {
         }) || 0;
 
         const totalFaculty = await User.count({ where: { role: 'FACULTY' } });
+
+        // --- Revenue Generation (Consultancy, Events, Internships) ---
+        const totalRevenue = await Revenue.sum('verifiedAmount', { where: { status: 'VERIFIED' } }) || 0;
+        
+        const consultancyRevenue = await Revenue.sum('verifiedAmount', { 
+            where: { status: 'VERIFIED', revenueSource: 'Consultancy' } 
+        }) || 0;
+        
+        const internshipRevenue = await Revenue.sum('verifiedAmount', { 
+            where: { status: 'VERIFIED', revenueSource: 'Internships' } 
+        }) || 0;
+        
+        const eventsRevenue = await Revenue.sum('verifiedAmount', { 
+            where: { status: 'VERIFIED', revenueSource: 'Events' } 
+        }) || 0;
 
         // --- Centre-wise Distribution Metrics ---
         // 1. Projects and Budgets per Centre
@@ -112,6 +128,12 @@ exports.getAdminStats = async (req, res) => {
                     allotted: institutionalBudgetTotal,
                     consumed: institutionalDisbursed,
                     balance: Math.max(0, institutionalBudgetTotal - institutionalDisbursed)
+                },
+                revenueStats: {
+                    total: totalRevenue,
+                    consultancy: consultancyRevenue,
+                    internships: internshipRevenue,
+                    events: eventsRevenue
                 }
             },
             centres: centreStatsList

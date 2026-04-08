@@ -16,7 +16,7 @@ const Profile = () => {
     const { user, updateUser } = useAuth();
     const { showToast, ToastPortal } = useToast();
     const [isEditing, setIsEditing] = useState(false);
-    const [profilePhoto, setProfilePhoto] = useState(localStorage.getItem('profile_photo') || '');
+    const [profilePhoto, setProfilePhoto] = useState(localStorage.getItem(`profile_photo_${user?._id || user?.id}`) || '');
 
     // Profile data - in real app, this would come from API
     // Profile data from user context
@@ -32,6 +32,7 @@ const Profile = () => {
         officeLocation: user?.officeLocation || '',
         specialization: user?.specialization || '',
         bio: user?.bio || '',
+        scopusId: user?.scopusId || '',
         education: user?.education || [],
         achievements: user?.achievements || []
     });
@@ -73,9 +74,22 @@ const Profile = () => {
             const reader = new FileReader();
             reader.onloadend = () => {
                 setProfilePhoto(reader.result);
-                localStorage.setItem('profile_photo', reader.result);
+                localStorage.setItem(`profile_photo_${user?._id || user?.id}`, reader.result);
             };
             reader.readAsDataURL(file);
+        }
+    };
+
+    const handleSyncScopus = async () => {
+        try {
+            showToast('Syncing with Scopus Database...', 'info');
+            const response = await apiClient.post('/profile/sync-scopus');
+            if (response.data.success) {
+                showToast(`Scopus metrics synced! Journals: ${response.data.data.journals}, Books: ${response.data.data.books}`);
+            }
+        } catch (error) {
+            console.error("Error syncing Scopus:", error);
+            showToast('Sync failed: ' + (error.response?.data?.message || 'Check Scopus API Key'), 'error');
         }
     };
 
@@ -277,6 +291,35 @@ const Profile = () => {
                                     />
                                 ) : (
                                     <p className="mt-1 text-gray-900 dark:text-white font-medium">{profileData.specialization}</p>
+                                )}
+                            </div>
+
+                            <div className="pt-4 border-t border-gray-100 dark:border-slate-800">
+                                <Label className="flex items-center gap-2 text-gray-700 dark:text-gray-300">
+                                    <Award className="w-4 h-4 text-orange-500" />
+                                    Scopus Author ID
+                                </Label>
+                                {isEditing ? (
+                                    <Input
+                                        value={editData.scopusId}
+                                        onChange={(e) => setEditData({ ...editData, scopusId: e.target.value })}
+                                        className="mt-1 font-mono text-sm"
+                                        placeholder="e.g. 5719xxxxx"
+                                    />
+                                ) : (
+                                    <div className="mt-2 flex flex-col sm:flex-row items-start sm:items-center gap-3 w-full">
+                                        <p className="text-gray-900 dark:text-white font-medium font-mono">
+                                            {profileData.scopusId || 'Not configured'}
+                                        </p>
+                                        <Button 
+                                            size="sm" 
+                                            onClick={handleSyncScopus} 
+                                            disabled={!profileData.scopusId}
+                                            className="bg-orange-500 hover:bg-orange-600 text-white ml-auto"
+                                        >
+                                            Sync Scopus Insights
+                                        </Button>
+                                    </div>
                                 )}
                             </div>
                         </CardContent>

@@ -111,3 +111,41 @@ exports.updateFinanceMetrics = async (req, res) => {
         res.status(500).json({ success: false, message: error.message });
     }
 };
+
+// Revenue Verification: Finance gets all consultancy income for verification
+exports.getAllRevenueForVerification = async (req, res) => {
+    try {
+        const records = await Revenue.findAll({
+            include: [{ model: User, attributes: ['name', 'department'] }],
+            order: [['createdAt', 'DESC']]
+        });
+        
+        res.status(200).json({ success: true, data: records });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+// Verify Revenue: Finance marks the inflow as verified
+exports.verifyRevenue = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { verifiedAmount, bankReference, remarks } = req.body;
+        
+        const record = await Revenue.findByPk(id);
+        if (!record) return res.status(404).json({ success: false, message: 'Revenue record not found' });
+        
+        await record.update({
+            status: 'VERIFIED',
+            verifiedAmount: verifiedAmount || record.amountGenerated,
+            bankReference: bankReference || record.bankReference,
+            financeRemarks: remarks || record.financeRemarks,
+            verifiedAt: new Date(),
+            verifiedBy: req.user.id
+        });
+        
+        res.status(200).json({ success: true, message: 'Revenue verified successfully', data: record });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};

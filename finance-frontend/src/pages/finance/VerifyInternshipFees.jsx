@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
-import Sidebar from '../../components/shared/Sidebar';
-import TopBar from '../../components/shared/TopBar';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card';
+import { useLayout } from '../../contexts/LayoutContext';
+import apiClient from '../../api/client';
 import { Input } from '../../components/ui/input';
 import { Label } from '../../components/ui/label';
 import { Button } from '../../components/ui/button';
@@ -10,46 +10,38 @@ import { Badge } from '../../components/ui/badge';
 import { AlertCircle } from 'lucide-react';
 
 const VerifyInternshipFees = () => {
+    const { setLayout } = useLayout();
     const [selectedInternship, setSelectedInternship] = useState(null);
+
+    const [internships, setInternships] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
+
+    useEffect(() => {
+        setLayout("Internship Fees", "Verify and approve student internship payment records");
+        fetchInternships();
+    }, [setLayout]);
+
+    const fetchInternships = async () => {
+        try {
+            setLoading(true);
+            const response = await apiClient.get('/finance/internship-fees');
+            if (response.data.success) {
+                setInternships(response.data.data);
+            }
+            setLoading(false);
+        } catch (err) {
+            console.error('Fetch Internships Error:', err);
+            setError('Failed to load internship records');
+            setLoading(false);
+        }
+    };
+    
     const [paymentData, setPaymentData] = useState({
         paymentMode: '',
         receiptNumber: '',
         paymentDate: ''
     });
-
-    // Mock data
-    const internships = [
-        {
-            id: 1,
-            studentName: 'Rahul Kumar',
-            studentId: 'STU2024001',
-            internshipTitle: 'Summer Research Internship',
-            feeAmount: 5000,
-            paymentStatus: 'PENDING',
-            approvalBlocked: true
-        },
-        {
-            id: 2,
-            studentName: 'Priya Sharma',
-            studentId: 'STU2024002',
-            internshipTitle: 'AI Lab Internship',
-            feeAmount: 5000,
-            paymentStatus: 'PAID',
-            paymentMode: 'Online',
-            receiptNumber: 'RCP2024001',
-            paymentDate: '2024-01-15',
-            approvalBlocked: false
-        },
-        {
-            id: 3,
-            studentName: 'Amit Patel',
-            studentId: 'STU2024003',
-            internshipTitle: 'IoT Research Internship',
-            feeAmount: 5000,
-            paymentStatus: 'PENDING',
-            approvalBlocked: true
-        }
-    ];
 
     const handleVerifyPayment = (internship) => {
         setSelectedInternship(internship);
@@ -62,24 +54,33 @@ const VerifyInternshipFees = () => {
         }
     };
 
-    const handleSubmit = (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault();
-        console.log('Updating payment for internship:', selectedInternship.id, paymentData);
-        alert('Payment status updated successfully!');
-        setSelectedInternship(null);
-        setPaymentData({ paymentMode: '', receiptNumber: '', paymentDate: '' });
+        try {
+            const response = await apiClient.put(`/finance/internship-fees/${selectedInternship._id || selectedInternship.id}`, {
+                ...paymentData,
+                paymentStatus: 'PAID'
+            });
+            
+            if (response.data.success) {
+                // Update local state instead of full refetch for smoother UX
+                setInternships(prev => prev.map(item => 
+                    item._id === selectedInternship._id || item.id === selectedInternship.id 
+                    ? { ...item, ...paymentData, paymentStatus: 'PAID', approvalBlocked: false } 
+                    : item
+                ));
+                setSelectedInternship(null);
+                setPaymentData({ paymentMode: '', receiptNumber: '', paymentDate: '' });
+            }
+        } catch (err) {
+            console.error('Update Payment Error:', err);
+        }
     };
 
     const pendingCount = internships.filter(i => i.paymentStatus === 'PENDING').length;
 
     return (
-        <div className="flex min-h-screen bg-gray-50">
-            <Sidebar />
-
-            <div className="flex-1 ml-64">
-                <TopBar title="Internship Fee Verification" subtitle="Verify and update internship fee payment status" />
-
-                <div className="p-8">
+        <div className="p-8">
                     {/* Alert for pending verifications */}
                     {pendingCount > 0 && (
                         <Card className="mb-6 border-yellow-200 bg-yellow-50">
@@ -240,8 +241,6 @@ const VerifyInternshipFees = () => {
                             )}
                         </div>
                     </div>
-                </div>
-            </div>
         </div>
     );
 };

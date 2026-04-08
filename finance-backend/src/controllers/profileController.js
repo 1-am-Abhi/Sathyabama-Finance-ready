@@ -1,4 +1,5 @@
 const User = require('../models/User');
+const { syncScopusData } = require('../services/scopusService');
 
 exports.updateProfile = async (req, res) => {
     try {
@@ -50,6 +51,30 @@ exports.updateProfile = async (req, res) => {
         });
     } catch (error) {
         console.error('Update profile error:', error);
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+exports.syncScopus = async (req, res) => {
+    try {
+        const user = await User.findByPk(req.user.id);
+        if (!user || !user.scopusId) {
+            return res.status(400).json({ success: false, message: 'Scopus Author ID not configured in profile' });
+        }
+
+        const result = await syncScopusData(user._id, user.scopusId);
+        
+        if (result.success) {
+            res.status(200).json({
+                success: true,
+                message: 'Scopus metrics synced successfully',
+                data: result.data
+            });
+        } else {
+            res.status(500).json({ success: false, message: result.message });
+        }
+    } catch (error) {
+        console.error('Scopus sync error:', error);
         res.status(500).json({ success: false, message: error.message });
     }
 };
