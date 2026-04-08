@@ -28,7 +28,7 @@ export const useFinanceStats = () => {
     return useQuery({
         queryKey: ['financeStats'],
         queryFn: getFinanceStats,
-        staleTime: 60 * 1000, // 1 minute
+        staleTime: 0,
     });
 };
 
@@ -39,7 +39,7 @@ export const useFundFlowProjects = () => {
     return useQuery({
         queryKey: ['fundFlowProjects'],
         queryFn: getFundFlowProjects,
-        staleTime: 2 * 60 * 1000, // 2 minutes
+        staleTime: 0,
     });
 };
 
@@ -50,7 +50,7 @@ export const usePFMSTransactions = () => {
     return useQuery({
         queryKey: ['pfmsTransactions'],
         queryFn: getPFMSTransactions,
-        staleTime: 5 * 60 * 1000, // 5 minutes
+        staleTime: 0,
     });
 };
 
@@ -75,7 +75,7 @@ export const useInternshipFees = () => {
     return useQuery({
         queryKey: ['internshipFees'],
         queryFn: getInternshipFees,
-        staleTime: 5 * 60 * 1000, // 5 minutes
+        staleTime: 0,
     });
 };
 
@@ -100,7 +100,7 @@ export const useFundSourcesOverview = () => {
     return useQuery({
         queryKey: ['fundSourcesOverview'],
         queryFn: getFundSourcesOverview,
-        staleTime: 5 * 60 * 1000, // 5 minutes
+        staleTime: 0,
     });
 };
 
@@ -126,7 +126,7 @@ export const useDepartments = () => {
     return useQuery({
         queryKey: ['departments'],
         queryFn: getDepartments,
-        staleTime: 10 * 60 * 1000, // 10 minutes
+        staleTime: 0,
     });
 };
 
@@ -138,7 +138,7 @@ export const useDepartmentFunding = (departmentId) => {
         queryKey: ['departmentFunding', departmentId],
         queryFn: () => getDepartmentFunding(departmentId),
         enabled: !!departmentId, // Only fetch if departmentId is provided
-        staleTime: 3 * 60 * 1000, // 3 minutes
+        staleTime: 0,
     });
 };
 
@@ -167,7 +167,7 @@ export const useProjects = (filters = {}) => {
     return useQuery({
         queryKey: ['projects', filters],
         queryFn: () => getProjects(filters),
-        staleTime: 3 * 60 * 1000, // 3 minutes
+        staleTime: 0,
     });
 };
 
@@ -179,7 +179,7 @@ export const useProjectDetails = (projectId) => {
         queryKey: ['projectDetails', projectId],
         queryFn: () => getProjectDetails(projectId),
         enabled: !!projectId,
-        staleTime: 5 * 60 * 1000, // 5 minutes
+        staleTime: 0,
     });
 };
 
@@ -205,7 +205,7 @@ export const useDisbursementQueue = () => {
     return useQuery({
         queryKey: ['disbursementQueue'],
         queryFn: getDisbursementQueue,
-        staleTime: 2 * 60 * 1000, // 2 minutes
+        staleTime: 0,
     });
 };
 
@@ -231,7 +231,7 @@ export const useRevenueVerificationQueue = () => {
     return useQuery({
         queryKey: ['revenueVerificationQueue'],
         queryFn: getRevenueVerificationQueue,
-        staleTime: 5 * 60 * 1000, // 5 minutes
+        staleTime: 0,
     });
 };
 
@@ -256,6 +256,6 @@ export const useFinancialReports = (params = {}) => {
     return useQuery({
         queryKey: ['financialReports', params],
         queryFn: () => getFinancialReports(params),
-        staleTime: 10 * 60 * 1000, // 10 minutes
+        staleTime: 0,
     });
 };
