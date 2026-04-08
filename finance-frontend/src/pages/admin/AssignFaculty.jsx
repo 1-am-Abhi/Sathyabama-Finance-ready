@@ -109,7 +109,8 @@ const ManageFaculty = () => {
                         centre: u.centre || 'Not Assigned',
                         status: u.status || 'Active',
                         projectsCount: 0,
-                        department: u.department
+                        department: u.department,
+                        role: u.role
                     }));
                     setFaculties(mappedFaculties);
                 }
@@ -146,6 +147,7 @@ const ManageFaculty = () => {
         username: '',
         email: '',
         password: '',
+        role: 'FACULTY',
         status: 'Active',
         centre: RESEARCH_CENTRES[0]
     });
@@ -272,7 +274,7 @@ const ManageFaculty = () => {
                 name: newFaculty.name,
                 email: newFaculty.email,
                 password: newFaculty.password,
-                role: 'FACULTY',
+                role: newFaculty.role,
                 department: 'Research',
                 centre: newFaculty.centre
             });
@@ -286,10 +288,11 @@ const ManageFaculty = () => {
                     email: addedUser.email,
                     centre: addedUser.centre || 'Not Assigned',
                     status: newFaculty.status,
-                    projectsCount: 0
+                    projectsCount: 0,
+                    role: addedUser.role
                 }]);
                 setIsAddModalOpen(false);
-                setNewFaculty({ name: '', username: '', email: '', password: '', status: 'Active', centre: RESEARCH_CENTRES[0] });
+                setNewFaculty({ name: '', username: '', email: '', password: '', role: 'FACULTY', status: 'Active', centre: RESEARCH_CENTRES[0] });
             }
         } catch (error) {
             console.error("Error creating user:", error);
@@ -529,7 +532,7 @@ const ManageFaculty = () => {
                                                     </div>
                                                     <div>
                                                         <div className="font-semibold dark:text-gray-200">{faculty.name}</div>
-                                                        <div className="text-[10px] text-gray-500 font-mono tracking-tighter uppercase">{faculty.username}</div>
+                                                        <div className="text-[10px] text-gray-500 font-mono tracking-tighter uppercase font-black opacity-80">{faculty.role}</div>
                                                     </div>
                                                 </div>
                                             </TableCell>
@@ -766,8 +769,8 @@ const ManageFaculty = () => {
                                         <div className="mx-auto w-12 h-12 bg-maroon-100 dark:bg-maroon-900/30 rounded-full flex items-center justify-center text-maroon-600 dark:text-maroon-400 mb-2">
                                             <UserPlus className="w-6 h-6" />
                                         </div>
-                                        <CardTitle className="text-2xl dark:text-white font-bold">Register New Faculty</CardTitle>
-                                        <CardDescription className="dark:text-gray-400">Initialize a new research faculty account</CardDescription>
+                                        <CardTitle className="text-2xl dark:text-white font-bold">Register User</CardTitle>
+                                        <CardDescription className="dark:text-gray-400">Initialize a new administrative or research account</CardDescription>
                                     </CardHeader>
                                     <form onSubmit={handleAddFaculty}>
                                         <CardContent className="space-y-4 pt-6">
@@ -789,6 +792,14 @@ const ManageFaculty = () => {
                                                 <div className="space-y-2">
                                                     <Label className="dark:text-gray-300 text-xs">Password</Label>
                                                     <Input type="password" required className="dark:bg-slate-800 dark:border-slate-700 dark:text-white h-9" value={newFaculty.password} onChange={(e) => setNewFaculty({ ...newFaculty, password: e.target.value })} />
+                                                </div>
+                                                <div className="space-y-2">
+                                                    <Label className="dark:text-gray-300 text-xs">Role</Label>
+                                                    <select className="w-full h-9 px-3 bg-white dark:bg-slate-800 border dark:border-slate-700 dark:text-white rounded-md text-sm outline-none" value={newFaculty.role} onChange={(e) => setNewFaculty({ ...newFaculty, role: e.target.value })}>
+                                                        <option value="FACULTY">Faculty</option>
+                                                        <option value="ADMIN">Admin</option>
+                                                        <option value="FINANCE_OFFICER">Finance Officer</option>
+                                                    </select>
                                                 </div>
                                                 <div className="space-y-2">
                                                     <Label className="dark:text-gray-300 text-xs">Status</Label>
