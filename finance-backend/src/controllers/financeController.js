@@ -144,19 +144,22 @@ exports.getFundSourcesOverview = async (req, res) => {
 
 exports.updateFundSourceAmount = async (req, res) => {
     try {
-        const { source, allocatedAmount } = req.body;
+        const { fundSource, amount } = req.body;
         
+        let dbSourceType = 'collegeFunds';
+        if (fundSource === 'PFMS' || fundSource === 'pfmsFunds') dbSourceType = 'pfmsFunds';
+
         // Use UPSERT (Find or Create)
-        const [fundSource, created] = await FundSource.findOrCreate({
-            where: { sourceType: source },
-            defaults: { totalAllocated: Number(allocatedAmount) }
+        const [fundRecord, created] = await FundSource.findOrCreate({
+            where: { sourceType: dbSourceType },
+            defaults: { totalAllocated: Number(amount) }
         });
 
         if (!created) {
-            await fundSource.update({ totalAllocated: Number(allocatedAmount) });
+            await fundRecord.update({ totalAllocated: Number(amount) });
         }
 
-        res.status(200).json({ success: true, message: 'Fund source updated successfully', data: fundSource });
+        res.status(200).json({ success: true, message: 'Fund source updated successfully', data: fundRecord });
     } catch (error) {
         console.error('updateFundSource Error:', error);
         res.status(500).json({ success: false, message: error.message });
