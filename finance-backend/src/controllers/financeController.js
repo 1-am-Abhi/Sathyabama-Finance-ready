@@ -92,11 +92,26 @@ exports.verifyInternshipFee = async (req, res) => {
         if (!fee) return res.status(404).json({ success: false, message: 'Fee record not found' });
         
         await fee.update({
-            paymentStatus, paymentMode, receiptNumber, paymentDate,
+            paymentStatus: paymentStatus || 'PAID',
+            paymentMode,
+            receiptNumber,
+            paymentDate,
             verifiedBy: req.user.id
         });
         
         res.status(200).json({ success: true, data: fee });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+exports.deleteInternshipFee = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const fee = await InternshipFee.findByPk(id);
+        if (!fee) return res.status(404).json({ success: false, message: 'Record not found' });
+        await fee.destroy();
+        res.status(200).json({ success: true, message: 'Record deleted successfully' });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
     }
@@ -107,6 +122,11 @@ exports.createInternshipFee = async (req, res) => {
         const { studentName, studentId, internshipTitle, feeAmount } = req.body;
         if (!studentName || !studentId || !internshipTitle || !feeAmount) {
             return res.status(400).json({ success: false, message: 'studentName, studentId, internshipTitle, and feeAmount are required' });
+        }
+        // Prevent duplicate studentId
+        const existing = await InternshipFee.findOne({ where: { studentId } });
+        if (existing) {
+            return res.status(409).json({ success: false, message: `A record for student ID ${studentId} already exists` });
         }
         const fee = await InternshipFee.create({
             studentName,
