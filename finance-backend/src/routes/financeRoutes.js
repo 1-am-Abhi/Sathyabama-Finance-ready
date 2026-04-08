@@ -14,7 +14,9 @@ router.post('/pfms', financeController.createPFMSTransaction);
 router.get('/pfms', financeController.getPFMSTransactions);
 
 router.get('/internship-fees', financeController.getInternshipFees);
+router.post('/internship-fees', financeController.createInternshipFee);      // ADMIN: Add new internship record
 router.put('/internship-fees/:id/verify', financeController.verifyInternshipFee);
+router.put('/internship-fees/:id', financeController.verifyInternshipFee);   // Aliased for VerifyInternshipFees.jsx PUT call
 
 // New Pipeline Routes
 router.get('/disbursements', financeController.getDisbursementQueue);

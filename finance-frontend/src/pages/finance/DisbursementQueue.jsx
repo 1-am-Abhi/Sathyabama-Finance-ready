@@ -167,13 +167,18 @@ const DisbursementQueue = () => {
                                         <tr key={req.id} className="border-b border-slate-50 dark:border-slate-800/50 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
                                             <td className="px-4 py-4">
                                                 <div className="space-y-1">
-                                                    <p className="font-medium text-slate-900 dark:text-white line-clamp-1">{req.Project?.title}</p>
+                                                    <p className="font-medium text-slate-900 dark:text-white line-clamp-1">
+                                                        {req.Project?.title || req.projectTitle || '—'}
+                                                    </p>
                                                     <div className="flex items-center gap-3">
                                                         <span className="text-xs text-slate-500 flex items-center gap-1">
-                                                            <Users className="w-3 h-3" /> {req.Project?.piName}
+                                                            <Users className="w-3 h-3" /> 
+                                                            {/* FIX: Project model uses 'pi' not 'piName' */}
+                                                            {req.Project?.pi || req.Project?.piName || req.faculty || '—'}
                                                         </span>
                                                         <span className="text-xs text-slate-500 flex items-center gap-1 font-mono">
-                                                            ID: #{req.id}
+                                                            {/* FIX: Show last 8 chars as readable ID */}
+                                                            REQ #{String(req.id).slice(-8).toUpperCase()}
                                                         </span>
                                                     </div>
                                                 </div>
@@ -214,11 +219,11 @@ const DisbursementQueue = () => {
                             <CardContent className="p-6 space-y-4">
                                 <div className="p-3 bg-maroon-50 dark:bg-maroon-900/20 rounded-lg border border-maroon-100 dark:border-maroon-800 space-y-1">
                                     <p className="text-xs text-maroon-600 dark:text-maroon-400 font-bold uppercase tracking-wider">Payable To</p>
-                                    <p className="text-sm font-semibold">{selectedRequest?.Project?.piName}</p>
-                                    <p className="text-xs text-slate-500 font-mono tracking-tighter line-clamp-1">{selectedRequest?.Project?.title}</p>
+                                    <p className="text-sm font-semibold">{selectedRequest?.Project?.pi || selectedRequest?.Project?.piName || selectedRequest?.faculty}</p>
+                                    <p className="text-xs text-slate-500 font-mono tracking-tighter line-clamp-1">{selectedRequest?.Project?.title || selectedRequest?.projectTitle}</p>
                                     <div className="pt-2 flex justify-between items-baseline border-t border-maroon-100 dark:border-maroon-800 mt-2">
                                         <span className="text-xs text-slate-500 font-medium">Net Amount</span>
-                                        <span className="text-lg font-black text-maroon-700 dark:text-maroon-400">₹{selectedRequest?.amount?.toLocaleString()}</span>
+                                        <span className="text-lg font-black text-maroon-700 dark:text-maroon-400">₹{(selectedRequest?.requestedAmount || selectedRequest?.amount || 0)?.toLocaleString()}</span>
                                     </div>
                                 </div>
 

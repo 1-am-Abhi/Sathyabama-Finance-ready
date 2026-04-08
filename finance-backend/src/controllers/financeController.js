@@ -102,6 +102,25 @@ exports.verifyInternshipFee = async (req, res) => {
     }
 };
 
+exports.createInternshipFee = async (req, res) => {
+    try {
+        const { studentName, studentId, internshipTitle, feeAmount } = req.body;
+        if (!studentName || !studentId || !internshipTitle || !feeAmount) {
+            return res.status(400).json({ success: false, message: 'studentName, studentId, internshipTitle, and feeAmount are required' });
+        }
+        const fee = await InternshipFee.create({
+            studentName,
+            studentId,
+            internshipTitle,
+            feeAmount: Number(feeAmount),
+            paymentStatus: 'PENDING'
+        });
+        res.status(201).json({ success: true, data: fee });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
 const FundSource = require('../models/FundSource');
 
 // New Finance Dashboard Controllers (Serving baseline data for UI stability)
@@ -109,30 +128,48 @@ exports.getFundSourcesOverview = async (req, res) => {
     try {
         const projects = await Project.findAll();
         
-        const collegeProjects = projects.filter(p => ['INSTITUTIONAL', 'DIRECTOR_INNOVATION', 'DIRECTOR_INNOVATION_FUND'].includes(p.fundingSource));
+        // PFMS-funded projects
         const pfmsProjects = projects.filter(p => p.fundingSource === 'PFMS');
+        // Director Innovation / Other college grants (non-PFMS, non-institutional)
+        const directorProjects = projects.filter(p => ['DIRECTOR_INNOVATION', 'DIRECTOR_INNOVATION_FUND'].includes(p.fundingSource));
+        // Institutional (pure college overhead funding)
+        const institutionalProjects = projects.filter(p => p.fundingSource === 'INSTITUTIONAL');
+        // Combined college (institutional + director) for backward compat
+        const collegeProjects = [...institutionalProjects, ...directorProjects];
         
         const allSources = await FundSource.findAll();
         let collegeCeiling = allSources.find(s => s.sourceType === 'collegeFunds')?.totalAllocated || 0;
         let pfmsCeiling = allSources.find(s => s.sourceType === 'pfmsFunds')?.totalAllocated || 0;
+        let directorCeiling = allSources.find(s => s.sourceType === 'directorFunds')?.totalAllocated || 0;
 
-        // If the ceiling hasn't been set by admin yet, fallback to sum of project allocations
-        if (collegeCeiling === 0) collegeCeiling = collegeProjects.reduce((sum, p) => sum + (p.sanctionedBudget || 0), 0);
+        // Fallback to sum of project allocations if ceiling not configured
+        if (collegeCeiling === 0) collegeCeiling = institutionalProjects.reduce((sum, p) => sum + (p.sanctionedBudget || 0), 0);
         if (pfmsCeiling === 0) pfmsCeiling = pfmsProjects.reduce((sum, p) => sum + (p.sanctionedBudget || 0), 0);
+        if (directorCeiling === 0) directorCeiling = directorProjects.reduce((sum, p) => sum + (p.sanctionedBudget || 0), 0);
         
-        const collegeUsed = collegeProjects.reduce((sum, p) => sum + (p.releasedBudget || 0), 0);
+        const collegeUsed = institutionalProjects.reduce((sum, p) => sum + (p.releasedBudget || 0), 0);
         const pfmsUsed = pfmsProjects.reduce((sum, p) => sum + (p.releasedBudget || 0), 0);
+        const directorUsed = directorProjects.reduce((sum, p) => sum + (p.releasedBudget || 0), 0);
 
         const data = {
             collegeFunds: {
                 totalAllocated: collegeCeiling,
                 totalUsed: collegeUsed,
                 remainingBalance: collegeCeiling - collegeUsed,
+                projectCount: institutionalProjects.length
             },
             pfmsFunds: {
                 totalAllocated: pfmsCeiling,
                 totalUsed: pfmsUsed,
                 remainingBalance: pfmsCeiling - pfmsUsed,
+                projectCount: pfmsProjects.length
+            },
+            // NEW: Director Innovation / Other Funds breakdown
+            directorFunds: {
+                totalAllocated: directorCeiling,
+                totalUsed: directorUsed,
+                remainingBalance: directorCeiling - directorUsed,
+                projectCount: directorProjects.length
             }
         };
         res.status(200).json(data);
@@ -148,6 +185,7 @@ exports.updateFundSourceAmount = async (req, res) => {
         
         let dbSourceType = 'collegeFunds';
         if (fundSource === 'PFMS' || fundSource === 'pfmsFunds') dbSourceType = 'pfmsFunds';
+        if (fundSource === 'DIRECTOR' || fundSource === 'directorFunds' || fundSource === 'DIRECTOR_INNOVATION') dbSourceType = 'directorFunds';
 
         // Use UPSERT (Find or Create)
         const [fundRecord, created] = await FundSource.findOrCreate({
@@ -293,16 +331,30 @@ exports.getProjects = async (req, res) => {
 // Disbursement Queue: Get all fund requests approved by Admin but not yet processed by Finance
 exports.getDisbursementQueue = async (req, res) => {
     try {
+        const User = require('../models/User');
         const requests = await FundRequest.findAll({
             where: {
                 currentStage: 'FUND_APPROVED'
             },
-            include: [{ model: Project, attributes: ['title', 'pi', 'centre', 'department'] }],
+            // FIX: Include pi in Project attributes (model uses 'pi' not 'piName')
+            include: [
+                { model: Project, attributes: ['title', 'pi', 'centre', 'department', 'fundingSource'] },
+                { model: User, attributes: ['name', 'email', 'department'], as: 'requester', required: false }
+            ],
             order: [['updatedAt', 'ASC']]
         });
         
-        res.status(200).json({ success: true, data: requests });
+        // Normalize field names for frontend compatibility
+        const normalized = requests.map(r => ({
+            ...r.toJSON(),
+            // Ensure amount is set (FundRequest uses requestedAmount)
+            amount: r.requestedAmount || r.amount || 0,
+            faculty: r.faculty || r.requester?.name || 'N/A'
+        }));
+        
+        res.status(200).json({ success: true, data: normalized });
     } catch (error) {
+        console.error('getDisbursementQueue Error:', error);
         res.status(500).json({ success: false, message: error.message });
     }
 };

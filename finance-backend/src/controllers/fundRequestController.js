@@ -129,9 +129,20 @@ exports.rejectFundRequest = async (req, res) => {
         const request = await FundRequest.findByPk(req.params.id);
         if (!request) return res.status(404).json({ success: false, message: 'Request not found' });
         
+        const currentAudit = request.auditTrail || [];
         await request.update({
             status: 'REJECTED',
-            remarks: req.body.remarks || 'Rejected by Admin'
+            // FIX: Also reset currentStage so faculty UI (which reads currentStage || status) shows REJECTED
+            currentStage: 'REJECTED',
+            remarks: req.body.remarks || 'Rejected by Admin',
+            auditTrail: [...currentAudit, {
+                stage: 'REJECTED',
+                prevStage: request.currentStage,
+                updatedBy: req.user.id,
+                updatedByName: req.user.name,
+                timestamp: new Date(),
+                remarks: req.body.remarks || 'Rejected by Admin'
+            }]
         });
         
         res.status(200).json({ success: true, data: request });

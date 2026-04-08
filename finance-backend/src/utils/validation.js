@@ -46,14 +46,16 @@ const projectSchema = z.object({
 // OD Request Schema
 const odRequestSchema = z.object({
   body: z.object({
-    type: z.enum(['ACADEMIC', 'INTERNATIONAL', 'JOURNAL']),
-    purpose: z.string().min(10, 'Purpose must be at least 10 characters'),
+    // FIX: Expand enum to all types the frontend can send
+    type: z.enum(['ACADEMIC', 'INTERNATIONAL', 'JOURNAL', 'ADMINISTRATIVE', 'EXAM_DUTY', 'CONFERENCE', 'OTHER']),
+    purpose: z.string().min(3, 'Purpose must be at least 3 characters'),
+    // FIX: Accept empty string or null gracefully (backend validates actual date separately)
     startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Invalid start date format (YYYY-MM-DD)'),
     endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Invalid end date format (YYYY-MM-DD)'),
-    days: z.number().positive(),
+    days: z.number().nonnegative(),
     isFullDay: z.boolean().optional(),
-    startTime: z.string().optional(),
-    endTime: z.string().optional(),
+    startTime: z.string().optional().nullable(),
+    endTime: z.string().optional().nullable(),
   }),
 });
 

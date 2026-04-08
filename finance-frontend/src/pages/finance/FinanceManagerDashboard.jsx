@@ -86,7 +86,7 @@ const FinanceManagerDashboard = () => {
                                 </div>
                             </div>
                         ) : (
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                                 {/* College Funds Card */}
                                 {isLoadingFundSources ? (
                                     <FundSourceCardSkeleton />
@@ -117,6 +117,23 @@ const FinanceManagerDashboard = () => {
                                             'PFMS',
                                             'PFMS Funds',
                                             fundSourcesData?.pfmsFunds?.totalAllocated
+                                        )}
+                                    />
+                                )}
+
+                                {/* Director Innovation / Other Funds Card */}
+                                {isLoadingFundSources ? (
+                                    <FundSourceCardSkeleton />
+                                ) : (
+                                    <FundSourceCard
+                                        title="Other Funds"
+                                        data={fundSourcesData?.directorFunds}
+                                        icon={CircleDollarSign}
+                                        colorClass="bg-emerald-50 text-emerald-700"
+                                        onEdit={() => handleEditFundSource(
+                                            'DIRECTOR',
+                                            'Other Funds (Director Innovation)',
+                                            fundSourcesData?.directorFunds?.totalAllocated
                                         )}
                                     />
                                 )}
