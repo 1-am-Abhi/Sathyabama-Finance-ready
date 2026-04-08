@@ -15,28 +15,32 @@ import {
 } from 'recharts';
 
 const FinancialAnalytics = ({ data }) => {
-    // Transform data for charts
+    // Transform data for charts — College Funds, PFMS Funds, Other Funds (Director)
     const barChartData = [
         {
             name: 'College Funds',
             allocated: data?.collegeFunds?.totalAllocated || 0,
             used: data?.collegeFunds?.totalUsed || 0,
-            remaining: data?.collegeFunds?.remainingBalance || 0
         },
         {
             name: 'PFMS Funds',
             allocated: data?.pfmsFunds?.totalAllocated || 0,
             used: data?.pfmsFunds?.totalUsed || 0,
-            remaining: data?.pfmsFunds?.remainingBalance || 0
+        },
+        {
+            name: 'Other Funds',
+            allocated: data?.directorFunds?.totalAllocated || 0,
+            used: data?.directorFunds?.totalUsed || 0,
         }
     ];
 
     const pieChartData = [
         { name: 'College Funds', value: data?.collegeFunds?.totalAllocated || 0 },
-        { name: 'PFMS Funds', value: data?.pfmsFunds?.totalAllocated || 0 }
-    ];
+        { name: 'PFMS Funds', value: data?.pfmsFunds?.totalAllocated || 0 },
+        { name: 'Other Funds', value: data?.directorFunds?.totalAllocated || 0 }
+    ].filter(d => d.value > 0); // hide slices with 0 allocation
 
-    const COLORS = ['#3b82f6', '#8b5cf6']; // Blue for College, Purple for PFMS
+    const COLORS = ['#3b82f6', '#8b5cf6', '#10b981']; // Blue, Purple, Emerald
 
     // Custom Tooltip for Bar Chart to format currency
     const CustomTooltip = ({ active, payload, label }) => {

@@ -39,15 +39,24 @@ const ApproveFundRequests = () => {
 
     const handleApprove = async (requestId) => {
         try {
+            const req = fundRequests.find(r => (r._id || r.id) === requestId);
             await approveRequest({ requestId, remarks: approvalNotes || 'Approved by Admin' });
             
-            // Notifying Faculty of Success
+            // 1. Notify the Faculty that their request was approved
             addNotification({
                 role: 'FACULTY',
                 type: 'success',
-                message: `Your Fund Request has been APPROVED!`,
+                message: `Your Fund Request${req?.projectTitle ? ` for "${req.projectTitle}"` : ''} has been APPROVED! The Finance Officer will process the disbursement.`,
                 actionUrl: '/faculty/request-funds',
-                targetUserId: (fundRequests.find(r => r.id === requestId))?.userId
+                targetUserId: req?.userId
+            });
+
+            // 2. Notify FINANCE_OFFICER so the request appears in their Disbursement Queue
+            addNotification({
+                role: 'FINANCE_OFFICER',
+                type: 'info',
+                message: `New Fund Request approved for disbursement: ${req?.projectTitle || 'Unknown Project'} — ₹${req?.requestedAmount?.toLocaleString() || '0'}. Please process in the Disbursement Queue.`,
+                actionUrl: '/finance/disbursements'
             });
             
             setSelectedRequest(null);
@@ -109,8 +118,18 @@ const ApproveFundRequests = () => {
 
     const handleDisburseCheque = async (requestId) => {
         try {
-            await advanceStage({ requestId, nextStage: 'AMOUNT_DISBURSED', remarks: 'Amount disbursed' });
-            setSelectedRequest(prev => ({ ...prev, currentStage: 'AMOUNT_DISBURSED', chequeStatus: 'Disbursed' }));
+            const req = fundRequests.find(r => (r._id || r.id) === requestId) || selectedRequest;
+            await advanceStage({ requestId, nextStage: 'AMOUNT_DISBURSED', remarks: 'Amount disbursed by Finance Officer' });
+            setSelectedRequest(prev => prev ? ({ ...prev, currentStage: 'AMOUNT_DISBURSED', chequeStatus: 'Disbursed' }) : null);
+            
+            // Notify faculty that funds are disbursed
+            addNotification({
+                role: 'FACULTY',
+                type: 'success',
+                message: `Funds disbursed for "${req?.projectTitle || 'your project'}"! Amount: ₹${req?.requestedAmount?.toLocaleString() || '0'}. Please proceed with utilization.`,
+                actionUrl: '/faculty/request-funds',
+                targetUserId: req?.userId
+            });
         } catch (error) {
             console.error('Disbursement failed:', error);
         }

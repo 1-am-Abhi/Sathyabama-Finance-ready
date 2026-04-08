@@ -68,11 +68,23 @@ const AdminDashboard = () => {
         };
 
         fetchDashboardData();
-        const intervalId = setInterval(fetchDashboardData, 30000); // Poll every 30 seconds
+        // Poll every 60s (was 30s). Pause completely when tab is hidden.
+        let intervalId = setInterval(fetchDashboardData, 60000);
+
+        const handleVisibility = () => {
+            if (document.hidden) {
+                clearInterval(intervalId);
+            } else {
+                fetchDashboardData();
+                intervalId = setInterval(fetchDashboardData, 60000);
+            }
+        };
+        document.addEventListener('visibilitychange', handleVisibility);
 
         return () => {
             isMounted = false;
             clearInterval(intervalId);
+            document.removeEventListener('visibilitychange', handleVisibility);
         };
     }, []);
 

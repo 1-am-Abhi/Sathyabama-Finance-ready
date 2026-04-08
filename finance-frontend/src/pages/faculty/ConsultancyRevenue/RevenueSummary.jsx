@@ -60,11 +60,17 @@ const RevenueSummary = () => {
         };
 
         fetchSummary();
-        const intervalId = setInterval(fetchSummary, 30000); // Poll every 30 seconds
-
+        // Poll every 60s; pause when tab is hidden
+        let intervalId = setInterval(fetchSummary, 60000);
+        const handleVis = () => {
+            if (document.hidden) { clearInterval(intervalId); }
+            else { fetchSummary(); intervalId = setInterval(fetchSummary, 60000); }
+        };
+        document.addEventListener('visibilitychange', handleVis);
         return () => {
             isMounted = false;
             clearInterval(intervalId);
+            document.removeEventListener('visibilitychange', handleVis);
         };
     }, [selectedYear]);
 

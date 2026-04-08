@@ -23,9 +23,23 @@ export const NotificationProvider = ({ children }) => {
 
     useEffect(() => {
         fetchNotifications();
-        // Ping database every 5 seconds for ultra-real-time synchronization between clients
-        const interval = setInterval(fetchNotifications, 5000);
-        return () => clearInterval(interval);
+        // Poll every 30 seconds. Pause when tab is hidden to reduce unnecessary traffic.
+        let interval = setInterval(fetchNotifications, 30000);
+
+        const handleVisibilityChange = () => {
+            if (document.hidden) {
+                clearInterval(interval);
+            } else {
+                // Resume immediately on tab focus
+                fetchNotifications();
+                interval = setInterval(fetchNotifications, 30000);
+            }
+        };
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+        return () => {
+            clearInterval(interval);
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
+        };
     }, [fetchNotifications]);
 
     const addNotification = React.useCallback(async (notif) => {
