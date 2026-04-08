@@ -112,14 +112,15 @@ const ManagePFMS = () => {
                     </div>
 
                     {showForm && (
-                        <Card className="mb-8">
-                            <CardHeader>
+                        <Card className="mb-8 overflow-hidden">
+                            <CardHeader className="pb-4">
                                 <CardTitle>{formData.pfmsProjectId ? 'Edit PFMS Entry' : 'New PFMS Entry'}</CardTitle>
                                 <CardDescription>{formData.pfmsProjectId ? 'Update details for this PFMS record' : 'Add PFMS details for a project'}</CardDescription>
                             </CardHeader>
-                            <CardContent>
+                            <CardContent className="max-h-[75vh] overflow-y-auto">
                                 <form onSubmit={handleSubmit} className="space-y-6">
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    {/* FIX: grid-cols-1 on mobile, 2 cols only on sm+ to prevent merging */}
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                         <div className="space-y-2">
                                             <Label htmlFor="projectId">Project *</Label>
                                             <select
@@ -192,6 +193,7 @@ const ManagePFMS = () => {
                                                 id="sanctionOrderDate"
                                                 name="sanctionOrderDate"
                                                 type="date"
+                                                style={{ colorScheme: 'light' }}
                                                 value={formData.sanctionOrderDate}
                                                 onChange={handleChange}
                                                 required
@@ -204,8 +206,10 @@ const ManagePFMS = () => {
                                                 id="installmentNumber"
                                                 name="installmentNumber"
                                                 type="number"
+                                                min="1"
                                                 value={formData.installmentNumber}
                                                 onChange={handleChange}
+                                                placeholder="e.g., 1"
                                                 required
                                             />
                                         </div>
@@ -216,8 +220,10 @@ const ManagePFMS = () => {
                                                 id="amountReleased"
                                                 name="amountReleased"
                                                 type="number"
+                                                min="0"
                                                 value={formData.amountReleased}
                                                 onChange={handleChange}
+                                                placeholder="e.g., 500000"
                                                 required
                                             />
                                         </div>
@@ -228,6 +234,7 @@ const ManagePFMS = () => {
                                                 id="creditDate"
                                                 name="creditDate"
                                                 type="date"
+                                                style={{ colorScheme: 'light' }}
                                                 value={formData.creditDate}
                                                 onChange={handleChange}
                                                 required
@@ -241,6 +248,7 @@ const ManagePFMS = () => {
                                                 name="utrNumber"
                                                 value={formData.utrNumber}
                                                 onChange={handleChange}
+                                                placeholder="e.g., UTR1234567890"
                                                 required
                                             />
                                         </div>
@@ -262,11 +270,13 @@ const ManagePFMS = () => {
                                         </div>
                                     </div>
 
-                                    <div className="flex justify-end space-x-4">
+                                    <div className="flex justify-end space-x-4 pt-2 border-t dark:border-slate-700">
                                         <Button type="button" variant="outline" onClick={() => setShowForm(false)}>
                                             Cancel
                                         </Button>
-                                        <Button type="submit">{formData.pfmsProjectId ? 'Update Entry' : 'Save Entry'}</Button>
+                                        <Button type="submit" disabled={createPFMS.isPending}>
+                                            {createPFMS.isPending ? 'Saving...' : (formData.pfmsProjectId ? 'Update Entry' : 'Save Entry')}
+                                        </Button>
                                     </div>
                                 </form>
                             </CardContent>

@@ -206,6 +206,21 @@ exports.updateFundSourceAmount = async (req, res) => {
 
 exports.getDepartments = async (req, res) => {
     try {
+        // FIX: Always return the full official Sathyabama Research Centre list
+        // so the Finance Dashboard dropdown is never empty regardless of project data
+        const SATHYABAMA_RESEARCH_CENTRES = [
+            'Centre for Nano Science and Nanotechnology',
+            'Centre of Excellence for Energy Research',
+            'Centre for Waste Management',
+            'Centre for Climate Studies',
+            'Centre for Molecular and Nanomedical Sciences',
+            'Centre for Drug Discovery and Development',
+            'Centre of Excellence for Additive Manufacturing',
+            'Centre for Indian System of Medicine',
+            'Centre for Aqua Culture'
+        ];
+
+        // Also retrieve any unique department values from DB (to catch custom entries)
         const projects = await Project.findAll({
             attributes: ['department'],
             group: ['department'],
@@ -216,14 +231,15 @@ exports.getDepartments = async (req, res) => {
                 }
             }
         });
-        const departments = projects.map(p => ({
-            id: p.department,
-            name: p.department
-        }));
-        // Optionally add some fallback/general ones if DB is empty
-        if (departments.length === 0) {
-            departments.push({ id: 'General Research', name: 'General Research' });
-        }
+        const dbDepts = projects.map(p => p.department).filter(Boolean);
+
+        // Merge: start with official list, append any DB-only departments not already in it
+        const allCentres = [...SATHYABAMA_RESEARCH_CENTRES];
+        dbDepts.forEach(dept => {
+            if (!allCentres.includes(dept)) allCentres.push(dept);
+        });
+
+        const departments = allCentres.map(name => ({ id: name, name }));
         res.status(200).json(departments);
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });

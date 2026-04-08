@@ -1,31 +1,95 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import apiClient from '../api/client';
 
 const AuthContext = createContext(null);
+
+// Inactivity threshold: 1 hour
+const INACTIVITY_LIMIT_MS = 60 * 60 * 1000;
+
+// Local-storage key to track last activity timestamp across tabs
+const LAST_ACTIVITY_KEY = 'lastActivityAt';
 
 export const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(null);
     const [token, setToken] = useState(null);
     const [loading, setLoading] = useState(true);
+    // Use a ref for the timeout so we can clear it without re-running effects
+    const inactivityTimerRef = useRef(null);
 
+    // ── Logout ──────────────────────────────────────────────────────────────
+    // useCallback so its identity is stable and doesn't cause effect re-runs
+    const logout = useCallback(() => {
+        if (inactivityTimerRef.current) clearTimeout(inactivityTimerRef.current);
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        localStorage.removeItem(LAST_ACTIVITY_KEY);
+        setToken(null);
+        setUser(null);
+    }, []);
+
+    // ── Restore session on mount ─────────────────────────────────────────────
     useEffect(() => {
-        // Check for existing session
         const storedToken = localStorage.getItem('token');
         const storedUser = localStorage.getItem('user');
 
         if (storedToken && storedUser) {
             try {
-                const parsedUser = JSON.parse(storedUser);
-                setToken(storedToken);
-                setUser(parsedUser);
+                // Check if the session went stale while the tab was closed
+                const lastActivity = Number(localStorage.getItem(LAST_ACTIVITY_KEY) || Date.now());
+                const elapsed = Date.now() - lastActivity;
+
+                if (elapsed >= INACTIVITY_LIMIT_MS) {
+                    // User was inactive for more than 1 hour before reopening the tab
+                    logout();
+                } else {
+                    const parsedUser = JSON.parse(storedUser);
+                    setToken(storedToken);
+                    setUser(parsedUser);
+                }
             } catch (error) {
-                console.error('Failed to parse stored user:', error);
-                logout(); // Clear corrupted session
+                console.error('Failed to restore session:', error);
+                logout();
             }
         }
         setLoading(false);
-    }, []);
+    }, [logout]);
 
+    // ── Inactivity timer ────────────────────────────────────────────────────
+    useEffect(() => {
+        // Only run when logged in
+        if (!user) return;
+
+        const stamp = () => localStorage.setItem(LAST_ACTIVITY_KEY, String(Date.now()));
+
+        const scheduleLogout = () => {
+            if (inactivityTimerRef.current) clearTimeout(inactivityTimerRef.current);
+            stamp();
+            inactivityTimerRef.current = setTimeout(() => {
+                console.warn('[AuthContext] Logging out due to 1 hour of inactivity.');
+                logout();
+            }, INACTIVITY_LIMIT_MS);
+        };
+
+        // Activity events — use passive listeners for performance
+        const ACTIVITY_EVENTS = ['mousedown', 'mousemove', 'keydown', 'scroll', 'touchstart', 'click'];
+
+        ACTIVITY_EVENTS.forEach(evt =>
+            window.addEventListener(evt, scheduleLogout, { passive: true })
+        );
+
+        // Start the first countdown
+        scheduleLogout();
+
+        return () => {
+            if (inactivityTimerRef.current) clearTimeout(inactivityTimerRef.current);
+            ACTIVITY_EVENTS.forEach(evt =>
+                window.removeEventListener(evt, scheduleLogout)
+            );
+        };
+        // NOTE: `logout` is stable (useCallback), so this only runs when `user` changes
+    }, [user, logout]);
+
+    // ── Login ────────────────────────────────────────────────────────────────
     const login = async (email, password) => {
         try {
             const response = await apiClient.post('/auth/login', { email, password });
@@ -33,6 +97,7 @@ export const AuthProvider = ({ children }) => {
 
             localStorage.setItem('token', userToken);
             localStorage.setItem('user', JSON.stringify(userData));
+            localStorage.setItem(LAST_ACTIVITY_KEY, String(Date.now()));
 
             setToken(userToken);
             setUser(userData);
@@ -40,51 +105,12 @@ export const AuthProvider = ({ children }) => {
             return { success: true };
         } catch (error) {
             console.error('Login error:', error);
-            return { 
-                success: false, 
-                error: error.response?.data?.message || 'Login failed. Please check your credentials.' 
+            return {
+                success: false,
+                error: error.response?.data?.message || 'Login failed. Please check your credentials.'
             };
         }
     };
-
-    const logout = () => {
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
-        setToken(null);
-        setUser(null);
-    };
-
-    // Auto-logout for inactivity
-    useEffect(() => {
-        if (!user) return;
-
-        let timeoutId;
-        const INACTIVITY_LIMIT = 60 * 60 * 1000; // 1 hour
-
-        const resetTimer = () => {
-            if (timeoutId) clearTimeout(timeoutId);
-            timeoutId = setTimeout(() => {
-                console.log('Logging out due to inactivity');
-                logout();
-            }, INACTIVITY_LIMIT);
-        };
-
-        const activityEvents = ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart'];
-        
-        // Add listeners
-        activityEvents.forEach(event => 
-            window.addEventListener(event, resetTimer)
-        );
-
-        resetTimer(); // Start the first timer
-
-        return () => {
-            if (timeoutId) clearTimeout(timeoutId);
-            activityEvents.forEach(event => 
-                window.removeEventListener(event, resetTimer)
-            );
-        };
-    }, [user]);
 
     const updateUser = (userData) => {
         const updatedUser = { ...user, ...userData };
@@ -93,13 +119,9 @@ export const AuthProvider = ({ children }) => {
         return { success: true };
     };
 
-    const hasRole = (role) => {
-        return user?.role === role;
-    };
+    const hasRole = (role) => user?.role === role;
 
-    const hasAnyRole = (roles) => {
-        return roles.includes(user?.role);
-    };
+    const hasAnyRole = (roles) => roles.includes(user?.role);
 
     const value = {
         user,
