@@ -5,9 +5,8 @@ import { formatCurrency, formatCurrencyCompact } from '../../../utils/currency';
 import { TrendingUp, Edit } from 'lucide-react';
 
 const FundSourceCard = ({ title, data, icon: Icon, colorClass, onEdit }) => {
-    if (!data) return null;
-
-    const { totalAllocated, totalUsed, remainingBalance } = data;
+    // Always render — show zeros if no data yet
+    const { totalAllocated = 0, totalUsed = 0, remainingBalance = 0 } = data || {};
     const usagePercentage = totalAllocated > 0
         ? ((totalUsed / totalAllocated) * 100).toFixed(1)
         : 0;

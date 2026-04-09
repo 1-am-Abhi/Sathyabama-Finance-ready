@@ -87,18 +87,18 @@ const FinanceManagerDashboard = () => {
                             </div>
                         ) : (
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                                {/* College Funds Card */}
+                                {/* Institutional Funds Card */}
                                 {isLoadingFundSources ? (
                                     <FundSourceCardSkeleton />
                                 ) : (
                                     <FundSourceCard
-                                        title="College Funds"
+                                        title="Institutional Funds"
                                         data={fundSourcesData?.collegeFunds}
                                         icon={Building2}
                                         colorClass="bg-blue-50 text-blue-700"
                                         onEdit={() => handleEditFundSource(
                                             'COLLEGE',
-                                            'College Funds',
+                                            'Institutional Funds',
                                             fundSourcesData?.collegeFunds?.totalAllocated
                                         )}
                                     />
@@ -121,18 +121,18 @@ const FinanceManagerDashboard = () => {
                                     />
                                 )}
 
-                                {/* Director Innovation / Other Funds Card */}
+                                {/* Other Grants Card — Others / External Grants */}
                                 {isLoadingFundSources ? (
                                     <FundSourceCardSkeleton />
                                 ) : (
                                     <FundSourceCard
-                                        title="Other Funds"
+                                        title="Other Grants"
                                         data={fundSourcesData?.directorFunds}
                                         icon={CircleDollarSign}
                                         colorClass="bg-emerald-50 text-emerald-700"
                                         onEdit={() => handleEditFundSource(
                                             'DIRECTOR',
-                                            'Other Funds (Director Innovation)',
+                                            'Other Grants (External / Others)',
                                             fundSourcesData?.directorFunds?.totalAllocated
                                         )}
                                     />

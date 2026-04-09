@@ -88,13 +88,16 @@ const FacultyProjects = () => {
         setIsSubmitting(true);
         try {
             // Map fundingSource ensuring DB-valid enum values
-            const rawSource = (data.fundingSource || data.mainType === 'PUBLICATION' ? 'INSTITUTIONAL' : 'INSTITUTIONAL');
+            const rawSource = data.fundingSource || 'INSTITUTIONAL';
             const fundingSourceMap = {
                 'PFMS': 'PFMS',
                 'INSTITUTIONAL': 'INSTITUTIONAL',
-                'DIRECTOR_INNOVATION': 'DIRECTOR_INNOVATION',
-                'DIRECTOR_INNOVATION_FUND': 'DIRECTOR_INNOVATION_FUND',
-                'Director Innovation Fund': 'DIRECTOR_INNOVATION'
+                'OTHERS': 'OTHERS',
+                // Legacy compatibility
+                'DIRECTOR_INNOVATION': 'OTHERS',
+                'DIRECTOR_INNOVATION_FUND': 'OTHERS',
+                'Director Innovation Fund': 'OTHERS',
+                'Director Innovation': 'OTHERS',
             };
             const fundingSource = fundingSourceMap[rawSource] || 'INSTITUTIONAL';
 

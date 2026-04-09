@@ -3,6 +3,7 @@ const InternshipFee = require('../models/InternshipFee');
 const { FundRequest } = require('../models/FundRequest');
 const Project = require('../models/Project');
 const { sequelize } = require('../config/db');
+const { Op } = require('sequelize');
 
 exports.getFinanceStats = async (req, res) => {
     try {

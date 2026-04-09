@@ -173,16 +173,16 @@ const InitialFundRequestModal = ({ isOpen, onClose, onSubmit }) => {
 
                                 <button
                                     type="button"
-                                    onClick={() => setFormData({ ...formData, fundSource: 'Director Innovation Fund' })}
-                                    className={`p-4 rounded-xl border-2 flex items-center justify-center gap-2 transition-all ${formData.fundSource === 'Director Innovation Fund'
-                                        ? 'bg-emerald-50 border-emerald-500 text-emerald-700 shadow-md'
+                                    onClick={() => setFormData({ ...formData, fundSource: 'INSTITUTIONAL' })}
+                                    className={`p-4 rounded-xl border-2 flex items-center justify-center gap-2 transition-all ${formData.fundSource === 'INSTITUTIONAL'
+                                        ? 'bg-amber-50 border-amber-500 text-amber-700 shadow-md'
                                         : 'bg-white border-gray-100 text-gray-500 hover:bg-gray-50 hover:border-gray-200'
                                         }`}
                                 >
-                                    <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${formData.fundSource === 'Director Innovation Fund' ? 'border-emerald-600' : 'border-gray-300'}`}>
-                                        {formData.fundSource === 'Director Innovation Fund' && <div className="w-2 h-2 rounded-full bg-emerald-600" />}
+                                    <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${formData.fundSource === 'INSTITUTIONAL' ? 'border-amber-600' : 'border-gray-300'}`}>
+                                        {formData.fundSource === 'INSTITUTIONAL' && <div className="w-2 h-2 rounded-full bg-amber-600" />}
                                     </div>
-                                    <span className="text-xs font-bold uppercase tracking-wider">Director Innovation Fund</span>
+                                    <span className="text-xs font-bold uppercase tracking-wider">Institutional</span>
                                 </button>
 
                                 <button

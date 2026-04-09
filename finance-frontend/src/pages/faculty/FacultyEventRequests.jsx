@@ -96,6 +96,7 @@ const FacultyEventRequests = () => {
                 eventTitle: '', eventType: 'Seminar', venue: '', startDate: '', endDate: '', participants: '', fundingType: 'College Funded', fundingSource: '', requestedAmount: '', isFullDay: true, startTime: '09:00', endTime: '17:00'
             });
 
+
             showToast('Event Proposal Submitted Successfully');
 
             // Notify Admin
@@ -266,6 +267,7 @@ const FacultyEventRequests = () => {
                                         <option>College Funded</option>
                                         <option>Industry Funded</option>
                                         <option>Self Funded</option>
+                                        <option>Others Funded</option>
                                     </select>
                                 </div>
                                 <div className="space-y-3">
