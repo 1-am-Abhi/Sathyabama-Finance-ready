@@ -36,6 +36,10 @@ const User = sequelize.define('User', {
         type: DataTypes.STRING,
         allowNull: true
     },
+    centreId: {
+        type: DataTypes.UUID,
+        allowNull: true
+    },
     designation: {
         type: DataTypes.STRING,
         allowNull: true
@@ -107,5 +111,8 @@ const User = sequelize.define('User', {
 User.prototype.comparePassword = async function (candidatePassword) {
     return await bcrypt.compare(candidatePassword, this.password);
 };
+
+const Centre = require('./Centre');
+User.belongsTo(Centre, { foreignKey: 'centreId', as: 'researchCentre' });
 
 module.exports = User;

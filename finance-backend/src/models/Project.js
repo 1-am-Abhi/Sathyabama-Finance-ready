@@ -32,8 +32,12 @@ const Project = sequelize.define('Project', {
         allowNull: false
     },
     centre: {
-        type: DataTypes.STRING,
-        allowNull: false
+        type: DataTypes.STRING, // Keep for legacy
+        allowNull: true
+    },
+    centreId: {
+        type: DataTypes.UUID,
+        allowNull: true
     },
     sanctionedBudget: {
         type: DataTypes.FLOAT,
@@ -101,6 +105,9 @@ const { FundRequest } = require('./FundRequest');
 const PFMSTransaction = require('./PFMSTransaction');
 const ProjectMember = require('./ProjectMember');
 const User = require('./User');
+const Centre = require('./Centre');
+
+Project.belongsTo(Centre, { foreignKey: 'centreId', as: 'researchCentre' });
 
 Project.hasMany(FundRequest, { foreignKey: 'projectId' });
 FundRequest.belongsTo(Project, { foreignKey: 'projectId' });

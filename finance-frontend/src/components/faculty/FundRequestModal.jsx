@@ -182,7 +182,7 @@ const FundRequestModal = ({ isOpen, onClose, project, nextInstallment, onSubmit,
                                 <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${formData.fundSource === 'OTHERS' ? 'border-purple-600' : 'border-gray-300'}`}>
                                     {formData.fundSource === 'OTHERS' && <div className="w-2 h-2 rounded-full bg-purple-600" />}
                                 </div>
-                                <span className="text-xs font-bold uppercase tracking-wider">Others</span>
+                                <span className="text-xs font-bold uppercase tracking-wider">Other's Fund</span>
                             </button>
                         </div>
                         {fundSourceError && (

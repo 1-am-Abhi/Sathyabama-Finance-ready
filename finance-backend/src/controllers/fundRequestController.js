@@ -128,15 +128,17 @@ exports.approveFundRequest = async (req, res) => {
         const currentAudit = request.auditTrail || [];
         const newAuditEntry = {
             stage: 'FUND_APPROVED',
-            prevStage: 'PENDING',
+            prevStage: request.status,
             updatedBy: req.user.id,
             updatedByName: req.user.name,
             timestamp: new Date(),
             remarks: req.body.remarks || 'Approved by Admin'
         };
 
+        // Transition: PENDING -> APPROVED -> PENDING_DISBURSAL
+        // Admin approval moves it to PENDING_DISBURSAL for Finance to see
         await request.update({
-            status: (req.body.status || 'APPROVED').toUpperCase(),
+            status: 'PENDING_DISBURSAL',
             currentStage: 'FUND_APPROVED',
             auditTrail: [...currentAudit, newAuditEntry]
         });

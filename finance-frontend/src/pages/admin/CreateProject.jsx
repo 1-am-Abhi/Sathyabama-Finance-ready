@@ -218,7 +218,7 @@ const CreateProject = () => {
                                 >
                                     {FUND_SOURCES.map((source) => (
                                         <option key={source} value={source === 'Others' ? 'OTHERS' : source.toUpperCase() === 'INSTITUTIONAL' ? 'INSTITUTIONAL' : source}>
-                                            {source === 'Others' ? "Other's" : source}
+                                            {source === 'Others' ? "Other's Fund" : source}
                                         </option>
                                     ))}
                                 </select>

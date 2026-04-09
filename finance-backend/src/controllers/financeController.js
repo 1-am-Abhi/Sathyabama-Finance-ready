@@ -4,6 +4,7 @@ const { FundRequest } = require('../models/FundRequest');
 const Project = require('../models/Project');
 const User = require('../models/User');
 const Revenue = require('../models/Revenue');
+const Disbursement = require('../models/Disbursement');
 const { sequelize } = require('../config/db');
 const { Op } = require('sequelize');
 
@@ -410,8 +411,7 @@ exports.getDisbursementQueue = async (req, res) => {
         const User = require('../models/User');
         const requests = await FundRequest.findAll({
             where: {
-                status: 'APPROVED',
-                currentStage: { [Op.in]: ['FUND_APPROVED', 'BILLS_UPLOADED'] }
+                status: 'PENDING_DISBURSAL'
             },
             // FIX: Include pi in Project attributes (model uses 'pi' not 'piName')
             include: [
@@ -442,47 +442,56 @@ exports.getDisbursementQueue = async (req, res) => {
 
 // Execute Disbursement: Finance marks the fund as released/disbursed
 exports.executeDisbursement = async (req, res) => {
+    const t = await sequelize.transaction();
     try {
         const { id } = req.params;
         const { transactionId, bankName, disbursementDate, remarks } = req.body;
         
-        const request = await FundRequest.findByPk(id);
-        if (!request) return res.status(404).json({ success: false, message: 'Fund request not found' });
-        
-        // Determine next stage
-        let nextStage = 'FUND_RELEASED'; // Default for FUND_APPROVED
-        if (request.currentStage === 'BILLS_UPLOADED') {
-            nextStage = 'CHEQUE_RELEASED';
+        const request = await FundRequest.findByPk(id, { transaction: t });
+        if (!request) {
+            await t.rollback();
+            return res.status(404).json({ success: false, message: 'Fund request not found' });
         }
-
-        // Use the model's advanceStage method for consistency
-        await request.advanceStage(
-            nextStage, 
-            { _id: req.user.id, name: req.user.name }, 
-            remarks || `Disbursement executed by Finance. Ref: ${transactionId}`
-        );
-
-        // Update tracking info manually since advanceStage doesn't cover these extra fields
+        
+        // Final Pipeline State: DISBURSED
         await request.update({
+            status: 'DISBURSED',
+            currentStage: 'AMOUNT_DISBURSED',
             transactionId: transactionId || request.transactionId,
             bankName: bankName || request.bankName,
             disbursementDate: disbursementDate || new Date(),
             financeRemarks: remarks || request.financeRemarks,
             financeProcessedAt: new Date(),
             financeProcessedBy: req.user.id
-        });
+        }, { transaction: t });
+
+        // Create dedicated Disbursement record
+        await Disbursement.create({
+            fundRequestId: request._id || request.id,
+            projectId: request.projectId,
+            amount: request.requestedAmount || request.amount || 0,
+            disbursedBy: req.user.id,
+            disbursedByName: req.user.name,
+            bankReference: transactionId,
+            remarks: remarks
+        }, { transaction: t });
         
-        // Update the project's released budget if applicable
+        // Update the project's released budget
         if (request.projectId) {
-            const project = await Project.findByPk(request.projectId);
+            const project = await Project.findByPk(request.projectId, { transaction: t });
             if (project) {
-                const newReleasedAmount = (project.releasedBudget || 0) + (request.amount || 0);
-                await project.update({ releasedBudget: newReleasedAmount });
+                const amountToAdd = request.requestedAmount || request.amount || 0;
+                await project.update({ 
+                    releasedBudget: (project.releasedBudget || 0) + amountToAdd 
+                }, { transaction: t });
             }
         }
         
+        await t.commit();
         res.status(200).json({ success: true, message: 'Disbursement executed successfully', data: request });
     } catch (error) {
+        if (t) await t.rollback();
+        console.error('executeDisbursement Error:', error);
         res.status(500).json({ success: false, message: error.message });
     }
 };
@@ -615,10 +624,12 @@ exports.getFinancialReports = async (req, res) => {
 
 exports.getDisbursalHistory = async (req, res) => {
     try {
-        const history = await FundRequest.findAll({
-            where: { currentStage: 'AMOUNT_DISBURSED' },
-            include: [{ model: Project, attributes: ['title', 'pi', 'department'] }],
-            order: [['updatedAt', 'DESC']]
+        const history = await Disbursement.findAll({
+            include: [
+                { model: FundRequest, attributes: ['projectTitle', 'purpose', 'source'] },
+                { model: Project, attributes: ['title', 'pi', 'department'] }
+            ],
+            order: [['disbursedAt', 'DESC']]
         });
         res.status(200).json({ success: true, data: history });
     } catch (error) {

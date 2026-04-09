@@ -69,82 +69,38 @@ exports.getAdminStats = async (req, res) => {
         const eventsRevenue = await Revenue.sum('verifiedAmount', { where: { status: 'VERIFIED', revenueSource: 'Events' } }) || 0;
 
         // ── Centre-wise Distribution Metrics ──
-        const projectCentres = await Project.findAll({
+        const centreAggregates = await Project.findAll({
             attributes: [
-                'centre',
-                [Project.sequelize.fn('COUNT', Project.sequelize.col('_id')), 'totalProjects'],
-                [Project.sequelize.literal(`COUNT(CASE WHEN status IN ('ACTIVE', 'APPROVED') THEN 1 END)`), 'activeProjects'],
+                'centreId',
+                [Project.sequelize.fn('COUNT', Project.sequelize.col('Project._id')), 'totalProjects'],
+                [Project.sequelize.literal(`COUNT(CASE WHEN Project.status IN ('ACTIVE', 'APPROVED') THEN 1 END)`), 'activeProjects'],
                 [Project.sequelize.fn('SUM', Project.sequelize.col('sanctionedBudget')), 'projectBudget']
             ],
-            group: ['centre']
+            include: [
+                { model: require('../models/Centre'), attributes: ['name'] }
+            ],
+            group: ['centreId', 'Centre._id', 'Centre.name']
         });
 
-        const eventCentres = await EventRequest.findAll({
-             attributes: [
-                 'researchCentre',
-                 [EventRequest.sequelize.fn('SUM', EventRequest.sequelize.col('approvedAmount')), 'eventBudget']
-             ],
-             where: { status: 'APPROVED', fundingType: 'College Funded' },
-             group: ['researchCentre']
-        });
-
-        const disbursementCentres = await FundRequest.findAll({
+        const disbursementAggregates = await FundRequest.findAll({
             attributes: [
-                'centre',
+                'centreId',
                 [FundRequest.sequelize.fn('SUM', FundRequest.sequelize.col('requestedAmount')), 'disbursed']
             ],
-            where: { currentStage: { [Op.in]: ['AMOUNT_DISBURSED', 'UTILIZATION_COMPLETED', 'SETTLEMENT_CLOSED'] } },
-            group: ['centre']
+            where: { currentStage: { [Op.in]: ['AMOUNT_DISBURSED', 'UTILIZATION_COMPLETED', 'SETTLEMENT_CLOSED', 'DISBURSED'] } },
+            group: ['centreId']
         });
 
-        // ── Merge by Centre Name ──
-        const centreStatsMap = {};
-
-        const normalizeCentreName = (name) => {
-            if (!name) return 'General';
-            const n = name.trim().toLowerCase();
-            
-            // Map common abbreviations or mismatched names to the standard names used in constants/researchCentres.js
-            if (n.includes('nano science') || n.includes('nanotechnology')) return 'Centre for Nano Science and Nanotechnology';
-            if (n.includes('waste management')) return 'Centre for Waste Management';
-            if (n.includes('energy research')) return 'Centre of Excellence for Energy Research';
-            if (n.includes('climate studies')) return 'Centre for Climate Studies';
-            if (n.includes('nanomedical')) return 'Centre for Molecular and Nanomedical Sciences';
-            if (n.includes('drug discovery')) return 'Centre for Drug Discovery and Development';
-            if (n.includes('additive manufacturing')) return 'Centre of Excellence for Additive Manufacturing';
-            if (n.includes('system of medicine')) return 'Centre for Indian System of Medicine';
-            if (n.includes('aqua culture')) return 'Centre for Aqua Culture';
-            
-            if (n === 'others' || n === 'other') return 'Others';
-            
-            // Return original but capitalized correctly if possible, or just the original trimmed
-            return name.trim();
-        };
-
-        projectCentres.forEach(c => {
-            const name = normalizeCentreName(c.centre);
-            if (!centreStatsMap[name]) centreStatsMap[name] = { totalProjects: 0, activeProjects: 0, totalBudget: 0, disbursed: 0 };
-            centreStatsMap[name].totalProjects += parseInt(c.get('totalProjects')) || 0;
-            centreStatsMap[name].activeProjects += parseInt(c.get('activeProjects')) || 0;
-            centreStatsMap[name].totalBudget += parseFloat(c.get('projectBudget')) || 0;
+        const centreStatsList = centreAggregates.map(c => {
+            const disb = disbursementAggregates.find(d => d.centreId === c.centreId);
+            return {
+                name: c.Centre?.name || 'Unassigned',
+                totalProjects: parseInt(c.get('totalProjects')) || 0,
+                activeProjects: parseInt(c.get('activeProjects')) || 0,
+                totalBudget: parseFloat(c.get('projectBudget')) || 0,
+                disbursed: parseFloat(disb?.get('disbursed')) || 0
+            };
         });
-
-        eventCentres.forEach(e => {
-            const name = normalizeCentreName(e.researchCentre);
-            if (!centreStatsMap[name]) centreStatsMap[name] = { totalProjects: 0, activeProjects: 0, totalBudget: 0, disbursed: 0 };
-            centreStatsMap[name].totalBudget += parseFloat(e.get('eventBudget')) || 0;
-        });
-
-        disbursementCentres.forEach(d => {
-            const name = normalizeCentreName(d.centre);
-            if (!centreStatsMap[name]) centreStatsMap[name] = { totalProjects: 0, activeProjects: 0, totalBudget: 0, disbursed: 0 };
-            centreStatsMap[name].disbursed += parseFloat(d.get('disbursed')) || 0;
-        });
-
-        const centreStatsList = Object.keys(centreStatsMap).map(name => ({
-            name,
-            ...centreStatsMap[name]
-        }));
 
         res.status(200).json({
             success: true,
@@ -259,6 +215,14 @@ exports.createProject = async (req, res) => {
         };
         
         const project = await Project.create(projectData);
+
+        // SYNC: Add the PI/Owner as a ProjectMember so project counts work
+        await ProjectMember.create({
+            projectId: project._id || project.id,
+            userId: projectData.facultyId || projectData.userId,
+            role: 'PI'
+        });
+
         res.status(201).json({ success: true, data: project });
     } catch (error) {
         console.error('Create Project Error:', error);
@@ -324,6 +288,17 @@ exports.updateProject = async (req, res) => {
             updateData.status = newStatus;
         }
         await project.update(updateData);
+
+        // SYNC: If facultyId changed, update the PI in ProjectMembers
+        if (req.body.facultyId) {
+            await ProjectMember.destroy({ where: { projectId: project.id, role: 'PI' } });
+            await ProjectMember.create({
+                projectId: project.id,
+                userId: req.body.facultyId,
+                role: 'PI'
+            });
+        }
+
         res.status(200).json({ success: true, data: project });
     } catch (error) {
         res.status(400).json({ success: false, message: error.message });

@@ -220,6 +220,9 @@ export const useExecuteDisbursement = () => {
         mutationFn: ({ requestId, data }) => executeDisbursement(requestId, data),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['disbursementQueue'] });
+            queryClient.invalidateQueries({ queryKey: ['disbursalHistory'] });
+            queryClient.invalidateQueries({ queryKey: ['financialReports'] });
+            queryClient.invalidateQueries({ queryKey: ['financeStats'] });
             queryClient.invalidateQueries({ queryKey: ['projects'] });
         },
     });

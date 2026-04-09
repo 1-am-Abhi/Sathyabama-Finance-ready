@@ -1,5 +1,6 @@
 const { DataTypes, Model } = require('sequelize');
 const { sequelize } = require('../config/db');
+const Centre = require('./Centre');
 
 const FUND_FLOW_STAGES = [
     'FUND_APPROVED',
@@ -79,7 +80,7 @@ FundRequest.init({
         allowNull: false
     },
     status: {
-        type: DataTypes.ENUM('PENDING', 'APPROVED', 'REJECTED'),
+        type: DataTypes.ENUM('PENDING', 'APPROVED', 'PENDING_DISBURSAL', 'DISBURSED', 'REJECTED'),
         defaultValue: 'PENDING'
     },
     currentStage: {
@@ -95,8 +96,12 @@ FundRequest.init({
         allowNull: false
     },
     centre: {
-        type: DataTypes.STRING,
-        allowNull: false
+        type: DataTypes.STRING, // Keep for backward compatibility/quick display
+        allowNull: true
+    },
+    centreId: {
+        type: DataTypes.UUID,
+        allowNull: true
     },
     source: {
         type: DataTypes.ENUM('PFMS', 'INSTITUTIONAL', 'OTHERS'),
@@ -121,5 +126,7 @@ FundRequest.init({
     modelName: 'FundRequest',
     timestamps: true 
 });
+
+FundRequest.belongsTo(require('./Centre'), { foreignKey: 'centreId', as: 'researchCentre' });
 
 module.exports = { FundRequest, FUND_FLOW_STAGES };

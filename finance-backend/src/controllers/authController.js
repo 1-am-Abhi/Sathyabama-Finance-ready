@@ -1,5 +1,6 @@
 const User = require('../models/User');
 const jwt = require('jsonwebtoken');
+const Centre = require('../models/Centre');
 
 const generateToken = (user) => {
     return jwt.sign(
@@ -161,7 +162,10 @@ exports.getUsers = async (req, res) => {
                         'eventsCount'
                     ]
                 ]
-            }
+            },
+            include: [
+                { model: Centre, as: 'researchCentre', attributes: ['name'] }
+            ]
         });
         res.status(200).json({ success: true, users });
     } catch (error) {
@@ -207,32 +211,16 @@ exports.updateUser = async (req, res) => {
 
 exports.getCentres = async (req, res) => {
     try {
-        const Project = require('../models/Project');
-        const officialCentres = [
-            'Centre for Nano Science and Nanotechnology',
-            'Centre of Excellence for Energy Research',
-            'Centre for Waste Management',
-            'Centre for Climate Studies',
-            'Centre for Molecular and Nanomedical Sciences',
-            'Centre for Drug Discovery and Development',
-            'Centre of Excellence for Additive Manufacturing',
-            'Centre for Indian System of Medicine',
-            'Centre for Aqua Culture',
-            'Centre for Remote Sensing and Geoinformatics'
-        ];
-
-        // Also get any centres stored in DB that might not be in the official list
-        const dbCentres = await Project.findAll({
-            attributes: [[sequelize.fn('DISTINCT', sequelize.col('centre')), 'centre']],
-            raw: true
+        const centres = await Centre.findAll({
+            order: [['name', 'ASC']]
         });
-
-        const mergedCentres = [...new Set([
-            ...officialCentres,
-            ...dbCentres.map(c => c.centre).filter(Boolean)
-        ])].sort();
-
-        res.status(200).json({ success: true, data: mergedCentres });
+        
+        // Return both the full objects and just names for compatibility
+        res.status(200).json({ 
+            success: true, 
+            data: centres.map(c => c.name),
+            fullData: centres 
+        });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
     }
