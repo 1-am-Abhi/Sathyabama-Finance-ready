@@ -6,10 +6,7 @@ import { useNotifications } from '../../contexts/NotificationContext';
 
 const TopBar = ({ title, subtitle, onMenuClick }) => {
     const { user, logout } = useAuth();
-    const { markAsRead: contextMarkAsRead, getNotificationsByRole, clearAll } = useNotifications();
-    
-    // Filter by role
-    const filteredNotifications = getNotificationsByRole(user?.role);
+    const { markAsRead: contextMarkAsRead, markAllAsRead, notifications, unreadCount } = useNotifications();
     
     const navigate = useNavigate();
     const [showNotifications, setShowNotifications] = useState(false);
@@ -117,15 +114,14 @@ const TopBar = ({ title, subtitle, onMenuClick }) => {
 
     // Handle notification click
     const handleNotificationClick = (notification) => {
-        contextMarkAsRead(notification.id);
+        contextMarkAsRead(notification._id || notification.id);
         if (notification.actionUrl) {
             navigate(notification.actionUrl);
         }
         setShowNotifications(false);
     };
 
-    // Get unread count
-    const unreadCount = filteredNotifications.filter(n => !n.read).length;
+    // No need for local unreadCount calculation, it comes from context
 
     return (
         <div className="bg-white dark:bg-slate-900 border-b border-gray-200 dark:border-slate-800 px-4 md:px-8 py-4 relative">
@@ -224,7 +220,7 @@ const TopBar = ({ title, subtitle, onMenuClick }) => {
                                     </div>
 
                                     <div className="max-h-[400px] overflow-y-auto">
-                                        {filteredNotifications.length === 0 ? (
+                                        {notifications.length === 0 ? (
                                             <div className="p-8 text-center flex flex-col items-center">
                                                 <div className="w-16 h-16 bg-gray-50 dark:bg-slate-800 rounded-full flex items-center justify-center mb-3">
                                                     <Bell className="w-6 h-6 text-gray-300 dark:text-gray-600" />
@@ -233,27 +229,30 @@ const TopBar = ({ title, subtitle, onMenuClick }) => {
                                             </div>
                                         ) : (
                                             <div className="divide-y divide-gray-100 dark:divide-slate-800">
-                                                {filteredNotifications.map((notification) => {
-                                                    const { Icon, color, bg } = getNotificationIcon(notification.type);
+                                                {notifications.map((notification) => {
+                                                    const { Icon, color, bg } = getNotificationIcon(notification.type?.toLowerCase());
                                                     return (
                                                         <div
-                                                            key={notification.id}
+                                                            key={notification._id || notification.id}
                                                             onClick={() => handleNotificationClick(notification)}
-                                                            className={`p-4 hover:bg-gray-50 dark:hover:bg-slate-800/50 transition-colors cursor-pointer ${!notification.read ? 'bg-blue-50/30 dark:bg-blue-900/10' : ''}`}
+                                                            className={`p-4 hover:bg-gray-50 dark:hover:bg-slate-800/50 transition-colors cursor-pointer ${!notification.isRead && !notification.read ? 'bg-blue-50/30 dark:bg-blue-900/10' : ''}`}
                                                         >
                                                             <div className="flex gap-4">
                                                                 <div className={`mt-1 flex-shrink-0 w-10 h-10 ${bg} dark:bg-opacity-10 rounded-full flex items-center justify-center`}>
                                                                     <Icon className={`w-5 h-5 ${color}`} />
                                                                 </div>
                                                                 <div className="flex-1">
-                                                                    <p className={`text-sm ${!notification.read ? 'font-semibold text-gray-900 dark:text-white' : 'font-medium text-gray-700 dark:text-gray-300'}`}>
+                                                                    <p className={`text-[10px] font-bold text-gray-400 uppercase tracking-tighter mb-0.5`}>
+                                                                        {notification.title || 'Notification'}
+                                                                    </p>
+                                                                    <p className={`text-sm ${!notification.isRead && !notification.read ? 'font-semibold text-gray-900 dark:text-white' : 'font-medium text-gray-700 dark:text-gray-300'}`}>
                                                                         {notification.message}
                                                                     </p>
                                                                     <div className="flex items-center gap-2 mt-1.5">
                                                                         <span className="text-xs text-gray-400 dark:text-gray-500 font-medium">
-                                                                            {getRelativeTime(notification.time)}
+                                                                            {getRelativeTime(notification.createdAt || notification.time)}
                                                                         </span>
-                                                                        {!notification.read && (
+                                                                        {(!notification.isRead && !notification.read) && (
                                                                             <span className="w-2 h-2 bg-blue-500 rounded-full"></span>
                                                                         )}
                                                                     </div>
@@ -268,9 +267,7 @@ const TopBar = ({ title, subtitle, onMenuClick }) => {
                                     {filteredNotifications.length > 0 && (
                                         <div className="p-3 border-t border-gray-100 dark:border-slate-800 bg-gray-50/50 dark:bg-slate-800/50 flex justify-between items-center">
                                             <button 
-                                                onClick={() => {
-                                                    filteredNotifications.forEach(n => contextMarkAsRead(n.id));
-                                                }}
+                                                onClick={() => markAllAsRead()}
                                                 className="text-xs font-semibold text-maroon-600 hover:text-maroon-700 dark:text-maroon-400 transition-colors"
                                             >
                                                 Mark all as read

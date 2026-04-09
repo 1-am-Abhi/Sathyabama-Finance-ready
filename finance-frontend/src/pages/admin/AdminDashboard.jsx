@@ -319,72 +319,70 @@ const AdminDashboard = () => {
     return (
         <div className="flex-1 overflow-y-auto overflow-x-hidden p-6 bg-gray-50 dark:bg-slate-950">
 
-            {/* Funds Overview Section - 3 columns: PFMS | Institutional | Others */}
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 mb-8">
+            {/* Funds Overview Section - 4 columns: PFMS | Institutional | Director | Others */}
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 mb-8">
                 {/* PFMS / Government Funds */}
                 <Card className="border-0 shadow-md bg-white dark:bg-slate-900 overflow-hidden relative">
                     <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-50 dark:bg-indigo-900/10 rounded-full -mr-10 -mt-10 blur-2xl"></div>
-                    <CardHeader className="pb-2 border-b border-gray-100 dark:border-slate-800 z-10 relative">
+                    <CardHeader className="p-4 pb-2 border-b border-gray-100 dark:border-slate-800 z-10 relative">
                         <div className="flex items-center justify-between">
-                            <div className="flex items-center space-x-3">
-                                <div className="p-2 bg-indigo-100 dark:bg-indigo-900/30 rounded-lg text-indigo-600 dark:text-indigo-400">
-                                    <Building2 className="w-6 h-6" />
+                            <div className="flex items-center space-x-2">
+                                <div className="p-1.5 bg-indigo-100 dark:bg-indigo-900/30 rounded-lg text-indigo-600 dark:text-indigo-400">
+                                    <Building2 className="w-4 h-4" />
                                 </div>
                                 <div>
-                                    <CardTitle className="text-lg font-bold text-gray-800 dark:text-white">PFMS Funds</CardTitle>
-                                    <CardDescription className="text-xs dark:text-gray-400">Government Sanctioned & Sponsored</CardDescription>
+                                    <CardTitle className="text-sm font-bold text-gray-800 dark:text-white">PFMS Funds</CardTitle>
                                 </div>
                             </div>
-                            <Badge variant="outline" className="bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-900/30 dark:text-indigo-300 dark:border-indigo-800">Live Status</Badge>
                         </div>
                     </CardHeader>
-                    <CardContent className="p-6 z-10 relative">
-                        <div className="flex flex-col md:flex-row items-center gap-6">
-                            <div className="flex-1 space-y-4 w-full">
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div className="bg-gray-50 dark:bg-slate-800/50 p-3 rounded-lg border border-gray-100 dark:border-slate-800">
-                                        <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Sanctioned Amount</p>
-                                        <p className="text-lg font-bold text-gray-800 dark:text-white">₹{((stats?.pfmsStats?.allotted || 0) / 10000000).toFixed(2)} Cr</p>
-                                    </div>
-                                    <div className="bg-gray-50 dark:bg-slate-800/50 p-3 rounded-lg border border-gray-100 dark:border-slate-800">
-                                        <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Rec. in Account</p>
-                                        <p className="text-lg font-bold text-indigo-600 dark:text-indigo-400">₹{((stats?.pfmsStats?.allotted || 0) / 10000000).toFixed(2)} Cr</p>
-                                    </div>
+                    <CardContent className="p-4 z-10 relative">
+                        <div className="space-y-3">
+                            <div className="bg-gray-50 dark:bg-slate-800/50 p-2 rounded-lg border border-gray-100 dark:border-slate-800 flex justify-between items-center">
+                                <p className="text-[10px] text-gray-500">Sanctioned</p>
+                                <p className="text-sm font-bold text-gray-800 dark:text-white">₹{((stats?.pfmsStats?.allotted || 0) / 10000000).toFixed(2)} Cr</p>
+                            </div>
+                            <div>
+                                <div className="flex justify-between text-[10px] mb-1">
+                                    <span className="text-gray-600 dark:text-gray-400">Spent / Bal</span>
+                                    <span className="font-semibold text-gray-900 dark:text-white">₹{((stats?.pfmsStats?.consumed || 0) / 100000).toFixed(1)}L / ₹{((stats?.pfmsStats?.balance || 0) / 100000).toFixed(1)}L</span>
                                 </div>
-                                <div className="space-y-3 pt-2">
-                                    <div>
-                                        <div className="flex justify-between text-sm mb-1">
-                                            <span className="text-gray-600 dark:text-gray-300">Consumed</span>
-                                            <span className="font-semibold text-gray-900 dark:text-white">₹{((stats?.pfmsStats?.consumed || 0) / 10000000).toFixed(2)} Cr</span>
-                                        </div>
-                                        <div className="w-full bg-gray-200 dark:bg-slate-700 rounded-full h-2">
-                                            <div className="bg-indigo-500 h-2 rounded-full" style={{ width: `${(stats?.pfmsStats?.allotted || 0) > 0 ? Math.min(100, ((stats?.pfmsStats?.consumed || 0) / stats?.pfmsStats?.allotted) * 100) : 0}%` }}></div>
-                                        </div>
-                                    </div>
-                                    <div>
-                                        <div className="flex justify-between text-sm mb-1">
-                                            <span className="text-gray-600 dark:text-gray-300">Balance</span>
-                                            <span className="font-semibold text-green-600 dark:text-green-400">₹{((stats?.pfmsStats?.balance || 0) / 10000000).toFixed(2)} Cr</span>
-                                        </div>
-                                        <div className="w-full bg-gray-200 dark:bg-slate-700 rounded-full h-2">
-                                            <div className="bg-green-500 h-2 rounded-full" style={{ width: `${(stats?.pfmsStats?.allotted || 0) > 0 ? Math.min(100, ((stats?.pfmsStats?.balance || 0) / stats?.pfmsStats?.allotted) * 100) : 0}%` }}></div>
-                                        </div>
-                                    </div>
+                                <div className="w-full bg-gray-200 dark:bg-slate-700 rounded-full h-1.5">
+                                    <div className="bg-indigo-500 h-1.5 rounded-full" style={{ width: `${(stats?.pfmsStats?.allotted || 0) > 0 ? Math.min(100, ((stats?.pfmsStats?.consumed || 0) / stats?.pfmsStats?.allotted) * 100) : 0}%` }}></div>
                                 </div>
                             </div>
-                            <div className="w-28 h-28 flex-shrink-0 relative">
-                                <ResponsiveContainer width="100%" height="100%">
-                                    <PieChart>
-                                        <Pie data={pfmsChartData} cx="50%" cy="50%" innerRadius={30} outerRadius={48} paddingAngle={5} dataKey="value">
-                                            {pfmsChartData.map((entry, index) => <Cell key={`cell-${index}`} fill={entry.color} />)}
-                                        </Pie>
-                                        <Tooltip formatter={(value) => `₹${(value / 10000000).toFixed(2)} Cr`} />
-                                    </PieChart>
-                                </ResponsiveContainer>
-                                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                                    <span className="text-xs font-bold text-gray-500 dark:text-gray-400">
-                                        {(stats?.pfmsStats?.allotted || 0) > 0 ? (((stats?.pfmsStats?.consumed || 0) / stats.pfmsStats.allotted) * 100).toFixed(0) : 0}%
-                                    </span>
+                        </div>
+                    </CardContent>
+                </Card>
+
+                {/* Institutional Funds */}
+                <Card className="border-0 shadow-md bg-white dark:bg-slate-900 overflow-hidden relative">
+                    <div className="absolute top-0 right-0 w-32 h-32 bg-amber-50 dark:bg-amber-900/10 rounded-full -mr-10 -mt-10 blur-2xl"></div>
+                    <CardHeader className="p-4 pb-2 border-b border-gray-100 dark:border-slate-800 z-10 relative">
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center space-x-2">
+                                <div className="p-1.5 bg-amber-100 dark:bg-amber-900/30 rounded-lg text-amber-600 dark:text-amber-400">
+                                    <Activity className="w-4 h-4" />
+                                </div>
+                                <div>
+                                    <CardTitle className="text-sm font-bold text-gray-800 dark:text-white">Inst. Grant</CardTitle>
+                                </div>
+                            </div>
+                        </div>
+                    </CardHeader>
+                    <CardContent className="p-4 z-10 relative">
+                        <div className="space-y-3">
+                            <div className="bg-gray-50 dark:bg-slate-800/50 p-2 rounded-lg border border-gray-100 dark:border-slate-800 flex justify-between items-center">
+                                <p className="text-[10px] text-gray-500">Allocated</p>
+                                <p className="text-sm font-bold text-amber-600 dark:text-amber-400">₹{((stats?.institutionalStats?.allotted || 0) / 10000000).toFixed(2)} Cr</p>
+                            </div>
+                            <div>
+                                <div className="flex justify-between text-[10px] mb-1">
+                                    <span className="text-gray-600 dark:text-gray-400">Spent / Bal</span>
+                                    <span className="font-semibold text-gray-900 dark:text-white">₹{((stats?.institutionalStats?.consumed || 0) / 100000).toFixed(1)}L / ₹{((stats?.institutionalStats?.balance || 0) / 100000).toFixed(1)}L</span>
+                                </div>
+                                <div className="w-full bg-gray-200 dark:bg-slate-700 rounded-full h-1.5">
+                                    <div className="bg-amber-500 h-1.5 rounded-full" style={{ width: `${(stats?.institutionalStats?.allotted || 0) > 0 ? Math.min(100, ((stats?.institutionalStats?.consumed || 0) / stats?.institutionalStats?.allotted) * 100) : 0}%` }}></div>
                                 </div>
                             </div>
                         </div>
@@ -393,118 +391,66 @@ const AdminDashboard = () => {
 
                 {/* Director's Innovation Fund */}
                 <Card className="border-0 shadow-md bg-white dark:bg-slate-900 overflow-hidden relative">
-                    <div className="absolute top-0 right-0 w-32 h-32 bg-amber-50 dark:bg-amber-900/10 rounded-full -mr-10 -mt-10 blur-2xl"></div>
-                    <CardHeader className="pb-2 border-b border-gray-100 dark:border-slate-800 z-10 relative">
+                    <div className="absolute top-0 right-0 w-32 h-32 bg-purple-50 dark:bg-purple-900/10 rounded-full -mr-10 -mt-10 blur-2xl"></div>
+                    <CardHeader className="p-4 pb-2 border-b border-gray-100 dark:border-slate-800 z-10 relative">
                         <div className="flex items-center justify-between">
-                            <div className="flex items-center space-x-3">
-                                <div className="p-2 bg-amber-100 dark:bg-amber-900/30 rounded-lg text-amber-600 dark:text-amber-400">
-                                    <Wallet className="w-6 h-6" />
+                            <div className="flex items-center space-x-2">
+                                <div className="p-1.5 bg-purple-100 dark:bg-purple-900/30 rounded-lg text-purple-600 dark:text-purple-400">
+                                    <Sparkles className="w-4 h-4" />
                                 </div>
                                 <div>
-                                    <CardTitle className="text-lg font-bold text-gray-800 dark:text-white">Institutional Funds</CardTitle>
-                                    <CardDescription className="text-xs dark:text-gray-400">University Seed Money & Overhead</CardDescription>
+                                    <CardTitle className="text-sm font-bold text-gray-800 dark:text-white">Director Fund</CardTitle>
                                 </div>
                             </div>
-                            <Badge variant="outline" className="bg-emerald-500/10 text-emerald-500 border-emerald-500/20 dark:bg-emerald-900/30 dark:text-emerald-400 dark:border-emerald-800 animate-pulse">Live Status</Badge>
                         </div>
                     </CardHeader>
-                    <CardContent className="p-6 z-10 relative">
-                        <div className="flex flex-col md:flex-row items-center gap-6">
-                            <div className="flex-1 space-y-4 w-full">
-                                <div className="bg-gray-50 dark:bg-slate-800/50 p-3 rounded-lg border border-gray-100 dark:border-slate-800 flex justify-between items-center">
-                                    <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Total Allocated</p>
-                                    <p className="text-lg font-bold text-amber-600 dark:text-amber-400">₹{((stats?.institutionalStats?.allotted || 0) / 10000000).toFixed(2)} Cr</p>
-                                </div>
-                                <div className="space-y-4 pt-1">
-                                    <div>
-                                        <div className="flex justify-between text-sm mb-1">
-                                            <span className="text-gray-600 dark:text-gray-300">Utilized Amount</span>
-                                            <span className="font-semibold text-gray-900 dark:text-white">₹{((stats?.institutionalStats?.consumed || 0) / 10000000).toFixed(2)} Cr</span>
-                                        </div>
-                                        <div className="w-full bg-gray-200 dark:bg-slate-700 rounded-full h-2">
-                                            <div className="bg-amber-500 h-2 rounded-full" style={{ width: `${(stats?.institutionalStats?.allotted || 0) > 0 ? Math.min(100, ((stats?.institutionalStats?.consumed || 0) / stats?.institutionalStats?.allotted) * 100) : 0}%` }}></div>
-                                        </div>
-                                        <p className="text-xs text-right mt-1 text-gray-500">{(stats?.institutionalStats?.allotted || 0) > 0 ? ((stats?.institutionalStats?.consumed || 0) / stats?.institutionalStats?.allotted * 100).toFixed(1) : 0}% Used</p>
-                                    </div>
-                                    <div className="flex items-center justify-between pt-2 border-t border-gray-100 dark:border-slate-800">
-                                        <span className="text-sm font-medium text-gray-500 dark:text-gray-400">Balance Available</span>
-                                        <span className="text-lg font-bold text-sky-600 dark:text-sky-400">₹{((stats?.institutionalStats?.balance || 0) / 10000000).toFixed(2)} Cr</span>
-                                    </div>
-                                </div>
+                    <CardContent className="p-4 z-10 relative">
+                        <div className="space-y-3">
+                            <div className="bg-gray-50 dark:bg-slate-800/50 p-2 rounded-lg border border-gray-100 dark:border-slate-800 flex justify-between items-center">
+                                <p className="text-[10px] text-gray-500">Seed Grant</p>
+                                <p className="text-sm font-bold text-purple-600">₹{((stats?.directorStats?.allotted || 0) / 10000000).toFixed(2)} Cr</p>
                             </div>
-                            <div className="w-28 h-28 flex-shrink-0 relative">
-                                <ResponsiveContainer width="100%" height="100%">
-                                    <PieChart>
-                                        <Pie data={institutionalChartData} cx="50%" cy="50%" innerRadius={30} outerRadius={48} paddingAngle={5} dataKey="value">
-                                            {institutionalChartData.map((entry, index) => <Cell key={`cell-${index}`} fill={entry.color} />)}
-                                        </Pie>
-                                        <Tooltip formatter={(value) => `₹${(value / 10000000).toFixed(2)} Cr`} />
-                                    </PieChart>
-                                </ResponsiveContainer>
-                                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                                    <span className="text-xs font-bold text-gray-500 dark:text-gray-400">
-                                        {(stats?.institutionalStats?.allotted || 0) > 0 ? (((stats?.institutionalStats?.consumed || 0) / stats.institutionalStats.allotted) * 100).toFixed(0) : 0}%
-                                    </span>
+                            <div>
+                                <div className="flex justify-between text-[10px] mb-1">
+                                    <span className="text-gray-600 dark:text-gray-400">Spent / Bal</span>
+                                    <span className="font-semibold text-gray-900 dark:text-white">₹{((stats?.directorStats?.consumed || 0) / 100000).toFixed(1)}L / ₹{((stats?.directorStats?.balance || 0) / 100000).toFixed(1)}L</span>
+                                </div>
+                                <div className="w-full bg-gray-200 dark:bg-slate-700 rounded-full h-1.5">
+                                    <div className="bg-purple-500 h-1.5 rounded-full" style={{ width: `${(stats?.directorStats?.allotted || 0) > 0 ? Math.min(100, ((stats?.directorStats?.consumed || 0) / stats?.directorStats?.allotted) * 100) : 0}%` }}></div>
                                 </div>
                             </div>
                         </div>
                     </CardContent>
                 </Card>
 
-                {/* Others Fund — Director Innovation / External Grants */}
+                {/* Others Fund */}
                 <Card className="border-0 shadow-md bg-white dark:bg-slate-900 overflow-hidden relative">
                     <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-50 dark:bg-emerald-900/10 rounded-full -mr-10 -mt-10 blur-2xl"></div>
-                    <CardHeader className="pb-2 border-b border-gray-100 dark:border-slate-800 z-10 relative">
+                    <CardHeader className="p-4 pb-2 border-b border-gray-100 dark:border-slate-800 z-10 relative">
                         <div className="flex items-center justify-between">
-                            <div className="flex items-center space-x-3">
-                                <div className="p-2 bg-emerald-100 dark:bg-emerald-900/30 rounded-lg text-emerald-600 dark:text-emerald-400">
-                                    <CircleDollarSign className="w-6 h-6" />
+                            <div className="flex items-center space-x-2">
+                                <div className="p-1.5 bg-emerald-100 dark:bg-emerald-900/30 rounded-lg text-emerald-600 dark:text-emerald-400">
+                                    <CircleDollarSign className="w-4 h-4" />
                                 </div>
                                 <div>
-                                    <CardTitle className="text-lg font-bold text-gray-800 dark:text-white">Other's Fund</CardTitle>
-                                    <CardDescription className="text-xs dark:text-gray-400">Research Grants & Consultancy</CardDescription>
+                                    <CardTitle className="text-sm font-bold text-gray-800 dark:text-white">Other's Fund</CardTitle>
                                 </div>
                             </div>
-                            <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400 dark:border-emerald-800">Live Status</Badge>
                         </div>
                     </CardHeader>
-                    <CardContent className="p-6 z-10 relative">
-                        <div className="flex flex-col md:flex-row items-center gap-6">
-                            <div className="flex-1 space-y-4 w-full">
-                                <div className="bg-gray-50 dark:bg-slate-800/50 p-3 rounded-lg border border-gray-100 dark:border-slate-800 flex justify-between items-center">
-                                    <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Total Allocated</p>
-                                    <p className="text-lg font-bold text-emerald-600 dark:text-emerald-400">₹{((stats?.othersStats?.allotted || 0) / 10000000).toFixed(2)} Cr</p>
-                                </div>
-                                <div className="space-y-4 pt-1">
-                                    <div>
-                                        <div className="flex justify-between text-sm mb-1">
-                                            <span className="text-gray-600 dark:text-gray-300">Utilized Amount</span>
-                                            <span className="font-semibold text-gray-900 dark:text-white">₹{((stats?.othersStats?.consumed || 0) / 10000000).toFixed(2)} Cr</span>
-                                        </div>
-                                        <div className="w-full bg-gray-200 dark:bg-slate-700 rounded-full h-2">
-                                            <div className="bg-emerald-500 h-2 rounded-full" style={{ width: `${(stats?.othersStats?.allotted || 0) > 0 ? Math.min(100, ((stats?.othersStats?.consumed || 0) / stats?.othersStats?.allotted) * 100) : 0}%` }}></div>
-                                        </div>
-                                        <p className="text-xs text-right mt-1 text-gray-500">{(stats?.othersStats?.allotted || 0) > 0 ? ((stats?.othersStats?.consumed || 0) / stats?.othersStats?.allotted * 100).toFixed(1) : 0}% Used</p>
-                                    </div>
-                                    <div className="flex items-center justify-between pt-2 border-t border-gray-100 dark:border-slate-800">
-                                        <span className="text-sm font-medium text-gray-500 dark:text-gray-400">Balance Available</span>
-                                        <span className="text-lg font-bold text-violet-600 dark:text-violet-400">₹{((stats?.othersStats?.balance || 0) / 10000000).toFixed(2)} Cr</span>
-                                    </div>
-                                </div>
+                    <CardContent className="p-4 z-10 relative">
+                        <div className="space-y-3">
+                            <div className="bg-gray-50 dark:bg-slate-800/50 p-2 rounded-lg border border-gray-100 dark:border-slate-800 flex justify-between items-center">
+                                <p className="text-[10px] text-gray-500">External</p>
+                                <p className="text-sm font-bold text-emerald-600 dark:text-emerald-400">₹{((stats?.othersStats?.allotted || 0) / 10000000).toFixed(2)} Cr</p>
                             </div>
-                            <div className="w-28 h-28 flex-shrink-0 relative">
-                                <ResponsiveContainer width="100%" height="100%">
-                                    <PieChart>
-                                        <Pie data={othersChartData} cx="50%" cy="50%" innerRadius={30} outerRadius={48} paddingAngle={5} dataKey="value">
-                                            {othersChartData.map((entry, index) => <Cell key={`cell-${index}`} fill={entry.color} />)}
-                                        </Pie>
-                                        <Tooltip formatter={(value) => `₹${(value / 10000000).toFixed(2)} Cr`} />
-                                    </PieChart>
-                                </ResponsiveContainer>
-                                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                                    <span className="text-xs font-bold text-gray-500 dark:text-gray-400">
-                                        {(stats?.othersStats?.allotted || 0) > 0 ? (((stats?.othersStats?.consumed || 0) / stats.othersStats.allotted) * 100).toFixed(0) : 0}%
-                                    </span>
+                            <div>
+                                <div className="flex justify-between text-[10px] mb-1">
+                                    <span className="text-gray-600 dark:text-gray-400">Spent / Bal</span>
+                                    <span className="font-semibold text-gray-900 dark:text-white">₹{((stats?.othersStats?.consumed || 0) / 100000).toFixed(1)}L / ₹{((stats?.othersStats?.balance || 0) / 100000).toFixed(1)}L</span>
+                                </div>
+                                <div className="w-full bg-gray-200 dark:bg-slate-700 rounded-full h-1.5">
+                                    <div className="bg-emerald-500 h-1.5 rounded-full" style={{ width: `${(stats?.othersStats?.allotted || 0) > 0 ? Math.min(100, ((stats?.othersStats?.consumed || 0) / stats?.othersStats?.allotted) * 100) : 0}%` }}></div>
                                 </div>
                             </div>
                         </div>

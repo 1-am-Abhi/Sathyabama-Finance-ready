@@ -1,81 +1,71 @@
 const Notification = require('../models/Notification');
 const { Op } = require('sequelize');
 
-exports.createNotification = async (req, res) => {
-    try {
-        const payload = {
-            role: req.body.role,
-            type: req.body.type || 'info',
-            message: req.body.message,
-            actionUrl: req.body.actionUrl || null,
-            // Store creator identity to prevent anonymous notifications
-            createdBy: req.user ? (req.user.name || req.user.email || 'System') : 'System',
-            // Only store targetUserId for FACULTY-targeted notifications
-            targetUserId: req.body.role === 'FACULTY' ? (req.body.targetUserId || null) : null
-        };
-        // Ensure message contains creator identity if message is generic
-        if (!payload.message) {
-            return res.status(400).json({ success: false, message: 'Notification message is required' });
-        }
-        const newNotif = await Notification.create(payload);
-        res.status(201).json({ success: true, data: newNotif });
-    } catch (error) {
-        res.status(500).json({ success: false, message: error.message });
-    }
-};
-
 exports.getNotifications = async (req, res) => {
     try {
+        const userId = req.user.id || req.user._id;
         const role = req.user.role;
-        const userId = req.user.id;
 
-        let whereClause = { role: role };
-
-        if (role === 'FACULTY') {
-            // Show only notifications targeted at THIS specific faculty user
-            // OR notifications with no targetUserId (legacy global ones - handled gracefully)
-            whereClause = {
-                role: 'FACULTY',
+        // Fetch notifications specifically for this user OR for their role (broadcasts)
+        const notifications = await Notification.findAll({
+            where: {
                 [Op.or]: [
-                    { targetUserId: userId },
-                    // Don't show old notifications that had no target - they belong to someone else
-                    // (We skip null targetUserId for FACULTY to prevent leakage)
+                    { userId: userId },
+                    { role: role }
                 ]
-            };
-        }
-        // For ADMIN, all admin notifications are global (no user scoping needed)
-
-        const options = { 
+            },
             order: [['createdAt', 'DESC']],
-            where: whereClause,
             limit: 50
-        };
-        const notifications = await Notification.findAll(options);
-        
-        const mapped = notifications.map(n => ({
-            id: n._id,
-            time: n.createdAt,
-            read: n.readRaw,
-            role: n.role,
-            type: n.type,
-            message: n.message,
-            actionUrl: n.actionUrl,
-            createdBy: n.createdBy || 'System'
-        }));
+        });
 
-        res.status(200).json({ success: true, data: mapped });
+        res.status(200).json({ success: true, data: notifications });
     } catch (error) {
+        console.error('Get Notifications Error:', error);
         res.status(500).json({ success: false, message: error.message });
     }
 };
 
 exports.markAsRead = async (req, res) => {
     try {
-        const notif = await Notification.findByPk(req.params.id);
-        if (!notif) return res.status(404).json({ success: false, message: 'Notification not found' });
-        notif.readRaw = true;
-        await notif.save();
-        res.status(200).json({ success: true, data: notif });
+        const { id } = req.params;
+        const notification = await Notification.findByPk(id);
+
+        if (!notification) {
+            return res.status(404).json({ success: false, message: 'Notification not found' });
+        }
+
+        // Security check: ensure the notification belongs to this user or their role
+        if (notification.userId && notification.userId !== (req.user.id || req.user._id)) {
+            return res.status(403).json({ success: false, message: 'Unauthorized' });
+        }
+
+        await notification.update({ isRead: true });
+
+        res.status(200).json({ success: true, message: 'Marked as read' });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+exports.markAllAsRead = async (req, res) => {
+    try {
+        const userId = req.user.id || req.user._id;
+        const role = req.user.role;
+
+        await Notification.update(
+            { isRead: true },
+            {
+                where: {
+                    [Op.or]: [
+                        { userId: userId },
+                        { role: role }
+                    ],
+                    isRead: false
+                }
+            }
+        );
+
+        res.status(200).json({ success: true, message: 'All notifications marked as read' });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
     }

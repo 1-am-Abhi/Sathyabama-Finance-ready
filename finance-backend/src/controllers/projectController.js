@@ -22,7 +22,7 @@ exports.getAdminStats = async (req, res) => {
             pfmsBudget = await Project.sum('sanctionedBudget', { where: { fundingSource: 'PFMS' } }) || 0;
         }
 
-        // ── Institutional (College) Budget — pure institutional overhead only ──
+        // ── Institutional (College) Budget ──
         let institutionalBudgetTotal = allSources.find(s => s.sourceType === 'collegeFunds')?.totalAllocated || 0;
         if (institutionalBudgetTotal === 0) {
             const approvedEventBudget = await EventRequest.sum('approvedAmount', { 
@@ -33,30 +33,42 @@ exports.getAdminStats = async (req, res) => {
             }) || 0) + approvedEventBudget;
         }
 
-        // ── Others Budget — Consolidated OTHERS / Director Innovation ──
-        let othersBudget = allSources.find(s => s.sourceType === 'directorFunds')?.totalAllocated || 0;
-        if (othersBudget === 0) {
-            othersBudget = await Project.sum('sanctionedBudget', {
-                where: { fundingSource: { [Op.in]: ['OTHERS', 'DIRECTOR_INNOVATION', 'DIRECTOR_INNOVATION_FUND'] } }
+        // ── Director Innovation Fund ──
+        let directorBudget = allSources.find(s => s.sourceType === 'directorFunds')?.totalAllocated || 0;
+        if (directorBudget === 0) {
+            directorBudget = await Project.sum('sanctionedBudget', {
+                where: { fundingSource: { [Op.in]: ['DIRECTOR', 'DIRECTOR_INNOVATION', 'DIRECTOR_INNOVATION_FUND'] } }
             }) || 0;
         }
 
-        // ── Disbursements: use currentStage/chequeStatus (both are maintained) ──
+        // ── Others Budget ──
+        let othersBudget = await Project.sum('sanctionedBudget', {
+            where: { fundingSource: 'OTHERS' }
+        }) || 0;
+
+        // ── Disbursements ──
         const pfmsDisbursed = await FundRequest.sum('requestedAmount', { 
-            where: { source: 'PFMS', currentStage: { [Op.in]: ['AMOUNT_DISBURSED', 'UTILIZATION_COMPLETED', 'SETTLEMENT_CLOSED'] } }
+            where: { source: 'PFMS', currentStage: { [Op.in]: ['AMOUNT_DISBURSED', 'UTILIZATION_COMPLETED', 'SETTLEMENT_CLOSED', 'DISBURSED'] } }
         }) || 0;
         
         const institutionalDisbursed = await FundRequest.sum('requestedAmount', { 
             where: { 
                 source: 'INSTITUTIONAL', 
-                currentStage: { [Op.in]: ['AMOUNT_DISBURSED', 'UTILIZATION_COMPLETED', 'SETTLEMENT_CLOSED'] } 
+                currentStage: { [Op.in]: ['AMOUNT_DISBURSED', 'UTILIZATION_COMPLETED', 'SETTLEMENT_CLOSED', 'DISBURSED'] } 
+            } 
+        }) || 0;
+
+        const directorDisbursed = await FundRequest.sum('requestedAmount', { 
+            where: { 
+                source: { [Op.in]: ['DIRECTOR', 'DIRECTOR_INNOVATION', 'DIRECTOR_INNOVATION_FUND'] },
+                currentStage: { [Op.in]: ['AMOUNT_DISBURSED', 'UTILIZATION_COMPLETED', 'SETTLEMENT_CLOSED', 'DISBURSED'] } 
             } 
         }) || 0;
 
         const othersDisbursed = await FundRequest.sum('requestedAmount', { 
             where: { 
                 source: 'OTHERS', 
-                currentStage: { [Op.in]: ['AMOUNT_DISBURSED', 'UTILIZATION_COMPLETED', 'SETTLEMENT_CLOSED'] } 
+                currentStage: { [Op.in]: ['AMOUNT_DISBURSED', 'UTILIZATION_COMPLETED', 'SETTLEMENT_CLOSED', 'DISBURSED'] } 
             } 
         }) || 0;
 
@@ -77,9 +89,9 @@ exports.getAdminStats = async (req, res) => {
                 [Project.sequelize.fn('SUM', Project.sequelize.col('sanctionedBudget')), 'projectBudget']
             ],
             include: [
-                { model: require('../models/Centre'), attributes: ['name'] }
+                { model: require('../models/Centre'), as: 'researchCentre', attributes: ['name'] }
             ],
-            group: ['centreId', 'Centre._id', 'Centre.name']
+            group: ['centreId', 'researchCentre._id', 'researchCentre.name']
         });
 
         const disbursementAggregates = await FundRequest.findAll({
@@ -94,7 +106,7 @@ exports.getAdminStats = async (req, res) => {
         const centreStatsList = centreAggregates.map(c => {
             const disb = disbursementAggregates.find(d => d.centreId === c.centreId);
             return {
-                name: c.Centre?.name || 'Unassigned',
+                name: c.researchCentre?.name || 'Unassigned',
                 totalProjects: parseInt(c.get('totalProjects')) || 0,
                 activeProjects: parseInt(c.get('activeProjects')) || 0,
                 totalBudget: parseFloat(c.get('projectBudget')) || 0,
@@ -108,8 +120,8 @@ exports.getAdminStats = async (req, res) => {
                 totalProjects,
                 activeProjects,
                 pendingApprovals,
-                totalBudget: pfmsBudget + institutionalBudgetTotal + othersBudget,
-                totalDisbursed: pfmsDisbursed + institutionalDisbursed + othersDisbursed,
+                totalBudget: pfmsBudget + institutionalBudgetTotal + directorBudget + othersBudget,
+                totalDisbursed: pfmsDisbursed + institutionalDisbursed + directorDisbursed + othersDisbursed,
                 totalFaculty,
                 pfmsStats: {
                     allotted: pfmsBudget,
@@ -121,7 +133,11 @@ exports.getAdminStats = async (req, res) => {
                     consumed: institutionalDisbursed,
                     balance: Math.max(0, institutionalBudgetTotal - institutionalDisbursed)
                 },
-                // NEW: Director Innovation / Other Funds
+                directorStats: {
+                    allotted: directorBudget,
+                    consumed: directorDisbursed,
+                    balance: Math.max(0, directorBudget - directorDisbursed)
+                },
                 othersStats: {
                     allotted: othersBudget,
                     consumed: othersDisbursed,

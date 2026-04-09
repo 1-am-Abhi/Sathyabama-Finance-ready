@@ -145,6 +145,7 @@ const DisbursalHistory = () => {
                                             <td className="px-6 py-4">
                                                 <Badge className={`border-0 text-[10px] font-black italic px-2 py-0.5 ${
                                                     item.FundRequest?.source === 'PFMS' ? 'bg-amber-100 text-amber-700' :
+                                                    item.FundRequest?.source === 'DIRECTOR' ? 'bg-purple-100 text-purple-700' :
                                                     item.FundRequest?.source === 'OTHERS' ? 'bg-emerald-100 text-emerald-700' :
                                                     'bg-blue-100 text-blue-700'
                                                 }`}>

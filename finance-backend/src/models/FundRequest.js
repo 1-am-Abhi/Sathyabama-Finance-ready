@@ -104,7 +104,7 @@ FundRequest.init({
         allowNull: true
     },
     source: {
-        type: DataTypes.ENUM('PFMS', 'INSTITUTIONAL', 'OTHERS'),
+        type: DataTypes.ENUM('PFMS', 'INSTITUTIONAL', 'DIRECTOR', 'OTHERS'),
         allowNull: false
     },
     // CEER Budget Granularity details:
@@ -128,5 +128,7 @@ FundRequest.init({
 });
 
 FundRequest.belongsTo(require('./Centre'), { foreignKey: 'centreId', as: 'researchCentre' });
+FundRequest.belongsTo(require('./User'), { foreignKey: 'userId', as: 'requester' });
+FundRequest.belongsTo(require('./Project'), { foreignKey: 'projectId' });
 
 module.exports = { FundRequest, FUND_FLOW_STAGES };

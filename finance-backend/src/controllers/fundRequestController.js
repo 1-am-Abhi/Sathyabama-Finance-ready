@@ -1,6 +1,7 @@
 const { FundRequest, FUND_FLOW_STAGES } = require('../models/FundRequest');
 const Project = require('../models/Project');
 const { Op } = require('sequelize');
+const NotificationService = require('../services/notificationService');
 
 exports.getFundRequests = async (req, res) => {
     try {
@@ -62,6 +63,12 @@ exports.createFundRequest = async (req, res) => {
             }
         });
 
+        let standardizedSource = (req.body.source || 'PFMS').toUpperCase().replace(/ /g, '_');
+        if (standardizedSource === 'DIRECTOR_INNOVATION') standardizedSource = 'DIRECTOR';
+        if (!['PFMS', 'INSTITUTIONAL', 'DIRECTOR', 'OTHERS'].includes(standardizedSource)) {
+            standardizedSource = 'OTHERS';
+        }
+
         const requestData = {
             projectTitle: req.body.projectTitle,
             projectId: existingProject ? (existingProject._id || existingProject.id) : null,
@@ -72,7 +79,7 @@ exports.createFundRequest = async (req, res) => {
             purpose: req.body.purpose,
             department: req.user.department || 'RESEARCH',
             centre: req.user.centre || 'Research Centre',
-            source: (req.body.source || 'PFMS').toUpperCase().replace(/ /g, '_')
+            source: standardizedSource
         };
         const request = await FundRequest.create(requestData);
 
@@ -92,6 +99,16 @@ exports.createFundRequest = async (req, res) => {
                 fundingSource: requestData.source
             });
         }
+
+
+        // NOTIFY: Admin about new fund request
+        await NotificationService.notifyRole(
+            'ADMIN',
+            'New Fund Request',
+            `Faculty ${req.user.name} submitted a new fund request for ₹${req.body.requestedAmount}.`,
+            'INFO',
+            request._id || request.id
+        );
 
         res.status(201).json({ success: true, data: request });
     } catch (error) {
@@ -135,14 +152,31 @@ exports.approveFundRequest = async (req, res) => {
             remarks: req.body.remarks || 'Approved by Admin'
         };
 
-        // Transition: PENDING -> APPROVED -> PENDING_DISBURSAL
-        // Admin approval moves it to PENDING_DISBURSAL for Finance to see
+        console.log(`[PIPELINE] Approving Request ${req.params.id}: PENDING -> PENDING_DISBURSAL`);
         await request.update({
             status: 'PENDING_DISBURSAL',
             currentStage: 'FUND_APPROVED',
             auditTrail: [...currentAudit, newAuditEntry]
         });
         
+        // NOTIFY: Faculty about approval
+        await NotificationService.create(
+            request.userId || request.facultyId,
+            'Fund Request Approved',
+            `Your fund request for '${request.projectTitle}' has been approved by Admin and moved to Finance queue.`,
+            'SUCCESS',
+            request._id || request.id
+        );
+
+        // NOTIFY: Finance about pending disbursal
+        await NotificationService.notifyRole(
+            'FINANCE_OFFICER',
+            'New Disbursement Pending',
+            `Admin approved a fund request of ₹${request.requestedAmount} for '${request.projectTitle}'. Action required in Finance Queue.`,
+            'INFO',
+            request._id || request.id
+        );
+
         res.status(200).json({ success: true, data: request });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
@@ -155,6 +189,7 @@ exports.rejectFundRequest = async (req, res) => {
         if (!request) return res.status(404).json({ success: false, message: 'Request not found' });
         
         const currentAudit = request.auditTrail || [];
+        console.log(`[PIPELINE] Rejecting Request ${req.params.id}: ${request.status} -> REJECTED`);
         await request.update({
             status: 'REJECTED',
             // FIX: Also reset currentStage so faculty UI (which reads currentStage || status) shows REJECTED
@@ -170,6 +205,15 @@ exports.rejectFundRequest = async (req, res) => {
             }]
         });
         
+        // NOTIFY: Faculty about rejection
+        await NotificationService.create(
+            request.userId || request.facultyId,
+            'Fund Request Rejected',
+            `Your fund request for '${request.projectTitle}' was rejected. Reason: ${req.body.remarks || 'N/A'}`,
+            'ALERT',
+            request._id || request.id
+        );
+
         res.status(200).json({ success: true, data: request });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });

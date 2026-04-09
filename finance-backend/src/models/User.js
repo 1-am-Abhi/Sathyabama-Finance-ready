@@ -113,6 +113,8 @@ User.prototype.comparePassword = async function (candidatePassword) {
 };
 
 const Centre = require('./Centre');
+const Notification = require('./Notification');
 User.belongsTo(Centre, { foreignKey: 'centreId', as: 'researchCentre' });
+User.hasMany(Notification, { foreignKey: 'userId', as: 'notifications' });
 
 module.exports = User;

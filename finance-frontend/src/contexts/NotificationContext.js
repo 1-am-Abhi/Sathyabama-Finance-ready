@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import apiClient from '../api/client';
+import apiClient from '../api/apiClient'; // Using the standardized apiClient
 import { useAuth } from './AuthContext';
 
 const NotificationContext = createContext(null);
@@ -7,6 +7,7 @@ const NotificationContext = createContext(null);
 export const NotificationProvider = ({ children }) => {
     const { user } = useAuth();
     const [notifications, setNotifications] = useState([]);
+    const [isLoading, setIsLoading] = useState(false);
 
     const fetchNotifications = useCallback(async () => {
         if (!user) {
@@ -14,52 +15,46 @@ export const NotificationProvider = ({ children }) => {
             return;
         }
         try {
+            setIsLoading(true);
             const res = await apiClient.get('/notifications');
             setNotifications(res.data.data || []);
         } catch (error) {
-            console.error('Failed to fetch real-time notifications', error);
+            console.error('Failed to fetch notifications:', error);
+        } finally {
+            setIsLoading(false);
         }
     }, [user]);
 
     useEffect(() => {
-        fetchNotifications();
-        // Poll every 30 seconds. Pause when tab is hidden to reduce unnecessary traffic.
-        let interval = setInterval(fetchNotifications, 30000);
-
-        const handleVisibilityChange = () => {
-            if (document.hidden) {
-                clearInterval(interval);
-            } else {
-                // Resume immediately on tab focus
-                fetchNotifications();
-                interval = setInterval(fetchNotifications, 30000);
-            }
-        };
-        document.addEventListener('visibilitychange', handleVisibilityChange);
-        return () => {
-            clearInterval(interval);
-            document.removeEventListener('visibilitychange', handleVisibilityChange);
-        };
-    }, [fetchNotifications]);
-
-    const addNotification = React.useCallback(async (notif) => {
-        try {
-            // Push to backend
-            await apiClient.post('/notifications', notif);
-            // Force an immediate fetch so it shows up instantly without waiting for the 5s interval
-            const res = await apiClient.get('/notifications');
-            setNotifications(res.data.data || []);
-        } catch (error) {
-            console.error('Failed to create notification', error);
+        if (user) {
+            fetchNotifications();
+            // Poll every 15 seconds for real-time feel
+            const interval = setInterval(fetchNotifications, 15000);
+            return () => clearInterval(interval);
+        } else {
+            setNotifications([]);
         }
-    }, []);
+    }, [user, fetchNotifications]);
 
     const markAsRead = async (id) => {
-        setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
+        // Optimistic update
+        setNotifications(prev => prev.map(n => (n._id === id || n.id === id) ? { ...n, isRead: true, read: true } : n));
         try {
-            await apiClient.put(`/notifications/${id}/read`);
+            await apiClient.patch(`/notifications/read/${id}`);
         } catch (error) {
-            console.error('Failed to mark real-time read', error);
+            console.error('Failed to mark as read:', error);
+            // Revert on failure if critical, but for notifications we usually just log it
+        }
+    };
+
+    const markAllAsRead = async () => {
+        // Optimistic update
+        setNotifications(prev => prev.map(n => ({ ...n, isRead: true, read: true })));
+        try {
+            await apiClient.patch('/notifications/read-all');
+        } catch (error) {
+            console.error('Failed to mark all as read:', error);
+            fetchNotifications(); // Sync back
         }
     };
 
@@ -67,17 +62,20 @@ export const NotificationProvider = ({ children }) => {
         setNotifications([]);
     };
 
-    const getNotificationsByRole = React.useCallback((role) => {
-        // The backend `findAll` already firmly maps `{ where: { role: req.user.role } }`
-        // so we don't need to filter on frontend anymore.
+    const getNotificationsByRole = useCallback(() => {
+        // Filter is now handled by backend based on user session
         return notifications;
     }, [notifications]);
+
+    const unreadCount = notifications.filter(n => !n.isRead && !n.read).length;
 
     return (
         <NotificationContext.Provider value={{
             notifications,
-            addNotification,
+            isLoading,
+            unreadCount,
             markAsRead,
+            markAllAsRead,
             clearAll,
             getNotificationsByRole,
             refreshNotifications: fetchNotifications

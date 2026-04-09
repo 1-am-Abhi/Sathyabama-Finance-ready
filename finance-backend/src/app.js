@@ -12,7 +12,7 @@ app.set('trust proxy', 1);
 // app.use(helmet());
 
 const corsOptions = {
-    origin: true, // Allow all origins for debugging
+    origin: process.env.FRONTEND_URL || true,
     credentials: true,
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
 };

@@ -7,38 +7,43 @@ const Notification = sequelize.define('Notification', {
         defaultValue: DataTypes.UUIDV4,
         primaryKey: true
     },
+    userId: {
+        type: DataTypes.UUID,
+        allowNull: true, // If null, it could be a role-based notification for all Admins/Finance
+        comment: 'Receiver of the notification'
+    },
     role: {
         type: DataTypes.STRING,
-        allowNull: false
+        allowNull: true,
+        comment: 'Target role for broadcast notifications'
     },
-    type: {
+    title: {
         type: DataTypes.STRING,
-        defaultValue: 'info'
+        allowNull: false
     },
     message: {
         type: DataTypes.STRING(1000),
         allowNull: false
     },
-    actionUrl: {
-        type: DataTypes.STRING,
-        allowNull: true
+    type: {
+        type: DataTypes.ENUM('INFO', 'SUCCESS', 'ALERT'),
+        defaultValue: 'INFO'
     },
-    readRaw: {
+    relatedId: {
+        type: DataTypes.STRING,
+        allowNull: true,
+        comment: 'ID of the related record (Project, FundRequest, etc.)'
+    },
+    isRead: {
         type: DataTypes.BOOLEAN,
         defaultValue: false
     },
-    targetUserId: {
-        // For FACULTY notifications, this stores which specific faculty should see it
-        // For ADMIN notifications, this is null (all admins see it)
-        type: DataTypes.UUID,
-        allowNull: true
-    },
     createdBy: {
-        // Name of the user who triggered this notification (prevents anonymous display)
         type: DataTypes.STRING,
-        allowNull: true,
         defaultValue: 'System'
     }
+}, {
+    timestamps: true
 });
 
 module.exports = Notification;

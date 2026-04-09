@@ -41,7 +41,7 @@ const ResearchCentreDetail = ({ isOpen, onClose, centreName, isDark }) => {
                 // Use axios directly with token to avoid the globaltoast-on-404 interceptor
                 const token = localStorage.getItem('token');
                 const headers = token ? { Authorization: `Bearer ${token}` } : {};
-                const baseURL = process.env.REACT_APP_API_URL || 'http://localhost:5001/api';
+                const baseURL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
 
                 const [projectsRes, usersRes, metricsRes] = await Promise.all([
                     axios.get(`${baseURL}/projects`, { headers }).catch(() => ({ data: { success: true, data: [] } })),

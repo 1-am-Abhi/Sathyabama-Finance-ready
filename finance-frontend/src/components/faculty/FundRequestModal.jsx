@@ -142,7 +142,7 @@ const FundRequestModal = ({ isOpen, onClose, project, nextInstallment, onSubmit,
                     {/* NEW: Fund Source Type (Mandatory) */}
                     <div className="space-y-2">
                         <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Fund Source Type <span className="text-red-500">*</span></label>
-                        <div className="grid grid-cols-3 gap-3">
+                        <div className="grid grid-cols-2 gap-3">
                             <button
                                 type="button"
                                 onClick={() => setFormData({ ...formData, fundSource: 'PFMS' })}
@@ -173,16 +173,30 @@ const FundRequestModal = ({ isOpen, onClose, project, nextInstallment, onSubmit,
 
                             <button
                                 type="button"
-                                onClick={() => setFormData({ ...formData, fundSource: 'OTHERS' })}
-                                className={`p-4 rounded-xl border-2 flex items-center justify-center gap-2 transition-all ${formData.fundSource === 'OTHERS'
+                                onClick={() => setFormData({ ...formData, fundSource: 'DIRECTOR' })}
+                                className={`p-4 rounded-xl border-2 flex items-center justify-center gap-2 transition-all ${formData.fundSource === 'DIRECTOR'
                                     ? 'bg-purple-50 border-purple-500 text-purple-700 shadow-sm'
                                     : 'bg-white border-gray-100 text-gray-500 hover:bg-gray-50'
                                     }`}
                             >
-                                <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${formData.fundSource === 'OTHERS' ? 'border-purple-600' : 'border-gray-300'}`}>
-                                    {formData.fundSource === 'OTHERS' && <div className="w-2 h-2 rounded-full bg-purple-600" />}
+                                <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${formData.fundSource === 'DIRECTOR' ? 'border-purple-600' : 'border-gray-300'}`}>
+                                    {formData.fundSource === 'DIRECTOR' && <div className="w-2 h-2 rounded-full bg-purple-600" />}
                                 </div>
-                                <span className="text-xs font-bold uppercase tracking-wider">Other's Fund</span>
+                                <span className="text-xs font-bold uppercase tracking-wider">Director</span>
+                            </button>
+
+                            <button
+                                type="button"
+                                onClick={() => setFormData({ ...formData, fundSource: 'OTHERS' })}
+                                className={`p-4 rounded-xl border-2 flex items-center justify-center gap-2 transition-all ${formData.fundSource === 'OTHERS'
+                                    ? 'bg-emerald-50 border-emerald-500 text-emerald-700 shadow-sm'
+                                    : 'bg-white border-gray-100 text-gray-500 hover:bg-gray-50'
+                                    }`}
+                            >
+                                <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${formData.fundSource === 'OTHERS' ? 'border-emerald-600' : 'border-gray-300'}`}>
+                                    {formData.fundSource === 'OTHERS' && <div className="w-2 h-2 rounded-full bg-emerald-600" />}
+                                </div>
+                                <span className="text-xs font-bold uppercase tracking-wider">Others</span>
                             </button>
                         </div>
                         {fundSourceError && (

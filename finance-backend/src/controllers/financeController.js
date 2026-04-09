@@ -7,6 +7,7 @@ const Revenue = require('../models/Revenue');
 const Disbursement = require('../models/Disbursement');
 const { sequelize } = require('../config/db');
 const { Op } = require('sequelize');
+const NotificationService = require('../services/notificationService');
 
 exports.getFinanceStats = async (req, res) => {
     try {
@@ -454,6 +455,7 @@ exports.executeDisbursement = async (req, res) => {
         }
         
         // Final Pipeline State: DISBURSED
+        console.log(`[PIPELINE] Disbursing Request ${req.params.id}: ${request.status} -> DISBURSED`);
         await request.update({
             status: 'DISBURSED',
             currentStage: 'AMOUNT_DISBURSED',
@@ -488,6 +490,17 @@ exports.executeDisbursement = async (req, res) => {
         }
         
         await t.commit();
+
+        // NOTIFY: Faculty about disbursement
+        // We do this AFTER commit to ensure database consistency
+        await NotificationService.create(
+            request.userId || request.facultyId,
+            'Funds Disbursed',
+            `Funds for '${request.projectTitle}' have been disbursed! Transaction ID: ${transactionId}.`,
+            'SUCCESS',
+            request._id || request.id
+        );
+
         res.status(200).json({ success: true, message: 'Disbursement executed successfully', data: request });
     } catch (error) {
         if (t) await t.rollback();

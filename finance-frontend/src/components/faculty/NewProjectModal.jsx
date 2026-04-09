@@ -271,6 +271,7 @@ const AcademicWorkModal = ({ isOpen, onClose, onSubmit, initialData = null, mode
                                         >
                                             <option value="INSTITUTIONAL">Institutional</option>
                                             <option value="PFMS">PFMS</option>
+                                            <option value="DIRECTOR">Director Fund</option>
                                             <option value="OTHERS">Other's Fund</option>
                                         </select>
                                     </div>
