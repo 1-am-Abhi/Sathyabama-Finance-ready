@@ -58,13 +58,13 @@ exports.login = async (req, res) => {
             return res.status(401).json({ success: false, message: 'Incorrect email' });
         }
 
-        if (role && user.role !== role) {
-            return res.status(403).json({ success: false, message: `Access denied. Registered role is ${user.role}, but attempted to login as ${role}.` });
-        }
-
         const isMatch = await user.comparePassword(password);
         if (!isMatch) {
             return res.status(401).json({ success: false, message: 'Incorrect password' });
+        }
+
+        if (role && user.role !== role) {
+            return res.status(403).json({ success: false, message: 'Invalid role selection' });
         }
 
         if (user.status === 'Inactive') {
