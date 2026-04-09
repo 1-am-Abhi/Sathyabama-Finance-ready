@@ -6,8 +6,12 @@ const { sequelize } = require('../config/db');
 
 exports.getFinanceStats = async (req, res) => {
     try {
-        // Pending Releases: BILLS_UPLOADED (bills are provided by faculty, waiting for Finance to execute disbursement)
-        const pendingReleases = await FundRequest.count({ where: { currentStage: 'BILLS_UPLOADED' } });
+        // Pending Releases: FUND_APPROVED or BILLS_UPLOADED (waiting for Finance to execute disbursement)
+        const pendingReleases = await FundRequest.count({ 
+            where: { 
+                currentStage: { [Op.in]: ['FUND_APPROVED', 'BILLS_UPLOADED'] } 
+            } 
+        });
         
         // Pending Disbursements: CHEQUE_RELEASED but not yet AMOUNT_DISBURSED
         const pendingDisbursements = await FundRequest.count({ where: { currentStage: 'CHEQUE_RELEASED' } });
@@ -181,8 +185,8 @@ exports.getFundSourcesOverview = async (req, res) => {
         
         // PFMS-funded projects
         const pfmsProjects = projects.filter(p => p.fundingSource === 'PFMS');
-        // Director Innovation / Other college grants (non-PFMS, non-institutional)
-        const directorProjects = projects.filter(p => ['DIRECTOR_INNOVATION', 'DIRECTOR_INNOVATION_FUND'].includes(p.fundingSource));
+        // Others (consolidated Director Innovation / Other college grants)
+        const directorProjects = projects.filter(p => p.fundingSource === 'OTHERS');
         // Institutional (pure college overhead funding)
         const institutionalProjects = projects.filter(p => p.fundingSource === 'INSTITUTIONAL');
         // Combined college (institutional + director) for backward compat
@@ -236,7 +240,7 @@ exports.updateFundSourceAmount = async (req, res) => {
         
         let dbSourceType = 'collegeFunds';
         if (fundSource === 'PFMS' || fundSource === 'pfmsFunds') dbSourceType = 'pfmsFunds';
-        if (fundSource === 'DIRECTOR' || fundSource === 'directorFunds' || fundSource === 'DIRECTOR_INNOVATION') dbSourceType = 'directorFunds';
+        if (fundSource === 'OTHERS' || fundSource === 'directorFunds' || fundSource === 'DIRECTOR_INNOVATION') dbSourceType = 'directorFunds';
 
         // Use UPSERT (Find or Create)
         const [fundRecord, created] = await FundSource.findOrCreate({
@@ -302,7 +306,7 @@ exports.getDepartmentFunding = async (req, res) => {
         const { id } = req.params;
         const projects = await Project.findAll({ where: { department: id } });
         
-        const collegeProjects = projects.filter(p => ['INSTITUTIONAL', 'DIRECTOR_INNOVATION', 'DIRECTOR_INNOVATION_FUND'].includes(p.fundingSource));
+        const collegeProjects = projects.filter(p => ['INSTITUTIONAL', 'OTHERS'].includes(p.fundingSource));
         const pfmsProjects = projects.filter(p => p.fundingSource === 'PFMS');
 
         const result = [];
@@ -402,7 +406,7 @@ exports.getDisbursementQueue = async (req, res) => {
         const User = require('../models/User');
         const requests = await FundRequest.findAll({
             where: {
-                currentStage: 'BILLS_UPLOADED'
+                currentStage: { [require('sequelize').Op.in]: ['FUND_APPROVED', 'BILLS_UPLOADED'] }
             },
             // FIX: Include pi in Project attributes (model uses 'pi' not 'piName')
             include: [
@@ -436,9 +440,21 @@ exports.executeDisbursement = async (req, res) => {
         const request = await FundRequest.findByPk(id);
         if (!request) return res.status(404).json({ success: false, message: 'Fund request not found' });
         
-        // Update request status and tracking info
+        // Determine next stage
+        let nextStage = 'FUND_RELEASED'; // Default for FUND_APPROVED
+        if (request.currentStage === 'BILLS_UPLOADED') {
+            nextStage = 'CHEQUE_RELEASED';
+        }
+
+        // Use the model's advanceStage method for consistency
+        await request.advanceStage(
+            nextStage, 
+            { _id: req.user.id, name: req.user.name }, 
+            remarks || `Disbursement executed by Finance. Ref: ${transactionId}`
+        );
+
+        // Update tracking info manually since advanceStage doesn't cover these extra fields
         await request.update({
-            currentStage: 'FUND_RELEASED',
             transactionId: transactionId || request.transactionId,
             bankName: bankName || request.bankName,
             disbursementDate: disbursementDate || new Date(),

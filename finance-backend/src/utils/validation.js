@@ -31,7 +31,7 @@ const projectSchema = z.object({
     description: z.string().min(3, 'Description must be at least 3 characters'),
     sanctionedBudget: z.number().nonnegative(),
     // Exactly matches DB ENUM values in Project model
-    fundingSource: z.enum(['PFMS', 'INSTITUTIONAL', 'DIRECTOR_INNOVATION', 'DIRECTOR_INNOVATION_FUND']),
+    fundingSource: z.enum(['PFMS', 'INSTITUTIONAL', 'OTHERS']),
     projectType: z.string().optional(),
     publisher: z.string().optional().nullable(),
     publicationYear: z.number().optional(),
@@ -65,7 +65,7 @@ const fundRequestSchema = z.object({
     projectTitle: z.string().min(5, 'Project title must be at least 5 characters'),
     requestedAmount: z.number().positive('Amount must be positive'),
     purpose: z.string().min(10, 'Purpose must be at least 10 characters'),
-    source: z.enum(['PFMS', 'DIRECTOR_INNOVATION']),
+    source: z.enum(['PFMS', 'INSTITUTIONAL', 'OTHERS']),
     department: z.string().optional(),
     centre: z.string().optional(),
   }),

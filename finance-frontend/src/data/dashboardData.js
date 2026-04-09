@@ -11,7 +11,8 @@ export const RESEARCH_CENTRES = [
     'Centre for Drug Discovery and Development',
     'Centre of Excellence for Additive Manufacturing',
     'Centre for Indian System of Medicine',
-    'Centre for Aqua Culture'
+    'Centre for Aqua Culture',
+    'Others'
 ];
 
 export const CENTRE_STATS_MOCK = {};

@@ -33,11 +33,11 @@ exports.getAdminStats = async (req, res) => {
             }) || 0) + approvedEventBudget;
         }
 
-        // ── Others Budget — Director Innovation & Director Innovation Fund ──
+        // ── Others Budget — Consolidated OTHERS / Director Innovation ──
         let othersBudget = allSources.find(s => s.sourceType === 'directorFunds')?.totalAllocated || 0;
         if (othersBudget === 0) {
             othersBudget = await Project.sum('sanctionedBudget', {
-                where: { fundingSource: { [Op.in]: ['DIRECTOR_INNOVATION', 'DIRECTOR_INNOVATION_FUND'] } }
+                where: { fundingSource: { [Op.in]: ['OTHERS', 'DIRECTOR_INNOVATION', 'DIRECTOR_INNOVATION_FUND'] } }
             }) || 0;
         }
 
@@ -97,8 +97,29 @@ exports.getAdminStats = async (req, res) => {
         // ── Merge by Centre Name ──
         const centreStatsMap = {};
 
+        const normalizeCentreName = (name) => {
+            if (!name) return 'General';
+            const n = name.trim().toLowerCase();
+            
+            // Map common abbreviations or mismatched names to the standard names used in constants/researchCentres.js
+            if (n.includes('nano science') || n.includes('nanotechnology')) return 'Centre for Nano Science and Nanotechnology';
+            if (n.includes('waste management')) return 'Centre for Waste Management';
+            if (n.includes('energy research')) return 'Centre of Excellence for Energy Research';
+            if (n.includes('climate studies')) return 'Centre for Climate Studies';
+            if (n.includes('nanomedical')) return 'Centre for Molecular and Nanomedical Sciences';
+            if (n.includes('drug discovery')) return 'Centre for Drug Discovery and Development';
+            if (n.includes('additive manufacturing')) return 'Centre of Excellence for Additive Manufacturing';
+            if (n.includes('system of medicine')) return 'Centre for Indian System of Medicine';
+            if (n.includes('aqua culture')) return 'Centre for Aqua Culture';
+            
+            if (n === 'others' || n === 'other') return 'Others';
+            
+            // Return original but capitalized correctly if possible, or just the original trimmed
+            return name.trim();
+        };
+
         projectCentres.forEach(c => {
-            const name = (c.centre || 'General').trim();
+            const name = normalizeCentreName(c.centre);
             if (!centreStatsMap[name]) centreStatsMap[name] = { totalProjects: 0, activeProjects: 0, totalBudget: 0, disbursed: 0 };
             centreStatsMap[name].totalProjects += parseInt(c.get('totalProjects')) || 0;
             centreStatsMap[name].activeProjects += parseInt(c.get('activeProjects')) || 0;
@@ -106,13 +127,13 @@ exports.getAdminStats = async (req, res) => {
         });
 
         eventCentres.forEach(e => {
-            const name = (e.researchCentre || 'General').trim();
+            const name = normalizeCentreName(e.researchCentre);
             if (!centreStatsMap[name]) centreStatsMap[name] = { totalProjects: 0, activeProjects: 0, totalBudget: 0, disbursed: 0 };
             centreStatsMap[name].totalBudget += parseFloat(e.get('eventBudget')) || 0;
         });
 
         disbursementCentres.forEach(d => {
-            const name = (d.centre || 'General').trim();
+            const name = normalizeCentreName(d.centre);
             if (!centreStatsMap[name]) centreStatsMap[name] = { totalProjects: 0, activeProjects: 0, totalBudget: 0, disbursed: 0 };
             centreStatsMap[name].disbursed += parseFloat(d.get('disbursed')) || 0;
         });
@@ -230,7 +251,9 @@ exports.createProject = async (req, res) => {
             facultyId: isAdmin ? (req.body.facultyId || null) : req.user.id,
             pi: isAdmin ? (req.body.pi || 'Admin Created') : (req.user.name || req.body.pi || 'Faculty Member'),
             department: req.body.department || req.user.department || 'RESEARCH',
-            centre: req.body.centre || req.user.centre || 'Research Centre'
+            centre: req.body.centre || req.user.centre || 'Research Centre',
+            verificationScreenshot: req.body.verificationScreenshot || null
+        };
         };
         
         const project = await Project.create(projectData);

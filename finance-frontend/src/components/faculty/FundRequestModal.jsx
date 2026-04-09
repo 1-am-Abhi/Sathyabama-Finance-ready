@@ -170,6 +170,20 @@ const FundRequestModal = ({ isOpen, onClose, project, nextInstallment, onSubmit,
                                 </div>
                                 <span className="text-xs font-bold uppercase tracking-wider">Director Innovation Fund</span>
                             </button>
+
+                            <button
+                                type="button"
+                                onClick={() => setFormData({ ...formData, fundSource: 'OTHERS' })}
+                                className={`p-4 rounded-xl border-2 flex items-center justify-center gap-2 transition-all ${formData.fundSource === 'OTHERS'
+                                    ? 'bg-purple-50 border-purple-500 text-purple-700 shadow-sm'
+                                    : 'bg-white border-gray-100 text-gray-500 hover:bg-gray-50'
+                                    }`}
+                            >
+                                <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${formData.fundSource === 'OTHERS' ? 'border-purple-600' : 'border-gray-300'}`}>
+                                    {formData.fundSource === 'OTHERS' && <div className="w-2 h-2 rounded-full bg-purple-600" />}
+                                </div>
+                                <span className="text-xs font-bold uppercase tracking-wider">Others</span>
+                            </button>
                         </div>
                         {fundSourceError && (
                             <p className="text-red-500 text-xs font-bold mt-1 ml-1">⚠ Please select a Fund Source Type.</p>

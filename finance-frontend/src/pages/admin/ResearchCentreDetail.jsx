@@ -39,26 +39,43 @@ const ResearchCentreDetail = ({ isOpen, onClose, centreName, isDark }) => {
                 
                 // Fetch all projects (we filter client-side for simplicity, or modify API)
                 const [projectsRes, usersRes, metricsRes] = await Promise.all([
-                    apiClient.get('/projects'),
-                    apiClient.get('/profile/all'),
-                    apiClient.get('/academic-metrics/all')
+                    apiClient.get('/projects').catch(() => ({ data: { success: true, data: [] } })),
+                    apiClient.get('/profile/all').catch(() => ({ data: { success: true, data: [] } })),
+                    apiClient.get('/academic-metrics/all').catch(() => ({ data: { success: true, data: [] } }))
                 ]);
                 
                 if (!isMounted) return;
                 
                 let centreProjects = [];
                 if (projectsRes.data.success) {
-                    // Match projects to centre dynamically
-                    centreProjects = projectsRes.data.data.filter(p => 
-                        (p.department === centreName || p.centre === centreName)
-                    );
+                    const normalizeName = (name) => {
+                        if (!name) return '';
+                        const n = name.trim().toLowerCase();
+                        if (n.includes('nano science') || n.includes('nanotechnology')) return 'centre for nano science and nanotechnology';
+                        if (n.includes('waste management')) return 'centre for waste management';
+                        if (n.includes('energy research')) return 'centre of excellence for energy research';
+                        if (n.includes('climate studies')) return 'centre for climate studies';
+                        if (n.includes('nanomedical')) return 'centre for molecular and nanomedical sciences';
+                        if (n.includes('drug discovery')) return 'centre for drug discovery and development';
+                        if (n.includes('additive manufacturing')) return 'centre of excellence for additive manufacturing';
+                        if (n.includes('system of medicine')) return 'centre for indian system of medicine';
+                        if (n.includes('aqua culture')) return 'centre for aqua culture';
+                        return n;
+                    };
+
+                    const target = normalizeName(centreName);
+                    
+                    centreProjects = projectsRes.data.data.filter(p => {
+                        const pCentre = normalizeName(p.centre);
+                        return pCentre === target || target.includes(pCentre) || (pCentre && target.includes(pCentre));
+                    });
                 }
                 
                 // Transform to match UI schema
                 const uiProjects = centreProjects.map(p => ({
                     id: p._id || p.id,
                     name: p.title,
-                    pi: p.pi || 'N/A',
+                    pi: p.pi || p.principalInvestigator || (p.members?.find(m => m.role === 'PI')?.user?.name) || (p.members?.[0]?.user?.name) || 'N/A',
                     status: p.status === 'ACTIVE' ? 'Active' : (p.status === 'COMPLETED' ? 'Completed' : p.status),
                     budget: p.sanctionedBudget || 0,
                     released: p.releasedBudget || 0,

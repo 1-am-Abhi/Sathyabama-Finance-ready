@@ -70,11 +70,21 @@ exports.syncScopus = async (req, res) => {
                 message: 'Scopus metrics synced successfully',
                 data: result.data
             });
-        } else {
-            res.status(500).json({ success: false, message: result.message });
         }
     } catch (error) {
         console.error('Scopus sync error:', error);
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+exports.getAllProfiles = async (req, res) => {
+    try {
+        const users = await User.findAll({
+            attributes: ['_id', 'name', 'email', 'role', 'designation', 'centre', 'department', 'scopusId', 'photo', 'isProfileCompleted']
+        });
+        res.status(200).json({ success: true, data: users });
+    } catch (error) {
+        console.error('Get all profiles error:', error);
         res.status(500).json({ success: false, message: error.message });
     }
 };

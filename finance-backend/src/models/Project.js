@@ -64,8 +64,12 @@ const Project = sequelize.define('Project', {
         allowNull: true
     },
     fundingSource: {
-        type: DataTypes.ENUM('PFMS', 'INSTITUTIONAL', 'DIRECTOR_INNOVATION', 'DIRECTOR_INNOVATION_FUND'),
+        type: DataTypes.ENUM('PFMS', 'INSTITUTIONAL', 'OTHERS'),
         allowNull: false
+    },
+    verificationScreenshot: {
+        type: DataTypes.STRING,
+        allowNull: true
     },
     startDate: {
         type: DataTypes.DATE,

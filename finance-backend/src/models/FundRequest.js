@@ -95,7 +95,7 @@ FundRequest.init({
         allowNull: false
     },
     source: {
-        type: DataTypes.ENUM('PFMS', 'DIRECTOR_INNOVATION'),
+        type: DataTypes.ENUM('PFMS', 'INSTITUTIONAL', 'OTHERS'),
         allowNull: false
     },
     // CEER Budget Granularity details:

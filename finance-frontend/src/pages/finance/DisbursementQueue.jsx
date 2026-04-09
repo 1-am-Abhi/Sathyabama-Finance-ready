@@ -152,6 +152,7 @@ const DisbursementQueue = () => {
                             <thead>
                                 <tr className="text-left border-b border-slate-100 dark:border-slate-800">
                                     <th className="px-4 py-3 text-sm font-semibold text-slate-600 dark:text-slate-400">Project Details</th>
+                                    <th className="px-4 py-3 text-sm font-semibold text-slate-600 dark:text-slate-400">Source & Stage</th>
                                     <th className="px-4 py-3 text-sm font-semibold text-slate-600 dark:text-slate-400">Amount</th>
                                     <th className="px-4 py-3 text-sm font-semibold text-slate-600 dark:text-slate-400">Approved On</th>
                                     <th className="px-4 py-3 text-sm font-semibold text-slate-600 dark:text-slate-400">Action</th>
@@ -167,43 +168,47 @@ const DisbursementQueue = () => {
                                         <tr key={req.id} className="border-b border-slate-50 dark:border-slate-800/50 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
                                             <td className="px-4 py-4">
                                                 <div className="space-y-1">
-                                                    <p className="font-medium text-slate-900 dark:text-white line-clamp-1">
+                                                    <p className="font-medium text-slate-900 dark:text-white line-clamp-1 italic">
                                                         {req.Project?.title || req.projectTitle || '—'}
                                                     </p>
                                                     <div className="flex items-center gap-3">
-                                                        <span className="text-xs text-slate-500 flex items-center gap-1">
+                                                        <span className="text-xs text-slate-500 flex items-center gap-1 font-bold">
                                                             <Users className="w-3 h-3" /> 
-                                                            {/* FIX: Project model uses 'pi' not 'piName' */}
-                                                            {req.Project?.pi || req.Project?.piName || req.faculty || '—'}
+                                                            {req.Project?.pi || req.faculty || '—'}
                                                         </span>
-                                                        <span className="text-xs text-slate-500 flex items-center gap-1 font-mono">
-                                                            {/* FIX: Show last 8 chars as readable ID */}
+                                                        <span className="text-xs text-slate-400 flex items-center gap-1 font-mono">
                                                             REQ #{String(req.id).slice(-8).toUpperCase()}
                                                         </span>
                                                     </div>
-                                                    {req.documents && req.documents.length > 0 && (
-                                                        <div className="mt-2 flex flex-wrap gap-2">
-                                                            {req.documents.map((doc, idx) => (
-                                                                <a 
-                                                                    key={idx} 
-                                                                    href={doc.url} 
-                                                                    target="_blank" 
-                                                                    rel="noreferrer" 
-                                                                    className="inline-flex items-center gap-1 px-2 py-1 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 rounded text-[10px] font-bold uppercase"
-                                                                >
-                                                                    <FileText className="w-3 h-3" />
-                                                                    {doc.name || 'View Bill'}
-                                                                </a>
-                                                            ))}
-                                                        </div>
-                                                    )}
+                                                </div>
+                                            </td>
+                                            <td className="px-4 py-4">
+                                                <div className="space-y-2">
+                                                    <div className="flex flex-wrap gap-1">
+                                                        {req.currentStage === 'FUND_APPROVED' ? (
+                                                            <Badge className="bg-blue-100 text-blue-700 border-blue-200 text-[10px] font-black italic">INITIAL ADVANCE</Badge>
+                                                        ) : (
+                                                            <Badge className="bg-purple-100 text-purple-700 border-purple-200 text-[10px] font-black italic">REIMBURSEMENT</Badge>
+                                                        )}
+                                                    </div>
+                                                    <div>
+                                                        {req.source === 'PFMS' ? (
+                                                            <span className="text-[10px] font-black text-amber-600 bg-amber-50 px-2 py-0.5 rounded border border-amber-100 italic">PFMS FUNDED</span>
+                                                        ) : req.source === 'OTHERS' ? (
+                                                            <span className="text-[10px] font-black text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100 italic">OTHER GRANTS</span>
+                                                        ) : (
+                                                            <span className="text-[10px] font-black text-blue-600 bg-blue-50 px-2 py-0.5 rounded border border-blue-100 italic">INSTITUTIONAL</span>
+                                                        )}
+                                                    </div>
                                                 </div>
                                             </td>
                                             <td className="px-4 py-4">
                                                 <p className="font-bold text-slate-900 dark:text-white">₹{req.amount?.toLocaleString()}</p>
-                                                <Badge variant="outline" className="text-[10px] uppercase font-bold text-slate-500 px-1 mt-1">
-                                                    {req.fundType || 'GRANT'}
-                                                </Badge>
+                                                {req.documents && req.documents.length > 0 && (
+                                                    <div className="mt-1">
+                                                        <span className="text-[9px] text-slate-400 font-bold uppercase">{req.documents.length} Bills attached</span>
+                                                    </div>
+                                                )}
                                             </td>
                                             <td className="px-4 py-4">
                                                 <p className="text-sm text-slate-600 dark:text-slate-400">{new Date(req.updatedAt).toLocaleDateString()}</p>

@@ -26,6 +26,7 @@ const FacultyDashboard = () => {
     const [projects, setProjects] = useState([]);
     const [events, setEvents] = useState([]);
     const [fundRequests, setFundRequests] = useState([]);
+    const [equipmentRequests, setEquipmentRequests] = useState([]);
     const [revenueSummary, setRevenueSummary] = useState({ total: 0 });
     const [loading, setLoading] = useState(true);
 
@@ -37,15 +38,17 @@ const FacultyDashboard = () => {
     const loadData = async () => {
         try {
             const currentYear = new Date().getFullYear();
-            const [projRes, eventRes, fundRes, revRes] = await Promise.all([
+            const [projRes, eventRes, fundRes, eqRes, revRes] = await Promise.all([
                 apiClient.get('/projects').catch(() => ({ data: { data: [] } })),
                 apiClient.get('/event-requests').catch(() => ({ data: { data: [] } })),
                 apiClient.get('/fund-requests').catch(() => ({ data: { data: [] } })),
+                apiClient.get('/equipment-requests').catch(() => ({ data: { data: [] } })),
                 apiClient.get(`/revenue/summary?year=${currentYear}`).catch(() => ({ data: { success: true, data: { summary: { total: 0 } } } })),
             ]);
             setProjects(projRes.data.data || []);
             setEvents(eventRes.data.data || []);
             setFundRequests(fundRes.data.data || []);
+            setEquipmentRequests(eqRes.data.data || []);
             if (revRes.data.success) {
                 setRevenueSummary(revRes.data.data.summary || { total: 0 });
             }
@@ -56,19 +59,26 @@ const FacultyDashboard = () => {
         }
     };
 
-    const activeProjects = projects.filter(p => ['active', 'ACTIVE', 'Approved', 'APPROVED'].includes(p.status)).length;
+    const activeProjectsCount = projects.filter(p => ['active', 'ACTIVE', 'Approved', 'APPROVED'].includes(p.status)).length;
+    const activeEquipmentCount = equipmentRequests.filter(e => ['Approved', 'DISBURSED'].includes(e.status)).length;
+    const activeStatsCount = activeProjectsCount + activeEquipmentCount;
+
     const publications = projects.filter(p => 
         (p.projectType || '').toUpperCase() === 'PUBLICATION' || 
         (p.status || '').toUpperCase() === 'PUBLISHED'
     ).length;
+    
     const totalProjectFunding = projects.reduce((sum, p) => sum + parseFloat(p.sanctionedBudget || 0), 0);
     const totalEventFunding = events.filter(e => e.status === 'APPROVED').reduce((sum, e) => sum + parseFloat(e.approvedAmount || 0), 0);
-    const totalFunding = totalProjectFunding + totalEventFunding;
+    const totalFundReqFunding = fundRequests.filter(r => r.status === 'APPROVED').reduce((sum, r) => sum + parseFloat(r.requestedAmount || 0), 0);
+    const totalEquipmentFunding = equipmentRequests.filter(e => ['Approved', 'DISBURSED'].includes(e.status)).reduce((sum, e) => sum + parseFloat(e.approvedAmount || 0), 0);
+    
+    const totalFunding = totalProjectFunding + totalEventFunding + totalFundReqFunding + totalEquipmentFunding;
     const formattedFunding = formatCurrency(totalFunding);
     const formattedRevenue = formatCurrency(revenueSummary.total || 0);
 
     const stats = [
-        { title: 'Active Projects', value: loading ? '…' : String(activeProjects), icon: FileText, color: 'text-rose-400', bg: 'bg-rose-500/10', border: 'border-rose-500/20', subtitle: 'Ongoing research' },
+        { title: 'Active Projects', value: loading ? '…' : String(activeStatsCount), icon: FileText, color: 'text-rose-400', bg: 'bg-rose-500/10', border: 'border-rose-500/20', subtitle: 'Ongoing research' },
         { title: 'Revenue Generated', value: loading ? '…' : formattedRevenue, icon: TrendingUp, color: 'text-amber-400', bg: 'bg-amber-500/10', border: 'border-amber-500/20', subtitle: 'Institutional income' },
         { title: 'Total Funding', value: loading ? '…' : formattedFunding, icon: Banknote, color: 'text-emerald-400', bg: 'bg-emerald-500/10', border: 'border-emerald-500/20', subtitle: 'Sanctioned grants' },
         { title: 'Publications', value: String(publications), icon: Award, color: 'text-violet-400', bg: 'bg-violet-500/10', border: 'border-violet-500/20', subtitle: 'Research output' }
@@ -100,7 +110,20 @@ const FacultyDashboard = () => {
     fundRequests.forEach(r => {
         const d = r.createdAt ? new Date(r.createdAt) : null;
         if (d && (r.status === 'APPROVED')) {
-            trendData[d.getMonth()].amount += parseFloat(r.requestedAmount || 0) / 100000;
+            const mIdx = d.getMonth();
+            const amt = parseFloat(r.requestedAmount || 0) / 100000;
+            trendData[mIdx].amount += amt;
+            if (amt > 0) trendData[mIdx].titles.push(`Fund Req: ${r.purpose || r.projectTitle}`);
+        }
+    });
+    // Include equipment requests (sanctioned/disbursed)
+    equipmentRequests.forEach(e => {
+        const d = e.createdAt ? new Date(e.createdAt) : null;
+        if (d && (['Approved', 'DISBURSED'].includes(e.status))) {
+            const mIdx = d.getMonth();
+            const amt = parseFloat(e.approvedAmount || 0) / 100000;
+            trendData[mIdx].amount += amt;
+            if (amt > 0) trendData[mIdx].titles.push(`Equip: ${e.assetDescription || e.itemName}`);
         }
     });
     // Round to 2 decimal places

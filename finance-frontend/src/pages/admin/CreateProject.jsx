@@ -22,8 +22,20 @@ const CreateProject = () => {
         duration: '',
         startDate: '',
         fundingSource: 'PFMS',
-        projectType: 'PROJECT'
+        projectType: 'PROJECT',
+        verificationScreenshot: null
     });
+
+    const handleFileChange = (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                setFormData({ ...formData, verificationScreenshot: reader.result });
+            };
+            reader.readAsDataURL(file);
+        }
+    };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -38,7 +50,8 @@ const CreateProject = () => {
                 fundingSource: formData.fundingSource,
                 startDate: formData.startDate,
                 projectType: formData.projectType,
-                status: formData.projectType === 'PUBLICATION' ? 'PUBLISHED' : 'ACTIVE'
+                status: formData.projectType === 'PUBLICATION' ? 'PUBLISHED' : 'ACTIVE',
+                verificationScreenshot: formData.verificationScreenshot
             };
             const response = await apiClient.post('/projects', payload);
             if (response.data.success) {
@@ -206,6 +219,25 @@ const CreateProject = () => {
                                         <option key={source} value={source}>{source}</option>
                                     ))}
                                 </select>
+                            </div>
+
+                            <div className="space-y-2 p-4 bg-maroon-50 dark:bg-maroon-900/10 border border-maroon-100 dark:border-maroon-900/30 rounded-lg">
+                                <Label htmlFor="verificationScreenshot" className="dark:text-gray-300 text-maroon-800 dark:text-maroon-400 font-bold">Screenshot of Mail by Company (Verification) *</Label>
+                                <Input
+                                    id="verificationScreenshot"
+                                    name="verificationScreenshot"
+                                    type="file"
+                                    accept="image/*"
+                                    onChange={handleFileChange}
+                                    className="dark:bg-slate-800 dark:border-slate-700 dark:text-white"
+                                    required
+                                />
+                                {formData.verificationScreenshot && (
+                                    <div className="mt-2 w-32 h-20 rounded border overflow-hidden">
+                                        <img src={formData.verificationScreenshot} alt="Mail Preview" className="w-full h-full object-cover" />
+                                    </div>
+                                )}
+                                <p className="text-[10px] text-maroon-600/70 italic">Ensure the screenshot clearly shows the mail headers and sender information.</p>
                             </div>
 
                             <div className="flex justify-end space-x-4 pt-4 border-t dark:border-slate-800">

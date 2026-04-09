@@ -28,6 +28,7 @@ const AcademicWorkModal = ({ isOpen, onClose, onSubmit, initialData = null, mode
             category: 'Adult',
             ethicalApproval: false
         },
+        verificationScreenshot: null,
 
         // Publication Specific
         publicationType: 'JOURNAL',
@@ -63,6 +64,7 @@ const AcademicWorkModal = ({ isOpen, onClose, onSubmit, initialData = null, mode
                 equipments: [],
                 consumables: [],
                 patientDetails: { count: '', category: 'Adult', ethicalApproval: false },
+                verificationScreenshot: null,
                 publicationType: 'JOURNAL',
                 authorRole: 'First Author',
                 publisher: '',
@@ -137,6 +139,17 @@ const AcademicWorkModal = ({ isOpen, onClose, onSubmit, initialData = null, mode
             return item;
         });
         setFormData({ ...formData, consumables: updated });
+    };
+
+    const handleFileChange = (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                setFormData({ ...formData, verificationScreenshot: reader.result });
+            };
+            reader.readAsDataURL(file);
+        }
     };
 
     const isJournal = formData.publicationType === 'JOURNAL';
@@ -241,8 +254,7 @@ const AcademicWorkModal = ({ isOpen, onClose, onSubmit, initialData = null, mode
                                         >
                                             <option value="INSTITUTIONAL">Institutional</option>
                                             <option value="PFMS">PFMS</option>
-                                            <option value="DIRECTOR_INNOVATION">Director Innovation</option>
-                                            <option value="DIRECTOR_INNOVATION_FUND">Director Innovation Fund</option>
+                                            <option value="OTHERS">Others</option>
                                         </select>
                                     </div>
                                     <div>
@@ -306,15 +318,23 @@ const AcademicWorkModal = ({ isOpen, onClose, onSubmit, initialData = null, mode
                                         />
                                     </div>
                                 </div>
-                                <div>
-                                    <label className="text-xs font-bold text-gray-500 uppercase italic">Description</label>
-                                    <textarea
-                                        value={formData.description}
-                                        onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                                        rows="3"
-                                        className="w-full mt-1 px-4 py-2 border dark:border-slate-700 bg-white dark:bg-slate-800 dark:text-white rounded-lg outline-none italic font-bold"
-                                        placeholder="Project description..."
+                                </div>
+                                
+                                <div className="p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl space-y-2">
+                                    <label className="text-xs font-bold text-amber-700 dark:text-amber-400 uppercase italic">Screenshot of Mail by Company (Verification) *</label>
+                                    <input
+                                        type="file"
+                                        accept="image/*"
+                                        onChange={handleFileChange}
+                                        className="w-full text-xs text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                                        required={mode === 'create'}
                                     />
+                                    {formData.verificationScreenshot && (
+                                        <div className="mt-2 relative w-24 h-16 rounded overflow-hidden border">
+                                            <img src={formData.verificationScreenshot} alt="Preview" className="w-full h-full object-cover" />
+                                        </div>
+                                    )}
+                                    <p className="text-[10px] text-amber-600 dark:text-amber-500 italic">Please upload a screenshot of the official mail from the company for verification.</p>
                                 </div>
 
                                 {/* Project Resources Section */}
