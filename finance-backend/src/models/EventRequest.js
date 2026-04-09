@@ -89,18 +89,12 @@ const EventRequest = sequelize.define('EventRequest', {
     }
 });
 
-const ProjectMember = require('./ProjectMember');
-
-EventRequest.hasMany(ProjectMember, { 
-    foreignKey: 'projectId', 
-    as: 'members',
-    constraints: false 
-});
-
-ProjectMember.belongsTo(EventRequest, { 
-    foreignKey: 'projectId', 
-    constraints: false,
-    as: 'event'
-});
+EventRequest.associate = (models) => {
+    EventRequest.hasMany(models.ProjectMember, { 
+        foreignKey: 'projectId', 
+        as: 'members',
+        constraints: false 
+    });
+};
 
 module.exports = EventRequest;

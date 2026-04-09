@@ -1,6 +1,5 @@
 const { DataTypes, Model } = require('sequelize');
 const { sequelize } = require('../config/db');
-const Centre = require('./Centre');
 
 const FUND_FLOW_STAGES = [
     'FUND_APPROVED',
@@ -13,6 +12,12 @@ const FUND_FLOW_STAGES = [
 ];
 
 class FundRequest extends Model {
+    static associate(models) {
+        this.belongsTo(models.Centre, { foreignKey: 'centreId', as: 'researchCentre' });
+        this.belongsTo(models.User, { foreignKey: 'userId', as: 'requester' });
+        this.belongsTo(models.Project, { foreignKey: 'projectId' });
+    }
+
     async advanceStage(nextStage, updatedBy, remarks) {
         const currentIndex = FUND_FLOW_STAGES.indexOf(this.currentStage);
         const nextIndex = FUND_FLOW_STAGES.indexOf(nextStage);
@@ -127,8 +132,5 @@ FundRequest.init({
     timestamps: true 
 });
 
-FundRequest.belongsTo(require('./Centre'), { foreignKey: 'centreId', as: 'researchCentre' });
-FundRequest.belongsTo(require('./User'), { foreignKey: 'userId', as: 'requester' });
-FundRequest.belongsTo(require('./Project'), { foreignKey: 'projectId' });
 
 module.exports = { FundRequest, FUND_FLOW_STAGES };

@@ -67,8 +67,8 @@ const Revenue = sequelize.define('Revenue', {
 }, {
     timestamps: true
 });
-const User = require('./User');
-Revenue.belongsTo(User, { foreignKey: 'userId' });
-User.hasMany(Revenue, { foreignKey: 'userId' });
+Revenue.associate = (models) => {
+    Revenue.belongsTo(models.User, { foreignKey: 'userId' });
+};
 
 module.exports = Revenue;

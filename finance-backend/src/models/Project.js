@@ -101,24 +101,11 @@ const Project = sequelize.define('Project', {
     }
 });
 
-const { FundRequest } = require('./FundRequest');
-const PFMSTransaction = require('./PFMSTransaction');
-const ProjectMember = require('./ProjectMember');
-const User = require('./User');
-const Centre = require('./Centre');
-
-Project.belongsTo(Centre, { foreignKey: 'centreId', as: 'researchCentre' });
-
-Project.hasMany(FundRequest, { foreignKey: 'projectId' });
-FundRequest.belongsTo(Project, { foreignKey: 'projectId' });
-
-Project.hasMany(PFMSTransaction, { foreignKey: 'projectId' });
-PFMSTransaction.belongsTo(Project, { foreignKey: 'projectId' });
-
-Project.hasMany(ProjectMember, { foreignKey: 'projectId', as: 'members' });
-ProjectMember.belongsTo(Project, { foreignKey: 'projectId' });
-
-ProjectMember.belongsTo(User, { foreignKey: 'userId', as: 'user' });
-User.hasMany(ProjectMember, { foreignKey: 'userId' });
+Project.associate = (models) => {
+    Project.belongsTo(models.Centre, { foreignKey: 'centreId', as: 'researchCentre' });
+    Project.hasMany(models.FundRequest, { foreignKey: 'projectId' });
+    Project.hasMany(models.PFMSTransaction, { foreignKey: 'projectId' });
+    Project.hasMany(models.ProjectMember, { foreignKey: 'projectId', as: 'members' });
+};
 
 module.exports = Project;

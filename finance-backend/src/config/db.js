@@ -36,6 +36,11 @@ const connectDB = async () => {
     try {
         await sequelize.authenticate();
         console.log('PostgreSQL (Sequelize) Connected successfully.');
+        
+        // Import models to ensure associations are registered
+        const models = require('../models');
+        console.log('Models and associations initialized.');
+        
         await sequelize.sync({ alter: true });
         console.log('Database synced (Alter applied).');
     } catch (error) {
