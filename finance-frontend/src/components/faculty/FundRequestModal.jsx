@@ -142,7 +142,7 @@ const FundRequestModal = ({ isOpen, onClose, project, nextInstallment, onSubmit,
                     {/* NEW: Fund Source Type (Mandatory) */}
                     <div className="space-y-2">
                         <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Fund Source Type <span className="text-red-500">*</span></label>
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="grid grid-cols-3 gap-3">
                             <button
                                 type="button"
                                 onClick={() => setFormData({ ...formData, fundSource: 'PFMS' })}

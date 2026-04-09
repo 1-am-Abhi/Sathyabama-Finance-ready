@@ -126,13 +126,13 @@ const FinanceManagerDashboard = () => {
                                     <FundSourceCardSkeleton />
                                 ) : (
                                     <FundSourceCard
-                                        title="Other Grants"
+                                        title="Other's Fund"
                                         data={fundSourcesData?.directorFunds}
                                         icon={CircleDollarSign}
                                         colorClass="bg-emerald-50 text-emerald-700"
                                         onEdit={() => handleEditFundSource(
                                             'DIRECTOR',
-                                            'Other Grants (External / Others)',
+                                            "Other's Fund (External / Others)",
                                             fundSourcesData?.directorFunds?.totalAllocated
                                         )}
                                     />

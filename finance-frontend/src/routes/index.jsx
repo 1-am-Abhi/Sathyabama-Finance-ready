@@ -47,6 +47,7 @@ import DisbursementQueue from '../pages/finance/DisbursementQueue';
 import EquipmentDisbursements from '../pages/finance/EquipmentDisbursements';
 import RevenueVerification from '../pages/finance/RevenueVerification';
 import FinancialReports from '../pages/finance/FinancialReports';
+import DisbursalHistory from '../pages/finance/DisbursalHistory';
 
 const AppRoutes = () => {
     // Apply theme on initial load
@@ -145,6 +146,7 @@ const AppRoutes = () => {
                                     <Routes>
                                         <Route path="dashboard" element={<FinanceManagerDashboard />} />
                                         <Route path="disbursements" element={<DisbursementQueue />} />
+                                        <Route path="disbursal-history" element={<DisbursalHistory />} />
                                         <Route path="revenue-verification" element={<RevenueVerification />} />
                                         <Route path="fund-flow" element={<FundReleasesPage />} />
                                         <Route path="pfms" element={<ManagePFMS />} />

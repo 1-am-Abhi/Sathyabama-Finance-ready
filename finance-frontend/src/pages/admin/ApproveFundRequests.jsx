@@ -10,7 +10,7 @@ import { useLayout } from '../../contexts/LayoutContext';
 import { usePipeline } from '../../contexts/PipelineContext';
 import { formatCurrency } from '../../utils/format';
 import DateFilter from '../../components/shared/DateFilter';
-import { RESEARCH_CENTRES } from '../../constants/researchCentres';
+import { useCentres } from '../../constants/researchCentres';
 import { FUND_SOURCES } from '../../constants/fundSources';
 import AIResultModal from '../../components/shared/AIResultModal';
 import { summarizeRequest } from '../../services/aiService';
@@ -19,6 +19,7 @@ const ApproveFundRequests = () => {
     const { fundRequests, approveRequest, rejectRequest, advanceStage, isLoading } = usePipeline();
     const { setLayout } = useLayout();
     const { addNotification } = useNotifications();
+    const { centres: dynamicCentres } = useCentres();
     const [selectedDate, setSelectedDate] = useState(null);
     const [selectedCentre, setSelectedCentre] = useState('All');
     const [selectedSource, setSelectedSource] = useState('All');
@@ -209,28 +210,28 @@ const ApproveFundRequests = () => {
                     <div className="flex flex-wrap items-center gap-4 w-full">
                         <div className="flex items-center space-x-2">
                             <span className="text-sm text-gray-500 dark:text-gray-400 font-medium">Source:</span>
-                            <select
-                                className="bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 text-gray-900 dark:text-white text-sm rounded-lg focus:ring-maroon-500 focus:border-maroon-500 block w-40 p-2.5 outline-none font-medium"
+                            <select 
+                                className="h-9 px-3 bg-white dark:bg-slate-900 border dark:border-slate-800 rounded-md text-xs outline-none"
                                 value={selectedSource}
                                 onChange={(e) => setSelectedSource(e.target.value)}
                             >
                                 <option value="All">All Sources</option>
                                 {FUND_SOURCES.map(source => (
-                                    <option key={source} value={source}>{source}</option>
+                                    <option key={source} value={source === 'Others' ? 'OTHERS' : source.toUpperCase() === 'INSTITUTIONAL' ? 'INSTITUTIONAL' : source}>
+                                        {source === 'Others' ? "Other's" : source}
+                                    </option>
                                 ))}
                             </select>
                         </div>
                         <div className="flex items-center space-x-2">
                             <span className="text-sm text-gray-500 dark:text-gray-400 font-medium">Research Centre:</span>
-                            <select
-                                className="bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 text-gray-900 dark:text-white text-sm rounded-lg focus:ring-maroon-500 focus:border-maroon-500 block w-full md:w-64 p-2.5 outline-none font-medium"
+                            <select 
+                                className="h-9 px-3 bg-white dark:bg-slate-900 border dark:border-slate-800 rounded-md text-xs outline-none"
                                 value={selectedCentre}
                                 onChange={(e) => setSelectedCentre(e.target.value)}
                             >
-                                <option value="All">All Research Centres</option>
-                                {RESEARCH_CENTRES.map(centre => (
-                                    <option key={centre} value={centre}>{centre}</option>
-                                ))}
+                                <option value="All">All Centres</option>
+                                {dynamicCentres.map(c => <option key={c} value={c}>{c}</option>)}
                             </select>
                         </div>
                         <div className="flex items-center space-x-2">

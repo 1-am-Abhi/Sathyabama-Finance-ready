@@ -5,7 +5,7 @@ import { useNotifications } from '../../contexts/NotificationContext';
 import { ROLES } from '../../constants/roles';
 import {
     LogOut, Home, FileText, IndianRupee, Users, Building2,
-    Settings, CheckCircle, BarChart3, Clock, Calendar, TrendingUp, ChevronDown, ChevronRight, Briefcase, GraduationCap, X, Sparkles, ShieldCheck
+    Settings, CheckCircle, BarChart3, Clock, Calendar, TrendingUp, ChevronDown, ChevronRight, Briefcase, GraduationCap, X, Sparkles, ShieldCheck, History
 } from 'lucide-react';
 
 const Sidebar = ({ isOpen, onClose }) => {
@@ -86,6 +86,7 @@ const Sidebar = ({ isOpen, onClose }) => {
                 return [
                     { label: 'Dashboard', path: '/finance/dashboard', icon: Home },
                     { label: 'Disbursements', path: '/finance/disbursements', icon: CheckCircle }, // Modified from 'Fund Releases' to 'Disbursements'
+                    { label: 'Disbursal History', path: '/finance/disbursal-history', icon: History },
                     { label: 'Revenue Verification', path: '/finance/revenue-verification', icon: TrendingUp }, // New
                     { label: 'PFMS Tracking', path: '/finance/pfms', icon: FileText },
                     { label: 'Equipment Disbursements', path: '/finance/equipment-disbursements', icon: Briefcase },

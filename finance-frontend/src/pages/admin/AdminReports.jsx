@@ -613,7 +613,9 @@ const AdminReports = () => {
                         >
                             <option value="All">All Sources</option>
                             {FUND_SOURCES.map(source => (
-                                <option key={source} value={source}>{source}</option>
+                                <option key={source} value={source === 'Others' ? 'OTHERS' : source.toUpperCase() === 'INSTITUTIONAL' ? 'INSTITUTIONAL' : source}>
+                                    {source === 'Others' ? "Other's" : source}
+                                </option>
                             ))}
                         </select>
                     </div>

@@ -257,7 +257,6 @@ exports.createProject = async (req, res) => {
             centre: req.body.centre || req.user.centre || 'Research Centre',
             verificationScreenshot: req.body.verificationScreenshot || null
         };
-        };
         
         const project = await Project.create(projectData);
         res.status(201).json({ success: true, data: project });
@@ -299,7 +298,31 @@ exports.updateProject = async (req, res) => {
         if (req.body.proofStatus === 'REJECTED') {
             updateData.proofUploaded = false;
         }
-        if (req.body.status) updateData.status = req.body.status.toUpperCase();
+        if (req.body.status) {
+            const newStatus = req.body.status.toUpperCase();
+            // Automation: If project is being approved (ACTIVE or APPROVED), create an initial fund request
+            const isActuallyApproved = ['ACTIVE', 'APPROVED'].includes(newStatus);
+            const wasNotApproved = !['ACTIVE', 'APPROVED'].includes(project.status);
+
+            if (isActuallyApproved && wasNotApproved) {
+                const { FundRequest } = require('../models/FundRequest');
+                await FundRequest.create({
+                    projectTitle: project.title,
+                    projectId: project._id || project.id,
+                    faculty: project.pi || 'Faculty Member',
+                    facultyId: project.facultyId || project.userId,
+                    userId: project.userId,
+                    requestedAmount: project.sanctionedBudget || 1, // Default 1 if not set
+                    purpose: `Initial advance for approved project: ${project.title}`,
+                    status: 'APPROVED',
+                    currentStage: 'FUND_APPROVED',
+                    department: project.department || 'Research',
+                    centre: project.centre || 'Research Centre',
+                    source: (project.fundingSource || 'INSTITUTIONAL').toUpperCase()
+                });
+            }
+            updateData.status = newStatus;
+        }
         await project.update(updateData);
         res.status(200).json({ success: true, data: project });
     } catch (error) {

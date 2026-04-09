@@ -132,3 +132,9 @@ export const getFinancialReports = async (params = {}) => {
     const response = await api.get(`/finance/reports-data?${queryParams}`);
     return response.data;
 };
+
+// Get disbursal history
+export const getDisbursalHistory = async () => {
+    const response = await api.get('/finance/history');
+    return response.data.data;
+};

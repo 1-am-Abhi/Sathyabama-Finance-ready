@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { useLayout } from '../../contexts/LayoutContext';
 import { useFinancialReports } from '../../hooks/useFinance';
+import { useCentres } from '../../constants/researchCentres';
+import { FUND_SOURCES } from '../../constants/fundSources';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
 import { Badge } from '../../components/ui/badge';
@@ -15,8 +17,10 @@ const FinancialReports = () => {
     const [filters, setFilters] = useState({
         period: '2024-Q1',
         department: 'All Departments',
-        fundType: 'All Funds'
+        fundType: 'All Funds',
+        centre: 'All Centres'
     });
+    const { centres: dynamicCentres } = useCentres();
 
     const { data: reportsData = { inflows: [], outflows: [], summary: {} }, isLoading } = useFinancialReports(filters);
 
@@ -45,6 +49,36 @@ const FinancialReports = () => {
                             <option value="2024-Q1">Q1 FY 2024-25</option>
                             <option value="2023-Q4">Q4 FY 2023-24</option>
                             <option value="2023-ANNUAL">Annual Report 2023</option>
+                        </select>
+                    </div>
+
+                    {/* NEW: Centre Filter */}
+                    <div className="relative">
+                        <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-emerald-500" />
+                        <select 
+                            className="pl-10 pr-8 py-2 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-emerald-500 transition-all appearance-none cursor-pointer"
+                            value={filters.centre}
+                            onChange={(e) => setFilters({...filters, centre: e.target.value})}
+                        >
+                            <option value="All Centres">All Centres</option>
+                            {dynamicCentres.map(c => <option key={c} value={c}>{c}</option>)}
+                        </select>
+                    </div>
+
+                    {/* NEW: Fund Type Filter */}
+                    <div className="relative">
+                        <Wallet className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-blue-500" />
+                        <select 
+                            className="pl-10 pr-8 py-2 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-blue-500 transition-all appearance-none cursor-pointer"
+                            value={filters.fundType}
+                            onChange={(e) => setFilters({...filters, fundType: e.target.value})}
+                        >
+                            <option value="All Funds">All Funds</option>
+                            {FUND_SOURCES.map(source => (
+                                <option key={source} value={source === 'Others' ? 'OTHERS' : source.toUpperCase() === 'INSTITUTIONAL' ? 'INSTITUTIONAL' : source}>
+                                    {source === 'Others' ? "Other's" : source}
+                                </option>
+                            ))}
                         </select>
                     </div>
                 </div>

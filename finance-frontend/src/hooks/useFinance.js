@@ -15,6 +15,7 @@ import {
     getFinancialReports,
     getFinanceStats,
     getFundFlowProjects,
+    getDisbursalHistory,
     getPFMSTransactions,
     getInternshipFees,
     verifyInternshipFee,
@@ -256,6 +257,17 @@ export const useFinancialReports = (params = {}) => {
     return useQuery({
         queryKey: ['financialReports', params],
         queryFn: () => getFinancialReports(params),
+        staleTime: 0,
+    });
+};
+
+/**
+ * Hook to fetch disbursal history
+ */
+export const useDisbursalHistory = () => {
+    return useQuery({
+        queryKey: ['disbursalHistory'],
+        queryFn: getDisbursalHistory,
         staleTime: 0,
     });
 };

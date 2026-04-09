@@ -54,18 +54,8 @@ const ResearchCentreDetail = ({ isOpen, onClose, centreName, isDark }) => {
                 // Normalize centre name for flexible matching
                 const normalizeName = (name) => {
                     if (!name) return '';
-                    const n = name.trim().toLowerCase();
-                    if (n.includes('nano science') || n.includes('nanotechnology')) return 'centre for nano science and nanotechnology';
-                    if (n.includes('waste management')) return 'centre for waste management';
-                    if (n.includes('energy research') || n.includes('ceer')) return 'centre of excellence for energy research';
-                    if (n.includes('climate studies')) return 'centre for climate studies';
-                    if (n.includes('nanomedical')) return 'centre for molecular and nanomedical sciences';
-                    if (n.includes('drug discovery')) return 'centre for drug discovery and development';
-                    if (n.includes('additive manufacturing')) return 'centre of excellence for additive manufacturing';
-                    if (n.includes('system of medicine')) return 'centre for indian system of medicine';
-                    if (n.includes('aqua culture')) return 'centre for aqua culture';
-                    if (n === 'others' || n === 'other') return 'others';
-                    return n;
+                    return name.trim().toLowerCase()
+                        .replace(/^centre\s+(for|of\s+excellence\s+for)\s+/i, '');
                 };
 
                 let centreProjects = [];
@@ -76,7 +66,7 @@ const ResearchCentreDetail = ({ isOpen, onClose, centreName, isDark }) => {
                         const pDept = normalizeName(p.department);
                         // Match against both centre AND department fields
                         return pCentre === target || pDept === target ||
-                               (pCentre && target && (pCentre.includes(target.substring(0, 12)) || target.includes(pCentre.substring(0, 12))));
+                               (pCentre && target && (pCentre.includes(target) || target.includes(pCentre)));
                     });
                 }
                 
@@ -101,7 +91,7 @@ const ResearchCentreDetail = ({ isOpen, onClose, centreName, isDark }) => {
                         const uDept = normalizeName(u.department);
                         const tgt = normalizeName(centreName);
                         return uCentre === tgt || uDept === tgt ||
-                               (uCentre && tgt && (uCentre.includes(tgt.substring(0, 12)) || tgt.includes(uCentre.substring(0, 12))));
+                               (uCentre && tgt && (uCentre.includes(tgt) || tgt.includes(uCentre)));
                     });
 
                     centreFaculty = centreUsers.filter(u => u.role === 'FACULTY').map(u => ({

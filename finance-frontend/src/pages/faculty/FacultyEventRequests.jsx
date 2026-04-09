@@ -267,7 +267,7 @@ const FacultyEventRequests = () => {
                                         <option>College Funded</option>
                                         <option>Industry Funded</option>
                                         <option>Self Funded</option>
-                                        <option>Others Funded</option>
+                                        <option>Other's Fund</option>
                                     </select>
                                 </div>
                                 <div className="space-y-3">

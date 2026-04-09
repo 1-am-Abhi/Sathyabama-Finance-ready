@@ -2,8 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { X, BookOpen, Briefcase, Plus, Trash2 } from 'lucide-react';
 import { Button } from '../ui/button';
+import { useCentres } from '../../constants/researchCentres';
 
 const AcademicWorkModal = ({ isOpen, onClose, onSubmit, initialData = null, mode = 'create', isSubmitting = false }) => {
+    const { centres: dynamicCentres } = useCentres();
     const [formData, setFormData] = useState({
         // Common
         mainType: 'PROJECT',
@@ -243,6 +245,21 @@ const AcademicWorkModal = ({ isOpen, onClose, onSubmit, initialData = null, mode
                                     </div>
                                 </div>
 
+                                <div className="mt-4">
+                                    <label className="text-xs font-bold text-gray-500 uppercase italic">Research Centre *</label>
+                                    <select
+                                        value={formData.researchCentre || ''}
+                                        onChange={(e) => setFormData({ ...formData, researchCentre: e.target.value })}
+                                        className="w-full mt-1 px-4 py-2 border dark:border-slate-700 bg-white dark:bg-slate-800 dark:text-white rounded-lg outline-none italic font-bold"
+                                        required={formData.mainType === 'PROJECT'}
+                                    >
+                                        <option value="">Select Research Centre</option>
+                                        {dynamicCentres.map(centre => (
+                                            <option key={centre} value={centre}>{centre}</option>
+                                        ))}
+                                    </select>
+                                </div>
+
                                 {/* FIX #1 — Funding Source selector (maps to DB-valid ENUM) */}
                                 <div className="grid grid-cols-2 gap-4">
                                     <div>
@@ -254,7 +271,7 @@ const AcademicWorkModal = ({ isOpen, onClose, onSubmit, initialData = null, mode
                                         >
                                             <option value="INSTITUTIONAL">Institutional</option>
                                             <option value="PFMS">PFMS</option>
-                                            <option value="OTHERS">Others</option>
+                                            <option value="OTHERS">Other's</option>
                                         </select>
                                     </div>
                                     <div>

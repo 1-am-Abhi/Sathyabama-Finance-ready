@@ -40,6 +40,7 @@ const projectSchema = z.object({
     pi: z.string().optional(),
     department: z.string().optional(),
     centre: z.string().optional(),
+    verificationScreenshot: z.string().optional().nullable(),
   })
 });
 

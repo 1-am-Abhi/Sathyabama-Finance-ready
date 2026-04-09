@@ -16,9 +16,7 @@ import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
     PieChart, Pie, Cell, Sector
 } from 'recharts';
-import {
-    RESEARCH_CENTRES
-} from '../../data/dashboardData';
+import { useCentres } from '../../constants/researchCentres';
 import ResearchCentreDetail from './ResearchCentreDetail';
 import { formatCurrency } from '../../utils/format';
 import apiClient from '../../api/client';
@@ -42,6 +40,7 @@ const AdminDashboard = () => {
     const [centresStats, setCentresStats] = useState([]);
     const [recentRequests, setRecentRequests] = useState([]);
     const [loading, setLoading] = useState(true);
+    const { centres: dynamicCentres } = useCentres();
 
     React.useEffect(() => {
         let isMounted = true;
@@ -89,15 +88,15 @@ const AdminDashboard = () => {
     }, []);
 
     const centres = React.useMemo(() => {
-        // FIX: Always start from the full official list so all 9 centres appear
+        // FIX: Always start from the full official list so all centres appear
         // even if they have no projects/budget yet in the DB
-        const base = [...RESEARCH_CENTRES];
+        const base = [...dynamicCentres];
         // Merge any DB-only centres that are not already in the official list
         (centresStats || []).forEach(c => {
             if (c.name && !base.includes(c.name)) base.push(c.name);
         });
         return base;
-    }, [centresStats]);
+    }, [centresStats, dynamicCentres]);
 
     const fyOptions = ['2023-24', '2024-25', '2025-26'];
 
@@ -142,14 +141,16 @@ const AdminDashboard = () => {
 
     // Mapping API data to UI structure — fuzzy match backend centre names to the official list
     const centreData = React.useMemo(() => {
-        const normalize = (s) => (s || '').trim().toLowerCase();
+        const normalize = (s) => (s || '').trim().toLowerCase()
+            .replace(/^centre\s+(for|of\s+excellence\s+for)\s+/i, '');
+        
         return centres.map(name => {
-            // Try exact match first, then fuzzy (substring) match
-            const centreStat = (centresStats || []).find(c =>
-                normalize(c.name) === normalize(name) ||
-                normalize(c.name).includes(normalize(name).substring(0, 10)) ||
-                normalize(name).includes(normalize(c.name).substring(0, 10))
-            );
+            // Try exact match first, then fuzzy (core name match)
+            const centreStat = (centresStats || []).find(c => {
+                const n1 = normalize(c.name);
+                const n2 = normalize(name);
+                return n1 === n2 || (n1.length > 5 && n2.includes(n1)) || (n2.length > 5 && n1.includes(n2));
+            });
             return {
                 centre: name,
                 totalProjects: centreStat?.totalProjects || 0,
@@ -460,7 +461,7 @@ const AdminDashboard = () => {
                                     <CircleDollarSign className="w-6 h-6" />
                                 </div>
                                 <div>
-                                    <CardTitle className="text-lg font-bold text-gray-800 dark:text-white">Other Grants</CardTitle>
+                                    <CardTitle className="text-lg font-bold text-gray-800 dark:text-white">Other's Fund</CardTitle>
                                     <CardDescription className="text-xs dark:text-gray-400">Research Grants & Consultancy</CardDescription>
                                 </div>
                             </div>

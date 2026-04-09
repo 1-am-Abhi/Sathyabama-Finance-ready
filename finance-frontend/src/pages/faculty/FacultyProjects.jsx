@@ -113,7 +113,8 @@ const FacultyProjects = () => {
                     fundingSource,
                     projectType: (data.mainType || 'PROJECT').toUpperCase(),
                     publisher: data.publisher || null,
-                    publicationYear: Number(data.year || new Date().getFullYear())
+                    publicationYear: Number(data.year || new Date().getFullYear()),
+                    verificationScreenshot: data.verificationScreenshot || null
                 };
                 const res = await apiClient.post('/projects', payload);
                 if (!res.data.success) throw new Error(res.data.message);
@@ -127,7 +128,8 @@ const FacultyProjects = () => {
                     fundingSource,
                     projectType: (data.mainType || data.type || 'PROJECT').toUpperCase(),
                     publisher: data.publisher || null,
-                    publicationYear: Number(data.year || new Date().getFullYear())
+                    publicationYear: Number(data.year || new Date().getFullYear()),
+                    verificationScreenshot: data.verificationScreenshot || null
                 };
                 const res = await apiClient.put(`/projects/${data._id || data.id}`, payload);
                 if (!res.data.success) throw new Error(res.data.message);

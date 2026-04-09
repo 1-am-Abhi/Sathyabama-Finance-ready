@@ -195,7 +195,7 @@ const DisbursementQueue = () => {
                                                         {req.source === 'PFMS' ? (
                                                             <span className="text-[10px] font-black text-amber-600 bg-amber-50 px-2 py-0.5 rounded border border-amber-100 italic">PFMS FUNDED</span>
                                                         ) : req.source === 'OTHERS' ? (
-                                                            <span className="text-[10px] font-black text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100 italic">OTHER GRANTS</span>
+                                                            <span className="text-[10px] font-black text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100 italic">OTHER'S FUND</span>
                                                         ) : (
                                                             <span className="text-[10px] font-black text-blue-600 bg-blue-50 px-2 py-0.5 rounded border border-blue-100 italic">INSTITUTIONAL</span>
                                                         )}

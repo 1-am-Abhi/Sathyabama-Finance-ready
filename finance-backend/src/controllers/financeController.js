@@ -2,6 +2,8 @@ const PFMSTransaction = require('../models/PFMSTransaction');
 const InternshipFee = require('../models/InternshipFee');
 const { FundRequest } = require('../models/FundRequest');
 const Project = require('../models/Project');
+const User = require('../models/User');
+const Revenue = require('../models/Revenue');
 const { sequelize } = require('../config/db');
 const { Op } = require('sequelize');
 
@@ -10,6 +12,7 @@ exports.getFinanceStats = async (req, res) => {
         // Pending Releases: FUND_APPROVED or BILLS_UPLOADED (waiting for Finance to execute disbursement)
         const pendingReleases = await FundRequest.count({ 
             where: { 
+                status: 'APPROVED',
                 currentStage: { [Op.in]: ['FUND_APPROVED', 'BILLS_UPLOADED'] } 
             } 
         });
@@ -187,7 +190,7 @@ exports.getFundSourcesOverview = async (req, res) => {
         // PFMS-funded projects
         const pfmsProjects = projects.filter(p => p.fundingSource === 'PFMS');
         // Others (consolidated Director Innovation / Other college grants)
-        const directorProjects = projects.filter(p => p.fundingSource === 'OTHERS');
+        const directorProjects = projects.filter(p => ['OTHERS', 'DIRECTOR_INNOVATION'].includes(p.fundingSource));
         // Institutional (pure college overhead funding)
         const institutionalProjects = projects.filter(p => p.fundingSource === 'INSTITUTIONAL');
         // Combined college (institutional + director) for backward compat
@@ -407,11 +410,16 @@ exports.getDisbursementQueue = async (req, res) => {
         const User = require('../models/User');
         const requests = await FundRequest.findAll({
             where: {
-                currentStage: { [require('sequelize').Op.in]: ['FUND_APPROVED', 'BILLS_UPLOADED'] }
+                status: 'APPROVED',
+                currentStage: { [Op.in]: ['FUND_APPROVED', 'BILLS_UPLOADED'] }
             },
             // FIX: Include pi in Project attributes (model uses 'pi' not 'piName')
             include: [
-                { model: Project, attributes: ['title', 'pi', 'centre', 'department', 'fundingSource'] },
+                { 
+                    model: Project, 
+                    attributes: ['title', 'pi', 'centre', 'department', 'fundingSource'],
+                    required: false 
+                },
                 { model: User, attributes: ['name', 'email', 'department'], as: 'requester', required: false }
             ],
             order: [['updatedAt', 'ASC']]
@@ -483,12 +491,52 @@ exports.executeDisbursement = async (req, res) => {
 exports.getEquipmentDisbursements = async (req, res) => {
     try {
         const EquipmentRequest = require('../models/EquipmentRequest');
-        const requests = await EquipmentRequest.findAll({
-            where: { status: 'Approved' },
-            order: [['updatedAt', 'ASC']]
-        });
         
-        res.status(200).json({ success: true, data: requests });
+        // Fetch from FundRequest (Major/Minor equipment fields)
+        const fundRequests = await FundRequest.findAll({
+            where: {
+                status: 'APPROVED',
+                currentStage: 'FUND_APPROVED',
+                [Op.or]: [
+                    { majorEquipments: { [Op.gt]: 0 } },
+                    { minorEquipments: { [Op.gt]: 0 } }
+                ]
+            },
+            include: [{ model: Project, attributes: ['title', 'pi'], required: false }]
+        });
+
+        // Fetch from dedicated EquipmentRequest model
+        const directRequests = await EquipmentRequest.findAll({
+            where: {
+                status: { [Op.in]: ['APPROVED', 'Approved'] }
+            }
+        });
+
+        // Merge and normalize for the common UI table
+        const normalized = [
+            ...fundRequests.map(r => ({
+                id: r._id || r.id,
+                equipmentName: r.purpose?.substring(0, 50) || 'Equipment Purchase',
+                requestedAmount: r.requestedAmount,
+                approvedAmount: r.requestedAmount,
+                status: r.status,
+                projectName: r.Project?.title || r.projectTitle,
+                facultyName: r.Project?.pi || r.faculty,
+                type: 'FUND_REQUEST'
+            })),
+            ...directRequests.map(er => ({
+                id: er._id || er.id,
+                equipmentName: er.equipmentName,
+                requestedAmount: er.requestedAmount,
+                approvedAmount: er.approvedAmount || er.requestedAmount,
+                status: er.status,
+                projectName: er.projectName,
+                facultyName: er.facultyName,
+                type: 'DIRECT_EQUIPMENT'
+            }))
+        ];
+
+        res.status(200).json({ success: true, count: normalized.length, data: normalized });
     } catch (error) {
         console.error('getEquipmentDisbursements Error:', error);
         res.status(500).json({ success: false, message: error.message });
@@ -526,7 +574,10 @@ exports.getFinancialReports = async (req, res) => {
 
         // 1. Calculate Outflows (Released Funds)
         const disbursedRequests = await FundRequest.findAll({
-            where: { currentStage: ['FUND_RELEASED', 'AMOUNT_DISBURSED', 'CHEQUE_RELEASED'] },
+            where: { 
+                currentStage: ['FUND_RELEASED', 'AMOUNT_DISBURSED', 'CHEQUE_RELEASED'],
+                source: { [Op.in]: ['INSTITUTIONAL', 'DIRECTOR_INNOVATION', 'PFMS', 'OTHERS'] }
+            },
             include: [{ model: Project, attributes: ['title', 'department', 'pi'] }]
         });
 
@@ -557,6 +608,19 @@ exports.getFinancialReports = async (req, res) => {
             outflows: disbursedRequests,
             inflows: verifiedRevenue
         });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+exports.getDisbursalHistory = async (req, res) => {
+    try {
+        const history = await FundRequest.findAll({
+            where: { currentStage: 'AMOUNT_DISBURSED' },
+            include: [{ model: Project, attributes: ['title', 'pi', 'department'] }],
+            order: [['updatedAt', 'DESC']]
+        });
+        res.status(200).json({ success: true, data: history });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
     }

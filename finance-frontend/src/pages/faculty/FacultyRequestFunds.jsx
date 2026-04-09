@@ -317,7 +317,7 @@ const FacultyRequestFunds = () => {
                                 projectRef: selectedProject._id,
                                 requestedAmount: data.amount,
                                 purpose: data.purpose,
-                                source: selectedProject.fundingSource === 'PFMS' ? 'PFMS' : 'DIRECTOR_INNOVATION'
+                                source: selectedProject.fundingSource || 'INSTITUTIONAL'
                             });
                             
                             addNotification({
@@ -336,7 +336,7 @@ const FacultyRequestFunds = () => {
                     }}
                 />
             )}
-
+ 
             <InitialFundRequestModal
                 isOpen={isModalOpen && requestMode === 'INITIAL'}
                 onClose={() => setIsModalOpen(false)}
@@ -347,8 +347,9 @@ const FacultyRequestFunds = () => {
                             projectTitle: data.title,
                             requestedAmount: data.amount,
                             purpose: data.reason,
-                            source: data.fundSource === 'PFMS' ? 'PFMS' : 'DIRECTOR_INNOVATION'
+                            source: data.fundSource === 'PFMS' ? 'PFMS' : 'INSTITUTIONAL'
                         });
+;
                         
                         addNotification({
                             role: 'ADMIN',

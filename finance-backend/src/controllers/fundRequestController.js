@@ -52,8 +52,19 @@ exports.createFundRequest = async (req, res) => {
             });
         }
 
+        // Find associated project first
+        const existingProject = await Project.findOne({
+            where: {
+                [Op.or]: [
+                    { title: req.body.projectTitle },
+                    { [Op.and]: [{ pi: req.user.name }, { title: req.body.projectTitle }] }
+                ]
+            }
+        });
+
         const requestData = {
             projectTitle: req.body.projectTitle,
+            projectId: existingProject ? (existingProject._id || existingProject.id) : null,
             faculty: req.user.name,
             facultyId: req.user.id || req.user._id,
             userId: req.user.id || req.user._id,
@@ -66,15 +77,6 @@ exports.createFundRequest = async (req, res) => {
         const request = await FundRequest.create(requestData);
 
         // Auto-create Project record if it doesn't exist for this title/user
-        const existingProject = await Project.findOne({
-            where: {
-                [Op.or]: [
-                    { title: req.body.projectTitle },
-                    { [Op.and]: [{ pi: req.user.name }, { title: req.body.projectTitle }] }
-                ]
-            }
-        });
-
         if (!existingProject) {
             await Project.create({
                 title: req.body.projectTitle,

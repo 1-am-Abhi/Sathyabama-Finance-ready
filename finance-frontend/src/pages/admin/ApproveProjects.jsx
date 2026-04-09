@@ -10,7 +10,7 @@ import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Toolti
 import { useLayout } from '../../contexts/LayoutContext';
 import { usePipeline } from '../../contexts/PipelineContext';
 import DateFilter from '../../components/shared/DateFilter';
-import { RESEARCH_CENTRES } from '../../constants/researchCentres';
+import { useCentres } from '../../constants/researchCentres';
 import { AGENCIES } from '../../constants/agencies';
 import { FACULTY_MEMBERS } from '../../constants/facultyMembers';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../../components/ui/tooltip';
@@ -27,6 +27,7 @@ const ApproveProjects = () => {
     const { addNotification } = useNotifications();
     const { projects: pipelineProjects, updateProject, isLoading } = usePipeline();
     const { showToast, ToastPortal } = useToast();
+    const { centres: dynamicCentres } = useCentres();
     const [selectedDate, setSelectedDate] = useState(null);
     const [selectedCentre, setSelectedCentre] = useState('All');
     const [selectedAgency, setSelectedAgency] = useState('All');
@@ -377,14 +378,12 @@ const ApproveProjects = () => {
                                 </div>
                                 <div className="w-32">
                                     <select
-                                        className="w-full bg-white dark:bg-slate-700 border border-gray-200 dark:border-slate-600 text-gray-900 dark:text-gray-100 text-xs rounded-md focus:ring-maroon-500 focus:border-maroon-500 block p-2"
+                                        className="h-9 px-3 bg-white dark:bg-slate-900 border dark:border-slate-800 rounded-md text-xs outline-none"
                                         value={selectedCentre}
                                         onChange={(e) => setSelectedCentre(e.target.value)}
                                     >
                                         <option value="All">All Centres</option>
-                                        {RESEARCH_CENTRES.map(centre => (
-                                            <option key={centre} value={centre}>{centre}</option>
-                                        ))}
+                                        {dynamicCentres.map(c => <option key={c} value={c}>{c}</option>)}
                                     </select>
                                 </div>
                                 <div className="w-36 relative">

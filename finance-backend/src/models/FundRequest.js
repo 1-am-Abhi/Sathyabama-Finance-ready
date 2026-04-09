@@ -54,6 +54,10 @@ FundRequest.init({
         type: DataTypes.STRING,
         allowNull: false
     },
+    projectId: {
+        type: DataTypes.UUID,
+        allowNull: true
+    },
     faculty: {
         type: DataTypes.STRING,
         allowNull: false

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useLayout } from '../../contexts/LayoutContext';
-import { RESEARCH_CENTRES } from '../../constants/researchCentres';
+import { useCentres } from '../../constants/researchCentres';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '../../components/ui/card';
 import { Label } from '../../components/ui/label';
 import { Input } from '../../components/ui/input';
@@ -13,6 +13,7 @@ import useToast from '../../hooks/useToast';
 const CreateProject = () => {
     const { setLayout } = useLayout();
     const { showToast, ToastPortal } = useToast();
+    const { centres: dynamicCentres } = useCentres();
     const [formData, setFormData] = useState({
         title: '',
         description: '',
@@ -155,7 +156,7 @@ const CreateProject = () => {
                                         required
                                     >
                                         <option value="">Select Research Centre</option>
-                                        {RESEARCH_CENTRES.map((centre) => (
+                                        {dynamicCentres.map((centre) => (
                                             <option key={centre} value={centre}>{centre}</option>
                                         ))}
                                     </select>
@@ -216,7 +217,9 @@ const CreateProject = () => {
                                     required
                                 >
                                     {FUND_SOURCES.map((source) => (
-                                        <option key={source} value={source}>{source}</option>
+                                        <option key={source} value={source === 'Others' ? 'OTHERS' : source.toUpperCase() === 'INSTITUTIONAL' ? 'INSTITUTIONAL' : source}>
+                                            {source === 'Others' ? "Other's" : source}
+                                        </option>
                                     ))}
                                 </select>
                             </div>

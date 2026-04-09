@@ -12,7 +12,7 @@ import {
     Trash2, Sparkles
 } from 'lucide-react';
 import { useLayout } from '../../contexts/LayoutContext';
-import { RESEARCH_CENTRES } from '../../constants/researchCentres';
+import { useCentres } from '../../constants/researchCentres';
 import apiClient from '../../api/client';
 
 const ManageFaculty = () => {
@@ -108,7 +108,7 @@ const ManageFaculty = () => {
                         email: u.email,
                         centre: u.centre || 'Not Assigned',
                         status: u.status || 'Active',
-                        projectsCount: 0,
+                        projectsCount: (u.projectsCount || 0) + (u.eventsCount || 0),
                         department: u.department,
                         role: u.role
                     }));
@@ -142,6 +142,8 @@ const ManageFaculty = () => {
     const [selectedPiId, setSelectedPiId] = useState(null);
 
     // Form State
+    const { centres: dynamicCentres } = useCentres();
+
     const [newFaculty, setNewFaculty] = useState({
         name: '',
         username: '',
@@ -149,7 +151,7 @@ const ManageFaculty = () => {
         password: '',
         role: 'FACULTY',
         status: 'Active',
-        centre: RESEARCH_CENTRES[0]
+        centre: dynamicCentres[0]
     });
     const [editFaculty, setEditFaculty] = useState(null);
     const [resetData, setResetData] = useState({
@@ -292,7 +294,7 @@ const ManageFaculty = () => {
                     role: addedUser.role
                 }]);
                 setIsAddModalOpen(false);
-                setNewFaculty({ name: '', username: '', email: '', password: '', role: 'FACULTY', status: 'Active', centre: RESEARCH_CENTRES[0] });
+                setNewFaculty({ name: '', username: '', email: '', password: '', role: 'FACULTY', status: 'Active', centre: dynamicCentres[0] });
             }
         } catch (error) {
             console.error("Error creating user:", error);
@@ -467,7 +469,7 @@ const ManageFaculty = () => {
                                             onChange={(e) => setSelectedCentre(e.target.value)}
                                         >
                                             <option value="All">All Research Centres</option>
-                                            {RESEARCH_CENTRES.map(centre => (
+                                            {dynamicCentres.map(centre => (
                                                 <option key={centre} value={centre}>{centre}</option>
                                             ))}
                                         </select>
@@ -545,8 +547,7 @@ const ManageFaculty = () => {
                                             <TableCell className="dark:text-gray-300 max-w-xs truncate text-xs">{faculty.centre}</TableCell>
                                             <TableCell className="text-center">
                                                 <Badge variant="default" className="bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 border-0">
-                                                    {projects.filter(p => p.assignedFacultyIds?.includes(faculty.id)).length + 
-                                                     events.filter(e => e.assignedFacultyIds?.includes(faculty.id)).length}
+                                                    {faculty.projectsCount}
                                                 </Badge>
                                             </TableCell>
                                             <TableCell>
@@ -812,7 +813,7 @@ const ManageFaculty = () => {
                                             <div className="space-y-2">
                                                 <Label className="dark:text-gray-300 text-xs">Research Centre</Label>
                                                 <select className="w-full h-9 px-3 bg-white dark:bg-slate-800 border dark:border-slate-700 dark:text-white rounded-md text-sm outline-none" value={newFaculty.centre} onChange={(e) => setNewFaculty({ ...newFaculty, centre: e.target.value })}>
-                                                    {RESEARCH_CENTRES.map(c => <option key={c} value={c}>{c}</option>)}
+                                                    {dynamicCentres.map(c => <option key={c} value={c}>{c}</option>)}
                                                 </select>
                                             </div>
                                         </CardContent>
@@ -860,7 +861,7 @@ const ManageFaculty = () => {
                                             <div className="space-y-2">
                                                 <Label className="dark:text-gray-300 text-xs">Research Centre</Label>
                                                 <select className="w-full h-9 px-3 bg-white dark:bg-slate-800 border dark:border-slate-700 dark:text-white rounded-md text-xs outline-none" value={editFaculty.centre} onChange={(e) => setEditFaculty({ ...editFaculty, centre: e.target.value })}>
-                                                    {RESEARCH_CENTRES.map(c => <option key={c} value={c}>{c}</option>)}
+                                                    {dynamicCentres.map(c => <option key={c} value={c}>{c}</option>)}
                                                 </select>
                                             </div>
 
