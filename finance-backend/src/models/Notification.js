@@ -19,7 +19,8 @@ const Notification = sequelize.define('Notification', {
     },
     title: {
         type: DataTypes.STRING,
-        allowNull: false
+        allowNull: false,
+        defaultValue: 'Notification'
     },
     message: {
         type: DataTypes.STRING(1000),
