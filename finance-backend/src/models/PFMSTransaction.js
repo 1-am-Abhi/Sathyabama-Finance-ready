@@ -55,8 +55,4 @@ const PFMSTransaction = sequelize.define('PFMSTransaction', {
     timestamps: true
 });
 
-PFMSTransaction.associate = (models) => {
-    PFMSTransaction.belongsTo(models.Project, { foreignKey: 'projectId' });
-};
-
 module.exports = PFMSTransaction;

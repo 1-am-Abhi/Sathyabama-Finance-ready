@@ -4,6 +4,7 @@ const { Op } = require('sequelize');
 const NotificationService = require('../services/notificationService');
 const Centre = require('../models/Centre');
 const { buildCentreInclude, buildProjectInclude, normalizeFundRequest } = require('../services/pipelineMetricsService');
+const { approveFundRequestPipeline } = require('../services/financePipelineService');
 
 const resolveCentreAssignment = async (project, user) => {
     if (project?.centreId) {
@@ -190,23 +191,9 @@ exports.approveFundRequest = async (req, res) => {
     try {
         const request = await FundRequest.findByPk(req.params.id);
         if (!request) return res.status(404).json({ success: false, message: 'Request not found' });
-        
-        const currentAudit = request.auditTrail || [];
-        const newAuditEntry = {
-            stage: 'FUND_APPROVED',
-            prevStage: request.status,
-            updatedBy: req.user.id,
-            updatedByName: req.user.name,
-            timestamp: new Date(),
-            remarks: req.body.remarks || 'Approved by Admin'
-        };
 
         console.log(`[PIPELINE] Approving Request ${req.params.id}: PENDING -> PENDING_DISBURSAL`);
-        await request.update({
-            status: 'PENDING_DISBURSAL',
-            currentStage: 'FUND_APPROVED',
-            auditTrail: [...currentAudit, newAuditEntry]
-        });
+        await approveFundRequestPipeline(request, req.user, req.body.remarks);
         
         // NOTIFY: Faculty about approval
         await NotificationService.create(

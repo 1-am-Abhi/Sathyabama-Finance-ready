@@ -50,9 +50,10 @@ export const NotificationProvider = ({ children }) => {
         setNotifications(prev => prev.map(n => (n._id === id || n.id === id) ? { ...n, isRead: true, read: true } : n));
         try {
             await apiClient.patch(`/notifications/read/${id}`);
+            await fetchNotifications();
         } catch (error) {
             console.error('Failed to mark as read:', error);
-            // Revert on failure if critical, but for notifications we usually just log it
+            await fetchNotifications();
         }
     };
 
@@ -60,7 +61,8 @@ export const NotificationProvider = ({ children }) => {
         // Optimistic update
         setNotifications(prev => prev.map(n => ({ ...n, isRead: true, read: true })));
         try {
-            await apiClient.patch('/notifications/read-all');
+            await apiClient.patch('/notifications/mark-all-read');
+            await fetchNotifications();
         } catch (error) {
             console.error('Failed to mark all as read:', error);
             fetchNotifications(); // Sync back

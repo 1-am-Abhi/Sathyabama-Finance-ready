@@ -24,10 +24,10 @@ import { Label } from '../../components/ui/label';
 import { formatCurrency } from '../../utils/currency';
 import { Calendar, CheckCircle, Clock, Search, FileText } from 'lucide-react';
 import { useLayout } from '../../contexts/LayoutContext';
+import { useFunctionRequests, useReleaseFunctionFunds } from '../../hooks/useFinance';
 
 const FunctionFundRequestsPage = () => {
     const { setLayout } = useLayout();
-    const [requests, setRequests] = useState([]);
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedRequest, setSelectedRequest] = useState(null);
     const [isReleaseModalOpen, setIsReleaseModalOpen] = useState(false);
@@ -36,6 +36,12 @@ const FunctionFundRequestsPage = () => {
         releaseDate: new Date().toISOString().split('T')[0],
         remarks: ''
     });
+    const { data: requests = [], isLoading } = useFunctionRequests();
+    const releaseFunctionFunds = useReleaseFunctionFunds();
+
+    useEffect(() => {
+        setLayout('Function Fund Requests', 'Process approved event requests and move them through the finance pipeline');
+    }, [setLayout]);
 
     const filteredRequests = requests.filter(req =>
         req.functionName.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -45,34 +51,37 @@ const FunctionFundRequestsPage = () => {
 
     const handleReleaseClick = (request) => {
         setSelectedRequest(request);
+        setReleaseFormData({
+            transactionId: request.transactionId || '',
+            releaseDate: new Date().toISOString().split('T')[0],
+            remarks: '',
+        });
         setIsReleaseModalOpen(true);
     };
 
-    const handleReleaseSubmit = (e) => {
+    const handleReleaseSubmit = async (e) => {
         e.preventDefault();
 
-        // Update local state to simulate backend update
-        const updatedRequests = requests.map(req => {
-            if (req.id === selectedRequest.id) {
-                return {
-                    ...req,
-                    status: 'FUNDS_RELEASED',
-                    transactionId: releaseFormData.transactionId,
-                    releaseDate: releaseFormData.releaseDate,
-                    remarks: releaseFormData.remarks
-                };
-            }
-            return req;
+        if (!selectedRequest?.fundRequestId) {
+            return;
+        }
+
+        await releaseFunctionFunds.mutateAsync({
+            fundRequestId: selectedRequest.fundRequestId,
+            data: {
+                transactionId: releaseFormData.transactionId,
+                disbursementDate: releaseFormData.releaseDate,
+                remarks: releaseFormData.remarks,
+            },
         });
 
-        setRequests(updatedRequests);
         setIsReleaseModalOpen(false);
+        setSelectedRequest(null);
         setReleaseFormData({
             transactionId: '',
             releaseDate: new Date().toISOString().split('T')[0],
-            remarks: ''
+            remarks: '',
         });
-        setSelectedRequest(null);
     };
 
     const getStatusBadge = (status) => {
@@ -161,7 +170,13 @@ const FunctionFundRequestsPage = () => {
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
-                                        {filteredRequests.length > 0 ? (
+                                        {isLoading ? (
+                                            <TableRow>
+                                                <TableCell colSpan={6} className="text-center py-12 text-gray-500 dark:text-slate-400">
+                                                    Loading function requests...
+                                                </TableCell>
+                                            </TableRow>
+                                        ) : filteredRequests.length > 0 ? (
                                             filteredRequests.map((request) => (
                                                 <TableRow key={request.id} className="hover:bg-gray-50 dark:hover:bg-slate-700/50 dark:border-slate-700">
                                                     <TableCell>
@@ -189,7 +204,7 @@ const FunctionFundRequestsPage = () => {
                                                         {getStatusBadge(request.status)}
                                                     </TableCell>
                                                     <TableCell className="text-right">
-                                                        {request.status === 'APPROVED_BY_DEAN' && (
+                                                        {request.status === 'APPROVED_BY_DEAN' && request.fundRequestId && (
                                                             <Button
                                                                 size="sm"
                                                                 className="bg-green-600 hover:bg-green-700 text-white"
@@ -277,8 +292,8 @@ const FunctionFundRequestsPage = () => {
                                     <Button type="button" variant="outline" onClick={() => setIsReleaseModalOpen(false)}>
                                         Cancel
                                     </Button>
-                                    <Button type="submit" className="bg-green-600 hover:bg-green-700">
-                                        Confirm Release
+                                    <Button type="submit" className="bg-green-600 hover:bg-green-700" disabled={releaseFunctionFunds.isPending}>
+                                        {releaseFunctionFunds.isPending ? 'Releasing...' : 'Confirm Release'}
                                     </Button>
                                 </DialogFooter>
                             </form>

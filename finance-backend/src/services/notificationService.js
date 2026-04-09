@@ -10,6 +10,9 @@ class NotificationService {
      */
     static async create(userId, title, message, type = 'INFO', relatedId = null) {
         try {
+            if (!userId) {
+                return null;
+            }
             console.log(`[NotificationService] Creating ${type} for user ${userId}: ${title}`);
             return await Notification.create({
                 userId,
@@ -32,22 +35,27 @@ class NotificationService {
     static async notifyRole(role, title, message, type = 'INFO', relatedId = null) {
         try {
             console.log(`[NotificationService] Broadcasting ${type} to role ${role}: ${title}`);
-            
-            // For role-based, we can either:
-            // 1. Create one record with role set (frontend filters by role)
-            // 2. Create individual records for all users with that role
-            
-            // Approach 1 is more efficient for the DB, but Approach 2 allows per-user read tracking.
-            // We will use Approach 1 for "Global" role notifications but our UI will support both.
-            
-            return await Notification.create({
-                role,
-                title,
-                message,
-                type,
-                relatedId,
-                isRead: false
+
+            const users = await User.findAll({
+                where: { role },
+                attributes: ['_id'],
             });
+
+            if (!users.length) {
+                return [];
+            }
+
+            return Notification.bulkCreate(
+                users.map((user) => ({
+                    userId: user._id || user.id,
+                    role,
+                    title,
+                    message,
+                    type,
+                    relatedId,
+                    isRead: false,
+                }))
+            );
         } catch (error) {
             console.error('[NotificationService] Error notifying role:', error);
             return null;

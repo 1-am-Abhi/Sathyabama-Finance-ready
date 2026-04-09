@@ -28,14 +28,4 @@ const ProjectMember = sequelize.define('ProjectMember', {
     ]
 });
 
-ProjectMember.associate = (models) => {
-    ProjectMember.belongsTo(models.Project, { foreignKey: 'projectId' });
-    ProjectMember.belongsTo(models.User, { foreignKey: 'userId', as: 'user' });
-    ProjectMember.belongsTo(models.EventRequest, { 
-        foreignKey: 'projectId', 
-        constraints: false,
-        as: 'event'
-    });
-};
-
 module.exports = ProjectMember;

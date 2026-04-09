@@ -112,11 +112,4 @@ User.prototype.comparePassword = async function (candidatePassword) {
     return await bcrypt.compare(candidatePassword, this.password);
 };
 
-User.associate = (models) => {
-    User.belongsTo(models.Centre, { foreignKey: 'centreId', as: 'researchCentre' });
-    User.hasMany(models.Notification, { foreignKey: 'userId', as: 'notifications' });
-    User.hasMany(models.ProjectMember, { foreignKey: 'userId' });
-    User.hasMany(models.Revenue, { foreignKey: 'userId' });
-};
-
 module.exports = User;

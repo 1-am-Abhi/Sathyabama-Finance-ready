@@ -10,6 +10,15 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/ta
 import { BarChart3, Download, Filter, FileSpreadsheet, FilePieChart, TrendingUp, TrendingDown, Wallet, Calendar, Building2, Search, ArrowUpRight, ArrowDownRight, Globe, FileText } from 'lucide-react';
 import useToast from '../../hooks/useToast';
 
+const toNumber = (value) => {
+    const numeric = Number(value);
+    return Number.isFinite(numeric) ? numeric : 0;
+};
+
+const formatCrores = (value) => (toNumber(value) / 10000000).toFixed(2);
+
+const formatAmount = (value) => `₹${toNumber(value).toLocaleString('en-IN')}`;
+
 const FinancialReports = () => {
     const { setLayout } = useLayout();
     const { showToast, ToastPortal } = useToast();
@@ -61,7 +70,10 @@ const FinancialReports = () => {
                             onChange={(e) => setFilters({...filters, centre: e.target.value})}
                         >
                             <option value="All Centres">All Centres</option>
-                            {dynamicCentres.map(c => <option key={c} value={c}>{c}</option>)}
+                            {dynamicCentres.map((centre) => {
+                                const value = centre?.name || centre;
+                                return <option key={value} value={value}>{value}</option>;
+                            })}
                         </select>
                     </div>
 
@@ -101,7 +113,7 @@ const FinancialReports = () => {
                     <CardContent className="pt-6">
                         <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest pl-1">Total Sanctioned</p>
                         <p className="text-2xl font-black mt-1 tracking-tighter text-slate-900 dark:text-white">
-                            ₹{(reportsData.summary?.totalSanctioned / 10000000).toFixed(2)}Cr
+                            ₹{formatCrores(reportsData.summary?.totalSanctioned ?? reportsData.summary?.totalAllocated)}Cr
                         </p>
                         <div className="flex items-center gap-1 mt-2 text-xs font-bold text-slate-500">
                             Active grants in current period
@@ -116,7 +128,7 @@ const FinancialReports = () => {
                     <CardContent className="pt-6">
                         <p className="text-[10px] font-black text-rose-600 dark:text-rose-400 uppercase tracking-widest pl-1">Total Disbursed</p>
                         <p className="text-2xl font-black mt-1 tracking-tighter text-rose-700 dark:text-rose-400">
-                            ₹{(reportsData.summary?.totalDisbursed / 10000000).toFixed(2)}Cr
+                            ₹{formatCrores(reportsData.summary?.totalDisbursed)}Cr
                         </p>
                         <div className="flex items-center gap-1 mt-2 text-xs font-bold text-slate-500 italic">
                             Total outflow from research funds
@@ -131,7 +143,7 @@ const FinancialReports = () => {
                     <CardContent className="pt-6">
                         <p className="text-[10px] font-black text-emerald-600 dark:text-emerald-400 uppercase tracking-widest pl-1">Total Revenue</p>
                         <p className="text-2xl font-black mt-1 tracking-tighter text-emerald-700 dark:text-emerald-400">
-                            ₹{(reportsData.summary?.totalRevenue / 10000000).toFixed(2)}Cr
+                            ₹{formatCrores(reportsData.summary?.totalRevenue)}Cr
                         </p>
                         <div className="flex items-center gap-1 mt-2 text-xs font-bold text-emerald-500">
                             Verified consultancy & grant inflows
@@ -146,7 +158,7 @@ const FinancialReports = () => {
                     <CardContent className="pt-6">
                         <p className="text-[10px] font-black text-white/70 uppercase tracking-widest pl-1">Net Flow</p>
                         <p className="text-2xl font-black mt-1 tracking-tighter text-white">
-                            ₹{(reportsData.summary?.netBalance / 10000000).toFixed(2)}Cr
+                            ₹{formatCrores(reportsData.summary?.netBalance)}Cr
                         </p>
                         <div 
                             className="flex items-center gap-1 mt-2 text-xs font-bold text-white/50 underline cursor-pointer hover:text-white"
@@ -193,30 +205,37 @@ const FinancialReports = () => {
                                 ) : (
                                     <div className="overflow-x-auto">
                                         <table className="w-full">
-                                            <tr className="text-[10px] font-black uppercase text-slate-400 border-b border-slate-50 dark:border-slate-800">
-                                                <th className="px-4 py-3 text-left">Date</th>
-                                                <th className="px-4 py-3 text-left">Entity / Project</th>
-                                                <th className="px-4 py-3 text-left">Category</th>
-                                                <th className="px-4 py-3 text-right">Amount</th>
-                                                <th className="px-4 py-3 text-right">Status</th>
-                                            </tr>
-                                            {/* Mock Data Entry */}
-                                            <tr className="hover:bg-slate-50 dark:hover:bg-slate-800/10 transition-colors border-b border-slate-50/50 dark:border-slate-800/30">
-                                                <td className="px-4 py-4 text-sm font-medium text-slate-500">22 Mar 2024</td>
-                                                <td className="px-4 py-4">
-                                                    <p className="text-sm font-bold text-slate-900 dark:text-white">AI-Powered Diagnostic Hub</p>
-                                                    <p className="text-[10px] text-slate-400 uppercase tracking-tighter">Dept: Nano Science</p>
-                                                </td>
-                                                <td className="px-4 py-4">
-                                                    <Badge variant="outline" className="text-[8px] font-black opacity-60">EQUIPMENT</Badge>
-                                                </td>
-                                                <td className="px-4 py-4 text-right font-black text-rose-600 dark:text-rose-400 italic">₹45.0L</td>
-                                                <td className="px-4 py-4 text-right">
-                                                    <div className="flex justify-end gap-1">
-                                                        {[1,2,3].map(i => <div key={i} className="w-1 h-3 bg-emerald-500 rounded-full" />)}
-                                                    </div>
-                                                </td>
-                                            </tr>
+                                            <thead>
+                                                <tr className="text-[10px] font-black uppercase text-slate-400 border-b border-slate-50 dark:border-slate-800">
+                                                    <th className="px-4 py-3 text-left">Date</th>
+                                                    <th className="px-4 py-3 text-left">Entity / Project</th>
+                                                    <th className="px-4 py-3 text-left">Category</th>
+                                                    <th className="px-4 py-3 text-right">Amount</th>
+                                                    <th className="px-4 py-3 text-right">Status</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {reportsData.outflows.map((item) => (
+                                                    <tr key={item.id || item._id} className="hover:bg-slate-50 dark:hover:bg-slate-800/10 transition-colors border-b border-slate-50/50 dark:border-slate-800/30">
+                                                        <td className="px-4 py-4 text-sm font-medium text-slate-500">
+                                                            {new Date(item.disbursedAt || item.createdAt).toLocaleDateString()}
+                                                        </td>
+                                                        <td className="px-4 py-4">
+                                                            <p className="text-sm font-bold text-slate-900 dark:text-white">{item.Project?.title || item.projectTitle || 'Untitled'}</p>
+                                                            <p className="text-[10px] text-slate-400 uppercase tracking-tighter">{item.Project?.department || item.FundRequest?.department || 'Research'}</p>
+                                                        </td>
+                                                        <td className="px-4 py-4">
+                                                            <Badge variant="outline" className="text-[8px] font-black opacity-60">{item.FundRequest?.source || 'OUTFLOW'}</Badge>
+                                                        </td>
+                                                        <td className="px-4 py-4 text-right font-black text-rose-600 dark:text-rose-400 italic">{formatAmount(item.amount)}</td>
+                                                        <td className="px-4 py-4 text-right">
+                                                            <Badge className="bg-emerald-50 text-emerald-600 border-emerald-100 text-[9px] font-black uppercase">
+                                                                Completed
+                                                            </Badge>
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
                                         </table>
                                     </div>
                                 )}
@@ -247,9 +266,34 @@ const FinancialReports = () => {
                                         <p className="text-sm text-slate-500 font-medium">No verified inflow records for this period.</p>
                                     </div>
                                 ) : (
-                                    <div className="overflow-x-auto text-slate-500 text-sm py-12 text-center italic">
-                                        {/* Simplified message for now as logic builds */}
-                                        Real-time inflow verification log is active. Check "Revenue Verification" to populate.
+                                    <div className="overflow-x-auto">
+                                        <table className="w-full">
+                                            <thead>
+                                                <tr className="text-[10px] font-black uppercase text-slate-400 border-b border-slate-50 dark:border-slate-800">
+                                                    <th className="px-4 py-3 text-left">Verified On</th>
+                                                    <th className="px-4 py-3 text-left">Faculty</th>
+                                                    <th className="px-4 py-3 text-left">Source</th>
+                                                    <th className="px-4 py-3 text-right">Amount</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {reportsData.inflows.map((item) => (
+                                                    <tr key={item.id || item._id} className="hover:bg-slate-50 dark:hover:bg-slate-800/10 transition-colors border-b border-slate-50/50 dark:border-slate-800/30">
+                                                        <td className="px-4 py-4 text-sm font-medium text-slate-500">
+                                                            {new Date(item.verifiedAt || item.createdAt).toLocaleDateString()}
+                                                        </td>
+                                                        <td className="px-4 py-4">
+                                                            <p className="text-sm font-bold text-slate-900 dark:text-white">{item.User?.name || item.verifiedByName || 'Faculty'}</p>
+                                                            <p className="text-[10px] text-slate-400 uppercase tracking-tighter">{item.User?.department || 'Research'}</p>
+                                                        </td>
+                                                        <td className="px-4 py-4">
+                                                            <Badge variant="outline" className="text-[8px] font-black opacity-60">{item.revenueSource || 'INFLOW'}</Badge>
+                                                        </td>
+                                                        <td className="px-4 py-4 text-right font-black text-emerald-600 dark:text-emerald-400 italic">{formatAmount(item.amount)}</td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
                                     </div>
                                 )}
                             </div>

@@ -221,20 +221,26 @@ exports.updateProject = async (req, res) => {
 
             if (isActuallyApproved && wasNotApproved) {
                 const { FundRequest } = require('../models/FundRequest');
-                await FundRequest.create({
-                    projectTitle: project.title,
-                    projectId: project._id || project.id,
-                    faculty: project.pi || 'Faculty Member',
-                    facultyId: project.facultyId || project.userId,
-                    userId: project.userId,
-                    requestedAmount: project.sanctionedBudget || 1, // Default 1 if not set
-                    purpose: `Initial advance for approved project: ${project.title}`,
-                    status: 'PENDING_DISBURSAL',
-                    currentStage: 'FUND_APPROVED',
-                    department: project.department || 'Research',
-                    centre: project.centre || 'Research Centre',
-                    centreId: project.centreId || null,
-                    source: (project.fundingSource || 'INSTITUTIONAL').toUpperCase()
+                await FundRequest.findOrCreate({
+                    where: {
+                        projectId: project._id || project.id,
+                        purpose: `Initial advance for approved project: ${project.title}`,
+                    },
+                    defaults: {
+                        projectTitle: project.title,
+                        projectId: project._id || project.id,
+                        faculty: project.pi || 'Faculty Member',
+                        facultyId: project.facultyId || project.userId,
+                        userId: project.userId,
+                        requestedAmount: project.sanctionedBudget || 1,
+                        purpose: `Initial advance for approved project: ${project.title}`,
+                        status: 'PENDING_DISBURSAL',
+                        currentStage: 'FUND_APPROVED',
+                        department: project.department || 'Research',
+                        centre: project.centre || 'Research Centre',
+                        centreId: project.centreId || null,
+                        source: (project.fundingSource || 'INSTITUTIONAL').toUpperCase(),
+                    },
                 });
             }
             updateData.status = newStatus;

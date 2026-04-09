@@ -13,7 +13,12 @@ export const getFundSourcesOverview = async () => {
 
 // Update fund source total amount
 export const updateFundSourceAmount = async (data) => {
-    const response = await api.post('/finance/fund-sources/update', data);
+    const response = await api.put('/finance/funds/update', {
+        type: data.fundSource || data.type,
+        amount: data.amount,
+        remarks: data.remarks,
+        financialYear: data.financialYear,
+    });
     return response.data;
 };
 
@@ -135,6 +140,16 @@ export const getFinancialReports = async (params = {}) => {
 
 // Get disbursal history
 export const getDisbursalHistory = async () => {
-    const response = await api.get('/finance/history');
+    const response = await api.get('/finance/disbursal-history');
     return response.data.data;
+};
+
+export const getFunctionRequests = async () => {
+    const response = await api.get('/finance/function-requests');
+    return response.data?.data || response.data;
+};
+
+export const releaseFunctionFunds = async (fundRequestId, data) => {
+    const response = await api.put(`/finance/disbursements/${fundRequestId}/execute`, data);
+    return response.data;
 };

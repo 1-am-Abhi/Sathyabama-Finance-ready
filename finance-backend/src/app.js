@@ -81,6 +81,7 @@ const academicMetricRoutes = require('./routes/academicMetricRoutes');
 const profileRoutes = require('./routes/profileRoutes');
 const revenueRoutes = require('./routes/revenueRoutes');
 const financeRoutes = require('./routes/financeRoutes');
+const dashboardRoutes = require('./routes/dashboardRoutes');
 
 app.use('/api/auth/login', authLimiter);
 app.use('/api/auth', authRoutes);
@@ -95,6 +96,7 @@ app.use('/api/academic-metrics', academicMetricRoutes);
 app.use('/api/profile', profileRoutes);
 app.use('/api/revenue', revenueRoutes);
 app.use('/api/finance', financeRoutes);
+app.use('/api', dashboardRoutes);
 
 app.get('/api/health', (req, res) => {
     res.json({ status: 'ok', message: 'Sathyabama Finance API is running' });

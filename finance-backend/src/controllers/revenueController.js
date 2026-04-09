@@ -1,6 +1,7 @@
 const Revenue = require('../models/Revenue');
 const User = require('../models/User');
 const { Op } = require('sequelize');
+const { syncRevenueLedger } = require('../services/financePipelineService');
 
 exports.createRevenueRecord = async (req, res) => {
     try {
@@ -119,6 +120,7 @@ exports.getAllRevenueForVerification = async (req, res) => {
             where: { status: { [Op.in]: ['ADMIN_APPROVED', 'VERIFIED'] } },
             include: [{ 
                 model: User, 
+                as: 'User',
                 attributes: ['name', 'department'],
                 include: [{ model: require('../models/Centre'), as: 'researchCentre', attributes: ['name'] }]
             }],
@@ -148,6 +150,8 @@ exports.verifyRevenue = async (req, res) => {
             verifiedAt: new Date(),
             verifiedBy: req.user.id
         });
+
+        await syncRevenueLedger(record, req.user);
         
         res.status(200).json({ success: true, message: 'Revenue verified successfully', data: record });
     } catch (error) {
@@ -161,6 +165,7 @@ exports.getAdminRevenueApprovals = async (req, res) => {
         const records = await Revenue.findAll({
             include: [{ 
                 model: User, 
+                as: 'User',
                 attributes: ['name', 'department'],
                 include: [{ model: require('../models/Centre'), as: 'researchCentre', attributes: ['name'] }]
             }],

@@ -14,6 +14,7 @@ import AIResultModal from '../../components/shared/AIResultModal';
 import { analyzeEventFeasibility } from '../../services/aiService';
 import apiClient from '../../api/client';
 import { useNotifications } from '../../contexts/NotificationContext';
+import { useNavigate } from 'react-router-dom';
 
 const API_KEY = process.env.REACT_APP_GOOGLE_API_KEY;
 const CALENDAR_ID = 'en.indian#holiday@group.v.calendar.google.com';
@@ -136,6 +137,7 @@ const EventCalendar = ({ requests, holidays, onDateClick, selectedDate, onReques
 const EventRequests = () => {
     const { setLayout } = useLayout();
     const { addNotification } = useNotifications();
+    const navigate = useNavigate();
     const [selectedStatus, setSelectedStatus] = useState('All');
     const [searchTerm, setSearchTerm] = useState('');
     const [rejectModalOpen, setRejectModalOpen] = useState(false);
@@ -241,21 +243,16 @@ const EventRequests = () => {
             setApprovalAmount(request.approvedAmount?.toString() || '');
             setApproveModalOpen(true);
         } else {
-            // For industry-funded events, approve directly (no amount needed)
             try {
-                await apiClient.put(`/event-requests/${request.id}/status`, { status: 'APPROVED' });
+                const response = await apiClient.put(`/event-requests/${request.id}/status`, { status: 'APPROVED' });
                 setRequests(requests.map(req =>
                     req.id === request.id
                         ? { ...req, status: 'APPROVED' }
                         : req
                 ));
-                addNotification({
-                    role: 'FACULTY',
-                    type: 'success',
-                    message: `Event Request "${request.eventTitle}" was APPROVED!`,
-                    actionUrl: '/faculty/event-requests',
-                    targetUserId: request.facultyId
-                });
+                if (response.data?.pipeline?.redirectTo) {
+                    navigate('/admin/event-requests');
+                }
             } catch (err) {
                 console.error(err);
             }
@@ -266,32 +263,19 @@ const EventRequests = () => {
         if (selectedRequest) {
             const amount = parseFloat(approvalAmount);
             try {
-                await apiClient.put(`/event-requests/${selectedRequest.id}/status`, { status: 'APPROVED', approvedAmount: amount });
+                const response = await apiClient.put(`/event-requests/${selectedRequest.id}/status`, { status: 'APPROVED', approvedAmount: amount });
                 setRequests(requests.map(req =>
                     req.id === selectedRequest.id
-                        ? { ...req, status: 'APPROVED', approvedAmount: amount }
+                        ? { ...req, status: 'APPROVED', approvedAmount: amount, pipelineStatus: response.data?.pipeline?.status }
                         : req
                 ));
                 setApproveModalOpen(false);
                 setApprovalAmount('');
-                
-                addNotification({
-                    role: 'FACULTY',
-                    type: 'success',
-                    message: `Event Request "${selectedRequest.eventTitle}" was APPROVED with ₹${amount.toLocaleString()} budget!`,
-                    actionUrl: '/faculty/event-requests',
-                    targetUserId: selectedRequest.facultyId
-                });
-                
-                // Trigger notification to Finance
-                addNotification({
-                    role: 'FINANCE_OFFICER',
-                    type: 'info',
-                    message: `Event Request "${selectedRequest.eventTitle}" approved with ₹${amount.toLocaleString()} budget. Awaiting faculty bill upload.`,
-                    actionUrl: '/finance/function-requests'
-                });
-                
+
                 setSelectedRequest(null);
+                if (response.data?.pipeline?.redirectTo) {
+                    navigate('/admin/event-requests');
+                }
             } catch (err) {
                 console.error(err);
             }

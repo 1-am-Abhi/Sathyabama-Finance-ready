@@ -29,17 +29,17 @@ export const useNotifications = () => {
             return response.data;
         },
         onSuccess: () => {
-            queryClient.invalidateQueries(['notifications']);
+            queryClient.invalidateQueries({ queryKey: ['notifications'] });
         },
     });
 
     const markAllAsRead = useMutation({
         mutationFn: async () => {
-            const response = await apiClient.patch('/notifications/read-all');
+            const response = await apiClient.patch('/notifications/mark-all-read');
             return response.data;
         },
         onSuccess: () => {
-            queryClient.invalidateQueries(['notifications']);
+            queryClient.invalidateQueries({ queryKey: ['notifications'] });
         },
     });
 

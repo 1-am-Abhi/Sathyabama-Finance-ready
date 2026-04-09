@@ -1,7 +1,13 @@
 const EventRequest = require('../models/EventRequest');
-const ProjectMember = require('../models/ProjectMember');
-const User = require('../models/User');
 const { Op } = require('sequelize');
+const NotificationService = require('../services/notificationService');
+const {
+    approveEventPipeline,
+    ensureProjectMembers,
+    getEventMembersMap,
+    findEventProject,
+    getRecordId,
+} = require('../services/financePipelineService');
 
 exports.createEventRequest = async (req, res) => {
     try {
@@ -20,6 +26,13 @@ exports.createEventRequest = async (req, res) => {
             endTime: req.body.endTime
         };
         const newRequest = await EventRequest.create(payload);
+        await NotificationService.notifyRole(
+            'ADMIN',
+            'New Event Request',
+            `${payload.facultyName} submitted "${payload.eventTitle}" for approval.`,
+            'INFO',
+            '/admin/event-requests'
+        );
         res.status(201).json({ success: true, data: newRequest });
     } catch (error) {
         console.error('Event Submission Error:', error);
@@ -29,42 +42,27 @@ exports.createEventRequest = async (req, res) => {
 
 exports.getEventRequests = async (req, res) => {
     try {
-        let options = { 
-            order: [['createdAt', 'DESC']],
-            include: [
-                {
-                    model: ProjectMember,
-                    as: 'members',
-                    include: [{ 
-                        model: User, 
-                        as: 'user', 
-                        attributes: ['_id', 'name', 'email'],
-                        include: [{ model: require('../models/Centre'), as: 'researchCentre', attributes: ['name'] }]
-                    }]
-                }
-            ]
-        };
+        const options = { order: [['createdAt', 'DESC']] };
         
         if (req.user.role === 'FACULTY') {
             const userId = req.user.id || req.user._id;
-            
-            // Get all event IDs where this user is a member
-            const memberships = await ProjectMember.findAll({
-                where: { userId: userId },
-                attributes: ['projectId']
-            });
-            const eventIds = memberships.map(m => m.projectId);
 
             options.where = {
-                [Op.or]: [
-                    { facultyId: userId },
-                    { _id: { [Op.in]: eventIds } }
-                ]
+                facultyId: userId,
             };
         }
         
         const requests = await EventRequest.findAll(options);
-        res.status(200).json({ success: true, data: requests });
+        const membersMap = await getEventMembersMap(requests);
+        const data = requests.map((request) => {
+            const raw = request.toJSON ? request.toJSON() : request;
+            return {
+                ...raw,
+                members: membersMap.get(getRecordId(raw)) || [],
+            };
+        });
+
+        res.status(200).json({ success: true, data });
     } catch (error) {
         console.error('Get Event Requests Error:', error);
         res.status(500).json({ success: false, message: error.message });
@@ -79,35 +77,53 @@ exports.updateEventRequestStatus = async (req, res) => {
         }
         
         const userRole = (req.user.role || '').toUpperCase();
-        
+
         if (userRole === 'FACULTY') {
-            // Faculty can only update photo proof fields
             if (req.body.photosUploaded !== undefined) evt.photosUploaded = req.body.photosUploaded;
             if (req.body.photoData !== undefined) evt.photoData = req.body.photoData;
-        } else {
-            // Admins can update everything
-            if (req.body.status) evt.status = req.body.status;
-            if (req.body.approvedAmount !== undefined) evt.approvedAmount = req.body.approvedAmount;
-            if (req.body.photosUploaded !== undefined) evt.photosUploaded = req.body.photosUploaded;
-            if (req.body.photoData !== undefined) evt.photoData = req.body.photoData;
-            if (req.body.remarks !== undefined) evt.remarks = req.body.remarks;
+            await evt.save();
+            return res.status(200).json({ success: true, data: evt });
         }
 
-        await evt.save();
+        const previousStatus = evt.status;
+        const pipelineResult = await approveEventPipeline(evt, req.body, req.user);
 
-        // If newly approved and no members exist, add the requesting faculty as the PI
-        if (evt.status === 'APPROVED') {
-            const existingMembers = await ProjectMember.count({ where: { projectId: evt._id } });
-            if (existingMembers === 0) {
-                await ProjectMember.create({
-                    projectId: evt._id,
-                    userId: evt.facultyId,
-                    role: 'PI'
-                });
-            }
+        if (pipelineResult.fundRequest) {
+            await NotificationService.create(
+                evt.facultyId,
+                'Event Approved',
+                `Your event "${evt.eventTitle}" was approved and moved to the Finance pipeline.`,
+                'SUCCESS',
+                '/faculty/event-requests'
+            );
+
+            await NotificationService.notifyRole(
+                'FINANCE_OFFICER',
+                'Event Awaiting Disbursement',
+                `Event "${evt.eventTitle}" is approved for ₹${Number(evt.approvedAmount || req.body.approvedAmount || 0).toLocaleString('en-IN')} and is ready in the finance queue.`,
+                'INFO',
+                '/finance/function-requests'
+            );
+        } else if (String(evt.status).toUpperCase() === 'APPROVED' && previousStatus !== 'APPROVED') {
+            await NotificationService.create(
+                evt.facultyId,
+                'Event Approved',
+                `Your event "${evt.eventTitle}" was approved.`,
+                'SUCCESS',
+                '/faculty/event-requests'
+            );
         }
 
-        res.status(200).json({ success: true, data: evt });
+        res.status(200).json({
+            success: true,
+            data: pipelineResult.event,
+            pipeline: {
+                projectId: getRecordId(pipelineResult.project),
+                fundRequestId: getRecordId(pipelineResult.fundRequest),
+                status: pipelineResult.fundRequest ? 'PENDING_DISBURSAL' : pipelineResult.event.status,
+                redirectTo: pipelineResult.fundRequest ? '/finance/function-requests' : null,
+            },
+        });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
     }
@@ -123,42 +139,20 @@ exports.updateEventMembers = async (req, res) => {
             return res.status(404).json({ success: false, message: 'Event not found' });
         }
 
-        // Delete existing members
-        await ProjectMember.destroy({ where: { projectId: eventId } });
-
-        const members = [];
-        if (piId) {
-            const piUser = await User.findByPk(piId);
-            if (piUser) {
-                members.push({ projectId: eventId, userId: piId, role: 'PI' });
-                // If the PI is changed, update the main event's faculty record for legacy compatibility
-                evt.facultyId = piId;
-                evt.facultyName = piUser.name;
-                await evt.save();
-            }
-        }
-
-        if (memberIds && Array.isArray(memberIds)) {
-            memberIds.forEach(mId => {
-                if (mId !== piId) {
-                    members.push({ projectId: eventId, userId: mId, role: 'MEMBER' });
-                }
+        const project = await findEventProject(evt);
+        if (!project) {
+            return res.status(400).json({
+                success: false,
+                message: 'Approve the event first so the finance/project pipeline can create a valid project record.',
             });
         }
 
-        if (members.length > 0) {
-            await ProjectMember.bulkCreate(members);
-        }
-
-        const updatedMembers = await ProjectMember.findAll({
-            where: { projectId: eventId },
-            include: [{ 
-                model: User, 
-                as: 'user', 
-                attributes: ['_id', 'name', 'email'],
-                include: [{ model: require('../models/Centre'), as: 'researchCentre', attributes: ['name'] }]
-            }]
-        });
+        const updatedMembers = await ensureProjectMembers(
+            getRecordId(project),
+            piId || evt.facultyId,
+            memberIds || [],
+            null
+        );
 
         res.status(200).json({ success: true, data: updatedMembers });
     } catch (error) {

@@ -43,10 +43,4 @@ const Disbursement = sequelize.define('Disbursement', {
     timestamps: true
 });
 
-Disbursement.associate = (models) => {
-    Disbursement.belongsTo(models.FundRequest, { foreignKey: 'fundRequestId' });
-    Disbursement.belongsTo(models.Project, { foreignKey: 'projectId' });
-    Disbursement.belongsTo(models.User, { foreignKey: 'disbursedBy', as: 'officer' });
-};
-
 module.exports = Disbursement;

@@ -5,6 +5,7 @@ const Centre = models.Centre;
 const Project = models.Project;
 const FundRequest = models.FundRequest;
 const Disbursement = models.Disbursement;
+const FundSource = models.FundSource;
 const User = models.User;
 
 const ALLOCATED_STATUSES = ['APPROVED', 'PENDING_DISBURSAL', 'DISBURSED'];
@@ -28,6 +29,7 @@ const buildCentreInclude = () => ({
 
 const buildProjectInclude = () => ({
     model: Project,
+    as: 'Project',
     attributes: ['_id', 'title', 'pi', 'department', 'centre', 'centreId', 'fundingSource'],
     include: [buildCentreInclude()],
     required: false,
@@ -270,6 +272,7 @@ const getSharedPipelineData = async () => {
             include: [
                 {
                     model: FundRequest,
+                    as: 'FundRequest',
                     attributes: [
                         '_id',
                         'projectId',
@@ -405,29 +408,43 @@ const getFacultyDashboardData = async (facultyId, facultyName) => {
 
 const getFundSourceOverview = async () => {
     const shared = await getSharedPipelineData();
+    const fundSourceRows = await FundSource.findAll({
+        attributes: ['sourceType', 'totalAllocated'],
+    });
     const projectCounts = shared.projects.reduce((acc, project) => {
         const source = project.fundingSource || 'OTHERS';
         acc[source] = (acc[source] || 0) + 1;
         return acc;
     }, {});
 
+    const sourceAllocations = fundSourceRows.reduce((acc, row) => {
+        acc[row.sourceType] = toNumber(row.totalAllocated);
+        return acc;
+    }, {});
+
+    const sourceStats = {
+        institutional: buildSourceStats(shared.fundRequests, shared.disbursements, 'INSTITUTIONAL'),
+        pfms: buildSourceStats(shared.fundRequests, shared.disbursements, 'PFMS'),
+        other: buildSourceStats(shared.fundRequests, shared.disbursements, ['DIRECTOR', 'DIRECTOR_INNOVATION', 'OTHERS']),
+    };
+
     return {
         collegeFunds: {
-            totalAllocated: buildSourceStats(shared.fundRequests, shared.disbursements, 'INSTITUTIONAL').allotted,
-            totalUsed: buildSourceStats(shared.fundRequests, shared.disbursements, 'INSTITUTIONAL').consumed,
-            remainingBalance: buildSourceStats(shared.fundRequests, shared.disbursements, 'INSTITUTIONAL').balance,
+            totalAllocated: sourceAllocations.collegeFunds || sourceStats.institutional.allotted,
+            totalUsed: sourceStats.institutional.consumed,
+            remainingBalance: Math.max(0, (sourceAllocations.collegeFunds || sourceStats.institutional.allotted) - sourceStats.institutional.consumed),
             projectCount: projectCounts.INSTITUTIONAL || 0,
         },
         pfmsFunds: {
-            totalAllocated: buildSourceStats(shared.fundRequests, shared.disbursements, 'PFMS').allotted,
-            totalUsed: buildSourceStats(shared.fundRequests, shared.disbursements, 'PFMS').consumed,
-            remainingBalance: buildSourceStats(shared.fundRequests, shared.disbursements, 'PFMS').balance,
+            totalAllocated: sourceAllocations.pfmsFunds || sourceStats.pfms.allotted,
+            totalUsed: sourceStats.pfms.consumed,
+            remainingBalance: Math.max(0, (sourceAllocations.pfmsFunds || sourceStats.pfms.allotted) - sourceStats.pfms.consumed),
             projectCount: projectCounts.PFMS || 0,
         },
         directorFunds: {
-            totalAllocated: buildSourceStats(shared.fundRequests, shared.disbursements, ['DIRECTOR', 'DIRECTOR_INNOVATION', 'OTHERS']).allotted,
-            totalUsed: buildSourceStats(shared.fundRequests, shared.disbursements, ['DIRECTOR', 'DIRECTOR_INNOVATION', 'OTHERS']).consumed,
-            remainingBalance: buildSourceStats(shared.fundRequests, shared.disbursements, ['DIRECTOR', 'DIRECTOR_INNOVATION', 'OTHERS']).balance,
+            totalAllocated: sourceAllocations.directorFunds || sourceStats.other.allotted,
+            totalUsed: sourceStats.other.consumed,
+            remainingBalance: Math.max(0, (sourceAllocations.directorFunds || sourceStats.other.allotted) - sourceStats.other.consumed),
             projectCount: (projectCounts.DIRECTOR || 0) + (projectCounts.DIRECTOR_INNOVATION || 0) + (projectCounts.OTHERS || 0),
         },
     };

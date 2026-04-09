@@ -26,6 +26,7 @@ const FacultyDashboard = () => {
     const [projects, setProjects] = useState([]);
     const [events, setEvents] = useState([]);
     const [fundRequests, setFundRequests] = useState([]);
+    const [equipmentRequests, setEquipmentRequests] = useState([]);
     const [revenueSummary, setRevenueSummary] = useState({ total: 0 });
     const [statsData, setStatsData] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -78,7 +79,9 @@ const FacultyDashboard = () => {
     
     const totalProjectFunding = projects.reduce((sum, p) => sum + parseFloat(p.sanctionedBudget || 0), 0);
     const totalEventFunding = events.filter(e => e.status === 'APPROVED').reduce((sum, e) => sum + parseFloat(e.approvedAmount || 0), 0);
-    const totalFundReqFunding = fundRequests.filter(r => r.status === 'APPROVED').reduce((sum, r) => sum + parseFloat(r.requestedAmount || 0), 0);
+    const totalFundReqFunding = fundRequests
+        .filter(r => ['APPROVED', 'PENDING_DISBURSAL', 'DISBURSED'].includes((r.status || '').toUpperCase()))
+        .reduce((sum, r) => sum + parseFloat(r.requestedAmount || 0), 0);
     const totalEquipmentFunding = equipmentRequests.filter(e => ['Approved', 'DISBURSED'].includes(e.status)).reduce((sum, e) => sum + parseFloat(e.approvedAmount || 0), 0);
     
     const totalFunding = totalProjectFunding + totalEventFunding + totalFundReqFunding + totalEquipmentFunding;
@@ -117,7 +120,7 @@ const FacultyDashboard = () => {
     // Also include fund requests that have been approved
     fundRequests.forEach(r => {
         const d = r.createdAt ? new Date(r.createdAt) : null;
-        if (d && (r.status === 'APPROVED')) {
+        if (d && ['APPROVED', 'PENDING_DISBURSAL', 'DISBURSED'].includes((r.status || '').toUpperCase())) {
             const mIdx = d.getMonth();
             const amt = parseFloat(r.requestedAmount || 0) / 100000;
             trendData[mIdx].amount += amt;

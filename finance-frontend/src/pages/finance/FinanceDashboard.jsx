@@ -95,7 +95,7 @@ const FinanceDashboard = () => {
                                         </CardTitle>
                                         <button 
                                             className="text-sm text-blue-600 hover:text-blue-700 flex items-center"
-                                            onClick={() => navigate('/finance/reports')}
+                                            onClick={() => navigate('/finance/disbursements')}
                                         >
                                             View All <ArrowRight className="w-4 h-4 ml-1" />
                                         </button>

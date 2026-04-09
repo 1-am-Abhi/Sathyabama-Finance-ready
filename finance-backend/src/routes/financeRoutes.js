@@ -8,6 +8,7 @@ router.use(protect);
 router.use(authorize('FINANCE_OFFICER', 'ADMIN'));
 
 router.get('/stats', financeController.getFinanceStats);
+router.get('/dashboard', financeController.getFinanceDashboard);
 router.get('/fund-flow', financeController.getFundFlowProjects);
 
 router.post('/pfms', financeController.createPFMSTransaction);
@@ -38,6 +39,8 @@ router.get('/reports-data', financeController.getFinancialReports);
 // New Dashboard Routes
 router.get('/fund-sources/overview', financeController.getFundSourcesOverview);
 router.post('/fund-sources/update', financeController.updateFundSourceAmount);
+router.put('/fund-sources/update', financeController.updateFundSourceAmount);
+router.put('/funds/update', financeController.updateFundSourceAmount);
 router.get('/departments', financeController.getDepartments);
 router.get('/departments/:id/funding', financeController.getDepartmentFunding);
 router.post('/funding/update', financeController.updateDepartmentFunding);

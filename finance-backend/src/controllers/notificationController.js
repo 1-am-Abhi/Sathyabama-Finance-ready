@@ -27,16 +27,11 @@ exports.createNotification = async (req, res) => {
 
 exports.getNotifications = async (req, res) => {
     try {
-        const userId = req.user.id || req.user._id;
-        const role = req.user.role;
+        const userId = req.params.userId || req.user.id || req.user._id;
 
-        // Fetch notifications specifically for this user OR for their role (broadcasts)
         const notifications = await Notification.findAll({
             where: {
-                [Op.or]: [
-                    { userId: userId },
-                    { role: role }
-                ]
+                userId,
             },
             order: [['createdAt', 'DESC']],
             limit: 50
@@ -58,8 +53,7 @@ exports.markAsRead = async (req, res) => {
             return res.status(404).json({ success: false, message: 'Notification not found' });
         }
 
-        // Security check: ensure the notification belongs to this user or their role
-        if (notification.userId && notification.userId !== (req.user.id || req.user._id)) {
+        if (notification.userId !== (req.user.id || req.user._id)) {
             return res.status(403).json({ success: false, message: 'Unauthorized' });
         }
 
@@ -74,16 +68,12 @@ exports.markAsRead = async (req, res) => {
 exports.markAllAsRead = async (req, res) => {
     try {
         const userId = req.user.id || req.user._id;
-        const role = req.user.role;
 
         await Notification.update(
             { isRead: true },
             {
                 where: {
-                    [Op.or]: [
-                        { userId: userId },
-                        { role: role }
-                    ],
+                    userId,
                     isRead: false
                 }
             }

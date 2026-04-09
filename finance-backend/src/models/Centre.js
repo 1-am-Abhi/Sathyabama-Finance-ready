@@ -16,10 +16,4 @@ const Centre = sequelize.define('Centre', {
     timestamps: true
 });
 
-Centre.associate = (models) => {
-    Centre.hasMany(models.User, { foreignKey: 'centreId', as: 'faculty' });
-    Centre.hasMany(models.Project, { foreignKey: 'centreId', as: 'projects' });
-    Centre.hasMany(models.FundRequest, { foreignKey: 'centreId', as: 'fundRequests' });
-};
-
 module.exports = Centre;

@@ -2,6 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 
 const financeRoutes = require('../src/routes/financeRoutes');
+const notificationRoutes = require('../src/routes/notificationRoutes');
 const projectRoutes = require('../src/routes/projectRoutes');
 const {
     normalizeFundRequest,
@@ -21,6 +22,15 @@ test('finance routes expose disbursement pipeline endpoints', () => {
     assert.ok(paths.includes('/disbursements'));
     assert.ok(paths.includes('/disbursal-history'));
     assert.ok(paths.includes('/equipment-disbursements'));
+    assert.ok(paths.includes('/dashboard'));
+    assert.ok(paths.includes('/funds/update'));
+});
+
+test('notification routes expose read sync endpoints', () => {
+    const paths = notificationRoutes.stack.map((layer) => layer.route?.path).filter(Boolean);
+
+    assert.ok(paths.includes('/:userId'));
+    assert.ok(paths.includes('/mark-all-read'));
 });
 
 test('normalizeFundRequest preserves nested project data expected by the frontend', () => {

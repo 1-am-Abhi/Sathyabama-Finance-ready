@@ -19,7 +19,9 @@ import {
     getPFMSTransactions,
     getInternshipFees,
     verifyInternshipFee,
-    createPFMSTransaction
+    createPFMSTransaction,
+    getFunctionRequests,
+    releaseFunctionFunds
 } from '../services/financeService';
 
 /**
@@ -272,5 +274,27 @@ export const useDisbursalHistory = () => {
         queryKey: ['disbursalHistory'],
         queryFn: getDisbursalHistory,
         staleTime: 0,
+    });
+};
+
+export const useFunctionRequests = () => {
+    return useQuery({
+        queryKey: ['functionRequests'],
+        queryFn: getFunctionRequests,
+        staleTime: 0,
+    });
+};
+
+export const useReleaseFunctionFunds = () => {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: ({ fundRequestId, data }) => releaseFunctionFunds(fundRequestId, data),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['functionRequests'] });
+            queryClient.invalidateQueries({ queryKey: ['disbursalHistory'] });
+            queryClient.invalidateQueries({ queryKey: ['financialReports'] });
+            queryClient.invalidateQueries({ queryKey: ['financeStats'] });
+        },
     });
 };

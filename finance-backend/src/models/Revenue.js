@@ -67,8 +67,5 @@ const Revenue = sequelize.define('Revenue', {
 }, {
     timestamps: true
 });
-Revenue.associate = (models) => {
-    Revenue.belongsTo(models.User, { foreignKey: 'userId' });
-};
 
 module.exports = Revenue;

@@ -101,11 +101,4 @@ const Project = sequelize.define('Project', {
     }
 });
 
-Project.associate = (models) => {
-    Project.belongsTo(models.Centre, { foreignKey: 'centreId', as: 'researchCentre' });
-    Project.hasMany(models.FundRequest, { foreignKey: 'projectId' });
-    Project.hasMany(models.PFMSTransaction, { foreignKey: 'projectId' });
-    Project.hasMany(models.ProjectMember, { foreignKey: 'projectId', as: 'members' });
-};
-
 module.exports = Project;

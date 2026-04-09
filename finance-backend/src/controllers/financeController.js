@@ -9,6 +9,7 @@ const { sequelize } = require('../config/db');
 const { Op } = require('sequelize');
 const NotificationService = require('../services/notificationService');
 const Centre = require('../models/Centre');
+const EventRequest = require('../models/EventRequest');
 const {
     ALLOCATED_STATUSES,
     buildCentreInclude,
@@ -19,6 +20,13 @@ const {
     getDepartmentFundingRows,
     getSharedPipelineData,
 } = require('../services/pipelineMetricsService');
+const {
+    executeDisbursementPipeline,
+    getEventMarker,
+    getRecordId,
+    mapToFundSourceKey,
+    syncRevenueLedger,
+} = require('../services/financePipelineService');
 
 exports.getFinanceStats = async (req, res) => {
     try {
@@ -54,6 +62,30 @@ exports.getFinanceStats = async (req, res) => {
                 pendingSettlements,
                 pendingInternships
             }
+        });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+exports.getFinanceDashboard = async (req, res) => {
+    try {
+        const shared = await getSharedPipelineData();
+        const totalAllocated = shared.fundRequests
+            .filter((request) => ALLOCATED_STATUSES.includes(request.status))
+            .reduce((sum, request) => sum + Number(request.requestedAmount || 0), 0);
+        const totalDisbursed = shared.disbursements.reduce((sum, entry) => sum + Number(entry.amount || 0), 0);
+
+        res.status(200).json({
+            success: true,
+            data: {
+                totalAllocated,
+                totalDisbursed,
+                totalProjects: shared.projects.length,
+                activeProjects: shared.projects.filter((project) => ['ACTIVE', 'APPROVED'].includes(project.status)).length,
+                pendingDisbursements: shared.fundRequests.filter((request) => request.status === 'PENDING_DISBURSAL').length,
+                fundSources: await getFundSourceOverview(),
+            },
         });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
@@ -108,7 +140,7 @@ exports.getPFMSTransactions = async (req, res) => {
     try {
         const transactions = await PFMSTransaction.findAll({
             order: [['createdAt', 'DESC']],
-            include: [{ model: Project }]
+            include: [{ model: Project, as: 'Project' }]
         });
         res.status(200).json({ success: true, data: transactions });
     } catch (error) {
@@ -230,13 +262,10 @@ exports.getFundSourcesOverview = async (req, res) => {
 
 exports.updateFundSourceAmount = async (req, res) => {
     try {
-        const { fundSource, amount } = req.body;
-        
-        let dbSourceType = 'collegeFunds';
-        if (fundSource === 'PFMS' || fundSource === 'pfmsFunds') dbSourceType = 'pfmsFunds';
-        if (fundSource === 'OTHERS' || fundSource === 'directorFunds' || fundSource === 'DIRECTOR_INNOVATION') dbSourceType = 'directorFunds';
+        const { fundSource, type, amount } = req.body;
+        const normalizedType = fundSource || type;
+        const dbSourceType = mapToFundSourceKey(normalizedType);
 
-        // Use UPSERT (Find or Create)
         const [fundRecord, created] = await FundSource.findOrCreate({
             where: { sourceType: dbSourceType },
             defaults: { totalAllocated: Number(amount) }
@@ -304,27 +333,68 @@ exports.updateDepartmentFunding = async (req, res) => {
 
 exports.getFunctionRequests = async (req, res) => {
     try {
-        const EventRequest = require('../models/EventRequest');
         const requests = await EventRequest.findAll({
             where: {
                 fundingType: 'College Funded',
-                status: 'APPROVED'
+                status: { [Op.in]: ['APPROVED', 'REVOKED'] }
             },
             order: [['createdAt', 'DESC']]
         });
-        const data = requests.map(r => ({
-            id: r._id,
-            facultyName: r.facultyName,
-            department: r.researchCentre || r.department,
-            functionName: r.eventTitle,
-            description: r.description || r.eventType,
-            amount: r.approvedAmount || 0,
-            status: r.status,
-            requestDate: r.createdAt,
-            releaseDate: r.updatedAt,
-            transactionId: r._id
-        }));
-        res.status(200).json(data);
+
+        const markers = requests.map((request) => getEventMarker(request._id || request.id));
+        const relatedFundRequests = markers.length
+            ? await FundRequest.findAll({
+                where: {
+                    [Op.or]: markers.map((marker) => ({ purpose: { [Op.like]: `%${marker}%` } })),
+                },
+                include: [buildProjectInclude()],
+            })
+            : [];
+
+        const fundRequestByMarker = new Map();
+        relatedFundRequests.forEach((request) => {
+            const raw = request.toJSON ? request.toJSON() : request;
+            markers.forEach((marker) => {
+                if ((raw.purpose || '').includes(marker)) {
+                    fundRequestByMarker.set(marker, raw);
+                }
+            });
+        });
+
+        const disbursements = await Disbursement.findAll({
+            where: {
+                fundRequestId: {
+                    [Op.in]: relatedFundRequests.map((request) => request._id || request.id),
+                },
+            },
+        });
+
+        const disbursementByFundRequestId = new Map(
+            disbursements.map((entry) => [entry.fundRequestId, entry.toJSON ? entry.toJSON() : entry])
+        );
+
+        const data = requests.map((request) => {
+            const raw = request.toJSON ? request.toJSON() : request;
+            const marker = getEventMarker(raw._id || raw.id);
+            const fundRequest = fundRequestByMarker.get(marker);
+            const disbursement = fundRequest ? disbursementByFundRequestId.get(fundRequest._id || fundRequest.id) : null;
+            const isReleased = fundRequest?.status === 'DISBURSED' || Boolean(disbursement);
+
+            return {
+                id: raw._id || raw.id,
+                fundRequestId: fundRequest?._id || fundRequest?.id || null,
+                facultyName: raw.facultyName,
+                department: raw.researchCentre || raw.department,
+                functionName: raw.eventTitle,
+                description: raw.description || raw.eventType,
+                amount: Number(raw.approvedAmount || fundRequest?.requestedAmount || 0),
+                status: isReleased ? 'FUNDS_RELEASED' : 'APPROVED_BY_DEAN',
+                requestDate: raw.createdAt,
+                releaseDate: disbursement?.disbursedAt || null,
+                transactionId: disbursement?.bankReference || null,
+            };
+        });
+        res.status(200).json({ success: true, data });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
     }
@@ -390,67 +460,32 @@ exports.getDisbursementQueue = async (req, res) => {
 
 // Execute Disbursement: Finance marks the fund as released/disbursed
 exports.executeDisbursement = async (req, res) => {
-    const t = await sequelize.transaction();
     try {
         const { id } = req.params;
-        const { transactionId, bankName, disbursementDate, remarks } = req.body;
-        
-        const request = await FundRequest.findByPk(id, { transaction: t });
+        const request = await FundRequest.findByPk(id);
         if (!request) {
-            await t.rollback();
             return res.status(404).json({ success: false, message: 'Fund request not found' });
         }
-        
-        // Final Pipeline State: DISBURSED
         console.log(`[PIPELINE] Disbursing Request ${req.params.id}: ${request.status} -> DISBURSED`);
-        await request.update({
-            status: 'DISBURSED',
-            currentStage: 'AMOUNT_DISBURSED',
-            transactionId: transactionId || request.transactionId,
-            bankName: bankName || request.bankName,
-            disbursementDate: disbursementDate || new Date(),
-            financeRemarks: remarks || request.financeRemarks,
-            financeProcessedAt: new Date(),
-            financeProcessedBy: req.user.id
-        }, { transaction: t });
+        const result = await executeDisbursementPipeline(request, req.body, req.user);
 
-        // Create dedicated Disbursement record
-        await Disbursement.create({
-            fundRequestId: request._id || request.id,
-            projectId: request.projectId,
-            amount: request.requestedAmount || request.amount || 0,
-            disbursedBy: req.user.id,
-            disbursedByName: req.user.name,
-            bankReference: transactionId,
-            remarks: remarks
-        }, { transaction: t });
-        
-        // Update the project's released budget
-        if (request.projectId) {
-            const project = await Project.findByPk(request.projectId, { transaction: t });
-            if (project) {
-                const amountToAdd = request.requestedAmount || request.amount || 0;
-                await project.update({ 
-                    releasedBudget: (project.releasedBudget || 0) + amountToAdd 
-                }, { transaction: t });
-            }
-        }
-        
-        await t.commit();
-
-        // NOTIFY: Faculty about disbursement
-        // We do this AFTER commit to ensure database consistency
         await NotificationService.create(
             request.userId || request.facultyId,
             'Funds Disbursed',
-            `Funds for '${request.projectTitle}' have been disbursed! Transaction ID: ${transactionId}.`,
+            `Funds for '${request.projectTitle}' have been disbursed! Transaction ID: ${req.body.transactionId}.`,
             'SUCCESS',
             '/faculty/request-funds'
         );
 
-        res.status(200).json({ success: true, message: 'Disbursement executed successfully', data: request });
+        res.status(200).json({
+            success: true,
+            message: 'Disbursement executed successfully',
+            data: {
+                request: result.request,
+                disbursement: result.disbursement,
+            },
+        });
     } catch (error) {
-        if (t) await t.rollback();
         console.error('executeDisbursement Error:', error);
         res.status(500).json({ success: false, message: error.message });
     }
@@ -548,22 +583,18 @@ exports.executeEquipmentDisbursement = async (req, res) => {
 // getFinancialReports: Aggregated financial dashboard data
 exports.getFinancialReports = async (req, res) => {
     try {
-        const { period, department, fundType } = req.query;
-        const Revenue = require('../models/Revenue');
-        const User = require('../models/User');
-
-        // 1. Calculate Outflows (Released Funds) - USE DISBURSEMENT MODEL
-        const totalOutflow = await Disbursement.sum('amount') || 0;
-        
+        const { period, department, fundType, centre } = req.query;
         const history = await Disbursement.findAll({
             include: [
                 { 
                     model: FundRequest, 
+                    as: 'FundRequest',
                     attributes: ['projectTitle', 'purpose', 'source', 'faculty'],
-                    include: [{ model: require('../models/Centre'), as: 'researchCentre', attributes: ['name'] }]
+                    include: [{ model: require('../models/Centre'), as: 'researchCentre', attributes: ['name'] }, buildProjectInclude()]
                 },
                 { 
                     model: Project, 
+                    as: 'Project',
                     attributes: ['title', 'pi', 'department'],
                     include: [{ model: require('../models/Centre'), as: 'researchCentre', attributes: ['name'] }]
                 }
@@ -571,20 +602,43 @@ exports.getFinancialReports = async (req, res) => {
             order: [['disbursedAt', 'DESC']]
         });
 
-        // 2. Calculate Inflows (Verified Revenue)
-        const totalInflow = await Revenue.sum('verifiedAmount', { where: { status: 'VERIFIED' } }) || 0;
         const inflows = await Revenue.findAll({
             where: { status: 'VERIFIED' },
-            include: [{ model: User, attributes: ['name', 'department'] }]
+            include: [{ model: User, as: 'User', attributes: ['name', 'department'] }],
+            order: [['verifiedAt', 'DESC']],
         });
 
-        // 3. Prepare summary
         const totalAllocated = await FundRequest.sum('requestedAmount', {
             where: { status: { [Op.in]: ALLOCATED_STATUSES } }
         }) || 0;
+        const normalizedOutflows = history.map((entry) => normalizeDisbursement(entry));
+        const normalizedInflows = inflows.map((entry) => {
+            const raw = entry.toJSON ? entry.toJSON() : entry;
+            return {
+                ...raw,
+                amount: Number(raw.verifiedAmount || raw.amountGenerated || 0),
+                entryType: 'INFLOW',
+                verifiedByName: raw.User?.name || null,
+            };
+        });
+
+        const filteredOutflows = normalizedOutflows.filter((entry) => {
+            const matchesDepartment = !department || department === 'All Departments' || entry.Project?.department === department;
+            const matchesFundType = !fundType || fundType === 'All Funds' || entry.FundRequest?.source === fundType;
+            const matchesCentre = !centre || centre === 'All Centres' || entry.Project?.centreName === centre || entry.FundRequest?.centreName === centre;
+            return matchesDepartment && matchesFundType && matchesCentre;
+        });
+
+        const filteredInflows = normalizedInflows.filter((entry) =>
+            !department || department === 'All Departments' || entry.User?.department === department
+        );
+
+        const totalOutflow = filteredOutflows.reduce((sum, entry) => sum + Number(entry.amount || 0), 0);
+        const totalInflow = filteredInflows.reduce((sum, entry) => sum + Number(entry.amount || 0), 0);
 
         const summary = {
             totalAllocated,
+            totalSanctioned: totalAllocated,
             totalDisbursed: totalOutflow,
             totalRevenue: totalInflow,
             netBalance: totalInflow - totalOutflow
@@ -594,8 +648,13 @@ exports.getFinancialReports = async (req, res) => {
         res.status(200).json({
             success: true,
             summary,
-            outflows: history,
-            inflows: inflows
+            outflows: filteredOutflows,
+            inflows: filteredInflows,
+            ledger: [
+                ...filteredOutflows.map((entry) => ({ ...entry, entryType: 'OUTFLOW', entryDate: entry.disbursedAt })),
+                ...filteredInflows.map((entry) => ({ ...entry, entryDate: entry.verifiedAt || entry.createdAt })),
+            ].sort((a, b) => new Date(b.entryDate || b.createdAt || 0) - new Date(a.entryDate || a.createdAt || 0)),
+            filters: { period, department, fundType, centre },
         });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
@@ -608,6 +667,7 @@ exports.getDisbursalHistory = async (req, res) => {
             include: [
                 { 
                     model: FundRequest, 
+                    as: 'FundRequest',
                     attributes: ['_id', 'projectId', 'projectTitle', 'purpose', 'source', 'faculty', 'centre', 'centreId', 'requestedAmount'],
                     include: [buildCentreInclude(), buildProjectInclude()],
                 },

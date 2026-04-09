@@ -12,12 +12,6 @@ const FUND_FLOW_STAGES = [
 ];
 
 class FundRequest extends Model {
-    static associate(models) {
-        this.belongsTo(models.Centre, { foreignKey: 'centreId', as: 'researchCentre' });
-        this.belongsTo(models.User, { foreignKey: 'userId', as: 'requester' });
-        this.belongsTo(models.Project, { foreignKey: 'projectId' });
-    }
-
     async advanceStage(nextStage, updatedBy, remarks) {
         const currentIndex = FUND_FLOW_STAGES.indexOf(this.currentStage);
         const nextIndex = FUND_FLOW_STAGES.indexOf(nextStage);

@@ -42,6 +42,8 @@ const FacultyRequestFunds = () => {
 
     const selectedProject = projects?.find(p => p._id === selectedProjectId);
     const isPI = selectedProject && (selectedProject.piId === user?._id || selectedProject.userId === user?._id);
+    const allocatedStatuses = ['APPROVED', 'PENDING_DISBURSAL', 'DISBURSED'];
+    const releasedStages = ['CHEQUE_RELEASED', 'AMOUNT_DISBURSED'];
     
     // Adapted installment logic
     const installments = [
@@ -53,11 +55,11 @@ const FacultyRequestFunds = () => {
     
     const releasedAmount = selectedProject 
         ? (selectedProject.releasedBudget || 0)
-        : (fundRequests || []).filter(r => r.status === 'APPROVED' && ['CHEQUE_RELEASED', 'AMOUNT_DISBURSED'].includes(r.currentStage || r.status)).reduce((acc, req) => acc + (req.requestedAmount || 0), 0);
+        : (fundRequests || []).filter(r => allocatedStatuses.includes((r.status || '').toUpperCase()) && (releasedStages.includes(r.currentStage) || (r.status || '').toUpperCase() === 'DISBURSED')).reduce((acc, req) => acc + (req.requestedAmount || 0), 0);
         
     const sanctionedAmount = selectedProject
         ? (selectedProject.sanctionedBudget || 0)
-        : (fundRequests || []).filter(r => r.status === 'APPROVED').reduce((acc, req) => acc + (req.requestedAmount || 0), 0);
+        : (fundRequests || []).filter(r => allocatedStatuses.includes((r.status || '').toUpperCase())).reduce((acc, req) => acc + (req.requestedAmount || 0), 0);
 
     const remainingAmount = sanctionedAmount - releasedAmount;
 
