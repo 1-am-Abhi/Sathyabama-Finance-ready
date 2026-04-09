@@ -1,8 +1,9 @@
-import { render, screen } from '@testing-library/react';
-import App from './App';
+import { formatCurrency, parseCurrency } from './utils/format';
 
-test('renders learn react link', () => {
-  render(<App />);
-  const linkElement = screen.getByText(/learn react/i);
-  expect(linkElement).toBeInTheDocument();
+test('formats large rupee amounts in lakhs', () => {
+  expect(formatCurrency(250000)).toBe('₹2.5L');
+});
+
+test('parses formatted currency strings back to numbers', () => {
+  expect(parseCurrency('₹1,25,000')).toBe(125000);
 });

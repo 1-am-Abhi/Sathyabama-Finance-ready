@@ -1,5 +1,14 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import apiClient from '../api/apiClient';
+import apiClient from '../api/client';
+
+const normalizeNotification = (notification) => ({
+    ...notification,
+    actionUrl:
+        notification?.actionUrl ||
+        (typeof notification?.relatedId === 'string' && notification.relatedId.startsWith('/')
+            ? notification.relatedId
+            : null),
+});
 
 export const useNotifications = () => {
     const queryClient = useQueryClient();
@@ -8,7 +17,7 @@ export const useNotifications = () => {
         queryKey: ['notifications'],
         queryFn: async () => {
             const response = await apiClient.get('/notifications');
-            return response.data;
+            return (response.data?.data || []).map(normalizeNotification);
         },
         refetchInterval: 15000, // Poll every 15 seconds
         staleTime: 5000,
@@ -34,7 +43,7 @@ export const useNotifications = () => {
         },
     });
 
-    const unreadCount = notifications.filter(n => !n.isRead).length;
+    const unreadCount = notifications.filter(n => !n.isRead && !n.read).length;
 
     return {
         notifications,

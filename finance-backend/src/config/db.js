@@ -32,6 +32,9 @@ const sequelize = process.env.DATABASE_URL
         }
     );
 
+const shouldSyncDatabase = process.env.DB_SYNC === 'true';
+const shouldAlterSchema = process.env.DB_SYNC_ALTER !== 'false';
+
 const connectDB = async () => {
     try {
         await sequelize.authenticate();
@@ -41,8 +44,12 @@ const connectDB = async () => {
         const models = require('../models');
         console.log('Models and associations initialized.');
         
-        await sequelize.sync({ alter: true });
-        console.log('Database synced (Alter applied).');
+        if (shouldSyncDatabase) {
+            await sequelize.sync({ alter: shouldAlterSchema });
+            console.log(`Database synced (alter=${shouldAlterSchema}).`);
+        } else {
+            console.log('Database sync skipped. Set DB_SYNC=true to enable schema synchronization.');
+        }
     } catch (error) {
         console.error('PostgreSQL connection error:', error);
         process.exit(1);

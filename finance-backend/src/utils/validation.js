@@ -72,6 +72,21 @@ const fundRequestSchema = z.object({
   }),
 });
 
+const notificationSchema = z.object({
+  body: z.object({
+    title: z.string().max(255).optional(),
+    message: z.string().min(1, 'Notification message is required').max(1000),
+    type: z.string().max(50).optional(),
+    role: z.enum(['ADMIN', 'FACULTY', 'FINANCE_OFFICER']).optional().nullable(),
+    targetUserId: z.string().uuid().optional().nullable(),
+    relatedId: z.string().max(1000).optional().nullable(),
+    actionUrl: z.string().max(1000).optional().nullable(),
+  }).refine(
+    (data) => Boolean(data.role || data.targetUserId),
+    { message: 'Either role or targetUserId is required' }
+  ),
+});
+
 // Validation Middleware Helper
 const validate = (schema) => (req, res, next) => {
   try {
@@ -102,5 +117,6 @@ module.exports = {
   registerSchema,
   odRequestSchema,
   fundRequestSchema,
+  notificationSchema,
   projectSchema
 };

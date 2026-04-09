@@ -29,7 +29,7 @@ apiClient.interceptors.response.use(
         // Success toasts for mutations (POST/PUT/DELETE)
         if (['post', 'put', 'delete'].includes(response.config.method)) {
             const message = response.data?.message || 'Action completed successfully';
-            if (!response.config.url.includes('/auth/login')) {
+            if (!response.config.url?.includes('/auth/login')) {
                 toast.success(message);
             }
         }
@@ -40,7 +40,7 @@ apiClient.interceptors.response.use(
         
         // --- Render Cold Start Retry Logic ---
         // If it's a 503 (Service Unavailable) or a network error and we haven't retried yet
-        if ((!response || response.status === 503) && !config._retry) {
+        if (config && (!response || response.status === 503) && !config._retry) {
             config._retry = true;
             console.log('Detected potential cold start, retrying request...');
             // Wait 2 seconds before retrying

@@ -4,15 +4,22 @@ services:
     plan: free
     runtime: node
     rootDir: finance-backend
-    buildCommand: npm install
+    buildCommand: npm ci
     startCommand: npm start
+    healthCheckPath: /api/health
+    buildFilter:
+      paths:
+        - finance-backend/**
+        - render.yaml
     envVars:
       - key: DATABASE_URL
-        value: postgresql://college_project_db_user:fTR9h0ig5rFLiNPJg4IJoHzRB3LZ71z1@dpg-d76cnrn5r7bs73c42emg-a.singapore-postgres.render.com/college_project_db
+        sync: false
       - key: JWT_SECRET
         generateValue: true
       - key: NODE_ENV
         value: production
+      - key: DB_SYNC
+        value: false
       - key: PORT
         value: 5000
       - key: FRONTEND_URL
@@ -23,10 +30,17 @@ services:
     plan: free
     runtime: node
     rootDir: finance-frontend
-    buildCommand: npm install && npm run build
+    buildCommand: npm ci && npm run build
     startCommand: npm start
+    healthCheckPath: /
+    buildFilter:
+      paths:
+        - finance-frontend/**
+        - render.yaml
     envVars:
       - key: REACT_APP_API_URL
         value: https://finance-api-x1ig.onrender.com/api
+      - key: REACT_APP_GOOGLE_API_KEY
+        sync: false
       - key: PORT
         value: 10000

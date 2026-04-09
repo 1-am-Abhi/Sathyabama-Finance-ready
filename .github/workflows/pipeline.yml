@@ -14,15 +14,13 @@ jobs:
       - name: Use Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '18.x'
+          node-version: '22.x'
           cache: 'npm'
           cache-dependency-path: finance-backend/package-lock.json
       - name: Install Dependencies
         run: cd finance-backend && npm ci
-      - name: Run Lint
-        run: cd finance-backend && npm run lint || echo "No lint script yet"
       - name: Run Tests
-        run: cd finance-backend && npm test || echo "No test script yet"
+        run: cd finance-backend && npm test
 
   frontend:
     runs-on: ubuntu-latest
@@ -31,12 +29,12 @@ jobs:
       - name: Use Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '18.x'
+          node-version: '22.x'
           cache: 'npm'
           cache-dependency-path: finance-frontend/package-lock.json
       - name: Install Dependencies
         run: cd finance-frontend && npm ci
-      - name: Build Frontend
-        run: cd finance-frontend && npm run build
       - name: Run Tests
         run: cd finance-frontend && npm test -- --watchAll=false
+      - name: Build Frontend
+        run: cd finance-frontend && npm run build

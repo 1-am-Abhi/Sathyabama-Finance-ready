@@ -6,13 +6,41 @@ const path = require('path');
 const rateLimit = require('express-rate-limit');
 
 const app = express();
+const allowedOrigins = (process.env.FRONTEND_URL || '')
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean);
+
+if (process.env.NODE_ENV !== 'production') {
+    allowedOrigins.push('http://localhost:3000', 'http://127.0.0.1:3000');
+}
+
+const uniqueAllowedOrigins = [...new Set(allowedOrigins)];
 
 // Middleware
 app.set('trust proxy', 1);
-// app.use(helmet());
+app.disable('x-powered-by');
+app.use(helmet());
 
 const corsOptions = {
-    origin: process.env.FRONTEND_URL || true,
+    origin: (origin, callback) => {
+        if (!origin) {
+            return callback(null, true);
+        }
+
+        if (
+            uniqueAllowedOrigins.length === 0 &&
+            process.env.NODE_ENV !== 'production'
+        ) {
+            return callback(null, true);
+        }
+
+        if (uniqueAllowedOrigins.includes(origin)) {
+            return callback(null, true);
+        }
+
+        return callback(new Error(`CORS blocked for origin: ${origin}`));
+    },
     credentials: true,
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
 };
@@ -25,8 +53,8 @@ app.use((req, res, next) => {
 });
 
 app.use(morgan('dev'));
-app.use(express.json({ limit: '250mb' }));
-app.use(express.urlencoded({ extended: true, limit: '250mb' }));
+app.use(express.json({ limit: process.env.REQUEST_BODY_LIMIT || '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: process.env.REQUEST_BODY_LIMIT || '10mb' }));
 
 // Rate limiting
 const authLimiter = rateLimit({
@@ -54,7 +82,7 @@ const profileRoutes = require('./routes/profileRoutes');
 const revenueRoutes = require('./routes/revenueRoutes');
 const financeRoutes = require('./routes/financeRoutes');
 
-// app.use('/api/auth/login', authLimiter);
+app.use('/api/auth/login', authLimiter);
 app.use('/api/auth', authRoutes);
 app.use('/api/projects', projectRoutes);
 app.use('/api/fund-requests', fundRequestRoutes);

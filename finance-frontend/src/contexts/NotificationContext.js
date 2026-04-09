@@ -1,8 +1,17 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import apiClient from '../api/apiClient'; // Using the standardized apiClient
+import apiClient from '../api/client';
 import { useAuth } from './AuthContext';
 
 const NotificationContext = createContext(null);
+
+const normalizeNotification = (notification) => ({
+    ...notification,
+    actionUrl:
+        notification?.actionUrl ||
+        (typeof notification?.relatedId === 'string' && notification.relatedId.startsWith('/')
+            ? notification.relatedId
+            : null),
+});
 
 export const NotificationProvider = ({ children }) => {
     const { user } = useAuth();
@@ -17,7 +26,7 @@ export const NotificationProvider = ({ children }) => {
         try {
             setIsLoading(true);
             const res = await apiClient.get('/notifications');
-            setNotifications(res.data.data || []);
+            setNotifications((res.data.data || []).map(normalizeNotification));
         } catch (error) {
             console.error('Failed to fetch notifications:', error);
         } finally {
@@ -58,6 +67,35 @@ export const NotificationProvider = ({ children }) => {
         }
     };
 
+    const addNotification = async (notification) => {
+        if (!notification?.message) {
+            throw new Error('Notification message is required');
+        }
+
+        const payload = {
+            title: notification.title || 'Notification',
+            message: notification.message,
+            type: notification.type || 'INFO',
+            role: notification.role || null,
+            targetUserId: notification.targetUserId || null,
+            relatedId: notification.relatedId || null,
+            actionUrl: notification.actionUrl || null,
+        };
+
+        const response = await apiClient.post('/notifications', payload);
+        const createdNotification = normalizeNotification(response.data?.data || {});
+
+        const targetsCurrentUser =
+            createdNotification.userId === (user?.id || user?._id) ||
+            createdNotification.role === user?.role;
+
+        if (targetsCurrentUser) {
+            setNotifications((prev) => [createdNotification, ...prev]);
+        }
+
+        return createdNotification;
+    };
+
     const clearAll = () => {
         setNotifications([]);
     };
@@ -74,6 +112,7 @@ export const NotificationProvider = ({ children }) => {
             notifications,
             isLoading,
             unreadCount,
+            addNotification,
             markAsRead,
             markAllAsRead,
             clearAll,
