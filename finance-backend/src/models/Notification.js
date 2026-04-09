@@ -19,16 +19,17 @@ const Notification = sequelize.define('Notification', {
     },
     title: {
         type: DataTypes.STRING,
-        allowNull: false,
+        allowNull: true,
         defaultValue: 'Notification'
     },
     message: {
         type: DataTypes.STRING(1000),
-        allowNull: false
+        allowNull: true
     },
     type: {
-        type: DataTypes.ENUM('INFO', 'SUCCESS', 'ALERT'),
-        defaultValue: 'INFO'
+        type: DataTypes.STRING, // Changed from ENUM to STRING to fix migration crash
+        defaultValue: 'INFO',
+        allowNull: true
     },
     relatedId: {
         type: DataTypes.STRING,
