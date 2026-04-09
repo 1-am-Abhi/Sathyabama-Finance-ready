@@ -55,7 +55,7 @@ apiClient.interceptors.response.use(
             toast.error('Session expired. Please login again.');
             localStorage.removeItem('token');
             localStorage.removeItem('user');
-            window.location.href = '/login';
+            window.location.href = '/login?reason=session_expired';
         } else if (response?.status === 400 && response?.data?.errors) {
             // Handle validation errors from Zod/Sequelize
             response.data.errors.forEach(err => toast.error(err.message));

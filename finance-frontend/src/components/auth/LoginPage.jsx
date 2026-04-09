@@ -1,19 +1,29 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 
 import { useAuth } from '../../contexts/AuthContext';
 import { ROLES } from '../../constants/roles';
-import { Eye, EyeOff } from 'lucide-react';
+import { Eye, EyeOff, AlertCircle } from 'lucide-react';
 import './LoginPage.css';
 
 const LoginPage = () => {
+    const location = useLocation();
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [selectedRole, setSelectedRole] = useState(ROLES.ADMIN);
     const [error, setError] = useState('');
+    const [successMessage, setSuccessMessage] = useState('');
     const [loading, setLoading] = useState(false);
     const [showPassword, setShowPassword] = useState(false);
 
     const { login } = useAuth();
+
+    useEffect(() => {
+        const params = new URLSearchParams(location.search);
+        if (params.get('reason') === 'session_expired') {
+            setError('Session expired due to inactivity. Please login again.');
+        }
+    }, [location]);
 
     const handleSubmit = async (e) => {
         e.preventDefault();

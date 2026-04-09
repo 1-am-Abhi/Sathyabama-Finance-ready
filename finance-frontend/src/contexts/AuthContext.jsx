@@ -18,13 +18,17 @@ export const AuthProvider = ({ children }) => {
 
     // ── Logout ──────────────────────────────────────────────────────────────
     // useCallback so its identity is stable and doesn't cause effect re-runs
-    const logout = useCallback(() => {
+    const logout = useCallback((reason = null) => {
         if (inactivityTimerRef.current) clearTimeout(inactivityTimerRef.current);
         localStorage.removeItem('token');
         localStorage.removeItem('user');
         localStorage.removeItem(LAST_ACTIVITY_KEY);
         setToken(null);
         setUser(null);
+
+        if (reason === 'session_expired') {
+            window.location.href = '/login?reason=session_expired';
+        }
     }, []);
 
     // ── Restore session on mount ─────────────────────────────────────────────
@@ -40,7 +44,7 @@ export const AuthProvider = ({ children }) => {
 
                 if (elapsed >= INACTIVITY_LIMIT_MS) {
                     // User was inactive for more than 1 hour before reopening the tab
-                    logout();
+                    logout('session_expired');
                 } else {
                     const parsedUser = JSON.parse(storedUser);
                     setToken(storedToken);
@@ -52,6 +56,15 @@ export const AuthProvider = ({ children }) => {
             }
         }
         setLoading(false);
+
+        // ── Cross-tab sync: Logout if token is removed in another tab ──
+        const syncLogout = (e) => {
+            if (e.key === 'token' && !e.newValue) {
+                logout();
+            }
+        };
+        window.addEventListener('storage', syncLogout);
+        return () => window.removeEventListener('storage', syncLogout);
     }, [logout]);
 
     // ── Inactivity timer ────────────────────────────────────────────────────
@@ -66,12 +79,12 @@ export const AuthProvider = ({ children }) => {
             stamp();
             inactivityTimerRef.current = setTimeout(() => {
                 console.warn('[AuthContext] Logging out due to 1 hour of inactivity.');
-                logout();
+                logout('session_expired');
             }, INACTIVITY_LIMIT_MS);
         };
 
         // Activity events — use passive listeners for performance
-        const ACTIVITY_EVENTS = ['mousedown', 'mousemove', 'keydown', 'scroll', 'touchstart', 'click'];
+        const ACTIVITY_EVENTS = ['mousedown', 'mousemove', 'keydown', 'keypress', 'scroll', 'touchstart', 'click'];
 
         ACTIVITY_EVENTS.forEach(evt =>
             window.addEventListener(evt, scheduleLogout, { passive: true })
