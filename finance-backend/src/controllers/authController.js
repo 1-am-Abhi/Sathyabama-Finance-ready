@@ -51,11 +51,15 @@ exports.register = async (req, res) => {
 
 exports.login = async (req, res) => {
     try {
-        const { email, password } = req.body;
+        const { email, password, role } = req.body;
         
         const user = await User.findOne({ where: { email } });
         if (!user) {
             return res.status(401).json({ success: false, message: 'Incorrect email' });
+        }
+
+        if (role && user.role !== role) {
+            return res.status(403).json({ success: false, message: `Access denied. Registered role is ${user.role}, but attempted to login as ${role}.` });
         }
 
         const isMatch = await user.comparePassword(password);

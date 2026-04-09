@@ -21,7 +21,7 @@ const LoginPage = () => {
         setLoading(true);
 
         try {
-            const result = await login(email, password);
+            const result = await login(email, password, selectedRole);
             
             if (result.success) {
                 // Get the user from local storage or context (AuthContext already sets it)
