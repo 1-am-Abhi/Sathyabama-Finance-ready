@@ -8,6 +8,7 @@ import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Toolti
 import ProjectDetail from './ProjectDetail';
 import FacultyDetail from './FacultyDetail';
 import apiClient from '../../api/client';
+import axios from 'axios';
 
 const ResearchCentreDetail = ({ isOpen, onClose, centreName, isDark }) => {
     const [selectedProject, setSelectedProject] = useState(null);
@@ -37,37 +38,45 @@ const ResearchCentreDetail = ({ isOpen, onClose, centreName, isDark }) => {
             try {
                 if (isMounted && details.projects.length === 0) setLoading(true);
                 
-                // Fetch all projects (we filter client-side for simplicity, or modify API)
+                // Use axios directly with token to avoid the globaltoast-on-404 interceptor
+                const token = localStorage.getItem('token');
+                const headers = token ? { Authorization: `Bearer ${token}` } : {};
+                const baseURL = process.env.REACT_APP_API_URL || 'http://localhost:5001/api';
+
                 const [projectsRes, usersRes, metricsRes] = await Promise.all([
-                    apiClient.get('/projects').catch(() => ({ data: { success: true, data: [] } })),
-                    apiClient.get('/profile/all').catch(() => ({ data: { success: true, data: [] } })),
-                    apiClient.get('/academic-metrics/all').catch(() => ({ data: { success: true, data: [] } }))
+                    axios.get(`${baseURL}/projects`, { headers }).catch(() => ({ data: { success: true, data: [] } })),
+                    axios.get(`${baseURL}/profile/all`, { headers }).catch(() => ({ data: { success: true, data: [] } })),
+                    axios.get(`${baseURL}/academic-metrics/all`, { headers }).catch(() => ({ data: { success: true, data: [] } }))
                 ]);
                 
                 if (!isMounted) return;
                 
-                let centreProjects = [];
-                if (projectsRes.data.success) {
-                    const normalizeName = (name) => {
-                        if (!name) return '';
-                        const n = name.trim().toLowerCase();
-                        if (n.includes('nano science') || n.includes('nanotechnology')) return 'centre for nano science and nanotechnology';
-                        if (n.includes('waste management')) return 'centre for waste management';
-                        if (n.includes('energy research')) return 'centre of excellence for energy research';
-                        if (n.includes('climate studies')) return 'centre for climate studies';
-                        if (n.includes('nanomedical')) return 'centre for molecular and nanomedical sciences';
-                        if (n.includes('drug discovery')) return 'centre for drug discovery and development';
-                        if (n.includes('additive manufacturing')) return 'centre of excellence for additive manufacturing';
-                        if (n.includes('system of medicine')) return 'centre for indian system of medicine';
-                        if (n.includes('aqua culture')) return 'centre for aqua culture';
-                        return n;
-                    };
+                // Normalize centre name for flexible matching
+                const normalizeName = (name) => {
+                    if (!name) return '';
+                    const n = name.trim().toLowerCase();
+                    if (n.includes('nano science') || n.includes('nanotechnology')) return 'centre for nano science and nanotechnology';
+                    if (n.includes('waste management')) return 'centre for waste management';
+                    if (n.includes('energy research') || n.includes('ceer')) return 'centre of excellence for energy research';
+                    if (n.includes('climate studies')) return 'centre for climate studies';
+                    if (n.includes('nanomedical')) return 'centre for molecular and nanomedical sciences';
+                    if (n.includes('drug discovery')) return 'centre for drug discovery and development';
+                    if (n.includes('additive manufacturing')) return 'centre of excellence for additive manufacturing';
+                    if (n.includes('system of medicine')) return 'centre for indian system of medicine';
+                    if (n.includes('aqua culture')) return 'centre for aqua culture';
+                    if (n === 'others' || n === 'other') return 'others';
+                    return n;
+                };
 
+                let centreProjects = [];
+                if (projectsRes.data.success && projectsRes.data.data) {
                     const target = normalizeName(centreName);
-                    
                     centreProjects = projectsRes.data.data.filter(p => {
                         const pCentre = normalizeName(p.centre);
-                        return pCentre === target || target.includes(pCentre) || (pCentre && target.includes(pCentre));
+                        const pDept = normalizeName(p.department);
+                        // Match against both centre AND department fields
+                        return pCentre === target || pDept === target ||
+                               (pCentre && target && (pCentre.includes(target.substring(0, 12)) || target.includes(pCentre.substring(0, 12))));
                     });
                 }
                 
@@ -86,9 +95,14 @@ const ResearchCentreDetail = ({ isOpen, onClose, centreName, isDark }) => {
                 let pubStats = { journals: 0, proceedings: 0, books: 0, bookChapters: 0, patents: 0 };
                 
                 if (usersRes.data && usersRes.data.success) {
-                    const centreUsers = usersRes.data.data.filter(u => 
-                        (u.department === centreName || u.centre === centreName)
-                    );
+                    // Use fuzzy matching for users too
+                    const centreUsers = (usersRes.data.data || []).filter(u => {
+                        const uCentre = normalizeName(u.centre);
+                        const uDept = normalizeName(u.department);
+                        const tgt = normalizeName(centreName);
+                        return uCentre === tgt || uDept === tgt ||
+                               (uCentre && tgt && (uCentre.includes(tgt.substring(0, 12)) || tgt.includes(uCentre.substring(0, 12))));
+                    });
 
                     centreFaculty = centreUsers.filter(u => u.role === 'FACULTY').map(u => ({
                         id: u._id,
@@ -97,6 +111,18 @@ const ResearchCentreDetail = ({ isOpen, onClose, centreName, isDark }) => {
                         projects: uiProjects.filter(p => p.pi === u.name).length,
                         specialization: u.specialization || 'Research'
                     }));
+
+                    // If no registered faculty found, derive from project PIs
+                    if (centreFaculty.length === 0 && uiProjects.length > 0) {
+                        const piNames = [...new Set(uiProjects.map(p => p.pi).filter(pi => pi && pi !== 'N/A'))];
+                        centreFaculty = piNames.map((name, i) => ({
+                            id: `pi-${i}`,
+                            name,
+                            role: 'Principal Investigator',
+                            projects: uiProjects.filter(p => p.pi === name).length,
+                            specialization: 'Research'
+                        }));
+                    }
 
                     // Aggregate publications for these users
                     if (metricsRes.data && metricsRes.data.success) {
@@ -257,7 +283,11 @@ const ResearchCentreDetail = ({ isOpen, onClose, centreName, isDark }) => {
                                                 </TableRow>
                                             </TableHeader>
                                             <TableBody>
-                                                {details.projects.map((project) => (
+                                                {loading ? (
+                                                    <TableRow><TableCell colSpan={7} className="text-center py-10 text-gray-400 italic text-sm">Loading projects...</TableCell></TableRow>
+                                                ) : details.projects.length === 0 ? (
+                                                    <TableRow><TableCell colSpan={7} className="text-center py-10 text-gray-400 italic text-sm">No projects found for this research centre yet.</TableCell></TableRow>
+                                                ) : details.projects.map((project) => (
                                                     <TableRow
                                                         key={project.id}
                                                         className="dark:border-slate-700 cursor-pointer hover:bg-gray-50 dark:hover:bg-slate-800/50 transition-colors"

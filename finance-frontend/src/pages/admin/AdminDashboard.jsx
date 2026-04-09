@@ -140,19 +140,25 @@ const AdminDashboard = () => {
         { name: 'Balance', value: Math.max(0, (stats?.othersStats?.allotted || 0) - (stats?.othersStats?.consumed || 0)), color: '#a78bfa' }
     ], [stats]);
 
-    // Mapping API data to UI structure
+    // Mapping API data to UI structure — fuzzy match backend centre names to the official list
     const centreData = React.useMemo(() => {
+        const normalize = (s) => (s || '').trim().toLowerCase();
         return centres.map(name => {
-            const centreStat = (centresStats || []).find(c => c.name === name);
+            // Try exact match first, then fuzzy (substring) match
+            const centreStat = (centresStats || []).find(c =>
+                normalize(c.name) === normalize(name) ||
+                normalize(c.name).includes(normalize(name).substring(0, 10)) ||
+                normalize(name).includes(normalize(c.name).substring(0, 10))
+            );
             return {
                 centre: name,
                 totalProjects: centreStat?.totalProjects || 0,
                 activeProjects: centreStat?.activeProjects || 0,
-                completedProjects: 0, // Backend doesn't currently provide separate completed count per center
+                completedProjects: 0,
                 pendingApproval: 0,
                 totalBudget: centreStat?.totalBudget || 0,
                 disbursed: centreStat?.disbursed || 0,
-                faculty: 12 // Placeholder for faculty count per center if needed
+                faculty: 0
             };
         });
     }, [centres, centresStats]);
@@ -312,8 +318,8 @@ const AdminDashboard = () => {
     return (
         <div className="flex-1 overflow-y-auto overflow-x-hidden p-6 bg-gray-50 dark:bg-slate-950">
 
-            {/* Funds Overview Section - 3 columns: PFMS | Director's Innovation | Others */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+            {/* Funds Overview Section - 3 columns: PFMS | Institutional | Others */}
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 mb-8">
                 {/* PFMS / Government Funds */}
                 <Card className="border-0 shadow-md bg-white dark:bg-slate-900 overflow-hidden relative">
                     <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-50 dark:bg-indigo-900/10 rounded-full -mr-10 -mt-10 blur-2xl"></div>
@@ -324,8 +330,8 @@ const AdminDashboard = () => {
                                     <Building2 className="w-6 h-6" />
                                 </div>
                                 <div>
-                                    <CardTitle className="text-lg font-bold text-gray-800 dark:text-white">PFMS Overview</CardTitle>
-                                    <CardDescription className="text-xs dark:text-gray-400">Government Sanctioned Projects</CardDescription>
+                                    <CardTitle className="text-lg font-bold text-gray-800 dark:text-white">PFMS Funds</CardTitle>
+                                    <CardDescription className="text-xs dark:text-gray-400">Government Sanctioned & Sponsored</CardDescription>
                                 </div>
                             </div>
                             <Badge variant="outline" className="bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-900/30 dark:text-indigo-300 dark:border-indigo-800">Live Status</Badge>
@@ -394,8 +400,8 @@ const AdminDashboard = () => {
                                     <Wallet className="w-6 h-6" />
                                 </div>
                                 <div>
-                                    <CardTitle className="text-lg font-bold text-gray-800 dark:text-white">Director's Innovation</CardTitle>
-                                    <CardDescription className="text-xs dark:text-gray-400">Institutional Seed Money &amp; Grants</CardDescription>
+                                    <CardTitle className="text-lg font-bold text-gray-800 dark:text-white">Institutional Funds</CardTitle>
+                                    <CardDescription className="text-xs dark:text-gray-400">University Seed Money & Overhead</CardDescription>
                                 </div>
                             </div>
                             <Badge variant="outline" className="bg-emerald-500/10 text-emerald-500 border-emerald-500/20 dark:bg-emerald-900/30 dark:text-emerald-400 dark:border-emerald-800 animate-pulse">Live Status</Badge>
@@ -454,8 +460,8 @@ const AdminDashboard = () => {
                                     <CircleDollarSign className="w-6 h-6" />
                                 </div>
                                 <div>
-                                    <CardTitle className="text-lg font-bold text-gray-800 dark:text-white">Others Fund</CardTitle>
-                                    <CardDescription className="text-xs dark:text-gray-400">Director Innovation &amp; External Grants</CardDescription>
+                                    <CardTitle className="text-lg font-bold text-gray-800 dark:text-white">Other Grants</CardTitle>
+                                    <CardDescription className="text-xs dark:text-gray-400">Research Grants & Consultancy</CardDescription>
                                 </div>
                             </div>
                             <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400 dark:border-emerald-800">Live Status</Badge>

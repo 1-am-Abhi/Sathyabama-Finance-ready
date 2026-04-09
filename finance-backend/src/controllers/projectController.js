@@ -47,14 +47,17 @@ exports.getAdminStats = async (req, res) => {
         }) || 0;
         
         const institutionalDisbursed = await FundRequest.sum('requestedAmount', { 
-            where: {
-                source: { [Op.notIn]: ['PFMS', 'DIRECTOR_INNOVATION'] },
-                currentStage: { [Op.in]: ['AMOUNT_DISBURSED', 'UTILIZATION_COMPLETED', 'SETTLEMENT_CLOSED'] }
-            }
+            where: { 
+                source: 'INSTITUTIONAL', 
+                currentStage: { [Op.in]: ['AMOUNT_DISBURSED', 'UTILIZATION_COMPLETED', 'SETTLEMENT_CLOSED'] } 
+            } 
         }) || 0;
 
         const othersDisbursed = await FundRequest.sum('requestedAmount', { 
-            where: { source: 'DIRECTOR_INNOVATION', currentStage: { [Op.in]: ['AMOUNT_DISBURSED', 'UTILIZATION_COMPLETED', 'SETTLEMENT_CLOSED'] } }
+            where: { 
+                source: 'OTHERS', 
+                currentStage: { [Op.in]: ['AMOUNT_DISBURSED', 'UTILIZATION_COMPLETED', 'SETTLEMENT_CLOSED'] } 
+            } 
         }) || 0;
 
         const totalFaculty = await User.count({ where: { role: 'FACULTY' } });
