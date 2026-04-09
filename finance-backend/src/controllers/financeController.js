@@ -419,7 +419,8 @@ exports.getDisbursementQueue = async (req, res) => {
                 { 
                     model: Project, 
                     attributes: ['title', 'pi', 'centre', 'department', 'fundingSource'],
-                    required: false 
+                    required: false,
+                    include: [{ model: require('../models/Centre'), as: 'researchCentre', attributes: ['name'] }]
                 },
                 { model: User, attributes: ['name', 'email', 'department'], as: 'requester', required: false }
             ],
@@ -594,41 +595,51 @@ exports.getFinancialReports = async (req, res) => {
         const Revenue = require('../models/Revenue');
         const User = require('../models/User');
 
-        // 1. Calculate Outflows (Released Funds)
-        const disbursedRequests = await FundRequest.findAll({
-            where: { 
-                currentStage: ['FUND_RELEASED', 'AMOUNT_DISBURSED', 'CHEQUE_RELEASED'],
-                source: { [Op.in]: ['INSTITUTIONAL', 'DIRECTOR_INNOVATION', 'PFMS', 'OTHERS'] }
-            },
-            include: [{ model: Project, attributes: ['title', 'department', 'pi'] }]
+        // 1. Calculate Outflows (Released Funds) - USE DISBURSEMENT MODEL
+        const totalOutflow = await Disbursement.sum('amount') || 0;
+        
+        const history = await Disbursement.findAll({
+            include: [
+                { 
+                    model: FundRequest, 
+                    attributes: ['projectTitle', 'purpose', 'source', 'faculty'],
+                    include: [{ model: require('../models/Centre'), as: 'researchCentre', attributes: ['name'] }]
+                },
+                { 
+                    model: Project, 
+                    attributes: ['title', 'pi', 'department'],
+                    include: [{ model: require('../models/Centre'), as: 'researchCentre', attributes: ['name'] }]
+                }
+            ],
+            order: [['disbursedAt', 'DESC']]
         });
 
-        const totalOutflow = disbursedRequests.reduce((sum, r) => sum + (r.amount || 0), 0);
-
         // 2. Calculate Inflows (Verified Revenue)
-        const verifiedRevenue = await Revenue.findAll({
+        const totalInflow = await Revenue.sum('verifiedAmount', { where: { status: 'VERIFIED' } }) || 0;
+        const inflows = await Revenue.findAll({
             where: { status: 'VERIFIED' },
             include: [{ model: User, attributes: ['name', 'department'] }]
         });
 
-        const totalInflow = verifiedRevenue.reduce((sum, r) => sum + (r.verifiedAmount || r.amountGenerated || 0), 0);
-
         // 3. Prepare summary
-        const projects = await Project.findAll();
-        const totalSanctioned = projects.reduce((sum, p) => sum + (p.sanctionedBudget || 0), 0);
+        const ALLOCATED_STATUSES = ['APPROVED', 'PENDING_DISBURSAL', 'DISBURSED'];
+        const totalAllocated = await FundRequest.sum('requestedAmount', {
+            where: { status: { [Op.in]: ALLOCATED_STATUSES } }
+        }) || 0;
 
         const summary = {
-            totalSanctioned,
+            totalAllocated,
             totalDisbursed: totalOutflow,
             totalRevenue: totalInflow,
             netBalance: totalInflow - totalOutflow
         };
 
+        console.log("[PIPELINE] Finance Data Truth:", summary);
         res.status(200).json({
             success: true,
             summary,
-            outflows: disbursedRequests,
-            inflows: verifiedRevenue
+            outflows: history,
+            inflows: inflows
         });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
@@ -639,8 +650,16 @@ exports.getDisbursalHistory = async (req, res) => {
     try {
         const history = await Disbursement.findAll({
             include: [
-                { model: FundRequest, attributes: ['projectTitle', 'purpose', 'source'] },
-                { model: Project, attributes: ['title', 'pi', 'department'] }
+                { 
+                    model: FundRequest, 
+                    attributes: ['projectTitle', 'purpose', 'source'],
+                    include: [{ model: require('../models/Centre'), as: 'researchCentre', attributes: ['name'] }]
+                },
+                { 
+                    model: Project, 
+                    attributes: ['title', 'pi', 'department'],
+                    include: [{ model: require('../models/Centre'), as: 'researchCentre', attributes: ['name'] }]
+                }
             ],
             order: [['disbursedAt', 'DESC']]
         });

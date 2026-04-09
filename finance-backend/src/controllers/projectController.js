@@ -4,75 +4,57 @@ const ProjectMember = require('../models/ProjectMember');
 const { FundRequest } = require('../models/FundRequest');
 const EventRequest = require('../models/EventRequest');
 const Revenue = require('../models/Revenue');
+const Disbursement = require('../models/Disbursement');
 const { Op } = require('sequelize');
 
 exports.getAdminStats = async (req, res) => {
     try {
-        const FundSource = require('../models/FundSource');
-        const [totalProjects, activeProjects, pendingApprovals, allSources] = await Promise.all([
+        const [totalProjects, activeProjects, pendingApprovals, totalFaculty] = await Promise.all([
             Project.count(),
             Project.count({ where: { status: 'ACTIVE' } }),
             Project.count({ where: { status: 'PENDING' } }),
-            FundSource.findAll()
+            User.count({ where: { role: 'FACULTY' } })
         ]);
-        
-        // ── PFMS Budget ──
-        let pfmsBudget = allSources.find(s => s.sourceType === 'pfmsFunds')?.totalAllocated || 0;
-        if (pfmsBudget === 0) {
-            pfmsBudget = await Project.sum('sanctionedBudget', { where: { fundingSource: 'PFMS' } }) || 0;
-        }
 
-        // ── Institutional (College) Budget ──
-        let institutionalBudgetTotal = allSources.find(s => s.sourceType === 'collegeFunds')?.totalAllocated || 0;
-        if (institutionalBudgetTotal === 0) {
-            const approvedEventBudget = await EventRequest.sum('approvedAmount', { 
-                where: { status: 'APPROVED', fundingType: 'College Funded' } 
+        const ALLOCATED_STATUSES = ['APPROVED', 'PENDING_DISBURSAL', 'DISBURSED'];
+
+        // Helper for summing by source
+        const getAllocatedBySource = async (source) => {
+            const sources = Array.isArray(source) ? source : [source];
+            return await FundRequest.sum('requestedAmount', {
+                where: { 
+                    source: { [Op.in]: sources },
+                    status: { [Op.in]: ALLOCATED_STATUSES }
+                }
             }) || 0;
-            institutionalBudgetTotal = (await Project.sum('sanctionedBudget', {
-                where: { fundingSource: 'INSTITUTIONAL' }
-            }) || 0) + approvedEventBudget;
-        }
+        };
 
-        // ── Director Innovation Fund ──
-        let directorBudget = allSources.find(s => s.sourceType === 'directorFunds')?.totalAllocated || 0;
-        if (directorBudget === 0) {
-            directorBudget = await Project.sum('sanctionedBudget', {
-                where: { fundingSource: { [Op.in]: ['DIRECTOR', 'DIRECTOR_INNOVATION', 'DIRECTOR_INNOVATION_FUND'] } }
+        const getDisbursedBySource = async (source) => {
+            const sources = Array.isArray(source) ? source : [source];
+            return await Disbursement.sum('amount', {
+                include: [{
+                    model: FundRequest,
+                    where: { source: { [Op.in]: sources } }
+                }]
             }) || 0;
-        }
+        };
 
-        // ── Others Budget ──
-        let othersBudget = await Project.sum('sanctionedBudget', {
-            where: { fundingSource: 'OTHERS' }
-        }) || 0;
+        // ── PFMS Stats ──
+        const pfmsAllocated = await getAllocatedBySource('PFMS');
+        const pfmsDisbursed = await getDisbursedBySource('PFMS');
 
-        // ── Disbursements ──
-        const pfmsDisbursed = await FundRequest.sum('requestedAmount', { 
-            where: { source: 'PFMS', currentStage: { [Op.in]: ['AMOUNT_DISBURSED', 'UTILIZATION_COMPLETED', 'SETTLEMENT_CLOSED', 'DISBURSED'] } }
-        }) || 0;
-        
-        const institutionalDisbursed = await FundRequest.sum('requestedAmount', { 
-            where: { 
-                source: 'INSTITUTIONAL', 
-                currentStage: { [Op.in]: ['AMOUNT_DISBURSED', 'UTILIZATION_COMPLETED', 'SETTLEMENT_CLOSED', 'DISBURSED'] } 
-            } 
-        }) || 0;
+        // ── Institutional Stats ──
+        const institutionalAllocated = await getAllocatedBySource('INSTITUTIONAL');
+        const institutionalDisbursed = await getDisbursedBySource('INSTITUTIONAL');
 
-        const directorDisbursed = await FundRequest.sum('requestedAmount', { 
-            where: { 
-                source: { [Op.in]: ['DIRECTOR', 'DIRECTOR_INNOVATION', 'DIRECTOR_INNOVATION_FUND'] },
-                currentStage: { [Op.in]: ['AMOUNT_DISBURSED', 'UTILIZATION_COMPLETED', 'SETTLEMENT_CLOSED', 'DISBURSED'] } 
-            } 
-        }) || 0;
+        // ── Director Stats ──
+        const directorSources = ['DIRECTOR', 'DIRECTOR_INNOVATION', 'DIRECTOR_INNOVATION_FUND'];
+        const directorAllocated = await getAllocatedBySource(directorSources);
+        const directorDisbursed = await getDisbursedBySource(directorSources);
 
-        const othersDisbursed = await FundRequest.sum('requestedAmount', { 
-            where: { 
-                source: 'OTHERS', 
-                currentStage: { [Op.in]: ['AMOUNT_DISBURSED', 'UTILIZATION_COMPLETED', 'SETTLEMENT_CLOSED', 'DISBURSED'] } 
-            } 
-        }) || 0;
-
-        const totalFaculty = await User.count({ where: { role: 'FACULTY' } });
+        // ── Others Stats ──
+        const othersAllocated = await getAllocatedBySource('OTHERS');
+        const othersDisbursed = await getDisbursedBySource('OTHERS');
 
         // ── Revenue Generation ──
         const totalRevenue = await Revenue.sum('verifiedAmount', { where: { status: 'VERIFIED' } }) || 0;
@@ -85,8 +67,7 @@ exports.getAdminStats = async (req, res) => {
             attributes: [
                 'centreId',
                 [Project.sequelize.fn('COUNT', Project.sequelize.col('Project._id')), 'totalProjects'],
-                [Project.sequelize.literal(`COUNT(CASE WHEN Project.status IN ('ACTIVE', 'APPROVED') THEN 1 END)`), 'activeProjects'],
-                [Project.sequelize.fn('SUM', Project.sequelize.col('sanctionedBudget')), 'projectBudget']
+                [Project.sequelize.literal(`COUNT(CASE WHEN Project.status IN ('ACTIVE', 'APPROVED') THEN 1 END)`), 'activeProjects']
             ],
             include: [
                 { model: require('../models/Centre'), as: 'researchCentre', attributes: ['name'] }
@@ -94,66 +75,120 @@ exports.getAdminStats = async (req, res) => {
             group: ['centreId', 'researchCentre._id', 'researchCentre.name']
         });
 
-        const disbursementAggregates = await FundRequest.findAll({
+        const allocatedAggregates = await FundRequest.findAll({
             attributes: [
                 'centreId',
-                [FundRequest.sequelize.fn('SUM', FundRequest.sequelize.col('requestedAmount')), 'disbursed']
+                [FundRequest.sequelize.fn('SUM', FundRequest.sequelize.col('requestedAmount')), 'allocated']
             ],
-            where: { currentStage: { [Op.in]: ['AMOUNT_DISBURSED', 'UTILIZATION_COMPLETED', 'SETTLEMENT_CLOSED', 'DISBURSED'] } },
+            where: { status: { [Op.in]: ALLOCATED_STATUSES } },
             group: ['centreId']
         });
 
+        const disbursedAggregates = await Disbursement.findAll({
+            attributes: [
+                [FundRequest.sequelize.col('FundRequest.centreId'), 'centreId'],
+                [FundRequest.sequelize.fn('SUM', FundRequest.sequelize.col('Disbursement.amount')), 'disbursed']
+            ],
+            include: [{
+                model: FundRequest,
+                attributes: []
+            }],
+            group: [FundRequest.sequelize.col('FundRequest.centreId')]
+        });
+
         const centreStatsList = centreAggregates.map(c => {
-            const disb = disbursementAggregates.find(d => d.centreId === c.centreId);
+            const alloc = allocatedAggregates.find(a => a.centreId === c.centreId);
+            const disb = disbursedAggregates.find(d => d.get('centreId') === c.centreId);
             return {
                 name: c.researchCentre?.name || 'Unassigned',
                 totalProjects: parseInt(c.get('totalProjects')) || 0,
                 activeProjects: parseInt(c.get('activeProjects')) || 0,
-                totalBudget: parseFloat(c.get('projectBudget')) || 0,
+                totalBudget: parseFloat(alloc?.get('allocated')) || 0,
                 disbursed: parseFloat(disb?.get('disbursed')) || 0
             };
         });
 
+        const data = {
+            totalProjects,
+            activeProjects,
+            pendingApprovals,
+            totalAllocated: pfmsAllocated + institutionalAllocated + directorAllocated + othersAllocated,
+            totalDisbursed: pfmsDisbursed + institutionalDisbursed + directorDisbursed + othersDisbursed,
+            totalFaculty,
+            pfmsStats: {
+                allotted: pfmsAllocated,
+                consumed: pfmsDisbursed,
+                balance: Math.max(0, pfmsAllocated - pfmsDisbursed)
+            },
+            institutionalStats: {
+                allotted: institutionalAllocated,
+                consumed: institutionalDisbursed,
+                balance: Math.max(0, institutionalAllocated - institutionalDisbursed)
+            },
+            directorStats: {
+                allotted: directorAllocated,
+                consumed: directorDisbursed,
+                balance: Math.max(0, directorAllocated - directorDisbursed)
+            },
+            othersStats: {
+                allotted: othersAllocated,
+                consumed: othersDisbursed,
+                balance: Math.max(0, othersAllocated - othersDisbursed)
+            },
+            revenueStats: {
+                total: totalRevenue,
+                consultancy: consultancyRevenue,
+                internships: internshipRevenue,
+                events: eventsRevenue
+            }
+        };
+
+        console.log("[PIPELINE] Admin Data Truth:", data);
         res.status(200).json({
             success: true,
-            stats: {
-                totalProjects,
-                activeProjects,
-                pendingApprovals,
-                totalBudget: pfmsBudget + institutionalBudgetTotal + directorBudget + othersBudget,
-                totalDisbursed: pfmsDisbursed + institutionalDisbursed + directorDisbursed + othersDisbursed,
-                totalFaculty,
-                pfmsStats: {
-                    allotted: pfmsBudget,
-                    consumed: pfmsDisbursed,
-                    balance: Math.max(0, pfmsBudget - pfmsDisbursed)
-                },
-                institutionalStats: {
-                    allotted: institutionalBudgetTotal,
-                    consumed: institutionalDisbursed,
-                    balance: Math.max(0, institutionalBudgetTotal - institutionalDisbursed)
-                },
-                directorStats: {
-                    allotted: directorBudget,
-                    consumed: directorDisbursed,
-                    balance: Math.max(0, directorBudget - directorDisbursed)
-                },
-                othersStats: {
-                    allotted: othersBudget,
-                    consumed: othersDisbursed,
-                    balance: Math.max(0, othersBudget - othersDisbursed)
-                },
-                revenueStats: {
-                    total: totalRevenue,
-                    consultancy: consultancyRevenue,
-                    internships: internshipRevenue,
-                    events: eventsRevenue
-                }
-            },
+            stats: data,
             centres: centreStatsList
         });
     } catch (error) {
-        console.error('Get Admin Stats Error:', error);
+        console.error('getAdminStats error:', error);
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+exports.getFacultyStats = async (req, res) => {
+    try {
+        const facultyId = req.user.id || req.user._id;
+        const ALLOCATED_STATUSES = ['APPROVED', 'PENDING_DISBURSAL', 'DISBURSED'];
+
+        const [totalProjects, activeProjects, totalAllocated, totalDisbursed] = await Promise.all([
+            Project.count({ where: { [Op.or]: [{ facultyId }, { userId: facultyId }] } }),
+            Project.count({ where: { [Op.or]: [{ facultyId }, { userId: facultyId }], status: 'ACTIVE' } }),
+            FundRequest.sum('requestedAmount', {
+                where: { 
+                    [Op.or]: [{ facultyId }, { userId: facultyId }],
+                    status: { [Op.in]: ALLOCATED_STATUSES }
+                }
+            }) || 0,
+            Disbursement.sum('amount', {
+                include: [{
+                    model: FundRequest,
+                    where: { [Op.or]: [{ facultyId }, { userId: facultyId }] }
+                }]
+            }) || 0
+        ]);
+
+        const data = {
+            totalProjects,
+            activeProjects,
+            totalAllocated,
+            totalDisbursed,
+            balance: Math.max(0, totalAllocated - totalDisbursed)
+        };
+
+        console.log(`[PIPELINE] Faculty Data Truth (${req.user.name}):`, data);
+        res.status(200).json({ success: true, stats: data });
+    } catch (error) {
+        console.error('getFacultyStats error:', error);
         res.status(500).json({ success: false, message: error.message });
     }
 };
@@ -161,11 +196,14 @@ exports.getAdminStats = async (req, res) => {
 exports.getProjects = async (req, res) => {
     try {
         const includeMembers = {
-            include: [{
-                model: ProjectMember,
-                as: 'members',
-                include: [{ model: User, as: 'user', attributes: ['_id', 'name', 'email', 'centre', 'department'] }]
-            }],
+            include: [
+                {
+                    model: ProjectMember,
+                    as: 'members',
+                    include: [{ model: User, as: 'user', attributes: ['_id', 'name', 'email', 'centre', 'department'] }]
+                },
+                { model: require('../models/Centre'), as: 'researchCentre', attributes: ['name'] }
+            ],
             order: [['createdAt', 'DESC']]
         };
 

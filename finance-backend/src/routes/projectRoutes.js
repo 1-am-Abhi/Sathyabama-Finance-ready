@@ -7,6 +7,7 @@ router.use(protect); // All project routes are protected
 
 router.get('/', projectController.getProjects);
 router.get('/stats', authorize('ADMIN'), projectController.getAdminStats);
+router.get('/faculty-stats', projectController.getFacultyStats);
 router.get('/:id', projectController.getProject);
 
 // Only Admin and Faculty can create/update projects

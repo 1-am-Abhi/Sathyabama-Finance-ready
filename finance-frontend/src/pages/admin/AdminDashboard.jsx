@@ -53,10 +53,12 @@ const AdminDashboard = () => {
                 ]);
 
                 if (isMounted && statsRes.data.success) {
+                    console.log("Admin Data Truth:", statsRes.data.stats);
                     setStats(statsRes.data.stats);
                     setCentresStats(statsRes.data.centres);
                 }
                 if (isMounted && requestsRes.data.success) {
+                    console.log("Admin Recent Requests:", requestsRes.data.data.slice(0, 5));
                     setRecentRequests(requestsRes.data.data.slice(0, 5));
                 }
             } catch (error) {
@@ -118,7 +120,7 @@ const AdminDashboard = () => {
             totalProjects: stats.totalProjects,
             activeProjects: stats.activeProjects,
             pendingApprovals: stats.pendingApprovals,
-            totalBudget: stats.totalBudget,
+            totalAllocated: stats.totalAllocated,
             totalDisbursed: stats.totalDisbursed,
             totalFaculty: stats.totalFaculty
         };
@@ -460,16 +462,31 @@ const AdminDashboard = () => {
 
             {/* Stats Cards — 2 on mobile, 2 on sm, 4 on lg */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6 mb-8 items-stretch">
-                <Card className="h-full border-0 bg-maroon-50 dark:bg-maroon-900/20 text-maroon-600 dark:text-maroon-400 transition-all duration-300 hover:shadow-lg">
-                    <CardContent className="p-4 sm:p-6 h-full flex flex-col justify-between">
+                <Card className="h-full border-0 bg-maroon-900 text-white transition-all duration-300 hover:shadow-lg relative overflow-hidden">
+                    <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16 blur-2xl"></div>
+                    <CardContent className="p-4 sm:p-6 h-full flex flex-col justify-between relative z-10">
                         <div className="flex items-start justify-between">
                             <div>
-                                <p className="text-xs sm:text-sm font-medium opacity-80">Total Projects</p>
-                                <p className="text-2xl sm:text-3xl font-bold mt-2">{totalStats.totalProjects}</p>
+                                <p className="text-xs sm:text-sm font-medium opacity-80 uppercase tracking-wider">Total Allocated</p>
+                                <p className="text-2xl sm:text-3xl font-bold mt-2">{formatCurrency(totalStats.totalAllocated)}</p>
                             </div>
-                            <div className="w-10 h-10 sm:w-12 sm:h-12 bg-maroon-100 dark:bg-maroon-800/30 rounded-lg flex items-center justify-center flex-shrink-0"><FileText className="w-5 h-5 sm:w-6 sm:h-6" /></div>
+                            <div className="w-10 h-10 sm:w-12 sm:h-12 bg-white/20 rounded-lg flex items-center justify-center flex-shrink-0"><Wallet className="w-5 h-5 sm:w-6 sm:h-6" /></div>
                         </div>
-                        <p className="text-xs mt-3 opacity-70">{totalStats.activeProjects} active</p>
+                        <p className="text-xs mt-3 opacity-70">Approved across all sources</p>
+                    </CardContent>
+                </Card>
+
+                <Card className="h-full border-0 bg-indigo-600 text-white transition-all duration-300 hover:shadow-lg relative overflow-hidden">
+                    <div className="absolute bottom-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mb-16 blur-2xl"></div>
+                    <CardContent className="p-4 sm:p-6 h-full flex flex-col justify-between relative z-10">
+                        <div className="flex items-start justify-between">
+                            <div>
+                                <p className="text-xs sm:text-sm font-medium opacity-80 uppercase tracking-wider">Total Disbursed</p>
+                                <p className="text-2xl sm:text-3xl font-bold mt-2">{formatCurrency(totalStats.totalDisbursed)}</p>
+                            </div>
+                            <div className="w-10 h-10 sm:w-12 sm:h-12 bg-white/20 rounded-lg flex items-center justify-center flex-shrink-0"><Banknote className="w-5 h-5 sm:w-6 sm:h-6" /></div>
+                        </div>
+                        <p className="text-xs mt-3 opacity-70">Utilization: {totalStats.totalAllocated > 0 ? ((totalStats.totalDisbursed / totalStats.totalAllocated) * 100).toFixed(0) : 0}%</p>
                     </CardContent>
                 </Card>
 

@@ -26,8 +26,8 @@ const FacultyDashboard = () => {
     const [projects, setProjects] = useState([]);
     const [events, setEvents] = useState([]);
     const [fundRequests, setFundRequests] = useState([]);
-    const [equipmentRequests, setEquipmentRequests] = useState([]);
     const [revenueSummary, setRevenueSummary] = useState({ total: 0 });
+    const [statsData, setStatsData] = useState(null);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
@@ -38,19 +38,27 @@ const FacultyDashboard = () => {
     const loadData = async () => {
         try {
             const currentYear = new Date().getFullYear();
-            const [projRes, eventRes, fundRes, eqRes, revRes] = await Promise.all([
+            const [projRes, eventRes, fundRes, eqRes, revRes, statsRes] = await Promise.all([
                 apiClient.get('/projects').catch(() => ({ data: { data: [] } })),
                 apiClient.get('/event-requests').catch(() => ({ data: { data: [] } })),
                 apiClient.get('/fund-requests').catch(() => ({ data: { data: [] } })),
                 apiClient.get('/equipment-requests').catch(() => ({ data: { data: [] } })),
                 apiClient.get(`/revenue/summary?year=${currentYear}`).catch(() => ({ data: { success: true, data: { summary: { total: 0 } } } })),
+                apiClient.get('/projects/faculty-stats').catch(() => ({ data: { success: false } }))
             ]);
+
             setProjects(projRes.data.data || []);
             setEvents(eventRes.data.data || []);
             setFundRequests(fundRes.data.data || []);
             setEquipmentRequests(eqRes.data.data || []);
+            
             if (revRes.data.success) {
                 setRevenueSummary(revRes.data.data.summary || { total: 0 });
+            }
+
+            if (statsRes.data.success) {
+                console.log("Faculty Data Truth:", statsRes.data.stats);
+                setStatsData(statsRes.data.stats);
             }
         } catch (e) {
             console.error(e);
@@ -78,9 +86,9 @@ const FacultyDashboard = () => {
     const formattedRevenue = formatCurrency(revenueSummary.total || 0);
 
     const stats = [
-        { title: 'Active Projects', value: loading ? '…' : String(activeStatsCount), icon: FileText, color: 'text-rose-400', bg: 'bg-rose-500/10', border: 'border-rose-500/20', subtitle: 'Ongoing research' },
-        { title: 'Revenue Generated', value: loading ? '…' : formattedRevenue, icon: TrendingUp, color: 'text-amber-400', bg: 'bg-amber-500/10', border: 'border-amber-500/20', subtitle: 'Institutional income' },
-        { title: 'Total Funding', value: loading ? '…' : formattedFunding, icon: Banknote, color: 'text-emerald-400', bg: 'bg-emerald-500/10', border: 'border-emerald-500/20', subtitle: 'Sanctioned grants' },
+        { title: 'Active Projects', value: loading ? '…' : String(statsData?.activeProjects || 0), icon: FileText, color: 'text-rose-400', bg: 'bg-rose-500/10', border: 'border-rose-500/20', subtitle: 'Ongoing research' },
+        { title: 'Amount Disbursed', value: loading ? '…' : formatCurrency(statsData?.totalDisbursed || 0), icon: TrendingUp, color: 'text-amber-400', bg: 'bg-amber-500/10', border: 'border-amber-500/20', subtitle: 'Released to projects' },
+        { title: 'Total Allocated', value: loading ? '…' : formatCurrency(statsData?.totalAllocated || 0), icon: Banknote, color: 'text-emerald-400', bg: 'bg-emerald-500/10', border: 'border-emerald-500/20', subtitle: 'Approved grants' },
         { title: 'Publications', value: String(publications), icon: Award, color: 'text-violet-400', bg: 'bg-violet-500/10', border: 'border-violet-500/20', subtitle: 'Research output' }
     ];
 

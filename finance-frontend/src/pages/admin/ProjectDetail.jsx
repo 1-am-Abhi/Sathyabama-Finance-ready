@@ -84,18 +84,18 @@ const ProjectDetail = ({ isOpen, onClose, project, isDark }) => {
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
                     <Card className="border-0 shadow-sm dark:bg-slate-800">
                         <CardContent className="p-4">
-                            <div className="text-sm text-gray-500 dark:text-gray-400">Total Budget</div>
+                            <div className="text-sm text-gray-500 dark:text-gray-400">Total Allocated</div>
                             <div className="text-2xl font-bold dark:text-white">{formatCurrency(project.budget)}</div>
-                            <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">Allocated</div>
+                            <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">Approved Grant</div>
                         </CardContent>
                     </Card>
 
                     <Card className="border-0 shadow-sm dark:bg-slate-800">
                         <CardContent className="p-4">
-                            <div className="text-sm text-gray-500 dark:text-gray-400">Funds Released</div>
+                            <div className="text-sm text-gray-500 dark:text-gray-400">Funds Disbursed</div>
                             <div className="text-2xl font-bold dark:text-white">{formatCurrency(project.released)}</div>
                             <div className="text-xs text-blue-600 dark:text-blue-400 mt-1">
-                                {((project.released / project.budget) * 100).toFixed(1)}% of Budget
+                                {((project.released / project.budget) * 100).toFixed(1)}% of Allocated
                             </div>
                         </CardContent>
                     </Card>

@@ -35,7 +35,12 @@ exports.getEventRequests = async (req, res) => {
                 {
                     model: ProjectMember,
                     as: 'members',
-                    include: [{ model: User, as: 'user', attributes: ['_id', 'name', 'email'] }]
+                    include: [{ 
+                        model: User, 
+                        as: 'user', 
+                        attributes: ['_id', 'name', 'email'],
+                        include: [{ model: require('../models/Centre'), as: 'researchCentre', attributes: ['name'] }]
+                    }]
                 }
             ]
         };
@@ -147,7 +152,12 @@ exports.updateEventMembers = async (req, res) => {
 
         const updatedMembers = await ProjectMember.findAll({
             where: { projectId: eventId },
-            include: [{ model: User, as: 'user', attributes: ['_id', 'name', 'email'] }]
+            include: [{ 
+                model: User, 
+                as: 'user', 
+                attributes: ['_id', 'name', 'email'],
+                include: [{ model: require('../models/Centre'), as: 'researchCentre', attributes: ['name'] }]
+            }]
         });
 
         res.status(200).json({ success: true, data: updatedMembers });

@@ -5,7 +5,12 @@ const NotificationService = require('../services/notificationService');
 
 exports.getFundRequests = async (req, res) => {
     try {
-        let options = { order: [['createdAt', 'DESC']] };
+        let options = { 
+            order: [['createdAt', 'DESC']],
+            include: [
+                { model: require('../models/Centre'), as: 'researchCentre', attributes: ['name'] }
+            ]
+        };
         if (req.user.role === 'FACULTY') {
             options.where = { 
                 [Op.or]: [

@@ -117,7 +117,11 @@ exports.getAllRevenueForVerification = async (req, res) => {
     try {
         const records = await Revenue.findAll({
             where: { status: { [Op.in]: ['ADMIN_APPROVED', 'VERIFIED'] } },
-            include: [{ model: User, attributes: ['name', 'department'] }],
+            include: [{ 
+                model: User, 
+                attributes: ['name', 'department'],
+                include: [{ model: require('../models/Centre'), as: 'researchCentre', attributes: ['name'] }]
+            }],
             order: [['createdAt', 'DESC']]
         });
         
@@ -155,7 +159,11 @@ exports.verifyRevenue = async (req, res) => {
 exports.getAdminRevenueApprovals = async (req, res) => {
     try {
         const records = await Revenue.findAll({
-            include: [{ model: User, attributes: ['name', 'department'] }],
+            include: [{ 
+                model: User, 
+                attributes: ['name', 'department'],
+                include: [{ model: require('../models/Centre'), as: 'researchCentre', attributes: ['name'] }]
+            }],
             order: [['createdAt', 'DESC']]
         });
         res.status(200).json({ success: true, data: records });

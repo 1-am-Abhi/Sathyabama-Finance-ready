@@ -20,7 +20,7 @@ const ResearchCentreDetail = ({ isOpen, onClose, centreName, isDark }) => {
     const [details, setDetails] = useState({
         summary: {
             totalProjects: 0, activeProjects: 0, completedProjects: 0,
-            totalBudget: 0, fundsReleased: 0, fundsUtilized: 0, fundsRemaining: 0, utilizationRate: 0
+            totalAllocated: 0, totalDisbursed: 0, fundsUtilized: 0, fundsRemaining: 0, utilizationRate: 0
         },
         projects: [],
         faculty: [],
@@ -129,10 +129,10 @@ const ResearchCentreDetail = ({ isOpen, onClose, centreName, isDark }) => {
                     }
                 }
 
-                const totalBudget = uiProjects.reduce((sum, p) => sum + p.budget, 0);
-                const totalReleased = uiProjects.reduce((sum, p) => sum + p.released, 0);
+                const totalAllocated = uiProjects.reduce((sum, p) => sum + p.budget, 0);
+                const totalDisbursed = uiProjects.reduce((sum, p) => sum + p.released, 0);
                 const totalUtilized = uiProjects.reduce((sum, p) => sum + p.utilized, 0);
-                const totalRemaining = totalReleased - totalUtilized;
+                const totalRemaining = totalDisbursed - totalUtilized;
 
                 const activeProjects = uiProjects.filter(p => p.status === 'Active' || p.status === 'ACTIVE').length;
                 const completedProjects = uiProjects.filter(p => p.status === 'Completed' || p.status === 'COMPLETED').length;
@@ -142,11 +142,11 @@ const ResearchCentreDetail = ({ isOpen, onClose, centreName, isDark }) => {
                         totalProjects: uiProjects.length,
                         activeProjects,
                         completedProjects,
-                        totalBudget,
-                        fundsReleased: totalReleased,
+                        totalAllocated,
+                        totalDisbursed,
                         fundsUtilized: totalUtilized,
                         fundsRemaining: totalRemaining,
-                        utilizationRate: totalReleased > 0 ? ((totalUtilized / totalReleased) * 100).toFixed(1) : 0
+                        utilizationRate: totalDisbursed > 0 ? ((totalUtilized / totalDisbursed) * 100).toFixed(1) : 0
                     },
                     projects: uiProjects,
                     faculty: centreFaculty,
@@ -216,18 +216,18 @@ const ResearchCentreDetail = ({ isOpen, onClose, centreName, isDark }) => {
 
                         <Card className="border-0 shadow-sm dark:bg-slate-800">
                             <CardContent className="p-4">
-                                <div className="text-sm text-gray-500 dark:text-gray-400">Total Budget</div>
-                                <div className="text-2xl font-bold dark:text-white">{formatCurrency(details.summary.totalBudget)}</div>
-                                <div className="text-xs text-green-600 dark:text-green-400 mt-1">Allocated</div>
+                                <div className="text-sm text-gray-500 dark:text-gray-400">Total Allocated</div>
+                                <div className="text-2xl font-bold dark:text-white">{formatCurrency(details.summary.totalAllocated)}</div>
+                                <div className="text-xs text-green-600 dark:text-green-400 mt-1">Approved Grants</div>
                             </CardContent>
                         </Card>
 
                         <Card className="border-0 shadow-sm dark:bg-slate-800">
                             <CardContent className="p-4">
-                                <div className="text-sm text-gray-500 dark:text-gray-400">Funds Released</div>
-                                <div className="text-2xl font-bold dark:text-white">{formatCurrency(details.summary.fundsReleased)}</div>
+                                <div className="text-sm text-gray-500 dark:text-gray-400">Funds Disbursed</div>
+                                <div className="text-2xl font-bold dark:text-white">{formatCurrency(details.summary.totalDisbursed)}</div>
                                 <div className="text-xs text-blue-600 dark:text-blue-400 mt-1">
-                                    {((details.summary.fundsReleased / details.summary.totalBudget) * 100).toFixed(1)}% of Budget
+                                    {details.summary.totalAllocated > 0 ? ((details.summary.totalDisbursed / details.summary.totalAllocated) * 100).toFixed(1) : 0}% of Allocated
                                 </div>
                             </CardContent>
                         </Card>
