@@ -335,7 +335,6 @@ const AcademicWorkModal = ({ isOpen, onClose, onSubmit, initialData = null, mode
                                         />
                                     </div>
                                 </div>
-                                </div>
                                 
                                 <div className="p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl space-y-2">
                                     <label className="text-xs font-bold text-amber-700 dark:text-amber-400 uppercase italic">Screenshot of Mail by Company (Verification) *</label>
