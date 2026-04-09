@@ -26,6 +26,7 @@ router.put('/admin-internships/:id/approve', financeController.adminApproveInter
 // New Pipeline Routes
 router.get('/disbursements', financeController.getDisbursementQueue);
 router.get('/history', financeController.getDisbursalHistory);
+router.get('/disbursal-history', financeController.getDisbursalHistory);
 router.put('/disbursements/:id/execute', financeController.executeDisbursement);
 
 router.get('/equipment-disbursements', financeController.getEquipmentDisbursements);

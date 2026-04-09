@@ -2,13 +2,50 @@ const { FundRequest, FUND_FLOW_STAGES } = require('../models/FundRequest');
 const Project = require('../models/Project');
 const { Op } = require('sequelize');
 const NotificationService = require('../services/notificationService');
+const Centre = require('../models/Centre');
+const { buildCentreInclude, buildProjectInclude, normalizeFundRequest } = require('../services/pipelineMetricsService');
+
+const resolveCentreAssignment = async (project, user) => {
+    if (project?.centreId) {
+        return {
+            centreId: project.centreId,
+            centre: project.researchCentre?.name || project.centre || user?.centre || 'Research Centre',
+        };
+    }
+
+    if (user?.centreId) {
+        const centre = await Centre.findByPk(user.centreId);
+        if (centre) {
+            return { centreId: centre._id || centre.id, centre: centre.name };
+        }
+    }
+
+    if (project?.centre) {
+        const centre = await Centre.findOne({ where: { name: project.centre } });
+        if (centre) {
+            return { centreId: centre._id || centre.id, centre: centre.name };
+        }
+        return { centreId: null, centre: project.centre };
+    }
+
+    if (user?.centre) {
+        const centre = await Centre.findOne({ where: { name: user.centre } });
+        if (centre) {
+            return { centreId: centre._id || centre.id, centre: centre.name };
+        }
+        return { centreId: null, centre: user.centre };
+    }
+
+    return { centreId: null, centre: 'Research Centre' };
+};
 
 exports.getFundRequests = async (req, res) => {
     try {
         let options = { 
             order: [['createdAt', 'DESC']],
             include: [
-                { model: require('../models/Centre'), as: 'researchCentre', attributes: ['name'] }
+                buildCentreInclude(),
+                buildProjectInclude(),
             ]
         };
         if (req.user.role === 'FACULTY') {
@@ -22,7 +59,8 @@ exports.getFundRequests = async (req, res) => {
         }
         
         const requests = await FundRequest.findAll(options);
-        res.status(200).json({ success: true, count: requests.length, data: requests });
+        const data = requests.map((request) => normalizeFundRequest(request));
+        res.status(200).json({ success: true, count: data.length, data });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
     }
@@ -59,13 +97,14 @@ exports.createFundRequest = async (req, res) => {
         }
 
         // Find associated project first
-        const existingProject = await Project.findOne({
+        let existingProject = await Project.findOne({
             where: {
                 [Op.or]: [
                     { title: req.body.projectTitle },
                     { [Op.and]: [{ pi: req.user.name }, { title: req.body.projectTitle }] }
                 ]
-            }
+            },
+            include: [buildCentreInclude()],
         });
 
         let standardizedSource = (req.body.source || 'PFMS').toUpperCase().replace(/ /g, '_');
@@ -73,6 +112,27 @@ exports.createFundRequest = async (req, res) => {
         if (!['PFMS', 'INSTITUTIONAL', 'DIRECTOR', 'OTHERS'].includes(standardizedSource)) {
             standardizedSource = 'OTHERS';
         }
+
+        if (!existingProject) {
+            const centreAssignment = await resolveCentreAssignment(null, req.user);
+            existingProject = await Project.create({
+                title: req.body.projectTitle,
+                pi: req.user.name,
+                userId: req.user.id || req.user._id,
+                facultyId: req.user.id || req.user._id,
+                sanctionedBudget: Number(req.body.requestedAmount),
+                releasedBudget: 0,
+                utilizedBudget: 0,
+                status: 'PENDING',
+                department: req.user.department || 'RESEARCH',
+                centre: centreAssignment.centre,
+                centreId: centreAssignment.centreId,
+                fundingSource: standardizedSource,
+                description: req.body.purpose || `Auto-created from fund request for ${req.body.projectTitle}`,
+            });
+        }
+
+        const centreAssignment = await resolveCentreAssignment(existingProject, req.user);
 
         const requestData = {
             projectTitle: req.body.projectTitle,
@@ -83,27 +143,11 @@ exports.createFundRequest = async (req, res) => {
             requestedAmount: Number(req.body.requestedAmount),
             purpose: req.body.purpose,
             department: req.user.department || 'RESEARCH',
-            centre: req.user.centre || 'Research Centre',
+            centre: centreAssignment.centre,
+            centreId: centreAssignment.centreId,
             source: standardizedSource
         };
         const request = await FundRequest.create(requestData);
-
-        // Auto-create Project record if it doesn't exist for this title/user
-        if (!existingProject) {
-            await Project.create({
-                title: req.body.projectTitle,
-                pi: req.user.name,
-                userId: req.user.id || req.user._id,
-                facultyId: req.user.id || req.user._id,
-                sanctionedBudget: Number(req.body.requestedAmount),
-                releasedBudget: 0,
-                utilizedBudget: 0,
-                status: 'PENDING',
-                department: req.user.department || 'RESEARCH',
-                centre: req.user.centre || 'Research Centre',
-                fundingSource: requestData.source
-            });
-        }
 
 
         // NOTIFY: Admin about new fund request
@@ -112,7 +156,7 @@ exports.createFundRequest = async (req, res) => {
             'New Fund Request',
             `Faculty ${req.user.name} submitted a new fund request for ₹${req.body.requestedAmount}.`,
             'INFO',
-            request._id || request.id
+            '/admin/fund-requests'
         );
 
         res.status(201).json({ success: true, data: request });
@@ -170,7 +214,7 @@ exports.approveFundRequest = async (req, res) => {
             'Fund Request Approved',
             `Your fund request for '${request.projectTitle}' has been approved by Admin and moved to Finance queue.`,
             'SUCCESS',
-            request._id || request.id
+            '/faculty/request-funds'
         );
 
         // NOTIFY: Finance about pending disbursal
@@ -179,7 +223,7 @@ exports.approveFundRequest = async (req, res) => {
             'New Disbursement Pending',
             `Admin approved a fund request of ₹${request.requestedAmount} for '${request.projectTitle}'. Action required in Finance Queue.`,
             'INFO',
-            request._id || request.id
+            '/finance/disbursements'
         );
 
         res.status(200).json({ success: true, data: request });
@@ -216,7 +260,7 @@ exports.rejectFundRequest = async (req, res) => {
             'Fund Request Rejected',
             `Your fund request for '${request.projectTitle}' was rejected. Reason: ${req.body.remarks || 'N/A'}`,
             'ALERT',
-            request._id || request.id
+            '/faculty/request-funds'
         );
 
         res.status(200).json({ success: true, data: request });

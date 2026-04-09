@@ -8,22 +8,40 @@ const Disbursement = require('../models/Disbursement');
 const { sequelize } = require('../config/db');
 const { Op } = require('sequelize');
 const NotificationService = require('../services/notificationService');
+const Centre = require('../models/Centre');
+const {
+    ALLOCATED_STATUSES,
+    buildCentreInclude,
+    buildProjectInclude,
+    normalizeFundRequest,
+    normalizeDisbursement,
+    getFundSourceOverview,
+    getDepartmentFundingRows,
+    getSharedPipelineData,
+} = require('../services/pipelineMetricsService');
 
 exports.getFinanceStats = async (req, res) => {
     try {
-        // Pending Releases: FUND_APPROVED or BILLS_UPLOADED (waiting for Finance to execute disbursement)
         const pendingReleases = await FundRequest.count({ 
             where: { 
-                status: 'APPROVED',
+                status: 'PENDING_DISBURSAL',
                 currentStage: { [Op.in]: ['FUND_APPROVED', 'BILLS_UPLOADED'] } 
             } 
         });
         
-        // Pending Disbursements: CHEQUE_RELEASED but not yet AMOUNT_DISBURSED
-        const pendingDisbursements = await FundRequest.count({ where: { currentStage: 'CHEQUE_RELEASED' } });
+        const pendingDisbursements = await FundRequest.count({
+            where: {
+                status: 'PENDING_DISBURSAL',
+                currentStage: { [Op.in]: ['FUND_RELEASED', 'CHEQUE_RELEASED'] }
+            }
+        });
         
-        // Pending Settlements: UTILIZATION_COMPLETED but not yet SETTLEMENT_CLOSED
-        const pendingSettlements = await FundRequest.count({ where: { currentStage: 'UTILIZATION_COMPLETED' } });
+        const pendingSettlements = await FundRequest.count({
+            where: {
+                status: 'DISBURSED',
+                currentStage: { [Op.in]: ['AMOUNT_DISBURSED', 'UTILIZATION_COMPLETED'] }
+            }
+        });
         
         // Internship Fees: PENDING payment status
         const pendingInternships = await InternshipFee.count({ where: { paymentStatus: 'PENDING' } });
@@ -47,15 +65,30 @@ exports.getFundFlowProjects = async (req, res) => {
         // Get all fund requests that are NOT in initial stages or final closed stage
         const fundRequests = await FundRequest.findAll({
             where: {
-                currentStage: ['FUND_APPROVED', 'FUND_RELEASED', 'CHEQUE_RELEASED', 'AMOUNT_DISBURSED', 'UTILIZATION_COMPLETED']
+                currentStage: {
+                    [Op.in]: ['FUND_APPROVED', 'FUND_RELEASED', 'CHEQUE_RELEASED', 'AMOUNT_DISBURSED', 'UTILIZATION_COMPLETED']
+                }
             },
             order: [['updatedAt', 'DESC']],
-            include: [{ model: Project, attributes: ['title', 'piName', 'agency'] }]
+            include: [buildProjectInclude()]
         });
         
+        const data = fundRequests.map((request) => {
+            const normalized = normalizeFundRequest(request);
+            return {
+                id: normalized.id,
+                title: normalized.Project?.title || normalized.projectTitle,
+                pi: normalized.Project?.pi || normalized.faculty,
+                department: normalized.Project?.department || normalized.department || 'Research',
+                status: normalized.currentStage,
+                statusLabel: normalized.currentStage.replace(/_/g, ' '),
+                amount: `₹${Number(normalized.amount || 0).toLocaleString('en-IN')}`,
+            };
+        });
+
         res.status(200).json({
             success: true,
-            data: fundRequests
+            data
         });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
@@ -187,53 +220,8 @@ const FundSource = require('../models/FundSource');
 // New Finance Dashboard Controllers (Serving baseline data for UI stability)
 exports.getFundSourcesOverview = async (req, res) => {
     try {
-        const projects = await Project.findAll();
-        
-        // PFMS-funded projects
-        const pfmsProjects = projects.filter(p => p.fundingSource === 'PFMS');
-        // Others (consolidated Director Innovation / Other college grants)
-        const directorProjects = projects.filter(p => ['OTHERS', 'DIRECTOR_INNOVATION'].includes(p.fundingSource));
-        // Institutional (pure college overhead funding)
-        const institutionalProjects = projects.filter(p => p.fundingSource === 'INSTITUTIONAL');
-        // Combined college (institutional + director) for backward compat
-        const collegeProjects = [...institutionalProjects, ...directorProjects];
-        
-        const allSources = await FundSource.findAll();
-        let collegeCeiling = allSources.find(s => s.sourceType === 'collegeFunds')?.totalAllocated || 0;
-        let pfmsCeiling = allSources.find(s => s.sourceType === 'pfmsFunds')?.totalAllocated || 0;
-        let directorCeiling = allSources.find(s => s.sourceType === 'directorFunds')?.totalAllocated || 0;
-
-        // Fallback to sum of project allocations if ceiling not configured
-        if (collegeCeiling === 0) collegeCeiling = institutionalProjects.reduce((sum, p) => sum + (p.sanctionedBudget || 0), 0);
-        if (pfmsCeiling === 0) pfmsCeiling = pfmsProjects.reduce((sum, p) => sum + (p.sanctionedBudget || 0), 0);
-        if (directorCeiling === 0) directorCeiling = directorProjects.reduce((sum, p) => sum + (p.sanctionedBudget || 0), 0);
-        
-        const collegeUsed = institutionalProjects.reduce((sum, p) => sum + (p.releasedBudget || 0), 0);
-        const pfmsUsed = pfmsProjects.reduce((sum, p) => sum + (p.releasedBudget || 0), 0);
-        const directorUsed = directorProjects.reduce((sum, p) => sum + (p.releasedBudget || 0), 0);
-
-        const data = {
-            collegeFunds: {
-                totalAllocated: collegeCeiling,
-                totalUsed: collegeUsed,
-                remainingBalance: collegeCeiling - collegeUsed,
-                projectCount: institutionalProjects.length
-            },
-            pfmsFunds: {
-                totalAllocated: pfmsCeiling,
-                totalUsed: pfmsUsed,
-                remainingBalance: pfmsCeiling - pfmsUsed,
-                projectCount: pfmsProjects.length
-            },
-            // NEW: Director Innovation / Other Funds breakdown
-            directorFunds: {
-                totalAllocated: directorCeiling,
-                totalUsed: directorUsed,
-                remainingBalance: directorCeiling - directorUsed,
-                projectCount: directorProjects.length
-            }
-        };
-        res.status(200).json(data);
+        const overview = await getFundSourceOverview();
+        res.status(200).json(overview);
     } catch (error) {
         console.error('getFundSources Error:', error);
         res.status(500).json({ success: false, message: error.message });
@@ -267,40 +255,30 @@ exports.updateFundSourceAmount = async (req, res) => {
 
 exports.getDepartments = async (req, res) => {
     try {
-        // FIX: Always return the full official Sathyabama Research Centre list
-        // so the Finance Dashboard dropdown is never empty regardless of project data
-        const SATHYABAMA_RESEARCH_CENTRES = [
-            'Centre for Nano Science and Nanotechnology',
-            'Centre of Excellence for Energy Research',
-            'Centre for Waste Management',
-            'Centre for Climate Studies',
-            'Centre for Molecular and Nanomedical Sciences',
-            'Centre for Drug Discovery and Development',
-            'Centre of Excellence for Additive Manufacturing',
-            'Centre for Indian System of Medicine',
-            'Centre for Aqua Culture'
-        ];
+        const [dbCentres, projects] = await Promise.all([
+            Centre.findAll({ order: [['name', 'ASC']] }),
+            Project.findAll({
+                attributes: ['centre'],
+                where: {
+                    centre: {
+                        [Op.not]: null,
+                        [Op.ne]: ''
+                    }
+                },
+                group: ['centre']
+            })
+        ]);
 
-        // Also retrieve any unique department values from DB (to catch custom entries)
-        const projects = await Project.findAll({
-            attributes: ['department'],
-            group: ['department'],
-            where: {
-                department: {
-                    [require('sequelize').Op.not]: null,
-                    [require('sequelize').Op.ne]: ''
-                }
+        const names = new Set(dbCentres.map((centre) => centre.name).filter(Boolean));
+        projects.forEach((project) => {
+            if (project.centre) {
+                names.add(project.centre);
             }
         });
-        const dbDepts = projects.map(p => p.department).filter(Boolean);
 
-        // Merge: start with official list, append any DB-only departments not already in it
-        const allCentres = [...SATHYABAMA_RESEARCH_CENTRES];
-        dbDepts.forEach(dept => {
-            if (!allCentres.includes(dept)) allCentres.push(dept);
-        });
-
-        const departments = allCentres.map(name => ({ id: name, name }));
+        const departments = [...names]
+            .sort((a, b) => a.localeCompare(b))
+            .map((name) => ({ id: name, name }));
         res.status(200).json(departments);
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
@@ -309,34 +287,8 @@ exports.getDepartments = async (req, res) => {
 
 exports.getDepartmentFunding = async (req, res) => {
     try {
-        const { id } = req.params;
-        const projects = await Project.findAll({ where: { department: id } });
-        
-        const collegeProjects = projects.filter(p => ['INSTITUTIONAL', 'OTHERS'].includes(p.fundingSource));
-        const pfmsProjects = projects.filter(p => p.fundingSource === 'PFMS');
-
-        const result = [];
-        if (collegeProjects.length > 0) {
-            result.push({
-                id: 'college_' + id,
-                departmentName: id,
-                fundSource: 'COLLEGE',
-                totalAllocated: collegeProjects.reduce((sum, p) => sum + (p.sanctionedBudget || 0), 0),
-                amountReleased: collegeProjects.reduce((sum, p) => sum + (p.releasedBudget || 0), 0),
-                remainingBalance: collegeProjects.reduce((sum, p) => sum + ((p.sanctionedBudget || 0) - (p.releasedBudget || 0)), 0),
-            });
-        }
-        if (pfmsProjects.length > 0) {
-            result.push({
-                id: 'pfms_' + id,
-                departmentName: id,
-                fundSource: 'PFMS',
-                totalAllocated: pfmsProjects.reduce((sum, p) => sum + (p.sanctionedBudget || 0), 0),
-                amountReleased: pfmsProjects.reduce((sum, p) => sum + (p.releasedBudget || 0), 0),
-                remainingBalance: pfmsProjects.reduce((sum, p) => sum + ((p.sanctionedBudget || 0) - (p.releasedBudget || 0)), 0),
-            });
-        }
-        res.status(200).json(result);
+        const rows = await getDepartmentFundingRows(req.params.id);
+        res.status(200).json(rows);
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
     }
@@ -414,26 +366,20 @@ exports.getDisbursementQueue = async (req, res) => {
             where: {
                 status: 'PENDING_DISBURSAL'
             },
-            // FIX: Include pi in Project attributes (model uses 'pi' not 'piName')
             include: [
-                { 
-                    model: Project, 
-                    attributes: ['title', 'pi', 'centre', 'department', 'fundingSource'],
-                    required: false,
-                    include: [{ model: require('../models/Centre'), as: 'researchCentre', attributes: ['name'] }]
-                },
+                buildProjectInclude(),
                 { model: User, attributes: ['name', 'email', 'department'], as: 'requester', required: false }
             ],
             order: [['updatedAt', 'ASC']]
         });
         
-        // Normalize field names for frontend compatibility
-        const normalized = requests.map(r => ({
-            ...r.toJSON(),
-            // Ensure amount is set (FundRequest uses requestedAmount)
-            amount: r.requestedAmount || r.amount || 0,
-            faculty: r.faculty || r.requester?.name || 'N/A'
-        }));
+        const normalized = requests.map((request) => {
+            const data = normalizeFundRequest(request);
+            return {
+                ...data,
+                faculty: data.faculty || data.requester?.name || 'N/A',
+            };
+        });
         
         res.status(200).json({ success: true, data: normalized });
     } catch (error) {
@@ -499,7 +445,7 @@ exports.executeDisbursement = async (req, res) => {
             'Funds Disbursed',
             `Funds for '${request.projectTitle}' have been disbursed! Transaction ID: ${transactionId}.`,
             'SUCCESS',
-            request._id || request.id
+            '/faculty/request-funds'
         );
 
         res.status(200).json({ success: true, message: 'Disbursement executed successfully', data: request });
@@ -515,17 +461,15 @@ exports.getEquipmentDisbursements = async (req, res) => {
     try {
         const EquipmentRequest = require('../models/EquipmentRequest');
         
-        // Fetch from FundRequest (Major/Minor equipment fields)
         const fundRequests = await FundRequest.findAll({
             where: {
-                status: 'APPROVED',
-                currentStage: 'FUND_APPROVED',
+                status: 'PENDING_DISBURSAL',
                 [Op.or]: [
                     { majorEquipments: { [Op.gt]: 0 } },
                     { minorEquipments: { [Op.gt]: 0 } }
                 ]
             },
-            include: [{ model: Project, attributes: ['title', 'pi'], required: false }]
+            include: [buildProjectInclude()]
         });
 
         // Fetch from dedicated EquipmentRequest model
@@ -545,6 +489,11 @@ exports.getEquipmentDisbursements = async (req, res) => {
                 status: r.status,
                 projectName: r.Project?.title || r.projectTitle,
                 facultyName: r.Project?.pi || r.faculty,
+                facultyId: r.facultyId || r.userId,
+                Project: r.Project ? {
+                    ...(r.Project.toJSON ? r.Project.toJSON() : r.Project),
+                    id: r.Project._id || r.Project.id,
+                } : null,
                 type: 'FUND_REQUEST'
             })),
             ...directRequests.map(er => ({
@@ -581,6 +530,14 @@ exports.executeEquipmentDisbursement = async (req, res) => {
             status: 'DISBURSED',
             adminRemarks: remarks ? `${eq.adminRemarks || ''} | Finance: ${remarks}` : eq.adminRemarks
         });
+
+        await NotificationService.create(
+            eq.facultyId,
+            'Equipment Funds Disbursed',
+            `Equipment payment for '${eq.equipmentName}' has been completed.`,
+            'SUCCESS',
+            '/faculty/equipment/dashboard'
+        );
         
         res.status(200).json({ success: true, message: 'Equipment Disbursement executed successfully', data: eq });
     } catch (error) {
@@ -622,7 +579,6 @@ exports.getFinancialReports = async (req, res) => {
         });
 
         // 3. Prepare summary
-        const ALLOCATED_STATUSES = ['APPROVED', 'PENDING_DISBURSAL', 'DISBURSED'];
         const totalAllocated = await FundRequest.sum('requestedAmount', {
             where: { status: { [Op.in]: ALLOCATED_STATUSES } }
         }) || 0;
@@ -652,18 +608,16 @@ exports.getDisbursalHistory = async (req, res) => {
             include: [
                 { 
                     model: FundRequest, 
-                    attributes: ['projectTitle', 'purpose', 'source'],
-                    include: [{ model: require('../models/Centre'), as: 'researchCentre', attributes: ['name'] }]
+                    attributes: ['_id', 'projectId', 'projectTitle', 'purpose', 'source', 'faculty', 'centre', 'centreId', 'requestedAmount'],
+                    include: [buildCentreInclude(), buildProjectInclude()],
                 },
                 { 
-                    model: Project, 
-                    attributes: ['title', 'pi', 'department'],
-                    include: [{ model: require('../models/Centre'), as: 'researchCentre', attributes: ['name'] }]
+                    ...buildProjectInclude(),
                 }
             ],
             order: [['disbursedAt', 'DESC']]
         });
-        res.status(200).json({ success: true, data: history });
+        res.status(200).json({ success: true, data: history.map((entry) => normalizeDisbursement(entry)) });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
     }

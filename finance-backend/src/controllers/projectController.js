@@ -6,131 +6,56 @@ const EventRequest = require('../models/EventRequest');
 const Revenue = require('../models/Revenue');
 const Disbursement = require('../models/Disbursement');
 const { Op } = require('sequelize');
+const Centre = require('../models/Centre');
+const {
+    getAdminDashboardData,
+    getFacultyDashboardData,
+} = require('../services/pipelineMetricsService');
+
+const resolveCentreAssignment = async (centreInput, centreIdInput) => {
+    if (centreIdInput) {
+        const centre = await Centre.findByPk(centreIdInput);
+        if (centre) {
+            return { centreId: centre._id || centre.id, centre: centre.name };
+        }
+    }
+
+    if (centreInput) {
+        const centre = await Centre.findOne({ where: { name: centreInput } });
+        if (centre) {
+            return { centreId: centre._id || centre.id, centre: centre.name };
+        }
+        return { centreId: null, centre: centreInput };
+    }
+
+    return { centreId: null, centre: null };
+};
 
 exports.getAdminStats = async (req, res) => {
     try {
-        const ALLOCATED_STATUSES = ['APPROVED', 'PENDING_DISBURSAL', 'DISBURSED'];
-
-        // ── CORE AGGREGATES ──
-        const [totalProjects, activeProjects, pendingApprovals, totalFaculty, totalAllocated, totalDisbursed] = await Promise.all([
-            Project.count(),
-            Project.count({ where: { status: 'ACTIVE' } }),
-            Project.count({ where: { status: 'PENDING' } }),
-            User.count({ where: { role: 'FACULTY' } }),
-            FundRequest.sum('requestedAmount', { where: { status: { [Op.in]: ALLOCATED_STATUSES } } }),
-            Disbursement.sum('amount')
+        const adminData = await getAdminDashboardData();
+        const [totalRevenue, consultancyRevenue, internshipRevenue, eventsRevenue] = await Promise.all([
+            Revenue.sum('verifiedAmount', { where: { status: 'VERIFIED' } }) || 0,
+            Revenue.sum('verifiedAmount', { where: { status: 'VERIFIED', revenueSource: 'Consultancy' } }) || 0,
+            Revenue.sum('verifiedAmount', { where: { status: 'VERIFIED', revenueSource: 'Internships' } }) || 0,
+            Revenue.sum('verifiedAmount', { where: { status: 'VERIFIED', revenueSource: 'Events' } }) || 0,
         ]);
 
-        // ── SOURCE-WISE BREAKDOWN (PFMS, Institutional, etc.) ──
-        const getSourceStats = async (source) => {
-            const sources = Array.isArray(source) ? source : [source];
-            const allocated = await FundRequest.sum('requestedAmount', {
-                where: { 
-                    source: { [Op.in]: sources },
-                    status: { [Op.in]: ALLOCATED_STATUSES }
-                }
-            }) || 0;
-            const consumed = await Disbursement.sum('amount', {
-                include: [{
-                    model: FundRequest,
-                    where: { source: { [Op.in]: sources } }
-                }]
-            }) || 0;
-            return { allotted: allocated, consumed, balance: Math.max(0, allocated - consumed) };
-        };
-
-        const [pfmsStats, institutionalStats, directorStats, othersStats] = await Promise.all([
-            getSourceStats('PFMS'),
-            getSourceStats('INSTITUTIONAL'),
-            getSourceStats(['DIRECTOR', 'DIRECTOR_INNOVATION', 'DIRECTOR_INNOVATION_FUND']),
-            getSourceStats('OTHERS')
-        ]);
-
-        // ── REVENUE GENERATION ──
-        const totalRevenue = await Revenue.sum('verifiedAmount', { where: { status: 'VERIFIED' } }) || 0;
-        const consultancyRevenue = await Revenue.sum('verifiedAmount', { where: { status: 'VERIFIED', revenueSource: 'Consultancy' } }) || 0;
-        const internshipRevenue = await Revenue.sum('verifiedAmount', { where: { status: 'VERIFIED', revenueSource: 'Internships' } }) || 0;
-        const eventsRevenue = await Revenue.sum('verifiedAmount', { where: { status: 'VERIFIED', revenueSource: 'Events' } }) || 0;
-
-        // ── CENTRE-WISE DISTRIBUTION (FIXED) ──
-        // 1. Project counts per centre
-        const centresData = await Project.findAll({
-            attributes: [
-                'centreId',
-                [Project.sequelize.fn('COUNT', Project.sequelize.col('Project._id')), 'totalProjects'],
-                [Project.sequelize.literal(`COUNT(CASE WHEN Project.status IN ('ACTIVE', 'APPROVED') THEN 1 END)`), 'activeProjects']
-            ],
-            include: [{ model: require('../models/Centre'), as: 'researchCentre', attributes: ['name'] }],
-            group: ['centreId', 'researchCentre._id', 'researchCentre.name'],
-            raw: true
-        });
-
-        // 2. Allocated budget per centre
-        const allocationData = await FundRequest.findAll({
-            attributes: [
-                'centreId',
-                [Project.sequelize.fn('SUM', Project.sequelize.col('requestedAmount')), 'totalBudget']
-            ],
-            where: { status: { [Op.in]: ALLOCATED_STATUSES } },
-            group: ['centreId'],
-            raw: true
-        });
-
-        // 3. Disbursed amount per centre
-        const disbursedData = await Disbursement.findAll({
-            attributes: [
-                [Project.sequelize.col('FundRequest.centreId'), 'centreId'],
-                [Project.sequelize.fn('SUM', Project.sequelize.col('Disbursement.amount')), 'disbursed']
-            ],
-            include: [{ model: FundRequest, attributes: [] }],
-            group: [Project.sequelize.col('FundRequest.centreId')],
-            raw: true
-        });
-
-        // 4. Merge everything
-        const centresMap = {};
-        centresData.forEach(c => {
-            centresMap[c.centreId] = {
-                name: c['researchCentre.name'] || 'Unassigned',
-                totalProjects: parseInt(c.totalProjects) || 0,
-                activeProjects: parseInt(c.activeProjects) || 0,
-                totalBudget: 0,
-                disbursed: 0
-            };
-        });
-
-        allocationData.forEach(a => {
-            if (centresMap[a.centreId]) centresMap[a.centreId].totalBudget = parseFloat(a.totalBudget) || 0;
-        });
-
-        disbursedData.forEach(d => {
-            if (centresMap[d.centreId]) centresMap[d.centreId].disbursed = parseFloat(d.disbursed) || 0;
-        });
-
-        const data = {
-            totalProjects,
-            activeProjects,
-            pendingApprovals,
-            totalAllocated: totalAllocated || 0,
-            totalDisbursed: totalDisbursed || 0,
-            totalFaculty,
-            pfmsStats,
-            institutionalStats,
-            directorStats,
-            othersStats,
+        const stats = {
+            ...adminData.stats,
             revenueStats: {
-                total: totalRevenue,
-                consultancy: consultancyRevenue,
-                internships: internshipRevenue,
-                events: eventsRevenue
-            }
+                total: totalRevenue || 0,
+                consultancy: consultancyRevenue || 0,
+                internships: internshipRevenue || 0,
+                events: eventsRevenue || 0,
+            },
         };
 
-        console.log("[PIPELINE] Admin Data Truth:", data);
+        console.log("[PIPELINE] Admin Data Truth:", stats);
         res.status(200).json({
             success: true,
-            stats: data,
-            centres: Object.values(centresMap)
+            stats,
+            centres: adminData.centres,
         });
     } catch (error) {
         console.error('getAdminStats error:', error);
@@ -141,32 +66,7 @@ exports.getAdminStats = async (req, res) => {
 exports.getFacultyStats = async (req, res) => {
     try {
         const facultyId = req.user.id || req.user._id;
-        const ALLOCATED_STATUSES = ['APPROVED', 'PENDING_DISBURSAL', 'DISBURSED'];
-
-        const [totalProjects, activeProjects, totalAllocated, totalDisbursed] = await Promise.all([
-            Project.count({ where: { [Op.or]: [{ facultyId }, { userId: facultyId }] } }),
-            Project.count({ where: { [Op.or]: [{ facultyId }, { userId: facultyId }], status: 'ACTIVE' } }),
-            FundRequest.sum('requestedAmount', {
-                where: { 
-                    [Op.or]: [{ facultyId }, { userId: facultyId }],
-                    status: { [Op.in]: ALLOCATED_STATUSES }
-                }
-            }) || 0,
-            Disbursement.sum('amount', {
-                include: [{
-                    model: FundRequest,
-                    where: { [Op.or]: [{ facultyId }, { userId: facultyId }] }
-                }]
-            }) || 0
-        ]);
-
-        const data = {
-            totalProjects,
-            activeProjects,
-            totalAllocated,
-            totalDisbursed,
-            balance: Math.max(0, totalAllocated - totalDisbursed)
-        };
+        const data = await getFacultyDashboardData(facultyId, req.user.name);
 
         console.log(`[PIPELINE] Faculty Data Truth (${req.user.name}):`, data);
         res.status(200).json({ success: true, stats: data });
@@ -233,6 +133,10 @@ exports.createProject = async (req, res) => {
         const data = validated.body;
 
         const isAdmin = (req.user.role || '').toUpperCase() === 'ADMIN';
+        const centreAssignment = await resolveCentreAssignment(
+            req.body.centre || req.user.centre || 'Research Centre',
+            req.body.centreId || req.user.centreId || null
+        );
         const projectData = {
             title: data.title,
             description: data.description,
@@ -247,7 +151,8 @@ exports.createProject = async (req, res) => {
             facultyId: isAdmin ? (req.body.facultyId || null) : req.user.id,
             pi: isAdmin ? (req.body.pi || 'Admin Created') : (req.user.name || req.body.pi || 'Faculty Member'),
             department: req.body.department || req.user.department || 'RESEARCH',
-            centre: req.body.centre || req.user.centre || 'Research Centre',
+            centre: centreAssignment.centre,
+            centreId: centreAssignment.centreId,
             verificationScreenshot: req.body.verificationScreenshot || null
         };
         
@@ -295,6 +200,15 @@ exports.updateProject = async (req, res) => {
         if (req.body.sanctionedBudget !== undefined) {
             updateData.sanctionedBudget = Number(req.body.sanctionedBudget);
         }
+
+        if (req.body.centre || req.body.centreId) {
+            const centreAssignment = await resolveCentreAssignment(
+                req.body.centre || project.centre,
+                req.body.centreId || project.centreId
+            );
+            updateData.centre = centreAssignment.centre;
+            updateData.centreId = centreAssignment.centreId;
+        }
         
         if (req.body.proofStatus === 'REJECTED') {
             updateData.proofUploaded = false;
@@ -315,10 +229,11 @@ exports.updateProject = async (req, res) => {
                     userId: project.userId,
                     requestedAmount: project.sanctionedBudget || 1, // Default 1 if not set
                     purpose: `Initial advance for approved project: ${project.title}`,
-                    status: 'APPROVED',
+                    status: 'PENDING_DISBURSAL',
                     currentStage: 'FUND_APPROVED',
                     department: project.department || 'Research',
                     centre: project.centre || 'Research Centre',
+                    centreId: project.centreId || null,
                     source: (project.fundingSource || 'INSTITUTIONAL').toUpperCase()
                 });
             }
