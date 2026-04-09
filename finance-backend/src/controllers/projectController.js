@@ -9,132 +9,115 @@ const { Op } = require('sequelize');
 
 exports.getAdminStats = async (req, res) => {
     try {
-        const [totalProjects, activeProjects, pendingApprovals, totalFaculty] = await Promise.all([
+        const ALLOCATED_STATUSES = ['APPROVED', 'PENDING_DISBURSAL', 'DISBURSED'];
+
+        // ── CORE AGGREGATES ──
+        const [totalProjects, activeProjects, pendingApprovals, totalFaculty, totalAllocated, totalDisbursed] = await Promise.all([
             Project.count(),
             Project.count({ where: { status: 'ACTIVE' } }),
             Project.count({ where: { status: 'PENDING' } }),
-            User.count({ where: { role: 'FACULTY' } })
+            User.count({ where: { role: 'FACULTY' } }),
+            FundRequest.sum('requestedAmount', { where: { status: { [Op.in]: ALLOCATED_STATUSES } } }),
+            Disbursement.sum('amount')
         ]);
 
-        const ALLOCATED_STATUSES = ['APPROVED', 'PENDING_DISBURSAL', 'DISBURSED'];
-
-        // Helper for summing by source
-        const getAllocatedBySource = async (source) => {
+        // ── SOURCE-WISE BREAKDOWN (PFMS, Institutional, etc.) ──
+        const getSourceStats = async (source) => {
             const sources = Array.isArray(source) ? source : [source];
-            return await FundRequest.sum('requestedAmount', {
+            const allocated = await FundRequest.sum('requestedAmount', {
                 where: { 
                     source: { [Op.in]: sources },
                     status: { [Op.in]: ALLOCATED_STATUSES }
                 }
             }) || 0;
-        };
-
-        const getDisbursedBySource = async (source) => {
-            const sources = Array.isArray(source) ? source : [source];
-            return await Disbursement.sum('amount', {
+            const consumed = await Disbursement.sum('amount', {
                 include: [{
                     model: FundRequest,
                     where: { source: { [Op.in]: sources } }
                 }]
             }) || 0;
+            return { allotted: allocated, consumed, balance: Math.max(0, allocated - consumed) };
         };
 
-        // ── PFMS Stats ──
-        const pfmsAllocated = await getAllocatedBySource('PFMS');
-        const pfmsDisbursed = await getDisbursedBySource('PFMS');
+        const [pfmsStats, institutionalStats, directorStats, othersStats] = await Promise.all([
+            getSourceStats('PFMS'),
+            getSourceStats('INSTITUTIONAL'),
+            getSourceStats(['DIRECTOR', 'DIRECTOR_INNOVATION', 'DIRECTOR_INNOVATION_FUND']),
+            getSourceStats('OTHERS')
+        ]);
 
-        // ── Institutional Stats ──
-        const institutionalAllocated = await getAllocatedBySource('INSTITUTIONAL');
-        const institutionalDisbursed = await getDisbursedBySource('INSTITUTIONAL');
-
-        // ── Director Stats ──
-        const directorSources = ['DIRECTOR', 'DIRECTOR_INNOVATION', 'DIRECTOR_INNOVATION_FUND'];
-        const directorAllocated = await getAllocatedBySource(directorSources);
-        const directorDisbursed = await getDisbursedBySource(directorSources);
-
-        // ── Others Stats ──
-        const othersAllocated = await getAllocatedBySource('OTHERS');
-        const othersDisbursed = await getDisbursedBySource('OTHERS');
-
-        // ── Revenue Generation ──
+        // ── REVENUE GENERATION ──
         const totalRevenue = await Revenue.sum('verifiedAmount', { where: { status: 'VERIFIED' } }) || 0;
         const consultancyRevenue = await Revenue.sum('verifiedAmount', { where: { status: 'VERIFIED', revenueSource: 'Consultancy' } }) || 0;
         const internshipRevenue = await Revenue.sum('verifiedAmount', { where: { status: 'VERIFIED', revenueSource: 'Internships' } }) || 0;
         const eventsRevenue = await Revenue.sum('verifiedAmount', { where: { status: 'VERIFIED', revenueSource: 'Events' } }) || 0;
 
-        // ── Centre-wise Distribution Metrics ──
-        const centreAggregates = await Project.findAll({
+        // ── CENTRE-WISE DISTRIBUTION (FIXED) ──
+        // 1. Project counts per centre
+        const centresData = await Project.findAll({
             attributes: [
                 'centreId',
                 [Project.sequelize.fn('COUNT', Project.sequelize.col('Project._id')), 'totalProjects'],
                 [Project.sequelize.literal(`COUNT(CASE WHEN Project.status IN ('ACTIVE', 'APPROVED') THEN 1 END)`), 'activeProjects']
             ],
-            include: [
-                { model: require('../models/Centre'), as: 'researchCentre', attributes: ['name'] }
-            ],
-            group: ['centreId', 'researchCentre._id', 'researchCentre.name']
+            include: [{ model: require('../models/Centre'), as: 'researchCentre', attributes: ['name'] }],
+            group: ['centreId', 'researchCentre._id', 'researchCentre.name'],
+            raw: true
         });
 
-        const allocatedAggregates = await FundRequest.findAll({
+        // 2. Allocated budget per centre
+        const allocationData = await FundRequest.findAll({
             attributes: [
                 'centreId',
-                [FundRequest.sequelize.fn('SUM', FundRequest.sequelize.col('requestedAmount')), 'allocated']
+                [Project.sequelize.fn('SUM', Project.sequelize.col('requestedAmount')), 'totalBudget']
             ],
             where: { status: { [Op.in]: ALLOCATED_STATUSES } },
-            group: ['centreId']
+            group: ['centreId'],
+            raw: true
         });
 
-        const disbursedAggregates = await Disbursement.findAll({
+        // 3. Disbursed amount per centre
+        const disbursedData = await Disbursement.findAll({
             attributes: [
-                [FundRequest.sequelize.col('FundRequest.centreId'), 'centreId'],
-                [FundRequest.sequelize.fn('SUM', FundRequest.sequelize.col('Disbursement.amount')), 'disbursed']
+                [Project.sequelize.col('FundRequest.centreId'), 'centreId'],
+                [Project.sequelize.fn('SUM', Project.sequelize.col('Disbursement.amount')), 'disbursed']
             ],
-            include: [{
-                model: FundRequest,
-                attributes: []
-            }],
-            group: [FundRequest.sequelize.col('FundRequest.centreId')]
+            include: [{ model: FundRequest, attributes: [] }],
+            group: [Project.sequelize.col('FundRequest.centreId')],
+            raw: true
         });
 
-        const centreStatsList = centreAggregates.map(c => {
-            const alloc = allocatedAggregates.find(a => a.centreId === c.centreId);
-            const disb = disbursedAggregates.find(d => d.get('centreId') === c.centreId);
-            return {
-                name: c.researchCentre?.name || 'Unassigned',
-                totalProjects: parseInt(c.get('totalProjects')) || 0,
-                activeProjects: parseInt(c.get('activeProjects')) || 0,
-                totalBudget: parseFloat(alloc?.get('allocated')) || 0,
-                disbursed: parseFloat(disb?.get('disbursed')) || 0
+        // 4. Merge everything
+        const centresMap = {};
+        centresData.forEach(c => {
+            centresMap[c.centreId] = {
+                name: c['researchCentre.name'] || 'Unassigned',
+                totalProjects: parseInt(c.totalProjects) || 0,
+                activeProjects: parseInt(c.activeProjects) || 0,
+                totalBudget: 0,
+                disbursed: 0
             };
+        });
+
+        allocationData.forEach(a => {
+            if (centresMap[a.centreId]) centresMap[a.centreId].totalBudget = parseFloat(a.totalBudget) || 0;
+        });
+
+        disbursedData.forEach(d => {
+            if (centresMap[d.centreId]) centresMap[d.centreId].disbursed = parseFloat(d.disbursed) || 0;
         });
 
         const data = {
             totalProjects,
             activeProjects,
             pendingApprovals,
-            totalAllocated: pfmsAllocated + institutionalAllocated + directorAllocated + othersAllocated,
-            totalDisbursed: pfmsDisbursed + institutionalDisbursed + directorDisbursed + othersDisbursed,
+            totalAllocated: totalAllocated || 0,
+            totalDisbursed: totalDisbursed || 0,
             totalFaculty,
-            pfmsStats: {
-                allotted: pfmsAllocated,
-                consumed: pfmsDisbursed,
-                balance: Math.max(0, pfmsAllocated - pfmsDisbursed)
-            },
-            institutionalStats: {
-                allotted: institutionalAllocated,
-                consumed: institutionalDisbursed,
-                balance: Math.max(0, institutionalAllocated - institutionalDisbursed)
-            },
-            directorStats: {
-                allotted: directorAllocated,
-                consumed: directorDisbursed,
-                balance: Math.max(0, directorAllocated - directorDisbursed)
-            },
-            othersStats: {
-                allotted: othersAllocated,
-                consumed: othersDisbursed,
-                balance: Math.max(0, othersAllocated - othersDisbursed)
-            },
+            pfmsStats,
+            institutionalStats,
+            directorStats,
+            othersStats,
             revenueStats: {
                 total: totalRevenue,
                 consultancy: consultancyRevenue,
@@ -147,7 +130,7 @@ exports.getAdminStats = async (req, res) => {
         res.status(200).json({
             success: true,
             stats: data,
-            centres: centreStatsList
+            centres: Object.values(centresMap)
         });
     } catch (error) {
         console.error('getAdminStats error:', error);
