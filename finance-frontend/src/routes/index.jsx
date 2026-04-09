@@ -16,6 +16,8 @@ import EventRequests from '../pages/admin/EventRequests';
 import ApproveEquipment from '../pages/admin/ApproveEquipment';
 import AdminReports from '../pages/admin/AdminReports';
 import AdminDocuments from '../pages/admin/AdminDocuments';
+import AdminRevenue from '../pages/admin/AdminRevenue';
+import AdminInternship from '../pages/admin/AdminInternship';
 import Settings from '../components/shared/Settings';
 import Profile from '../pages/shared/Profile';
 
@@ -42,6 +44,7 @@ import ManagePFMS from '../pages/finance/ManagePFMS';
 import VerifyInternshipFees from '../pages/finance/VerifyInternshipFees';
 import FunctionFundRequestsPage from '../pages/finance/FunctionFundRequestsPage';
 import DisbursementQueue from '../pages/finance/DisbursementQueue';
+import EquipmentDisbursements from '../pages/finance/EquipmentDisbursements';
 import RevenueVerification from '../pages/finance/RevenueVerification';
 import FinancialReports from '../pages/finance/FinancialReports';
 
@@ -94,6 +97,8 @@ const AppRoutes = () => {
                                         <Route path="equipment-requests" element={<ApproveEquipment />} />
                                         <Route path="od-requests" element={<ODRequests />} />
                                         <Route path="event-requests" element={<EventRequests />} />
+                                        <Route path="revenue-approvals" element={<AdminRevenue />} />
+                                        <Route path="internship-approvals" element={<AdminInternship />} />
                                         <Route path="reports" element={<AdminReports />} />
                                         <Route path="documents" element={<AdminDocuments />} />
                                         <Route path="settings" element={<Settings />} />
@@ -143,6 +148,7 @@ const AppRoutes = () => {
                                         <Route path="revenue-verification" element={<RevenueVerification />} />
                                         <Route path="fund-flow" element={<FundReleasesPage />} />
                                         <Route path="pfms" element={<ManagePFMS />} />
+                                        <Route path="equipment-disbursements" element={<EquipmentDisbursements />} />
                                         <Route path="function-requests" element={<FunctionFundRequestsPage />} />
                                         <Route path="internships" element={<VerifyInternshipFees />} />
                                         <Route path="reports" element={<FinanceDashboard />} />

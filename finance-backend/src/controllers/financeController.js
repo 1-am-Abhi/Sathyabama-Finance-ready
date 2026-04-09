@@ -6,8 +6,8 @@ const { sequelize } = require('../config/db');
 
 exports.getFinanceStats = async (req, res) => {
     try {
-        // Pending Releases: FUND_APPROVED but not yet FUND_RELEASED
-        const pendingReleases = await FundRequest.count({ where: { currentStage: 'FUND_APPROVED' } });
+        // Pending Releases: BILLS_UPLOADED (bills are provided by faculty, waiting for Finance to execute disbursement)
+        const pendingReleases = await FundRequest.count({ where: { currentStage: 'BILLS_UPLOADED' } });
         
         // Pending Disbursements: CHEQUE_RELEASED but not yet AMOUNT_DISBURSED
         const pendingDisbursements = await FundRequest.count({ where: { currentStage: 'CHEQUE_RELEASED' } });
@@ -75,8 +75,39 @@ exports.getPFMSTransactions = async (req, res) => {
 
 exports.getInternshipFees = async (req, res) => {
     try {
+        const fees = await InternshipFee.findAll({ 
+            where: { adminStatus: 'APPROVED' },
+            order: [['createdAt', 'DESC']] 
+        });
+        res.status(200).json({ success: true, data: fees });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+exports.getAdminInternshipFees = async (req, res) => {
+    try {
         const fees = await InternshipFee.findAll({ order: [['createdAt', 'DESC']] });
         res.status(200).json({ success: true, data: fees });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+exports.adminApproveInternshipFee = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { adminStatus, adminRemarks } = req.body;
+        
+        const fee = await InternshipFee.findByPk(id);
+        if (!fee) return res.status(404).json({ success: false, message: 'Fee record not found' });
+        
+        await fee.update({
+            adminStatus: adminStatus || 'APPROVED',
+            adminRemarks: adminRemarks || fee.adminRemarks
+        });
+        
+        res.status(200).json({ success: true, message: 'Admin status updated successfully', data: fee });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
     }
@@ -314,7 +345,8 @@ exports.getFunctionRequests = async (req, res) => {
         const EventRequest = require('../models/EventRequest');
         const requests = await EventRequest.findAll({
             where: {
-                fundingType: 'College Funded'
+                fundingType: 'College Funded',
+                status: 'APPROVED'
             },
             order: [['createdAt', 'DESC']]
         });
@@ -370,7 +402,7 @@ exports.getDisbursementQueue = async (req, res) => {
         const User = require('../models/User');
         const requests = await FundRequest.findAll({
             where: {
-                currentStage: 'FUND_APPROVED'
+                currentStage: 'BILLS_UPLOADED'
             },
             // FIX: Include pi in Project attributes (model uses 'pi' not 'piName')
             include: [
@@ -425,6 +457,44 @@ exports.executeDisbursement = async (req, res) => {
         }
         
         res.status(200).json({ success: true, message: 'Disbursement executed successfully', data: request });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+// Equipment Disbursements: Get all equipment requests approved by Admin
+exports.getEquipmentDisbursements = async (req, res) => {
+    try {
+        const EquipmentRequest = require('../models/EquipmentRequest');
+        const requests = await EquipmentRequest.findAll({
+            where: { status: 'Approved' },
+            order: [['updatedAt', 'ASC']]
+        });
+        
+        res.status(200).json({ success: true, data: requests });
+    } catch (error) {
+        console.error('getEquipmentDisbursements Error:', error);
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+// Execute Equipment Disbursement: Finance marks the equipment as paid
+exports.executeEquipmentDisbursement = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { transactionId, bankName, disbursementDate, remarks } = req.body;
+        
+        const EquipmentRequest = require('../models/EquipmentRequest');
+        const eq = await EquipmentRequest.findByPk(id);
+        
+        if (!eq) return res.status(404).json({ success: false, message: 'Equipment request not found' });
+        
+        await eq.update({
+            status: 'DISBURSED',
+            adminRemarks: remarks ? `${eq.adminRemarks || ''} | Finance: ${remarks}` : eq.adminRemarks
+        });
+        
+        res.status(200).json({ success: true, message: 'Equipment Disbursement executed successfully', data: eq });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
     }

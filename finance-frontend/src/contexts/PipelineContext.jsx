@@ -85,6 +85,16 @@ export const PipelineProvider = ({ children }) => {
         }
     });
 
+    const updateFundRequestMutation = useMutation({
+        mutationFn: async ({ requestId, updates }) => {
+            const response = await apiClient.put(`/fund-requests/${requestId}`, updates);
+            return response.data.data;
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries(['fund-requests']);
+        }
+    });
+
     // Advance fund stage mutation (Finance/PI)
     const advanceStageMutation = useMutation({
         mutationFn: async ({ requestId, nextStage, remarks }) => {
@@ -106,11 +116,13 @@ export const PipelineProvider = ({ children }) => {
         rejectRequest: rejectRequestMutation.mutateAsync,
         advanceStage: advanceStageMutation.mutateAsync,
         updateProject: updateProjectMutation.mutateAsync,
+        updateFundRequest: updateFundRequestMutation.mutateAsync,
         isCreating: createRequestMutation.isPending,
         isApproving: approveRequestMutation.isPending,
         isRejecting: rejectRequestMutation.isPending,
         isAdvancing: advanceStageMutation.isPending,
-        isUpdatingProject: updateProjectMutation.isPending
+        isUpdatingProject: updateProjectMutation.isPending,
+        isUpdatingFundRequest: updateFundRequestMutation.isPending
     };
 
     return (

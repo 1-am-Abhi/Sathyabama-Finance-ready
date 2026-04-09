@@ -112,10 +112,11 @@ exports.updateFinanceMetrics = async (req, res) => {
     }
 };
 
-// Revenue Verification: Finance gets all consultancy income for verification
+// Revenue Verification: Finance gets all consultancy income for verification (ONLY Admin Approved ones)
 exports.getAllRevenueForVerification = async (req, res) => {
     try {
         const records = await Revenue.findAll({
+            where: { status: { [Op.in]: ['ADMIN_APPROVED', 'VERIFIED'] } },
             include: [{ model: User, attributes: ['name', 'department'] }],
             order: [['createdAt', 'DESC']]
         });
@@ -145,6 +146,38 @@ exports.verifyRevenue = async (req, res) => {
         });
         
         res.status(200).json({ success: true, message: 'Revenue verified successfully', data: record });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+// Admin approves revenue to release to Finance
+exports.getAdminRevenueApprovals = async (req, res) => {
+    try {
+        const records = await Revenue.findAll({
+            include: [{ model: User, attributes: ['name', 'department'] }],
+            order: [['createdAt', 'DESC']]
+        });
+        res.status(200).json({ success: true, data: records });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+exports.adminApproveRevenue = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { status, remarks } = req.body;
+        
+        const record = await Revenue.findByPk(id);
+        if (!record) return res.status(404).json({ success: false, message: 'Revenue record not found' });
+        
+        await record.update({
+            status: status || 'ADMIN_APPROVED',
+            adminRemarks: remarks || record.adminRemarks
+        });
+        
+        res.status(200).json({ success: true, message: 'Revenue admin status updated successfully', data: record });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
     }

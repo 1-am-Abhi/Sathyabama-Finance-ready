@@ -27,6 +27,14 @@ const InternshipFee = sequelize.define('InternshipFee', {
         type: DataTypes.ENUM('PENDING', 'PAID'),
         defaultValue: 'PENDING'
     },
+    adminStatus: {
+        type: DataTypes.ENUM('PENDING', 'APPROVED', 'REJECTED'),
+        defaultValue: 'PENDING'
+    },
+    adminRemarks: {
+        type: DataTypes.TEXT,
+        allowNull: true
+    },
     paymentMode: {
         type: DataTypes.STRING,
         allowNull: true

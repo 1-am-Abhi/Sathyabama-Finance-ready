@@ -33,8 +33,8 @@ const Revenue = sequelize.define('Revenue', {
         allowNull: true
     },
     status: {
-        type: DataTypes.ENUM('PENDING', 'VERIFIED', 'REJECTED'),
-        defaultValue: 'PENDING'
+        type: DataTypes.ENUM('PENDING_ADMIN', 'ADMIN_APPROVED', 'VERIFIED', 'REJECTED'),
+        defaultValue: 'PENDING_ADMIN'
     },
     verifiedAmount: {
         type: DataTypes.DECIMAL(15, 2),
@@ -42,6 +42,10 @@ const Revenue = sequelize.define('Revenue', {
     },
     bankReference: {
         type: DataTypes.STRING,
+        allowNull: true
+    },
+    adminRemarks: {
+        type: DataTypes.TEXT,
         allowNull: true
     },
     financeRemarks: {

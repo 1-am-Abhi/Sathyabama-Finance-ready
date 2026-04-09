@@ -4,6 +4,7 @@ const { sequelize } = require('../config/db');
 const FUND_FLOW_STAGES = [
     'FUND_APPROVED',
     'FUND_RELEASED',
+    'BILLS_UPLOADED',
     'CHEQUE_RELEASED',
     'AMOUNT_DISBURSED',
     'UTILIZATION_COMPLETED',
@@ -103,6 +104,10 @@ FundRequest.init({
     consumables: { type: DataTypes.FLOAT, defaultValue: 0 },
     services: { type: DataTypes.FLOAT, defaultValue: 0 },
     amc: { type: DataTypes.FLOAT, defaultValue: 0 },
+    documents: {
+        type: DataTypes.JSON,
+        defaultValue: []
+    },
     auditTrail: {
         type: DataTypes.JSON,
         defaultValue: []

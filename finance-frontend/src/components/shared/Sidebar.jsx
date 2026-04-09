@@ -48,6 +48,8 @@ const Sidebar = ({ isOpen, onClose }) => {
                     { label: 'Equipment Requests', path: '/admin/equipment-requests', icon: Briefcase },
                     { label: 'OD Requests', path: '/admin/od-requests', icon: Clock },
                     { label: 'Event Requests', path: '/admin/event-requests', icon: Calendar },
+                    { label: 'Revenue Approvals', path: '/admin/revenue-approvals', icon: TrendingUp },
+                    { label: 'Internship Approvals', path: '/admin/internship-approvals', icon: Users },
                     { label: 'Document Verification', path: '/admin/documents', icon: ShieldCheck },
                     { label: 'Reports', path: '/admin/reports', icon: BarChart3 },
                 ];
@@ -86,6 +88,7 @@ const Sidebar = ({ isOpen, onClose }) => {
                     { label: 'Disbursements', path: '/finance/disbursements', icon: CheckCircle }, // Modified from 'Fund Releases' to 'Disbursements'
                     { label: 'Revenue Verification', path: '/finance/revenue-verification', icon: TrendingUp }, // New
                     { label: 'PFMS Tracking', path: '/finance/pfms', icon: FileText },
+                    { label: 'Equipment Disbursements', path: '/finance/equipment-disbursements', icon: Briefcase },
                     { label: 'Internship Fees', path: '/finance/internships', icon: Users },
                     { label: 'Settlement', path: '/finance/reports', icon: Clock },
                     { label: 'Financial Reports', path: '/finance/financial-reports', icon: BarChart3 }, // New

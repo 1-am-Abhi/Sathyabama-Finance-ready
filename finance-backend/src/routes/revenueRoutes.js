@@ -14,4 +14,8 @@ router.patch('/:id/finance', protect, authorize('ADMIN'), revenueController.upda
 router.get('/verification-queue', protect, authorize('FINANCE_OFFICER'), revenueController.getAllRevenueForVerification);
 router.put('/:id/verify', protect, authorize('FINANCE_OFFICER'), revenueController.verifyRevenue);
 
+// Admin Approval Pipeline
+router.get('/admin-queue', protect, authorize('ADMIN'), revenueController.getAdminRevenueApprovals);
+router.put('/:id/admin-approve', protect, authorize('ADMIN'), revenueController.adminApproveRevenue);
+
 module.exports = router;

@@ -46,17 +46,9 @@ const ApproveFundRequests = () => {
             addNotification({
                 role: 'FACULTY',
                 type: 'success',
-                message: `Your Fund Request${req?.projectTitle ? ` for "${req.projectTitle}"` : ''} has been APPROVED! The Finance Officer will process the disbursement.`,
+                message: `Your Fund Request${req?.projectTitle ? ` for "${req.projectTitle}"` : ''} has been APPROVED! Please upload payment proofs and bills to proceed with disbursement.`,
                 actionUrl: '/faculty/request-funds',
                 targetUserId: req?.userId
-            });
-
-            // 2. Notify FINANCE_OFFICER so the request appears in their Disbursement Queue
-            addNotification({
-                role: 'FINANCE_OFFICER',
-                type: 'info',
-                message: `New Fund Request approved for disbursement: ${req?.projectTitle || 'Unknown Project'} — ₹${req?.requestedAmount?.toLocaleString() || '0'}. Please process in the Disbursement Queue.`,
-                actionUrl: '/finance/disbursements'
             });
             
             setSelectedRequest(null);

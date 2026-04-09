@@ -19,9 +19,16 @@ router.put('/internship-fees/:id/verify', financeController.verifyInternshipFee)
 router.put('/internship-fees/:id', financeController.verifyInternshipFee);
 router.delete('/internship-fees/:id', financeController.deleteInternshipFee);
 
+// Admin Internship Routing
+router.get('/admin-internships', financeController.getAdminInternshipFees);
+router.put('/admin-internships/:id/approve', financeController.adminApproveInternshipFee);
+
 // New Pipeline Routes
 router.get('/disbursements', financeController.getDisbursementQueue);
 router.put('/disbursements/:id/execute', financeController.executeDisbursement);
+
+router.get('/equipment-disbursements', financeController.getEquipmentDisbursements);
+router.put('/equipment-disbursements/:id/execute', financeController.executeEquipmentDisbursement);
 
 // Final Reports Data Pipeline
 router.get('/reports-data', financeController.getFinancialReports);

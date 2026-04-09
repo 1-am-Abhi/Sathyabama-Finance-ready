@@ -12,6 +12,9 @@ router.get('/:id', fundRequestController.getFundRequest);
 // Only FACULTY can submit requests
 router.post('/', authorize('FACULTY'), validate(fundRequestSchema), fundRequestController.createFundRequest);
 
+// Update a fund request
+router.put('/:id', authorize('FACULTY'), fundRequestController.updateFundRequest);
+
 // Only ADMIN can approve/reject initial request
 router.put('/:id/approve', authorize('ADMIN'), fundRequestController.approveFundRequest);
 router.put('/:id/reject', authorize('ADMIN'), fundRequestController.rejectFundRequest);

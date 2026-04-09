@@ -4,7 +4,7 @@ import { useDisbursementQueue, useExecuteDisbursement } from '../../hooks/useFin
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
 import { Badge } from '../../components/ui/badge';
-import { Settings, CheckCircle, BarChart3, Clock, Calendar, TrendingUp, ChevronDown, ChevronRight, Briefcase, GraduationCap, X, Sparkles, ShieldCheck, IndianRupee, Search, Filter, ArrowRight, Building2, Hash, Users } from 'lucide-react';
+import { Settings, CheckCircle, BarChart3, Clock, Calendar, TrendingUp, ChevronDown, ChevronRight, Briefcase, GraduationCap, X, Sparkles, ShieldCheck, IndianRupee, Search, Filter, ArrowRight, Building2, Hash, Users, FileText } from 'lucide-react';
 import useToast from '../../hooks/useToast';
 
 const DisbursementQueue = () => {
@@ -181,6 +181,22 @@ const DisbursementQueue = () => {
                                                             REQ #{String(req.id).slice(-8).toUpperCase()}
                                                         </span>
                                                     </div>
+                                                    {req.documents && req.documents.length > 0 && (
+                                                        <div className="mt-2 flex flex-wrap gap-2">
+                                                            {req.documents.map((doc, idx) => (
+                                                                <a 
+                                                                    key={idx} 
+                                                                    href={doc.url} 
+                                                                    target="_blank" 
+                                                                    rel="noreferrer" 
+                                                                    className="inline-flex items-center gap-1 px-2 py-1 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 rounded text-[10px] font-bold uppercase"
+                                                                >
+                                                                    <FileText className="w-3 h-3" />
+                                                                    {doc.name || 'View Bill'}
+                                                                </a>
+                                                            ))}
+                                                        </div>
+                                                    )}
                                                 </div>
                                             </td>
                                             <td className="px-4 py-4">

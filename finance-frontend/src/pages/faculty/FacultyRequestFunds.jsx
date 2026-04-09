@@ -4,7 +4,7 @@ import { Badge } from '../../components/ui/badge';
 import { Button } from '../../components/ui/button';
 import {
     History, ChevronRight, PlusCircle, Wallet, Activity, DollarSign,
-    CheckCircle, Clock, Banknote, ArrowRight, X, FileText, Globe
+    CheckCircle, Clock, Banknote, ArrowRight, X, FileText, Globe, Upload
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { useLayout } from '../../contexts/LayoutContext';
@@ -25,13 +25,14 @@ const FacultyRequestFunds = () => {
         setLayout("Fund & Asset Management", "Strategic disbursement oversight and grant lifecycle tracking");
     }, [setLayout]);
 
-    const { projects, fundRequests, createRequest, isLoading } = usePipeline();
+    const { projects, fundRequests, createRequest, updateFundRequest, isLoading } = usePipeline();
     const [selectedProjectId, setSelectedProjectId] = useState(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [requestMode, setRequestMode] = useState('RELEASE');
     const [selectedRequest, setSelectedRequest] = useState(null);
     const [showDetailsModal, setShowDetailsModal] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [billUploadUrl, setBillUploadUrl] = useState('');
 
     useEffect(() => {
         if (projects?.length > 0 && !selectedProjectId) {
@@ -77,6 +78,35 @@ const FacultyRequestFunds = () => {
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, 'Fund Requests');
         XLSX.writeFile(wb, `Fund_Requests_${user?.name?.replace(/\s+/g, '_')}.xlsx`);
+    };
+
+    const handleUploadBills = async () => {
+        if (!billUploadUrl.trim()) return;
+        try {
+            setIsSubmitting(true);
+            await updateFundRequest({
+                requestId: selectedRequest._id || selectedRequest.id,
+                updates: {
+                    documents: [...(selectedRequest.documents || []), { url: billUploadUrl, name: 'Payment Proof/Bill' }],
+                    currentStage: 'BILLS_UPLOADED'
+                }
+            });
+            
+            addNotification({
+                role: 'FINANCE_OFFICER',
+                type: 'info',
+                message: `Bills uploaded for Fund Request: ${selectedRequest?.projectTitle}. Ready for verification and disbursement.`,
+                actionUrl: '/finance/disbursements'
+            });
+            
+            setShowDetailsModal(false);
+            setBillUploadUrl('');
+            
+        } catch (error) {
+            console.error('Failed to upload bills:', error);
+        } finally {
+            setIsSubmitting(false);
+        }
     };
 
     if (isLoading) return <div className="p-8 text-center text-maroon-600 font-bold">Loading Data...</div>;
@@ -255,7 +285,7 @@ const FacultyRequestFunds = () => {
                                              </td>
                                              <td className="px-8 py-6 text-right">
                                                  <Badge className={`border-0 text-[10px] font-black italic px-3 py-1 rounded-full ${
-                                                     req.status === 'APPROVED' ? 'bg-emerald-50 text-emerald-600' : 
+                                                     ['FUND_APPROVED', 'BILLS_UPLOADED', 'CHEQUE_RELEASED', 'AMOUNT_DISBURSED', 'APPROVED'].includes(req.status) ? 'bg-emerald-50 text-emerald-600' : 
                                                      req.status === 'REJECTED' ? 'bg-red-50 text-red-600' :
                                                      'bg-blue-50 text-blue-600'
                                                  }`}>
@@ -397,12 +427,53 @@ const FacultyRequestFunds = () => {
                             </div>
                             <div className="flex items-center gap-2">
                                 <div className={`flex-1 h-1.5 rounded-full ${selectedRequest.status === 'APPROVED' ? 'bg-emerald-500' : 'bg-white/10'}`}></div>
-                                <div className={`flex-1 h-1.5 rounded-full ${['FUND_APPROVED', 'CHEQUE_RELEASED', 'AMOUNT_DISBURSED'].includes(selectedRequest.currentStage) ? 'bg-indigo-500' : 'bg-white/10'}`}></div>
+                                <div className={`flex-1 h-1.5 rounded-full ${['FUND_APPROVED', 'BILLS_UPLOADED', 'CHEQUE_RELEASED', 'AMOUNT_DISBURSED'].includes(selectedRequest.currentStage) ? 'bg-indigo-500' : 'bg-white/10'}`}></div>
+                                <div className={`flex-1 h-1.5 rounded-full ${['BILLS_UPLOADED', 'AMOUNT_DISBURSED', 'CHEQUE_RELEASED'].includes(selectedRequest.currentStage) ? 'bg-indigo-400' : 'bg-white/10'}`}></div>
                                 <div className={`flex-1 h-1.5 rounded-full ${selectedRequest.currentStage === 'AMOUNT_DISBURSED' ? 'bg-amber-500' : 'bg-white/10'}`}></div>
                             </div>
                         </div>
 
-                        <Button onClick={() => setShowDetailsModal(false)} className="w-full h-16 bg-slate-800 hover:bg-slate-700 text-white rounded-2xl font-black text-xs uppercase tracking-widest italic border border-white/10">
+                        {selectedRequest.status === 'APPROVED' && selectedRequest.currentStage === 'FUND_APPROVED' && (
+                            <div className="mb-10 p-6 bg-slate-800 border border-slate-700 rounded-xl">
+                                <h4 className="text-white font-bold mb-2">Upload Payment Proofs / Bills</h4>
+                                <p className="text-slate-400 text-xs mb-4">Please provide a URL to your uploaded bills/proofs (e.g., Google Drive link) so Finance can verify and disburse.</p>
+                                <div className="flex items-center gap-3">
+                                    <input 
+                                        type="text" 
+                                        placeholder="Enter Bill URL here..." 
+                                        value={billUploadUrl}
+                                        onChange={(e) => setBillUploadUrl(e.target.value)}
+                                        className="flex-1 bg-slate-900 border border-slate-700 text-white rounded-lg p-3 outline-none focus:border-maroon-500 transition-colors"
+                                    />
+                                    <Button 
+                                        onClick={handleUploadBills} 
+                                        disabled={!billUploadUrl.trim() || isSubmitting}
+                                        className="bg-maroon-600 hover:bg-maroon-700 text-white font-bold px-6 py-3 rounded-lg"
+                                    >
+                                        <Upload className="w-4 h-4 mr-2" />
+                                        Submit Bills
+                                    </Button>
+                                </div>
+                            </div>
+                        )}
+                        
+                        {selectedRequest.documents && selectedRequest.documents.length > 0 && (
+                            <div className="mb-10 p-6 bg-slate-800/50 border border-slate-700/50 rounded-xl">
+                                <h4 className="text-white font-bold mb-3 text-sm">Attached Documents</h4>
+                                <ul className="space-y-2">
+                                    {selectedRequest.documents.map((doc, idx) => (
+                                        <li key={idx} className="flex flex-col">
+                                            <a href={doc.url} target="_blank" rel="noreferrer" className="text-blue-400 hover:text-blue-300 text-sm font-medium flex items-center underline">
+                                                <FileText className="w-3 h-3 mr-1" />
+                                                {doc.name || 'Document'}
+                                            </a>
+                                        </li>
+                                    ))}
+                                </ul>
+                            </div>
+                        )}
+
+                        <Button onClick={() => {setShowDetailsModal(false); setBillUploadUrl('')}} className="w-full h-16 bg-slate-800 hover:bg-slate-700 text-white rounded-2xl font-black text-xs uppercase tracking-widest italic border border-white/10">
                             Close Context
                         </Button>
                     </div>

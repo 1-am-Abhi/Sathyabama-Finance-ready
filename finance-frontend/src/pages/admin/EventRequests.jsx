@@ -283,6 +283,14 @@ const EventRequests = () => {
                     targetUserId: selectedRequest.facultyId
                 });
                 
+                // Trigger notification to Finance
+                addNotification({
+                    role: 'FINANCE_OFFICER',
+                    type: 'info',
+                    message: `Event Request "${selectedRequest.eventTitle}" approved with ₹${amount.toLocaleString()} budget. Awaiting faculty bill upload.`,
+                    actionUrl: '/finance/function-requests'
+                });
+                
                 setSelectedRequest(null);
             } catch (err) {
                 console.error(err);

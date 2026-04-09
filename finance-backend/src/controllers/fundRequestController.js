@@ -97,6 +97,27 @@ exports.createFundRequest = async (req, res) => {
     }
 };
 
+exports.updateFundRequest = async (req, res) => {
+    try {
+        const request = await FundRequest.findByPk(req.params.id);
+        if (!request) return res.status(404).json({ success: false, message: 'Request not found' });
+
+        // Update the fields allowed
+        if (req.body.documents) {
+            request.documents = req.body.documents;
+        }
+
+        if (req.body.currentStage) {
+            request.currentStage = req.body.currentStage;
+        }
+
+        await request.save();
+        res.status(200).json({ success: true, data: request });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
 exports.approveFundRequest = async (req, res) => {
     try {
         const request = await FundRequest.findByPk(req.params.id);

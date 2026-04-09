@@ -50,6 +50,15 @@ const ApproveEquipment = () => {
                     actionUrl: '/faculty/equipment/dashboard',
                     targetUserId: targetReq.facultyId
                 });
+                
+                if (newStatus === 'Approved') {
+                    addNotification({
+                        role: 'FINANCE_OFFICER',
+                        type: 'info',
+                        message: `New Equipment Request for "${targetReq.equipmentName}" has been approved by Admin and requires disbursement.`,
+                        actionUrl: '/finance/equipment-disbursements'
+                    });
+                }
             }
         } catch (err) {
             console.error('Action failed', err);
