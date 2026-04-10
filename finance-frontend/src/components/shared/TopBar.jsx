@@ -2,13 +2,48 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Search, Bell, CheckCircle, DollarSign, UserPlus, FileText, X, User, Settings, ChevronDown, Menu, Sun, Moon, LogOut } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import { useNotifications } from '../../contexts/NotificationContext';
+import axios from 'axios';
 
 const TopBar = ({ title, subtitle, onMenuClick }) => {
     const { user, logout } = useAuth();
-    const { markAsRead: contextMarkAsRead, markAllAsRead, notifications, unreadCount } = useNotifications();
-    
     const navigate = useNavigate();
+    const userId = user?.id || user?._id;
+
+    const [notifications, setNotifications] = useState([]);
+
+    const fetchNotifications = async () => {
+        try {
+            const res = await axios.get(`/notifications/${userId}`);
+            setNotifications(res.data);
+        } catch (err) {
+            console.error("Failed to fetch notifications", err);
+        }
+    };
+
+    const filteredNotifications = notifications?.filter(n => !n.isRead) || [];
+    const unreadCount = filteredNotifications.length;
+
+    const clearAll = async () => {
+        try {
+            await axios.patch(`/notifications/mark-all-read/${userId}`);
+            fetchNotifications();
+        } catch (error) {
+            console.error("Failed to clear notifications", error);
+        }
+    };
+
+    const markAsRead = async (id) => {
+        try {
+            await axios.patch(`/notifications/read/${id}`);
+            fetchNotifications();
+        } catch (error) {
+            console.error("Failed to mark as read", error);
+        }
+    };
+
+    useEffect(() => {
+        if (userId) fetchNotifications();
+    }, [userId]);
     const [showNotifications, setShowNotifications] = useState(false);
     const [showProfileMenu, setShowProfileMenu] = useState(false);
     const notificationRef = useRef(null);
@@ -114,7 +149,7 @@ const TopBar = ({ title, subtitle, onMenuClick }) => {
 
     // Handle notification click
     const handleNotificationClick = (notification) => {
-        contextMarkAsRead(notification._id || notification.id);
+        markAsRead(notification._id || notification.id);
         if (notification.actionUrl) {
             navigate(notification.actionUrl);
         }
