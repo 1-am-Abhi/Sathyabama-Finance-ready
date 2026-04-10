@@ -302,7 +302,7 @@ const TopBar = ({ title, subtitle, onMenuClick }) => {
                                     {filteredNotifications.length > 0 && (
                                         <div className="p-3 border-t border-gray-100 dark:border-slate-800 bg-gray-50/50 dark:bg-slate-800/50 flex justify-between items-center">
                                             <button 
-                                                onClick={() => markAllAsRead()}
+                                                onClick={() => clearAll()}
                                                 className="text-xs font-semibold text-maroon-600 hover:text-maroon-700 dark:text-maroon-400 transition-colors"
                                             >
                                                 Mark all as read
