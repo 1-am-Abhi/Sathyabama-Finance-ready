@@ -31,6 +31,7 @@ test('notification routes expose read sync endpoints', () => {
 
     assert.ok(paths.includes('/:userId'));
     assert.ok(paths.includes('/mark-all-read'));
+    assert.ok(paths.includes('/mark-all-read/:userId'));
 });
 
 test('normalizeFundRequest preserves nested project data expected by the frontend', () => {

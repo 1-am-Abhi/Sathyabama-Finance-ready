@@ -5,13 +5,11 @@ const Project = require('../models/Project');
 const User = require('../models/User');
 const Revenue = require('../models/Revenue');
 const Disbursement = require('../models/Disbursement');
-const { sequelize } = require('../config/db');
 const { Op } = require('sequelize');
 const NotificationService = require('../services/notificationService');
 const Centre = require('../models/Centre');
 const EventRequest = require('../models/EventRequest');
 const {
-    ALLOCATED_STATUSES,
     buildCentreInclude,
     buildProjectInclude,
     normalizeFundRequest,
@@ -19,13 +17,12 @@ const {
     getFundSourceOverview,
     getDepartmentFundingRows,
     getSharedPipelineData,
+    getFundingTotals,
 } = require('../services/pipelineMetricsService');
 const {
     executeDisbursementPipeline,
     getEventMarker,
-    getRecordId,
     mapToFundSourceKey,
-    syncRevenueLedger,
 } = require('../services/financePipelineService');
 
 exports.getFinanceStats = async (req, res) => {
@@ -53,6 +50,7 @@ exports.getFinanceStats = async (req, res) => {
         
         // Internship Fees: PENDING payment status
         const pendingInternships = await InternshipFee.count({ where: { paymentStatus: 'PENDING' } });
+        const fundingTotals = await getFundingTotals();
 
         res.status(200).json({
             success: true,
@@ -60,7 +58,11 @@ exports.getFinanceStats = async (req, res) => {
                 pendingReleases,
                 pendingDisbursements,
                 pendingSettlements,
-                pendingInternships
+                pendingInternships,
+                totalAllocated: fundingTotals.totalAllocated,
+                totalUsed: fundingTotals.totalUsed,
+                totalDisbursed: fundingTotals.totalDisbursed,
+                remaining: fundingTotals.remaining,
             }
         });
     } catch (error) {
@@ -70,21 +72,23 @@ exports.getFinanceStats = async (req, res) => {
 
 exports.getFinanceDashboard = async (req, res) => {
     try {
-        const shared = await getSharedPipelineData();
-        const totalAllocated = shared.fundRequests
-            .filter((request) => ALLOCATED_STATUSES.includes(request.status))
-            .reduce((sum, request) => sum + Number(request.requestedAmount || 0), 0);
-        const totalDisbursed = shared.disbursements.reduce((sum, entry) => sum + Number(entry.amount || 0), 0);
+        const [shared, fundingTotals, fundSources] = await Promise.all([
+            getSharedPipelineData(),
+            getFundingTotals(),
+            getFundSourceOverview(),
+        ]);
 
         res.status(200).json({
             success: true,
             data: {
-                totalAllocated,
-                totalDisbursed,
+                totalAllocated: fundingTotals.totalAllocated,
+                totalUsed: fundingTotals.totalUsed,
+                totalDisbursed: fundingTotals.totalDisbursed,
+                remaining: fundingTotals.remaining,
                 totalProjects: shared.projects.length,
                 activeProjects: shared.projects.filter((project) => ['ACTIVE', 'APPROVED'].includes(project.status)).length,
                 pendingDisbursements: shared.fundRequests.filter((request) => request.status === 'PENDING_DISBURSAL').length,
-                fundSources: await getFundSourceOverview(),
+                fundSources,
             },
         });
     } catch (error) {
@@ -608,9 +612,7 @@ exports.getFinancialReports = async (req, res) => {
             order: [['verifiedAt', 'DESC']],
         });
 
-        const totalAllocated = await FundRequest.sum('requestedAmount', {
-            where: { status: { [Op.in]: ALLOCATED_STATUSES } }
-        }) || 0;
+        const fundingTotals = await getFundingTotals();
         const normalizedOutflows = history.map((entry) => normalizeDisbursement(entry));
         const normalizedInflows = inflows.map((entry) => {
             const raw = entry.toJSON ? entry.toJSON() : entry;
@@ -637,8 +639,10 @@ exports.getFinancialReports = async (req, res) => {
         const totalInflow = filteredInflows.reduce((sum, entry) => sum + Number(entry.amount || 0), 0);
 
         const summary = {
-            totalAllocated,
-            totalSanctioned: totalAllocated,
+            totalAllocated: fundingTotals.totalAllocated,
+            totalSanctioned: fundingTotals.totalAllocated,
+            totalUsed: totalOutflow,
+            remaining: Math.max(0, fundingTotals.totalAllocated - totalOutflow),
             totalDisbursed: totalOutflow,
             totalRevenue: totalInflow,
             netBalance: totalInflow - totalOutflow

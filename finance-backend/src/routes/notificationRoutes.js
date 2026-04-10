@@ -10,5 +10,6 @@ router.get('/:userId', protect, notificationController.getNotifications);
 router.patch('/read/:id', protect, notificationController.markAsRead);
 router.patch('/read-all', protect, notificationController.markAllAsRead);
 router.patch('/mark-all-read', protect, notificationController.markAllAsRead);
+router.patch('/mark-all-read/:userId', protect, notificationController.markAllAsRead);
 
 module.exports = router;

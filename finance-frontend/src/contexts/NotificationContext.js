@@ -25,7 +25,8 @@ export const NotificationProvider = ({ children }) => {
         }
         try {
             setIsLoading(true);
-            const res = await apiClient.get('/notifications');
+            const userId = user?.id || user?._id;
+            const res = await apiClient.get(`/notifications/${userId}`);
             setNotifications((res.data.data || []).map(normalizeNotification));
         } catch (error) {
             console.error('Failed to fetch notifications:', error);
@@ -37,8 +38,7 @@ export const NotificationProvider = ({ children }) => {
     useEffect(() => {
         if (user) {
             fetchNotifications();
-            // Poll every 15 seconds for real-time feel
-            const interval = setInterval(fetchNotifications, 15000);
+            const interval = setInterval(fetchNotifications, 5000);
             return () => clearInterval(interval);
         } else {
             setNotifications([]);
@@ -61,7 +61,8 @@ export const NotificationProvider = ({ children }) => {
         // Optimistic update
         setNotifications(prev => prev.map(n => ({ ...n, isRead: true, read: true })));
         try {
-            await apiClient.patch('/notifications/mark-all-read');
+            const userId = user?.id || user?._id;
+            await apiClient.patch(`/notifications/mark-all-read/${userId}`);
             await fetchNotifications();
         } catch (error) {
             console.error('Failed to mark all as read:', error);
@@ -85,17 +86,22 @@ export const NotificationProvider = ({ children }) => {
         };
 
         const response = await apiClient.post('/notifications', payload);
-        const createdNotification = normalizeNotification(response.data?.data || {});
+        const created = response.data?.data || {};
+        const createdNotification = Array.isArray(created)
+            ? null
+            : normalizeNotification(created);
 
         const targetsCurrentUser =
-            createdNotification.userId === (user?.id || user?._id) ||
-            createdNotification.role === user?.role;
+            createdNotification?.userId === (user?.id || user?._id) ||
+            createdNotification?.role === user?.role;
 
         if (targetsCurrentUser) {
             setNotifications((prev) => [createdNotification, ...prev]);
+        } else if (Array.isArray(created)) {
+            await fetchNotifications();
         }
 
-        return createdNotification;
+        return createdNotification || created;
     };
 
     const clearAll = () => {

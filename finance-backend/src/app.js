@@ -90,6 +90,7 @@ app.use('/api/fund-requests', fundRequestRoutes);
 app.use('/api/od-requests', odRequestRoutes);
 app.use('/api/event-requests', eventRequestRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use('/notifications', notificationRoutes);
 app.use('/api/equipment-requests', equipmentRequestRoutes);
 app.use('/api/documents', documentRoutes);
 app.use('/api/academic-metrics', academicMetricRoutes);

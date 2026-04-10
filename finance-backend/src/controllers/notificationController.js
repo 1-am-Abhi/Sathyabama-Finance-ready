@@ -1,22 +1,37 @@
 const Notification = require('../models/Notification');
-const { Op } = require('sequelize');
+const NotificationService = require('../services/notificationService');
 
 const normalizeType = (type = 'INFO') => String(type).trim().toUpperCase();
+
+const getAuthUserId = (req) => String(req.user?.id || req.user?._id || '');
+
+const canAccessUserNotifications = (req, userId) =>
+    String(userId || '') === getAuthUserId(req) ||
+    String(req.user?.role || '').toUpperCase() === 'ADMIN';
 
 exports.createNotification = async (req, res) => {
     try {
         const { title, message, type, role, targetUserId, relatedId, actionUrl } = req.body;
 
-        const notification = await Notification.create({
-            title: title || 'Notification',
+        if (!targetUserId && role) {
+            const notifications = await NotificationService.notifyRole(
+                role,
+                title || 'Notification',
+                message,
+                normalizeType(type),
+                relatedId || actionUrl || null
+            );
+
+            return res.status(201).json({ success: true, data: notifications || [] });
+        }
+
+        const notification = await NotificationService.create(
+            targetUserId || req.user?.id || req.user?._id,
+            title || 'Notification',
             message,
-            type: normalizeType(type),
-            role: role || null,
-            userId: targetUserId || null,
-            relatedId: relatedId || actionUrl || null,
-            createdBy: req.user?.name || 'System',
-            isRead: false,
-        });
+            normalizeType(type),
+            relatedId || actionUrl || null
+        );
 
         res.status(201).json({ success: true, data: notification });
     } catch (error) {
@@ -28,6 +43,10 @@ exports.createNotification = async (req, res) => {
 exports.getNotifications = async (req, res) => {
     try {
         const userId = req.params.userId || req.user.id || req.user._id;
+
+        if (!canAccessUserNotifications(req, userId)) {
+            return res.status(403).json({ success: false, message: 'Unauthorized' });
+        }
 
         const notifications = await Notification.findAll({
             where: {
@@ -53,7 +72,7 @@ exports.markAsRead = async (req, res) => {
             return res.status(404).json({ success: false, message: 'Notification not found' });
         }
 
-        if (notification.userId !== (req.user.id || req.user._id)) {
+        if (!canAccessUserNotifications(req, notification.userId)) {
             return res.status(403).json({ success: false, message: 'Unauthorized' });
         }
 
@@ -67,7 +86,11 @@ exports.markAsRead = async (req, res) => {
 
 exports.markAllAsRead = async (req, res) => {
     try {
-        const userId = req.user.id || req.user._id;
+        const userId = req.params.userId || req.user.id || req.user._id;
+
+        if (!canAccessUserNotifications(req, userId)) {
+            return res.status(403).json({ success: false, message: 'Unauthorized' });
+        }
 
         await Notification.update(
             { isRead: true },

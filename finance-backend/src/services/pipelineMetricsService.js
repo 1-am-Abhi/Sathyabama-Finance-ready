@@ -20,6 +20,23 @@ const normalizeName = (value) => String(value || '').trim().toLowerCase();
 
 const getRecordId = (record) => record?._id || record?.id || null;
 
+const getFundingTotals = async () => {
+    const [allocated, used] = await Promise.all([
+        FundSource.sum('totalAllocated'),
+        Disbursement.sum('amount'),
+    ]);
+
+    const totalAllocated = toNumber(allocated);
+    const totalUsed = toNumber(used);
+
+    return {
+        totalAllocated,
+        totalUsed,
+        totalDisbursed: totalUsed,
+        remaining: Math.max(0, totalAllocated - totalUsed),
+    };
+};
+
 const buildCentreInclude = () => ({
     model: Centre,
     as: 'researchCentre',
@@ -343,27 +360,45 @@ const buildCentreBreakdown = ({ centres, projects, fundRequests, disbursements }
 };
 
 const getAdminDashboardData = async () => {
-    const shared = await getSharedPipelineData();
+    const [shared, fundingTotals, fundSources] = await Promise.all([
+        getSharedPipelineData(),
+        getFundingTotals(),
+        getFundSourceOverview(),
+    ]);
 
     const totalProjects = shared.projects.length;
     const activeProjects = shared.projects.filter((project) => ACTIVE_PROJECT_STATUSES.includes(project.status)).length;
     const pendingApprovals = shared.projects.filter((project) => project.status === 'PENDING').length;
-    const totalAllocated = shared.fundRequests
+    const approvedFunds = shared.fundRequests
         .filter((request) => ALLOCATED_STATUSES.includes(request.status))
         .reduce((sum, request) => sum + toNumber(request.requestedAmount), 0);
-    const totalDisbursed = shared.disbursements.reduce((sum, entry) => sum + toNumber(entry.amount), 0);
 
     return {
         stats: {
             totalProjects,
             activeProjects,
             pendingApprovals,
-            totalAllocated,
-            totalDisbursed,
+            totalAllocated: fundingTotals.totalAllocated,
+            totalUsed: fundingTotals.totalUsed,
+            totalDisbursed: fundingTotals.totalDisbursed,
+            remaining: fundingTotals.remaining,
+            approvedFunds,
             totalFaculty: shared.totalFaculty,
-            pfmsStats: buildSourceStats(shared.fundRequests, shared.disbursements, 'PFMS'),
-            institutionalStats: buildSourceStats(shared.fundRequests, shared.disbursements, 'INSTITUTIONAL'),
-            directorStats: buildSourceStats(shared.fundRequests, shared.disbursements, ['DIRECTOR', 'DIRECTOR_INNOVATION', 'DIRECTOR_INNOVATION_FUND']),
+            pfmsStats: {
+                allotted: fundSources.pfmsFunds.totalAllocated,
+                consumed: fundSources.pfmsFunds.totalUsed,
+                balance: fundSources.pfmsFunds.remainingBalance,
+            },
+            institutionalStats: {
+                allotted: fundSources.collegeFunds.totalAllocated,
+                consumed: fundSources.collegeFunds.totalUsed,
+                balance: fundSources.collegeFunds.remainingBalance,
+            },
+            directorStats: {
+                allotted: fundSources.directorFunds.totalAllocated,
+                consumed: fundSources.directorFunds.totalUsed,
+                balance: fundSources.directorFunds.remainingBalance,
+            },
             othersStats: buildSourceStats(shared.fundRequests, shared.disbursements, 'OTHERS'),
         },
         centres: buildCentreBreakdown(shared).map(({ key, ...centre }) => centre),
@@ -382,7 +417,10 @@ const matchesFaculty = (record, facultyId, facultyName) => {
 };
 
 const getFacultyDashboardData = async (facultyId, facultyName) => {
-    const shared = await getSharedPipelineData();
+    const [shared, fundingTotals] = await Promise.all([
+        getSharedPipelineData(),
+        getFundingTotals(),
+    ]);
 
     const projects = shared.projects.filter((project) =>
         project.facultyId === facultyId ||
@@ -392,17 +430,21 @@ const getFacultyDashboardData = async (facultyId, facultyName) => {
     const fundRequests = shared.fundRequests.filter((request) => matchesFaculty(request, facultyId, facultyName));
     const disbursements = shared.disbursements.filter((entry) => matchesFaculty(entry, facultyId, facultyName));
 
-    const totalAllocated = fundRequests
+    const facultyApprovedFunds = fundRequests
         .filter((request) => ALLOCATED_STATUSES.includes(request.status))
         .reduce((sum, request) => sum + toNumber(request.requestedAmount), 0);
-    const totalDisbursed = disbursements.reduce((sum, entry) => sum + toNumber(entry.amount), 0);
+    const facultyDisbursed = disbursements.reduce((sum, entry) => sum + toNumber(entry.amount), 0);
 
     return {
         totalProjects: projects.length,
         activeProjects: projects.filter((project) => ACTIVE_PROJECT_STATUSES.includes(project.status)).length,
-        totalAllocated,
-        totalDisbursed,
-        balance: Math.max(0, totalAllocated - totalDisbursed),
+        totalAllocated: fundingTotals.totalAllocated,
+        totalUsed: fundingTotals.totalUsed,
+        totalDisbursed: fundingTotals.totalDisbursed,
+        remaining: fundingTotals.remaining,
+        balance: fundingTotals.remaining,
+        facultyApprovedFunds,
+        facultyDisbursed,
     };
 };
 
@@ -504,4 +546,5 @@ module.exports = {
     getFundSourceOverview,
     getDepartmentFundingRows,
     getSharedPipelineData,
+    getFundingTotals,
 };

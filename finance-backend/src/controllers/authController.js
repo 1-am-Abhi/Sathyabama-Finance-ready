@@ -137,8 +137,6 @@ exports.getMe = async (req, res) => {
 
 exports.getUsers = async (req, res) => {
     try {
-        const ProjectMember = require('../models/ProjectMember');
-        const EventRequest = require('../models/EventRequest');
         const { sequelize } = require('../config/db');
 
         const users = await User.findAll({
@@ -147,11 +145,29 @@ exports.getUsers = async (req, res) => {
                 include: [
                     [
                         sequelize.literal(`(
-                            SELECT COUNT(*)
-                            FROM "ProjectMembers" AS pm
-                            WHERE pm."userId" = "User"."_id"
+                            SELECT COUNT(DISTINCT p."_id")
+                            FROM "Projects" AS p
+                            LEFT JOIN "ProjectMembers" AS pm
+                              ON pm."projectId" = p."_id"
+                            WHERE
+                              p."facultyId" = "User"."_id"
+                              OR p."userId" = "User"."_id"
+                              OR pm."userId" = "User"."_id"
                         )`),
                         'projectsCount'
+                    ],
+                    [
+                        sequelize.literal(`(
+                            SELECT COUNT(DISTINCT p."_id")
+                            FROM "Projects" AS p
+                            LEFT JOIN "ProjectMembers" AS pm
+                              ON pm."projectId" = p."_id"
+                            WHERE
+                              p."facultyId" = "User"."_id"
+                              OR p."userId" = "User"."_id"
+                              OR pm."userId" = "User"."_id"
+                        )`),
+                        'projectCount'
                     ],
                     [
                         sequelize.literal(`(

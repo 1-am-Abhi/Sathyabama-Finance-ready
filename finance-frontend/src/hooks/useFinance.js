@@ -115,9 +115,16 @@ export const useUpdateFundSource = () => {
 
     return useMutation({
         mutationFn: updateFundSourceAmount,
-        onSuccess: () => {
-            // Invalidate and refetch fund sources overview
-            queryClient.invalidateQueries({ queryKey: ['fundSourcesOverview'] });
+        onSuccess: async () => {
+            await Promise.all([
+                queryClient.invalidateQueries({ queryKey: ['fundSourcesOverview'] }),
+                queryClient.invalidateQueries({ queryKey: ['financeStats'] }),
+                queryClient.invalidateQueries({ queryKey: ['financialReports'] }),
+                queryClient.invalidateQueries({ queryKey: ['disbursalHistory'] }),
+                queryClient.invalidateQueries({ queryKey: ['adminDashboard'] }),
+                queryClient.invalidateQueries({ queryKey: ['facultyDashboard'] }),
+            ]);
+            await queryClient.refetchQueries({ queryKey: ['fundSourcesOverview'] });
         },
     });
 };

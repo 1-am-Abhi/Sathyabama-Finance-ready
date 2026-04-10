@@ -1,4 +1,5 @@
 const Document = require('../models/Document');
+const NotificationService = require('../services/notificationService');
 
 exports.createDocument = async (req, res) => {
     try {
@@ -13,6 +14,13 @@ exports.createDocument = async (req, res) => {
             fileData: req.body.fileData || null,
             status: 'PENDING'
         });
+        await NotificationService.notifyRole(
+            'ADMIN',
+            'Document Uploaded',
+            `${req.user.name} uploaded "${doc.fileName}" for verification.`,
+            'INFO',
+            '/admin/documents'
+        );
         res.status(201).json({ success: true, data: doc });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
@@ -70,4 +78,3 @@ exports.updateDocument = async (req, res) => {
         res.status(500).json({ success: false, message: error.message });
     }
 };
-
