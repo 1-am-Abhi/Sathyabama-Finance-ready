@@ -7,17 +7,22 @@ import {
     AlertTriangle, ArrowRight, Calendar, Building
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../../contexts/AuthContext';
 import { useLayout } from '../../contexts/LayoutContext';
 import { useFinanceStats, useFundFlowProjects, useInternshipFees, usePFMSTransactions } from '../../hooks/useFinance';
 
 const FinanceDashboard = () => {
     const { setLayout } = useLayout();
     const navigate = useNavigate();
+    const { user } = useAuth();
+    const userId = user?.id || user?._id;
     
     const { data: financeStats = {}, isLoading: isLoadingStats } = useFinanceStats();
     const { data: fundFlowProjects = [], isLoading: isLoadingFundFlow } = useFundFlowProjects();
     const { data: internshipPayments = [], isLoading: isLoadingInternships } = useInternshipFees();
     const { data: pfmsTransactions = [], isLoading: isLoadingPFMS } = usePFMSTransactions();
+
+    if (!userId) return null;
 
     useEffect(() => {
         setLayout("Settlement & Activities", "Manage fund releases, PFMS tracking, and internship payments");
@@ -104,7 +109,7 @@ const FinanceDashboard = () => {
                                 </CardHeader>
                                 <CardContent className="p-6">
                                     <div className="space-y-4">
-                                        {fundFlowProjects.map((project) => (
+                                        {(fundFlowProjects || []).map((project) => (
                                             <div key={project.id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
                                                 <div className="flex items-start justify-between mb-2">
                                                     <div className="flex-1">
@@ -151,7 +156,7 @@ const FinanceDashboard = () => {
                                         <span>Financial Year 2024-25</span>
                                     </div>
                                     <div className="space-y-6">
-                                        {pfmsTransactions.map((transaction, index) => (
+                                        {(pfmsTransactions || []).map((transaction, index) => (
                                             <div key={index} className="border border-gray-200 rounded-lg p-4">
                                                 <div className="flex items-start justify-between mb-3">
                                                     <div>
@@ -227,7 +232,7 @@ const FinanceDashboard = () => {
                                 </CardHeader>
                                 <CardContent className="p-4">
                                     <div className="space-y-3">
-                                        {internshipPayments.map((payment) => (
+                                        {(internshipPayments || []).map((payment) => (
                                             <div key={payment.id} className="border border-gray-200 rounded-lg p-3">
                                                 <div className="flex items-start justify-between mb-2">
                                                     <div className="flex-1">

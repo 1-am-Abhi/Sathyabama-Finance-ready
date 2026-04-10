@@ -4,6 +4,7 @@ import { Badge } from '../../components/ui/badge';
 import { Button } from '../../components/ui/button';
 import { useLayout } from '../../contexts/LayoutContext';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../../contexts/AuthContext';
 import {
     AreaChart, Area, XAxis, YAxis,
     CartesianGrid, Tooltip, ResponsiveContainer,
@@ -20,7 +21,11 @@ import apiClient from '../../api/client';
 const FacultyDashboard = () => {
     const { setLayout } = useLayout();
     const navigate = useNavigate();
+    const { user } = useAuth();
+    const userId = user?.id || user?._id;
     const [aiModal, setAiModal] = useState({ open: false, loading: false, result: null });
+
+    if (!userId) return null;
 
     // Real data
     const [projects, setProjects] = useState([]);
@@ -98,7 +103,7 @@ const FacultyDashboard = () => {
     // Build funding trend from real projects (by creation month)
     const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
     const trendData = monthNames.map(m => ({ month: m, amount: 0, titles: [] }));
-    projects.forEach(r => {
+    (projects || []).forEach(r => {
         const d = r.createdAt ? new Date(r.createdAt) : null;
         if (d) {
             const mIdx = d.getMonth();
@@ -108,7 +113,7 @@ const FacultyDashboard = () => {
         }
     });
     // Include approved events in funding trend
-    events.filter(e => e.status === 'APPROVED').forEach(e => {
+    (events || []).filter(e => e.status === 'APPROVED').forEach(e => {
         const d = e.createdAt ? new Date(e.createdAt) : null;
         if (d) {
             const mIdx = d.getMonth();
@@ -118,7 +123,7 @@ const FacultyDashboard = () => {
         }
     });
     // Also include fund requests that have been approved
-    fundRequests.forEach(r => {
+    (fundRequests || []).forEach(r => {
         const d = r.createdAt ? new Date(r.createdAt) : null;
         if (d && ['APPROVED', 'PENDING_DISBURSAL', 'DISBURSED'].includes((r.status || '').toUpperCase())) {
             const mIdx = d.getMonth();
@@ -128,7 +133,7 @@ const FacultyDashboard = () => {
         }
     });
     // Include equipment requests (sanctioned/disbursed)
-    equipmentRequests.forEach(e => {
+    (equipmentRequests || []).forEach(e => {
         const d = e.createdAt ? new Date(e.createdAt) : null;
         if (d && (['Approved', 'DISBURSED'].includes(e.status))) {
             const mIdx = d.getMonth();
@@ -142,7 +147,7 @@ const FacultyDashboard = () => {
 
     // Project status breakdown
     const statusMap = { Active: 0, Completed: 0, Pending: 0, Rejected: 0 };
-    projects.forEach(p => {
+    (projects || []).forEach(p => {
         const s = (p.status || '').toLowerCase();
         if (s === 'active' || s === 'approved') statusMap.Active++;
         else if (s === 'completed') statusMap.Completed++;

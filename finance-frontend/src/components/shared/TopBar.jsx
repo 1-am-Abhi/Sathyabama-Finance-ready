@@ -73,6 +73,21 @@ const TopBar = ({ title, subtitle, onMenuClick }) => {
         }
     };
 
+    if (!userId) {
+        return (
+            <div className="bg-white dark:bg-slate-900 border-b border-gray-200 dark:border-slate-800 px-4 md:px-8 py-4 flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                    <div className="min-w-0 flex-1">
+                        <h1 className="text-xl md:text-2xl font-bold text-gray-900 dark:text-white truncate">{title}</h1>
+                    </div>
+                </div>
+                <div className="flex items-center gap-4">
+                     <div className="animate-pulse w-8 h-8 bg-gray-100 dark:bg-slate-800 rounded-full"></div>
+                </div>
+            </div>
+        );
+    }
+
 
 
     // Close dropdown when clicking outside
@@ -264,7 +279,7 @@ const TopBar = ({ title, subtitle, onMenuClick }) => {
                                             </div>
                                         ) : (
                                             <div className="divide-y divide-gray-100 dark:divide-slate-800">
-                                                {notifications.map((notification) => {
+                                                {(notifications || []).map((notification) => {
                                                     const { Icon, color, bg } = getNotificationIcon(notification.type?.toLowerCase());
                                                     return (
                                                         <div
@@ -299,7 +314,7 @@ const TopBar = ({ title, subtitle, onMenuClick }) => {
                                             </div>
                                         )}
                                     </div>
-                                    {filteredNotifications.length > 0 && (
+                                    {(filteredNotifications || []).length > 0 && (
                                         <div className="p-3 border-t border-gray-100 dark:border-slate-800 bg-gray-50/50 dark:bg-slate-800/50 flex justify-between items-center">
                                             <button 
                                                 onClick={() => clearAll()}

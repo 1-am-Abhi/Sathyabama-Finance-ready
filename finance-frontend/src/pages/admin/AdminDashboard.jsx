@@ -8,6 +8,7 @@ import {
     FileText, Banknote, CheckCircle, TrendingUp,
     UserPlus, BarChart3, Filter, Wallet, Building2, Sparkles, Activity, CircleDollarSign
 } from 'lucide-react';
+import { useAuth } from '../../contexts/AuthContext';
 import { useLayout } from '../../contexts/LayoutContext';
 import DateFilter from '../../components/shared/DateFilter';
 import AIResultModal from '../../components/shared/AIResultModal';
@@ -25,6 +26,10 @@ import apiClient from '../../api/client';
 const AdminDashboard = () => {
     const { setLayout } = useLayout();
     const navigate = useNavigate();
+    const { user } = useAuth();
+    const userId = user?.id || user?._id;
+
+    if (!userId) return null;
     const [activeMetric] = useState('projects'); // 'projects' | 'budget' | 'disbursed'
     const [selectedCentre, setSelectedCentre] = useState('ALL');
     const [selectedMonth, setSelectedMonth] = useState('ALL');
@@ -697,11 +702,11 @@ const AdminDashboard = () => {
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
-                                {recentRequests.flatMap(req => (req.auditTrail || []).map((log, idx) => ({ ...log, project: req.projectTitle, id: `${req._id}-${idx}` }))).length > 0 ? (
-                                    recentRequests.flatMap(req => (req.auditTrail || []).map((log, idx) => ({ ...log, project: req.projectTitle, id: `${req._id}-${idx}` })))
-                                        .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
-                                        .slice(0, 10)
-                                        .map((log) => (
+                                    {(recentRequests || []).flatMap(req => (req.auditTrail || []).map((log, idx) => ({ ...log, project: req.projectTitle, id: `${req._id}-${idx}` }))).length > 0 ? (
+                                        {(recentRequests || []).flatMap(req => (req.auditTrail || []).map((log, idx) => ({ ...log, project: req.projectTitle, id: `${req._id}-${idx}` })))
+                                            .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
+                                            .slice(0, 10)
+                                            .map((log) => (
                                             <TableRow key={log.id} className="text-xs">
                                                 <TableCell className="pl-4 sm:pl-8 py-3 sm:py-4">
                                                     <div className="flex flex-col">

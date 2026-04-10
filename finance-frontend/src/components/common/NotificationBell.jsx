@@ -91,7 +91,7 @@ const NotificationBell = () => {
                                 </div>
                             ) : (
                                 <div className="divide-y divide-gray-50 dark:divide-slate-800/50">
-                                    {notifications.map((notif) => (
+                                    {(notifications || []).map((notif) => (
                                         <div
                                             key={notif._id}
                                             className={`p-4 transition-all hover:bg-gray-50 dark:hover:bg-slate-800/50 relative group ${!notif.isRead ? 'bg-blue-50/20 dark:bg-blue-900/10' : ''}`}

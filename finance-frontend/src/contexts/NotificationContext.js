@@ -47,7 +47,7 @@ export const NotificationProvider = ({ children }) => {
 
     const markAsRead = async (id) => {
         // Optimistic update
-        setNotifications(prev => prev.map(n => (n._id === id || n.id === id) ? { ...n, isRead: true, read: true } : n));
+        setNotifications(prev => (prev || []).map(n => (n._id === id || n.id === id) ? { ...n, isRead: true, read: true } : n));
         try {
             await apiClient.patch(`/notifications/read/${id}`);
             await fetchNotifications();
@@ -59,7 +59,7 @@ export const NotificationProvider = ({ children }) => {
 
     const markAllAsRead = async () => {
         // Optimistic update
-        setNotifications(prev => prev.map(n => ({ ...n, isRead: true, read: true })));
+        setNotifications(prev => (prev || []).map(n => ({ ...n, isRead: true, read: true })));
         try {
             const userId = user?.id || user?._id;
             await apiClient.patch(`/notifications/mark-all-read/${userId}`);
