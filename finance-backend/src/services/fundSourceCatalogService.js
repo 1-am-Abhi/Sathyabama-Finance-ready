@@ -16,9 +16,9 @@ const LEGACY_SOURCE_ALIASES = {
     COLLEGE_FUNDED: 'INSTITUTIONAL',
     INSTITUTIONAL: 'INSTITUTIONAL',
     PFMS: 'PFMS',
-    DIRECTOR: 'INSTITUTIONAL',
-    DIRECTOR_INNOVATION: 'INSTITUTIONAL',
-    DIRECTOR_INNOVATION_FUND: 'INSTITUTIONAL',
+    DIRECTOR: 'OTHERS',
+    DIRECTOR_INNOVATION: 'OTHERS',
+    DIRECTOR_INNOVATION_FUND: 'OTHERS',
     OTHER: 'OTHERS',
     OTHERS: 'OTHERS',
 };
@@ -28,10 +28,10 @@ const LEGACY_SOURCE_TYPE_ALIASES = {
     collegeFunds: 'institutionalFunds',
     pfmsFunds: 'pfmsFunds',
     othersFunds: 'othersFunds',
-    directorFunds: 'institutionalFunds',
+    directorFunds: 'othersFunds',
 };
 
-const LEGACY_DB_SOURCE_VALUES = ['DIRECTOR', 'COLLEGE'];
+const LEGACY_DB_SOURCE_VALUES = ['DIRECTOR'];
 
 const normalizeFundSource = (value) => {
     const raw = String(value || '').trim().toUpperCase().replace(/\s+/g, '_');
@@ -52,20 +52,28 @@ const ensureCanonicalFundSources = async () => {
     }
 
     ensureCanonicalFundSourcesPromise = (async () => {
-        // Use raw queries for migrations to bypass Sequelize enum validation errors
-        // during the transition period.
-        for (const legacyValue of LEGACY_DB_SOURCE_VALUES) {
-            await Promise.all([
-                sequelize.query(
-                    'UPDATE "Projects" SET "fundingSource" = :target WHERE "fundingSource"::text = :legacy',
-                    { replacements: { target: 'INSTITUTIONAL', legacy: legacyValue } }
-                ).catch(() => {}),
-                sequelize.query(
-                    'UPDATE "FundRequests" SET "source" = :target WHERE "source"::text = :legacy',
-                    { replacements: { target: 'INSTITUTIONAL', legacy: legacyValue } }
-                ).catch(() => {})
-            ]);
-        }
+        await Promise.all([
+            Project.update(
+                { fundingSource: 'OTHERS' },
+                {
+                    where: {
+                        fundingSource: {
+                            [Op.in]: LEGACY_DB_SOURCE_VALUES,
+                        },
+                    },
+                }
+            ),
+            FundRequest.update(
+                { source: 'OTHERS' },
+                {
+                    where: {
+                        source: {
+                            [Op.in]: LEGACY_DB_SOURCE_VALUES,
+                        },
+                    },
+                }
+            ),
+        ]);
 
         const rows = await FundSource.findAll({
             order: [['updatedAt', 'DESC']],

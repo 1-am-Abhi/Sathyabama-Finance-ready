@@ -171,11 +171,11 @@ const ResearchCentreDetail = ({ isOpen, onClose, centreName, isDark }) => {
         { name: 'Remaining', value: details.summary.fundsRemaining, color: '#22c55e' }
     ];
 
-    const projectBudgetData = (details.projects || []).map(p => ({
-        name: (p.name || 'Untitled').length > 20 ? (p.name || 'Untitled').substring(0, 20) + '...' : (p.name || 'Untitled'),
-        budget: (p.budget || 0) / 100000,
-        released: (p.released || 0) / 100000,
-        utilized: (p.utilized || 0) / 100000
+    const projectBudgetData = details.projects.map(p => ({
+        name: p.name.length > 20 ? p.name.substring(0, 20) + '...' : p.name,
+        budget: p.budget / 100000,
+        released: p.released / 100000,
+        utilized: p.utilized / 100000
     }));
 
     const formatCurrency = (amount) => {

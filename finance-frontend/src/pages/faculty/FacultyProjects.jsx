@@ -14,7 +14,6 @@ import AIResultModal from '../../components/shared/AIResultModal';
 import { predictResearchImpact, predictGrantSuccess } from '../../services/aiService';
 import { usePipeline } from '../../contexts/PipelineContext';
 import { formatCurrency } from '../../utils/format';
-import { getFundSourceLabel } from '../../constants/fundSources';
 import apiClient from '../../api/client';
 import { toast } from 'sonner';
 
@@ -249,9 +248,7 @@ const FacultyProjects = () => {
                                         </div>
                                     </td>
                                     <td className="px-6 py-4">
-                                        <p className="text-xs font-bold text-slate-500 italic uppercase">
-                                            {work.fundingSource ? getFundSourceLabel(work.fundingSource) : (work.publisher || 'N/A')}
-                                        </p>
+                                        <p className="text-xs font-bold text-slate-500 italic uppercase">{work.fundingSource || work.publisher || 'N/A'}</p>
                                     </td>
                                     <td className="px-6 py-4">
                                         {work.sanctionedBudget ? (
@@ -405,15 +402,12 @@ const FacultyProjects = () => {
                                     <p className="text-sm text-white font-bold italic mb-2 uppercase">{viewedProject.title}</p>
                                     <div className="flex items-center gap-3">
                                         <Badge className="bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 px-3 py-1 font-black italic uppercase text-[10px]">{viewedProject.projectType || 'PROJECT'}</Badge>
-                                    <Badge className={`px-3 py-1 font-black italic uppercase text-[10px] border ${
+                                        <Badge className={`px-3 py-1 font-black italic uppercase text-[10px] border ${
                                             ['ACTIVE', 'PUBLISHED'].includes(viewedProject.status) ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 
                                             viewedProject.status === 'REJECTED' ? 'bg-red-500/10 text-red-400 border-red-500/20' : 
                                             viewedProject.status === 'PENDING' ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' :
                                             'bg-amber-500/10 text-amber-400 border-amber-500/20'
                                         }`}>{viewedProject.status === 'PENDING' ? 'Pending Approval' : viewedProject.status}</Badge>
-                                    </div>
-                                    <div className="mt-2">
-                                        <p className="text-[10px] font-black uppercase text-indigo-400 italic">Source: {getFundSourceLabel(viewedProject.fundingSource)}</p>
                                     </div>
                                 </div>
                                 <div>
@@ -428,7 +422,7 @@ const FacultyProjects = () => {
                                     <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic mb-1">Entity Details</p>
                                     <div className="flex items-center gap-2 text-white font-bold italic mt-2">
                                         <Building className="w-4 h-4 text-rose-500" />
-                                        <span className="text-xs uppercase">{getFundSourceLabel(viewedProject.fundingSource) || viewedProject.publisher || 'Internal/NA'}</span>
+                                        <span className="text-xs uppercase">{viewedProject.fundingSource || viewedProject.publisher || 'Internal/NA'}</span>
                                     </div>
                                     <div className="flex items-center gap-2 text-white font-bold italic mt-2">
                                         <Calendar className="w-4 h-4 text-blue-500" />
