@@ -2,48 +2,13 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Search, Bell, CheckCircle, DollarSign, UserPlus, FileText, X, User, Settings, ChevronDown, Menu, Sun, Moon, LogOut } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import { useNotifications } from '../../contexts/NotificationContext';
 
 const TopBar = ({ title, subtitle, onMenuClick }) => {
     const { user, logout } = useAuth();
+    const { notifications, unreadCount, markAsRead, markAllAsRead } = useNotifications();
     const navigate = useNavigate();
     const userId = user?.id || user?._id;
-
-    const [notifications, setNotifications] = useState([]);
-
-    const fetchNotifications = async () => {
-        try {
-            const res = await axios.get(`/notifications/${userId}`);
-            setNotifications(res.data.data || []);
-        } catch (err) {
-            console.error("Failed to fetch notifications", err);
-        }
-    };
-
-    const filteredNotifications = Array.isArray(notifications) ? notifications.filter(n => !n.isRead) : [];
-    const unreadCount = filteredNotifications.length;
-
-    const clearAll = async () => {
-        try {
-            await axios.patch(`/notifications/mark-all-read/${userId}`);
-            fetchNotifications();
-        } catch (error) {
-            console.error("Failed to clear notifications", error);
-        }
-    };
-
-    const markAsRead = async (id) => {
-        try {
-            await axios.patch(`/notifications/read/${id}`);
-            fetchNotifications();
-        } catch (error) {
-            console.error("Failed to mark as read", error);
-        }
-    };
-
-    useEffect(() => {
-        if (userId) fetchNotifications();
-    }, [userId]);
     const [showNotifications, setShowNotifications] = useState(false);
     const [showProfileMenu, setShowProfileMenu] = useState(false);
     const notificationRef = useRef(null);
@@ -170,8 +135,9 @@ const TopBar = ({ title, subtitle, onMenuClick }) => {
         }
         setShowNotifications(false);
     };
-
-    // No need for local unreadCount calculation, it comes from context
+    const filteredNotifications = Array.isArray(notifications)
+        ? notifications.filter((notification) => !notification.isRead && !notification.read)
+        : [];
 
     return (
         <div className="bg-white dark:bg-slate-900 border-b border-gray-200 dark:border-slate-800 px-4 md:px-8 py-4 relative">
@@ -317,22 +283,17 @@ const TopBar = ({ title, subtitle, onMenuClick }) => {
                                     {(filteredNotifications || []).length > 0 && (
                                         <div className="p-3 border-t border-gray-100 dark:border-slate-800 bg-gray-50/50 dark:bg-slate-800/50 flex justify-between items-center">
                                             <button 
-                                                onClick={() => clearAll()}
+                                                onClick={() => markAllAsRead()}
                                                 className="text-xs font-semibold text-maroon-600 hover:text-maroon-700 dark:text-maroon-400 transition-colors"
                                             >
                                                 Mark all as read
                                             </button>
                                             
                                             <button 
-                                                onClick={() => {
-                                                    // In a real app we'd call an API to delete, but clearing locally works
-                                                    // if clearAll is supported in context
-                                                    if(typeof clearAll === 'function') clearAll();
-                                                    setShowNotifications(false);
-                                                }}
+                                                onClick={() => setShowNotifications(false)}
                                                 className="text-xs font-semibold text-gray-500 hover:text-red-600 transition-colors"
                                             >
-                                                Clear all
+                                                Close
                                             </button>
                                         </div>
                                     )}

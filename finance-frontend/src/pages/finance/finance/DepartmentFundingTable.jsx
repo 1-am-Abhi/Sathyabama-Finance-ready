@@ -6,6 +6,7 @@ import { Badge } from '../../../components/ui/badge';
 import { formatCurrencyCompact } from '../../../utils/currency';
 import UpdateFundingModal from './UpdateFundingModal';
 import { Edit, TrendingUp } from 'lucide-react';
+import { getFundSourceLabel, normalizeFundSource } from '../../../constants/fundSources';
 
 const DepartmentFundingTable = ({ data, isLoading }) => {
     const [selectedDepartment, setSelectedDepartment] = useState(null);
@@ -85,17 +86,24 @@ const DepartmentFundingTable = ({ data, isLoading }) => {
                             <TableBody>
                                 {data.map((item, index) => (
                                     <TableRow key={index} className="hover:bg-gray-50 dark:hover:bg-slate-700/50 dark:border-slate-700">
+                                        {(() => {
+                                            const normalizedSource = normalizeFundSource(item.fundSource);
+                                            const badgeClass =
+                                                normalizedSource === 'PFMS'
+                                                    ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/50 dark:text-purple-300'
+                                                    : normalizedSource === 'OTHERS'
+                                                        ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-300'
+                                                        : 'bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300';
+
+                                            return (
+                                                <>
                                         <TableCell className="font-medium dark:text-slate-200">{item.departmentName}</TableCell>
                                         <TableCell>
                                             <Badge
-                                                variant={item.fundSource === 'COLLEGE' ? 'default' : 'secondary'}
-                                                className={
-                                                    item.fundSource === 'COLLEGE'
-                                                        ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300'
-                                                        : 'bg-purple-100 text-purple-700 dark:bg-purple-900/50 dark:text-purple-300'
-                                                }
+                                                variant="secondary"
+                                                className={badgeClass}
                                             >
-                                                {item.fundSource === 'COLLEGE' ? 'College' : 'PFMS'}
+                                                {getFundSourceLabel(normalizedSource)}
                                             </Badge>
                                         </TableCell>
                                         <TableCell className="text-right font-semibold dark:text-slate-200">
@@ -118,6 +126,9 @@ const DepartmentFundingTable = ({ data, isLoading }) => {
                                                 Update
                                             </Button>
                                         </TableCell>
+                                                </>
+                                            );
+                                        })()}
                                     </TableRow>
                                 ))}
                             </TableBody>

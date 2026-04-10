@@ -4,12 +4,13 @@ import { useDisbursalHistory } from '../../hooks/useFinance';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../../components/ui/card';
 import { Badge } from '../../components/ui/badge';
 import { Button } from '../../components/ui/button';
-import { 
+import {
     History, Search, Filter, Calendar, Users, 
     FileText, CheckCircle2, IndianRupee, Download,
     Building2, Hash, ArrowUpRight
 } from 'lucide-react';
 import { formatCurrency } from '../../utils/format';
+import { getFundSourceShortLabel, normalizeFundSource } from '../../constants/fundSources';
 
 const DisbursalHistory = () => {
     const { setLayout } = useLayout();
@@ -143,14 +144,21 @@ const DisbursalHistory = () => {
                                                 </div>
                                             </td>
                                             <td className="px-6 py-4">
-                                                <Badge className={`border-0 text-[10px] font-black italic px-2 py-0.5 ${
-                                                    item.FundRequest?.source === 'PFMS' ? 'bg-amber-100 text-amber-700' :
-                                                    item.FundRequest?.source === 'DIRECTOR' ? 'bg-purple-100 text-purple-700' :
-                                                    item.FundRequest?.source === 'OTHERS' ? 'bg-emerald-100 text-emerald-700' :
-                                                    'bg-blue-100 text-blue-700'
-                                                }`}>
-                                                    {item.FundRequest?.source || 'N/A'}
-                                                </Badge>
+                                                {(() => {
+                                                    const source = normalizeFundSource(item.FundRequest?.source);
+                                                    const badgeClass =
+                                                        source === 'PFMS'
+                                                            ? 'bg-amber-100 text-amber-700'
+                                                            : source === 'OTHERS'
+                                                                ? 'bg-emerald-100 text-emerald-700'
+                                                                : 'bg-blue-100 text-blue-700';
+
+                                                    return (
+                                                        <Badge className={`border-0 text-[10px] font-black italic px-2 py-0.5 ${badgeClass}`}>
+                                                            {getFundSourceShortLabel(source)}
+                                                        </Badge>
+                                                    );
+                                                })()}
                                             </td>
                                             <td className="px-6 py-4">
                                                 <span className="font-black text-slate-900 dark:text-white">

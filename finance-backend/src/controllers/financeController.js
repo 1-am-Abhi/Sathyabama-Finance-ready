@@ -22,8 +22,12 @@ const {
 const {
     executeDisbursementPipeline,
     getEventMarker,
-    mapToFundSourceKey,
 } = require('../services/financePipelineService');
+const {
+    ensureCanonicalFundSources,
+    mapToFundSourceKey,
+    normalizeFundSource,
+} = require('../services/fundSourceCatalogService');
 
 exports.getFinanceStats = async (req, res) => {
     try {
@@ -268,18 +272,33 @@ exports.updateFundSourceAmount = async (req, res) => {
     try {
         const { fundSource, type, amount } = req.body;
         const normalizedType = fundSource || type;
+        const numericAmount = Number(amount);
+
+        if (!Number.isFinite(numericAmount) || numericAmount < 0) {
+            return res.status(400).json({ success: false, message: 'Amount must be a valid non-negative number' });
+        }
+
+        await ensureCanonicalFundSources();
         const dbSourceType = mapToFundSourceKey(normalizedType);
 
         const [fundRecord, created] = await FundSource.findOrCreate({
             where: { sourceType: dbSourceType },
-            defaults: { totalAllocated: Number(amount) }
+            defaults: { totalAllocated: numericAmount }
         });
 
         if (!created) {
-            await fundRecord.update({ totalAllocated: Number(amount) });
+            await fundRecord.update({ totalAllocated: numericAmount });
         }
 
-        res.status(200).json({ success: true, message: 'Fund source updated successfully', data: fundRecord });
+        const overview = await getFundSourceOverview();
+        res.status(200).json({
+            success: true,
+            message: 'Fund source updated successfully',
+            data: {
+                fundRecord,
+                overview,
+            },
+        });
     } catch (error) {
         console.error('updateFundSource Error:', error);
         res.status(500).json({ success: false, message: error.message });
@@ -420,7 +439,7 @@ exports.getProjects = async (req, res) => {
             requestedAmount: p.sanctionedBudget || p.requestedAmount || 0,
             approvedAmount: p.releasedBudget || p.approvedAmount || 0,
             currentStatus: p.status || p.currentStatus,
-            fundSource: p.fundingSource || p.fundSource || 'COLLEGE',
+            fundSource: normalizeFundSource(p.fundingSource || p.fundSource || 'INSTITUTIONAL'),
             submittedDate: p.createdAt || p.submittedDate,
             lastUpdated: p.updatedAt || p.lastUpdated
         }));

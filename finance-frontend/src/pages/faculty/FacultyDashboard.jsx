@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../../components/ui/card';
 import { Badge } from '../../components/ui/badge';
 import { Button } from '../../components/ui/button';
@@ -34,14 +34,11 @@ const FacultyDashboard = () => {
     const [statsData, setStatsData] = useState(null);
     const [loading, setLoading] = useState(true);
 
-    useEffect(() => {
-        setLayout("Faculty Dashboard", "Research impact & grant performance monitoring");
-        loadData();
-    }, [setLayout]);
+    const loadData = useCallback(async () => {
+        if (!userId) {
+            return;
+        }
 
-    if (!userId) return null;
-
-    const loadData = async () => {
         try {
             const currentYear = new Date().getFullYear();
             const [projRes, eventRes, fundRes, eqRes, revRes, statsRes] = await Promise.all([
@@ -71,7 +68,38 @@ const FacultyDashboard = () => {
         } finally {
             setLoading(false);
         }
-    };
+    }, [userId]);
+
+    useEffect(() => {
+        if (!userId) {
+            return undefined;
+        }
+
+        setLayout("Faculty Dashboard", "Research impact & grant performance monitoring");
+        loadData();
+
+        const handleFundingSync = () => {
+            loadData();
+        };
+
+        const handleStorage = (event) => {
+            if (event.key === 'fundSourcesUpdatedAt') {
+                loadData();
+            }
+        };
+
+        window.addEventListener('fund-sources-updated', handleFundingSync);
+        window.addEventListener('storage', handleStorage);
+        window.addEventListener('focus', handleFundingSync);
+
+        return () => {
+            window.removeEventListener('fund-sources-updated', handleFundingSync);
+            window.removeEventListener('storage', handleStorage);
+            window.removeEventListener('focus', handleFundingSync);
+        };
+    }, [loadData, setLayout, userId]);
+
+    if (!userId) return null;
 
     const activeProjectsCount = projects.filter(p => ['active', 'ACTIVE', 'Approved', 'APPROVED'].includes(p.status)).length;
     const activeEquipmentCount = equipmentRequests.filter(e => ['Approved', 'DISBURSED'].includes(e.status)).length;

@@ -19,7 +19,7 @@ import {
     AreaChart, Area
 } from 'recharts';
 import { AGENCIES } from '../../constants/agencies';
-import { FUND_SOURCES } from '../../constants/fundSources';
+import { FUND_SOURCE_OPTIONS } from '../../constants/fundSources';
 import { useProjects } from '../../contexts/ProjectContext';
 import { FACULTY_MEMBERS } from '../../constants/facultyMembers';
 import ResearchCentreDetail from './ResearchCentreDetail';
@@ -612,9 +612,9 @@ const AdminReports = () => {
                             onChange={(e) => setSelectedSource(e.target.value)}
                         >
                             <option value="All">All Sources</option>
-                            {FUND_SOURCES.map(source => (
-                                <option key={source} value={source === 'Others' ? 'OTHERS' : source.toUpperCase() === 'INSTITUTIONAL' ? 'INSTITUTIONAL' : source}>
-                                    {source === 'Others' ? "Other's" : source}
+                            {FUND_SOURCE_OPTIONS.map((source) => (
+                                <option key={source.value} value={source.value}>
+                                    {source.label}
                                 </option>
                             ))}
                         </select>

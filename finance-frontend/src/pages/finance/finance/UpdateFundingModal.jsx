@@ -12,10 +12,11 @@ import { Input } from '../../../components/ui/input';
 import { Button } from '../../../components/ui/button';
 import { useUpdateFunding } from '../../../hooks/useFinance';
 import { Loader2 } from 'lucide-react';
+import { FUND_SOURCE_OPTIONS } from '../../../constants/fundSources';
 
 const UpdateFundingModal = ({ isOpen, onClose, department, onSuccess }) => {
     const [formData, setFormData] = useState({
-        fundSource: 'COLLEGE',
+        fundSource: 'INSTITUTIONAL',
         amount: '',
         remarks: '',
     });
@@ -37,7 +38,7 @@ const UpdateFundingModal = ({ isOpen, onClose, department, onSuccess }) => {
 
             // Reset form
             setFormData({
-                fundSource: 'COLLEGE',
+                fundSource: 'INSTITUTIONAL',
                 amount: '',
                 remarks: '',
             });
@@ -57,7 +58,7 @@ const UpdateFundingModal = ({ isOpen, onClose, department, onSuccess }) => {
     const handleCancel = () => {
         // Reset form
         setFormData({
-            fundSource: 'COLLEGE',
+            fundSource: 'INSTITUTIONAL',
             amount: '',
             remarks: '',
         });
@@ -86,8 +87,11 @@ const UpdateFundingModal = ({ isOpen, onClose, department, onSuccess }) => {
                                 className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                                 required
                             >
-                                <option value="COLLEGE">College Funds</option>
-                                <option value="PFMS">PFMS Funds</option>
+                                {FUND_SOURCE_OPTIONS.map((option) => (
+                                    <option key={option.value} value={option.value}>
+                                        {option.label}
+                                    </option>
+                                ))}
                             </select>
                         </div>
 

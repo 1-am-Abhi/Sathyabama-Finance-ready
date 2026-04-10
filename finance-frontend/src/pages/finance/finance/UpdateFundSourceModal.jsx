@@ -11,6 +11,7 @@ import { Label } from '../../../components/ui/label';
 import { Input } from '../../../components/ui/input';
 import { Button } from '../../../components/ui/button';
 import { Loader2 } from 'lucide-react';
+import { getFundSourceLabel, normalizeFundSource } from '../../../constants/fundSources';
 
 const UpdateFundSourceModal = ({ isOpen, onClose, fundSource, onSubmit, isLoading }) => {
     const [amount, setAmount] = useState('');
@@ -28,12 +29,13 @@ const UpdateFundSourceModal = ({ isOpen, onClose, fundSource, onSubmit, isLoadin
     const financialYears = generateFinancialYears();
     const currentFY = `${new Date().getFullYear()}-${String(new Date().getFullYear() + 1).slice(-2)}`;
     const [financialYear, setFinancialYear] = useState(currentFY);
+    const normalizedFundSource = normalizeFundSource(fundSource?.type);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
 
         const payload = {
-            fundSource: fundSource?.type, // 'COLLEGE', 'PFMS', or 'OTHERS'
+            fundSource: normalizedFundSource,
             amount: parseFloat(amount),
             remarks: remarks,
             financialYear: financialYear,
@@ -68,7 +70,7 @@ const UpdateFundSourceModal = ({ isOpen, onClose, fundSource, onSubmit, isLoadin
                 <DialogHeader>
                     <DialogTitle>Update {fundSource?.title}</DialogTitle>
                     <DialogDescription>
-                        Update the total amount received from {fundSource?.type === 'COLLEGE' ? 'College' : fundSource?.type === 'PFMS' ? 'Government (PFMS)' : 'Other Sources'}
+                        Update the total amount received from {getFundSourceLabel(normalizedFundSource)}
                     </DialogDescription>
                 </DialogHeader>
 
@@ -114,7 +116,7 @@ const UpdateFundSourceModal = ({ isOpen, onClose, fundSource, onSubmit, isLoadin
                                 required
                             />
                             <p className="text-xs text-gray-500">
-                                Enter the total amount received from {fundSource?.type === 'COLLEGE' ? 'college' : fundSource?.type === 'PFMS' ? 'government' : 'other sources'}
+                                Enter the total amount received from {getFundSourceLabel(normalizedFundSource).toLowerCase()}
                             </p>
                         </div>
 

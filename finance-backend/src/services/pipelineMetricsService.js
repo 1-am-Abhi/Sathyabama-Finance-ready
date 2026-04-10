@@ -7,6 +7,12 @@ const FundRequest = models.FundRequest;
 const Disbursement = models.Disbursement;
 const FundSource = models.FundSource;
 const User = models.User;
+const {
+    ensureCanonicalFundSources,
+    FUND_SOURCE_KEYS,
+    normalizeFundSource,
+    normalizeFundSourceType,
+} = require('./fundSourceCatalogService');
 
 const ALLOCATED_STATUSES = ['APPROVED', 'PENDING_DISBURSAL', 'DISBURSED'];
 const ACTIVE_PROJECT_STATUSES = ['ACTIVE', 'APPROVED'];
@@ -21,8 +27,16 @@ const normalizeName = (value) => String(value || '').trim().toLowerCase();
 const getRecordId = (record) => record?._id || record?.id || null;
 
 const getFundingTotals = async () => {
+    await ensureCanonicalFundSources();
+
     const [allocated, used] = await Promise.all([
-        FundSource.sum('totalAllocated'),
+        FundSource.sum('totalAllocated', {
+            where: {
+                sourceType: {
+                    [Op.in]: Object.values(FUND_SOURCE_KEYS),
+                },
+            },
+        }),
         Disbursement.sum('amount'),
     ]);
 
@@ -238,14 +252,20 @@ const resolveCentreIdentity = (record, context) => {
 };
 
 const buildSourceStats = (fundRequests, disbursements, sourceMatchers) => {
-    const sources = Array.isArray(sourceMatchers) ? sourceMatchers : [sourceMatchers];
+    const sources = (Array.isArray(sourceMatchers) ? sourceMatchers : [sourceMatchers]).map((source) =>
+        normalizeFundSource(source)
+    );
 
     const allotted = fundRequests
-        .filter((request) => sources.includes(request.source) && ALLOCATED_STATUSES.includes(request.status))
+        .filter(
+            (request) =>
+                sources.includes(normalizeFundSource(request.source)) &&
+                ALLOCATED_STATUSES.includes(request.status)
+        )
         .reduce((sum, request) => sum + toNumber(request.requestedAmount), 0);
 
     const consumed = disbursements
-        .filter((entry) => sources.includes(entry.FundRequest?.source))
+        .filter((entry) => sources.includes(normalizeFundSource(entry.FundRequest?.source)))
         .reduce((sum, entry) => sum + toNumber(entry.amount), 0);
 
     return {
@@ -256,6 +276,8 @@ const buildSourceStats = (fundRequests, disbursements, sourceMatchers) => {
 };
 
 const getSharedPipelineData = async () => {
+    await ensureCanonicalFundSources();
+
     const [centres, projects, fundRequests, disbursements, totalFaculty] = await Promise.all([
         Centre.findAll({ order: [['name', 'ASC']] }),
         Project.findAll({
@@ -390,16 +412,15 @@ const getAdminDashboardData = async () => {
                 balance: fundSources.pfmsFunds.remainingBalance,
             },
             institutionalStats: {
-                allotted: fundSources.collegeFunds.totalAllocated,
-                consumed: fundSources.collegeFunds.totalUsed,
-                balance: fundSources.collegeFunds.remainingBalance,
+                allotted: fundSources.institutionalFunds.totalAllocated,
+                consumed: fundSources.institutionalFunds.totalUsed,
+                balance: fundSources.institutionalFunds.remainingBalance,
             },
-            directorStats: {
-                allotted: fundSources.directorFunds.totalAllocated,
-                consumed: fundSources.directorFunds.totalUsed,
-                balance: fundSources.directorFunds.remainingBalance,
+            othersStats: {
+                allotted: fundSources.othersFunds.totalAllocated,
+                consumed: fundSources.othersFunds.totalUsed,
+                balance: fundSources.othersFunds.remainingBalance,
             },
-            othersStats: buildSourceStats(shared.fundRequests, shared.disbursements, 'OTHERS'),
         },
         centres: buildCentreBreakdown(shared).map(({ key, ...centre }) => centre),
         shared,
@@ -454,40 +475,55 @@ const getFundSourceOverview = async () => {
         attributes: ['sourceType', 'totalAllocated'],
     });
     const projectCounts = shared.projects.reduce((acc, project) => {
-        const source = project.fundingSource || 'OTHERS';
+        const source = normalizeFundSource(project.fundingSource || 'OTHERS');
         acc[source] = (acc[source] || 0) + 1;
         return acc;
     }, {});
 
     const sourceAllocations = fundSourceRows.reduce((acc, row) => {
-        acc[row.sourceType] = toNumber(row.totalAllocated);
+        const sourceType = normalizeFundSourceType(row.sourceType);
+        if (!sourceType) {
+            return acc;
+        }
+
+        acc[sourceType] = toNumber(row.totalAllocated);
         return acc;
     }, {});
 
     const sourceStats = {
         institutional: buildSourceStats(shared.fundRequests, shared.disbursements, 'INSTITUTIONAL'),
         pfms: buildSourceStats(shared.fundRequests, shared.disbursements, 'PFMS'),
-        other: buildSourceStats(shared.fundRequests, shared.disbursements, ['DIRECTOR', 'DIRECTOR_INNOVATION', 'OTHERS']),
+        other: buildSourceStats(shared.fundRequests, shared.disbursements, 'OTHERS'),
     };
+    const pickAllocated = (sourceType, fallback) =>
+        Object.prototype.hasOwnProperty.call(sourceAllocations, sourceType)
+            ? sourceAllocations[sourceType]
+            : fallback;
 
     return {
-        collegeFunds: {
-            totalAllocated: sourceAllocations.collegeFunds || sourceStats.institutional.allotted,
+        institutionalFunds: {
+            totalAllocated: pickAllocated('institutionalFunds', sourceStats.institutional.allotted),
             totalUsed: sourceStats.institutional.consumed,
-            remainingBalance: Math.max(0, (sourceAllocations.collegeFunds || sourceStats.institutional.allotted) - sourceStats.institutional.consumed),
+            remainingBalance: Math.max(
+                0,
+                pickAllocated('institutionalFunds', sourceStats.institutional.allotted) - sourceStats.institutional.consumed
+            ),
             projectCount: projectCounts.INSTITUTIONAL || 0,
         },
         pfmsFunds: {
-            totalAllocated: sourceAllocations.pfmsFunds || sourceStats.pfms.allotted,
+            totalAllocated: pickAllocated('pfmsFunds', sourceStats.pfms.allotted),
             totalUsed: sourceStats.pfms.consumed,
-            remainingBalance: Math.max(0, (sourceAllocations.pfmsFunds || sourceStats.pfms.allotted) - sourceStats.pfms.consumed),
+            remainingBalance: Math.max(0, pickAllocated('pfmsFunds', sourceStats.pfms.allotted) - sourceStats.pfms.consumed),
             projectCount: projectCounts.PFMS || 0,
         },
-        directorFunds: {
-            totalAllocated: sourceAllocations.directorFunds || sourceStats.other.allotted,
+        othersFunds: {
+            totalAllocated: pickAllocated('othersFunds', sourceStats.other.allotted),
             totalUsed: sourceStats.other.consumed,
-            remainingBalance: Math.max(0, (sourceAllocations.directorFunds || sourceStats.other.allotted) - sourceStats.other.consumed),
-            projectCount: (projectCounts.DIRECTOR || 0) + (projectCounts.DIRECTOR_INNOVATION || 0) + (projectCounts.OTHERS || 0),
+            remainingBalance: Math.max(
+                0,
+                pickAllocated('othersFunds', sourceStats.other.allotted) - sourceStats.other.consumed
+            ),
+            projectCount: projectCounts.OTHERS || 0,
         },
     };
 };
@@ -528,8 +564,9 @@ const getDepartmentFundingRows = async (centreIdentifier) => {
     };
 
     return [
-        buildRow('COLLEGE', ['INSTITUTIONAL', 'DIRECTOR', 'DIRECTOR_INNOVATION', 'OTHERS']),
+        buildRow('INSTITUTIONAL', 'INSTITUTIONAL'),
         buildRow('PFMS', 'PFMS'),
+        buildRow('OTHERS', 'OTHERS'),
     ].filter((row) => row.totalAllocated > 0 || row.amountReleased > 0);
 };
 

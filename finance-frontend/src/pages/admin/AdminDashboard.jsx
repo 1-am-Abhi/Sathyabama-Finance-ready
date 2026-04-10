@@ -6,7 +6,7 @@ import { Badge } from '../../components/ui/badge';
 import { Button } from '../../components/ui/button';
 import {
     FileText, Banknote, CheckCircle, TrendingUp,
-    UserPlus, BarChart3, Filter, Wallet, Building2, Sparkles, Activity, CircleDollarSign
+    UserPlus, BarChart3, Filter, Wallet, Building2, Activity, CircleDollarSign
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useLayout } from '../../contexts/LayoutContext';
@@ -85,10 +85,25 @@ const AdminDashboard = () => {
         };
         document.addEventListener('visibilitychange', handleVisibility);
 
+        const handleFundingSync = () => {
+            fetchDashboardData();
+        };
+
+        const handleStorage = (event) => {
+            if (event.key === 'fundSourcesUpdatedAt') {
+                fetchDashboardData();
+            }
+        };
+
+        window.addEventListener('fund-sources-updated', handleFundingSync);
+        window.addEventListener('storage', handleStorage);
+
         return () => {
             isMounted = false;
             clearInterval(intervalId);
             document.removeEventListener('visibilitychange', handleVisibility);
+            window.removeEventListener('fund-sources-updated', handleFundingSync);
+            window.removeEventListener('storage', handleStorage);
         };
     }, []);
 
@@ -124,6 +139,7 @@ const AdminDashboard = () => {
             activeProjects: stats.activeProjects,
             pendingApprovals: stats.pendingApprovals,
             totalAllocated: stats.totalAllocated,
+            totalBudget: stats.totalAllocated,
             totalDisbursed: stats.totalDisbursed,
             totalFaculty: stats.totalFaculty
         };
@@ -326,8 +342,8 @@ const AdminDashboard = () => {
     return (
         <div className="flex-1 overflow-y-auto overflow-x-hidden p-6 bg-gray-50 dark:bg-slate-950">
 
-            {/* Funds Overview Section - 4 columns: PFMS | Institutional | Director | Others */}
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 mb-8">
+            {/* Funds Overview Section - canonical fund sources only */}
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 mb-8">
                 {/* PFMS / Government Funds */}
                 <Card className="border-0 shadow-md bg-white dark:bg-slate-900 overflow-hidden relative">
                     <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-50 dark:bg-indigo-900/10 rounded-full -mr-10 -mt-10 blur-2xl"></div>
@@ -372,7 +388,7 @@ const AdminDashboard = () => {
                                     <Activity className="w-4 h-4" />
                                 </div>
                                 <div>
-                                    <CardTitle className="text-sm font-bold text-gray-800 dark:text-white">Inst. Grant</CardTitle>
+                                    <CardTitle className="text-sm font-bold text-gray-800 dark:text-white">Institutional Funds</CardTitle>
                                 </div>
                             </div>
                         </div>
@@ -390,40 +406,6 @@ const AdminDashboard = () => {
                                 </div>
                                 <div className="w-full bg-gray-200 dark:bg-slate-700 rounded-full h-1.5">
                                     <div className="bg-amber-500 h-1.5 rounded-full" style={{ width: `${(stats?.institutionalStats?.allotted || 0) > 0 ? Math.min(100, ((stats?.institutionalStats?.consumed || 0) / stats?.institutionalStats?.allotted) * 100) : 0}%` }}></div>
-                                </div>
-                            </div>
-                        </div>
-                    </CardContent>
-                </Card>
-
-                {/* Director's Innovation Fund */}
-                <Card className="border-0 shadow-md bg-white dark:bg-slate-900 overflow-hidden relative">
-                    <div className="absolute top-0 right-0 w-32 h-32 bg-purple-50 dark:bg-purple-900/10 rounded-full -mr-10 -mt-10 blur-2xl"></div>
-                    <CardHeader className="p-4 pb-2 border-b border-gray-100 dark:border-slate-800 z-10 relative">
-                        <div className="flex items-center justify-between">
-                            <div className="flex items-center space-x-2">
-                                <div className="p-1.5 bg-purple-100 dark:bg-purple-900/30 rounded-lg text-purple-600 dark:text-purple-400">
-                                    <Sparkles className="w-4 h-4" />
-                                </div>
-                                <div>
-                                    <CardTitle className="text-sm font-bold text-gray-800 dark:text-white">Director Fund</CardTitle>
-                                </div>
-                            </div>
-                        </div>
-                    </CardHeader>
-                    <CardContent className="p-4 z-10 relative">
-                        <div className="space-y-3">
-                            <div className="bg-gray-50 dark:bg-slate-800/50 p-2 rounded-lg border border-gray-100 dark:border-slate-800 flex justify-between items-center">
-                                <p className="text-[10px] text-gray-500">Seed Grant</p>
-                                <p className="text-sm font-bold text-purple-600">₹{((stats?.directorStats?.allotted || 0) / 10000000).toFixed(2)} Cr</p>
-                            </div>
-                            <div>
-                                <div className="flex justify-between text-[10px] mb-1">
-                                    <span className="text-gray-600 dark:text-gray-400">Spent / Bal</span>
-                                    <span className="font-semibold text-gray-900 dark:text-white">₹{((stats?.directorStats?.consumed || 0) / 100000).toFixed(1)}L / ₹{((stats?.directorStats?.balance || 0) / 100000).toFixed(1)}L</span>
-                                </div>
-                                <div className="w-full bg-gray-200 dark:bg-slate-700 rounded-full h-1.5">
-                                    <div className="bg-purple-500 h-1.5 rounded-full" style={{ width: `${(stats?.directorStats?.allotted || 0) > 0 ? Math.min(100, ((stats?.directorStats?.consumed || 0) / stats?.directorStats?.allotted) * 100) : 0}%` }}></div>
                                 </div>
                             </div>
                         </div>

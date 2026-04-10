@@ -13,6 +13,18 @@ const normalizeNotification = (notification) => ({
             : null),
 });
 
+const extractNotifications = (payload) => {
+    if (Array.isArray(payload)) {
+        return payload;
+    }
+
+    if (Array.isArray(payload?.data)) {
+        return payload.data;
+    }
+
+    return [];
+};
+
 export const NotificationProvider = ({ children }) => {
     const { user } = useAuth();
     const [notifications, setNotifications] = useState([]);
@@ -27,7 +39,7 @@ export const NotificationProvider = ({ children }) => {
             setIsLoading(true);
             const userId = user?.id || user?._id;
             const res = await apiClient.get(`/notifications/${userId}`);
-            setNotifications((res.data.data || []).map(normalizeNotification));
+            setNotifications(extractNotifications(res.data).map(normalizeNotification));
         } catch (error) {
             console.error('Failed to fetch notifications:', error);
         } finally {
@@ -86,7 +98,7 @@ export const NotificationProvider = ({ children }) => {
         };
 
         const response = await apiClient.post('/notifications', payload);
-        const created = response.data?.data || {};
+        const created = response.data?.data ?? response.data ?? {};
         const createdNotification = Array.isArray(created)
             ? null
             : normalizeNotification(created);
@@ -104,8 +116,8 @@ export const NotificationProvider = ({ children }) => {
         return createdNotification || created;
     };
 
-    const clearAll = () => {
-        setNotifications([]);
+    const clearAll = async () => {
+        await markAllAsRead();
     };
 
     const getNotificationsByRole = useCallback(() => {

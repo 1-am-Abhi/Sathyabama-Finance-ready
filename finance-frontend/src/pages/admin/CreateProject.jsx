@@ -7,7 +7,7 @@ import { Input } from '../../components/ui/input';
 import { Textarea } from '../../components/ui/textarea';
 import { Button } from '../../components/ui/button';
 import apiClient from '../../api/client';
-import { FUND_SOURCES } from '../../constants/fundSources';
+import { FUND_SOURCE_OPTIONS } from '../../constants/fundSources';
 import useToast from '../../hooks/useToast';
 
 const CreateProject = () => {
@@ -216,9 +216,9 @@ const CreateProject = () => {
                                     className="flex h-10 w-full rounded-md border border-input bg-background dark:bg-slate-800 dark:border-slate-700 dark:text-white px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-maroon-500 focus-visible:ring-offset-2"
                                     required
                                 >
-                                    {FUND_SOURCES.map((source) => (
-                                        <option key={source} value={source === 'Others' ? 'OTHERS' : source.toUpperCase() === 'INSTITUTIONAL' ? 'INSTITUTIONAL' : source}>
-                                            {source === 'Others' ? "Other's Fund" : source}
+                                    {FUND_SOURCE_OPTIONS.map((source) => (
+                                        <option key={source.value} value={source.value}>
+                                            {source.label}
                                         </option>
                                     ))}
                                 </select>

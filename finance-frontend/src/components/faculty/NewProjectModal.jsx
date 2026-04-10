@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { X, BookOpen, Briefcase, Plus, Trash2 } from 'lucide-react';
 import { Button } from '../ui/button';
 import { useCentres } from '../../constants/researchCentres';
+import { FUND_SOURCE_OPTIONS } from '../../constants/fundSources';
 
 const AcademicWorkModal = ({ isOpen, onClose, onSubmit, initialData = null, mode = 'create', isSubmitting = false }) => {
     const { centres: dynamicCentres } = useCentres();
@@ -269,10 +270,11 @@ const AcademicWorkModal = ({ isOpen, onClose, onSubmit, initialData = null, mode
                                             onChange={(e) => setFormData({ ...formData, fundingSource: e.target.value })}
                                             className="w-full mt-1 px-4 py-2 border dark:border-slate-700 bg-white dark:bg-slate-800 dark:text-white rounded-lg outline-none italic font-bold"
                                         >
-                                            <option value="INSTITUTIONAL">Institutional</option>
-                                            <option value="PFMS">PFMS</option>
-                                            <option value="DIRECTOR">Director Fund</option>
-                                            <option value="OTHERS">Other's Fund</option>
+                                            {FUND_SOURCE_OPTIONS.map((option) => (
+                                                <option key={option.value} value={option.value}>
+                                                    {option.label}
+                                                </option>
+                                            ))}
                                         </select>
                                     </div>
                                     <div>

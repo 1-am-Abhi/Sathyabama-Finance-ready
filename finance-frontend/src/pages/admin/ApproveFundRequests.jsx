@@ -11,7 +11,7 @@ import { usePipeline } from '../../contexts/PipelineContext';
 import { formatCurrency } from '../../utils/format';
 import DateFilter from '../../components/shared/DateFilter';
 import { useCentres } from '../../constants/researchCentres';
-import { FUND_SOURCES } from '../../constants/fundSources';
+import { FUND_SOURCE_OPTIONS } from '../../constants/fundSources';
 import AIResultModal from '../../components/shared/AIResultModal';
 import { summarizeRequest } from '../../services/aiService';
 
@@ -216,9 +216,9 @@ const ApproveFundRequests = () => {
                                 onChange={(e) => setSelectedSource(e.target.value)}
                             >
                                 <option value="All">All Sources</option>
-                                {FUND_SOURCES.map(source => (
-                                    <option key={source} value={source === 'Others' ? 'OTHERS' : source.toUpperCase() === 'INSTITUTIONAL' ? 'INSTITUTIONAL' : source}>
-                                        {source === 'Others' ? "Other's Fund" : source}
+                                {FUND_SOURCE_OPTIONS.map((source) => (
+                                    <option key={source.value} value={source.value}>
+                                        {source.label}
                                     </option>
                                 ))}
                             </select>

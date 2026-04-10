@@ -12,6 +12,11 @@ const {
     ProjectMember,
     User,
 } = models;
+const {
+    ensureCanonicalFundSources,
+    mapToFundSourceKey,
+    normalizeFundSource,
+} = require('./fundSourceCatalogService');
 
 const EVENT_SOURCE_LABEL = 'College Funded';
 
@@ -28,39 +33,7 @@ const isMissingTableError = (error) =>
     /relation .* does not exist/i.test(error?.message || '') ||
     /no such table/i.test(error?.message || '');
 
-const normalizeSource = (value) => {
-    const raw = String(value || '').trim().toUpperCase().replace(/\s+/g, '_');
-
-    switch (raw) {
-    case 'COLLEGE':
-    case 'COLLEGE_FUNDED':
-    case 'INSTITUTIONAL':
-        return 'INSTITUTIONAL';
-    case 'PFMS':
-        return 'PFMS';
-    case 'DIRECTOR':
-    case 'DIRECTOR_INNOVATION':
-    case 'DIRECTOR_INNOVATION_FUND':
-        return 'DIRECTOR';
-    case 'OTHERS':
-    case 'OTHER':
-        return 'OTHERS';
-    default:
-        return 'INSTITUTIONAL';
-    }
-};
-
-const mapToFundSourceKey = (source) => {
-    switch (normalizeSource(source)) {
-    case 'PFMS':
-        return 'pfmsFunds';
-    case 'DIRECTOR':
-    case 'OTHERS':
-        return 'directorFunds';
-    default:
-        return 'collegeFunds';
-    }
-};
+const normalizeSource = (value) => normalizeFundSource(value);
 
 const getFinancialYear = (input = new Date()) => {
     const value = new Date(input);
@@ -217,6 +190,7 @@ const ensureEventFundRequest = async (event, project, actor, options = {}) => {
 };
 
 const ensureFundSourceSeed = async (source, amount, transaction) => {
+    await ensureCanonicalFundSources();
     const sourceType = mapToFundSourceKey(source);
     const [record] = await FundSource.findOrCreate({
         where: { sourceType },

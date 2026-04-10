@@ -108,7 +108,7 @@ const ManageFaculty = () => {
                         email: u.email,
                         centre: u.centre || 'Not Assigned',
                         status: u.status || 'Active',
-                        projectsCount: (u.projectsCount || 0) + (u.eventsCount || 0),
+                        projectCount: Number(u.projectCount ?? u.projectsCount ?? 0),
                         department: u.department,
                         role: u.role
                     }));
@@ -213,7 +213,7 @@ const ManageFaculty = () => {
 
                     setFaculties(faculties.map(f =>
                         f.id === selectedFaculty.id
-                            ? { ...f, projectsCount: f.projectsCount + 1 }
+                            ? { ...f, projectCount: f.projectCount + 1 }
                             : f
                     ));
 
@@ -290,7 +290,7 @@ const ManageFaculty = () => {
                     email: addedUser.email,
                     centre: addedUser.centre || 'Not Assigned',
                     status: newFaculty.status,
-                    projectsCount: 0,
+                    projectCount: 0,
                     role: addedUser.role
                 }]);
                 setIsAddModalOpen(false);
@@ -547,7 +547,7 @@ const ManageFaculty = () => {
                                             <TableCell className="dark:text-gray-300 max-w-xs truncate text-xs">{faculty.centre}</TableCell>
                                             <TableCell className="text-center">
                                                 <Badge variant="default" className="bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 border-0">
-                                                    {faculty.projectsCount}
+                                                    {faculty.projectCount}
                                                 </Badge>
                                             </TableCell>
                                             <TableCell>

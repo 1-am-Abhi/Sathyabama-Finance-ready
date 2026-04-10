@@ -57,6 +57,9 @@ const FinanceManagerDashboard = () => {
     const handleFundSourceUpdate = async (payload) => {
         try {
             await updateFundSourceMutation.mutateAsync(payload);
+            const updatedAt = String(Date.now());
+            localStorage.setItem('fundSourcesUpdatedAt', updatedAt);
+            window.dispatchEvent(new CustomEvent('fund-sources-updated', { detail: { updatedAt } }));
             setFundSourceModalOpen(false);
             setSelectedFundSource(null);
         } catch (error) {
@@ -93,13 +96,13 @@ const FinanceManagerDashboard = () => {
                                 ) : (
                                     <FundSourceCard
                                         title="Institutional Funds"
-                                        data={fundSourcesData?.collegeFunds}
+                                        data={fundSourcesData?.institutionalFunds}
                                         icon={Building2}
                                         colorClass="bg-blue-50 text-blue-700"
                                         onEdit={() => handleEditFundSource(
-                                            'COLLEGE',
+                                            'INSTITUTIONAL',
                                             'Institutional Funds',
-                                            fundSourcesData?.collegeFunds?.totalAllocated
+                                            fundSourcesData?.institutionalFunds?.totalAllocated
                                         )}
                                     />
                                 )}
@@ -127,13 +130,13 @@ const FinanceManagerDashboard = () => {
                                 ) : (
                                     <FundSourceCard
                                         title="Other's Fund"
-                                        data={fundSourcesData?.directorFunds}
+                                        data={fundSourcesData?.othersFunds}
                                         icon={CircleDollarSign}
                                         colorClass="bg-emerald-50 text-emerald-700"
                                         onEdit={() => handleEditFundSource(
-                                            'DIRECTOR',
+                                            'OTHERS',
                                             "Other's Fund (External / Others)",
-                                            fundSourcesData?.directorFunds?.totalAllocated
+                                            fundSourcesData?.othersFunds?.totalAllocated
                                         )}
                                     />
                                 )}

@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useLayout } from '../../contexts/LayoutContext';
 import { useFinancialReports } from '../../hooks/useFinance';
 import { useCentres } from '../../constants/researchCentres';
-import { FUND_SOURCES } from '../../constants/fundSources';
+import { FUND_SOURCE_OPTIONS } from '../../constants/fundSources';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
 import { Badge } from '../../components/ui/badge';
@@ -86,9 +86,9 @@ const FinancialReports = () => {
                             onChange={(e) => setFilters({...filters, fundType: e.target.value})}
                         >
                             <option value="All Funds">All Funds</option>
-                            {FUND_SOURCES.map(source => (
-                                <option key={source} value={source === 'Others' ? 'OTHERS' : source.toUpperCase() === 'INSTITUTIONAL' ? 'INSTITUTIONAL' : source}>
-                                    {source === 'Others' ? "Other's" : source}
+                            {FUND_SOURCE_OPTIONS.map((source) => (
+                                <option key={source.value} value={source.value}>
+                                    {source.label}
                                 </option>
                             ))}
                         </select>

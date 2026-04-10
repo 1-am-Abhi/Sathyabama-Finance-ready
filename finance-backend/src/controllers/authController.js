@@ -183,7 +183,20 @@ exports.getUsers = async (req, res) => {
                 { model: Centre, as: 'researchCentre', attributes: ['name'] }
             ]
         });
-        res.status(200).json({ success: true, users });
+        const normalizedUsers = users.map((user) => {
+            const rawUser = user.toJSON ? user.toJSON() : user;
+            const projectCount = Number(rawUser.projectCount ?? rawUser.projectsCount ?? 0);
+            const eventsCount = Number(rawUser.eventsCount ?? 0);
+
+            return {
+                ...rawUser,
+                projectCount,
+                projectsCount: projectCount,
+                eventsCount,
+            };
+        });
+
+        res.status(200).json({ success: true, users: normalizedUsers });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
     }

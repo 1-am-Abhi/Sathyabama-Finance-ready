@@ -14,7 +14,7 @@ const Sidebar = ({ isOpen, onClose }) => {
 
     // Filter unread notifications to show dots
     const filteredNotifications = getNotificationsByRole(user?.role);
-    const unreadNotifications = filteredNotifications.filter(n => !n.read);
+    const unreadNotifications = filteredNotifications.filter((notification) => !notification.isRead && !notification.read);
 
     const navigate = useNavigate();
     const location = useLocation();

@@ -5,6 +5,7 @@ const NotificationService = require('../services/notificationService');
 const Centre = require('../models/Centre');
 const { buildCentreInclude, buildProjectInclude, normalizeFundRequest } = require('../services/pipelineMetricsService');
 const { approveFundRequestPipeline } = require('../services/financePipelineService');
+const { normalizeFundSource } = require('../services/fundSourceCatalogService');
 
 const resolveCentreAssignment = async (project, user) => {
     if (project?.centreId) {
@@ -108,11 +109,7 @@ exports.createFundRequest = async (req, res) => {
             include: [buildCentreInclude()],
         });
 
-        let standardizedSource = (req.body.source || 'PFMS').toUpperCase().replace(/ /g, '_');
-        if (standardizedSource === 'DIRECTOR_INNOVATION') standardizedSource = 'DIRECTOR';
-        if (!['PFMS', 'INSTITUTIONAL', 'DIRECTOR', 'OTHERS'].includes(standardizedSource)) {
-            standardizedSource = 'OTHERS';
-        }
+        const standardizedSource = normalizeFundSource(req.body.source || 'PFMS');
 
         if (!existingProject) {
             const centreAssignment = await resolveCentreAssignment(null, req.user);

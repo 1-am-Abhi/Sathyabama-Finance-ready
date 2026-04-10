@@ -11,6 +11,18 @@ const normalizeNotification = (notification) => ({
             : null),
 });
 
+const extractNotifications = (payload) => {
+    if (Array.isArray(payload)) {
+        return payload;
+    }
+
+    if (Array.isArray(payload?.data)) {
+        return payload.data;
+    }
+
+    return [];
+};
+
 export const useNotifications = () => {
     const queryClient = useQueryClient();
     const { user } = useAuth();
@@ -20,7 +32,7 @@ export const useNotifications = () => {
         queryKey: ['notifications', userId],
         queryFn: async () => {
             const response = await apiClient.get(`/notifications/${userId}`);
-            return (response.data?.data || []).map(normalizeNotification);
+            return extractNotifications(response.data).map(normalizeNotification);
         },
         enabled: Boolean(userId),
         refetchInterval: 5000,

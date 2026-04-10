@@ -15,12 +15,12 @@ import {
 } from 'recharts';
 
 const FinancialAnalytics = ({ data }) => {
-    // Transform data for charts — College Funds, PFMS Funds, Other Funds (Director)
+    // Transform data for charts from the canonical fund-source overview.
     const barChartData = [
         {
-            name: 'College Funds',
-            allocated: data?.collegeFunds?.totalAllocated || 0,
-            used: data?.collegeFunds?.totalUsed || 0,
+            name: 'Institutional Funds',
+            allocated: data?.institutionalFunds?.totalAllocated || 0,
+            used: data?.institutionalFunds?.totalUsed || 0,
         },
         {
             name: 'PFMS Funds',
@@ -28,16 +28,16 @@ const FinancialAnalytics = ({ data }) => {
             used: data?.pfmsFunds?.totalUsed || 0,
         },
         {
-            name: 'Other Funds',
-            allocated: data?.directorFunds?.totalAllocated || 0,
-            used: data?.directorFunds?.totalUsed || 0,
+            name: "Other's Fund",
+            allocated: data?.othersFunds?.totalAllocated || 0,
+            used: data?.othersFunds?.totalUsed || 0,
         }
     ];
 
     const pieChartData = [
-        { name: 'College Funds', value: data?.collegeFunds?.totalAllocated || 0 },
+        { name: 'Institutional Funds', value: data?.institutionalFunds?.totalAllocated || 0 },
         { name: 'PFMS Funds', value: data?.pfmsFunds?.totalAllocated || 0 },
-        { name: 'Other Funds', value: data?.directorFunds?.totalAllocated || 0 }
+        { name: "Other's Fund", value: data?.othersFunds?.totalAllocated || 0 }
     ].filter(d => d.value > 0); // hide slices with 0 allocation
 
     const COLORS = ['#3b82f6', '#8b5cf6', '#10b981']; // Blue, Purple, Emerald

@@ -11,6 +11,7 @@ const {
     getAdminDashboardData,
     getFacultyDashboardData,
 } = require('../services/pipelineMetricsService');
+const { normalizeFundSource } = require('../services/fundSourceCatalogService');
 
 const resolveCentreAssignment = async (centreInput, centreIdInput) => {
     if (centreIdInput) {
@@ -159,11 +160,14 @@ exports.createProject = async (req, res) => {
         const project = await Project.create(projectData);
 
         // SYNC: Add the PI/Owner as a ProjectMember so project counts work
-        await ProjectMember.create({
-            projectId: project._id || project.id,
-            userId: projectData.facultyId || projectData.userId,
-            role: 'PI'
-        });
+        const piUserId = projectData.facultyId || projectData.userId;
+        if (piUserId) {
+            await ProjectMember.create({
+                projectId: project._id || project.id,
+                userId: piUserId,
+                role: 'PI'
+            });
+        }
 
         res.status(201).json({ success: true, data: project });
     } catch (error) {
@@ -239,7 +243,7 @@ exports.updateProject = async (req, res) => {
                         department: project.department || 'Research',
                         centre: project.centre || 'Research Centre',
                         centreId: project.centreId || null,
-                        source: (project.fundingSource || 'INSTITUTIONAL').toUpperCase(),
+                        source: normalizeFundSource(project.fundingSource || 'INSTITUTIONAL'),
                     },
                 });
             }
@@ -249,9 +253,10 @@ exports.updateProject = async (req, res) => {
 
         // SYNC: If facultyId changed, update the PI in ProjectMembers
         if (req.body.facultyId) {
-            await ProjectMember.destroy({ where: { projectId: project.id, role: 'PI' } });
+            const projectId = project._id || project.id;
+            await ProjectMember.destroy({ where: { projectId, role: 'PI' } });
             await ProjectMember.create({
-                projectId: project.id,
+                projectId,
                 userId: req.body.facultyId,
                 role: 'PI'
             });

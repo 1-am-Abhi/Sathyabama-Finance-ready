@@ -4,6 +4,7 @@ import { X, Upload, FileText, ChevronRight, AlertCircle, DollarSign, CheckCircle
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
 import { toast } from 'sonner';
+import { FUND_SOURCE_OPTIONS } from '../../constants/fundSources';
 
 const FundRequestModal = ({ isOpen, onClose, project, nextInstallment, onSubmit, maxClaimableAmount, isFinalInstallment }) => {
     // maxClaimableAmount is the specific amount allocated for this phase OR the total remaining grant, dependent on business logic. 
@@ -21,6 +22,26 @@ const FundRequestModal = ({ isOpen, onClose, project, nextInstallment, onSubmit,
     const [files, setFiles] = useState([]);
     const [fundSourceError, setFundSourceError] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const fundSourceStyles = {
+        PFMS: {
+            active: 'bg-blue-50 border-blue-500 text-blue-700 shadow-sm',
+            inactive: 'bg-white border-gray-100 text-gray-500 hover:bg-gray-50',
+            dot: 'border-blue-600',
+            fill: 'bg-blue-600',
+        },
+        INSTITUTIONAL: {
+            active: 'bg-amber-50 border-amber-500 text-amber-700 shadow-sm',
+            inactive: 'bg-white border-gray-100 text-gray-500 hover:bg-gray-50',
+            dot: 'border-amber-600',
+            fill: 'bg-amber-600',
+        },
+        OTHERS: {
+            active: 'bg-emerald-50 border-emerald-500 text-emerald-700 shadow-sm',
+            inactive: 'bg-white border-gray-100 text-gray-500 hover:bg-gray-50',
+            dot: 'border-emerald-600',
+            fill: 'bg-emerald-600',
+        },
+    };
 
     useEffect(() => {
         if (isOpen && nextInstallment) {
@@ -142,62 +163,27 @@ const FundRequestModal = ({ isOpen, onClose, project, nextInstallment, onSubmit,
                     {/* NEW: Fund Source Type (Mandatory) */}
                     <div className="space-y-2">
                         <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Fund Source Type <span className="text-red-500">*</span></label>
-                        <div className="grid grid-cols-2 gap-3">
-                            <button
-                                type="button"
-                                onClick={() => setFormData({ ...formData, fundSource: 'PFMS' })}
-                                className={`p-4 rounded-xl border-2 flex items-center justify-center gap-2 transition-all ${formData.fundSource === 'PFMS'
-                                    ? 'bg-blue-50 border-blue-500 text-blue-700 shadow-sm'
-                                    : 'bg-white border-gray-100 text-gray-500 hover:bg-gray-50'
-                                    }`}
-                            >
-                                <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${formData.fundSource === 'PFMS' ? 'border-blue-600' : 'border-gray-300'}`}>
-                                    {formData.fundSource === 'PFMS' && <div className="w-2 h-2 rounded-full bg-blue-600" />}
-                                </div>
-                                <span className="text-xs font-bold uppercase tracking-wider">PFMS Fund</span>
-                            </button>
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                            {FUND_SOURCE_OPTIONS.map((option) => {
+                                const styles = fundSourceStyles[option.value];
+                                const isActive = formData.fundSource === option.value;
 
-                            <button
-                                type="button"
-                                onClick={() => setFormData({ ...formData, fundSource: 'INSTITUTIONAL' })}
-                                className={`p-4 rounded-xl border-2 flex items-center justify-center gap-2 transition-all ${formData.fundSource === 'INSTITUTIONAL'
-                                    ? 'bg-amber-50 border-amber-500 text-amber-700 shadow-sm'
-                                    : 'bg-white border-gray-100 text-gray-500 hover:bg-gray-50'
-                                    }`}
-                            >
-                                <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${formData.fundSource === 'INSTITUTIONAL' ? 'border-amber-600' : 'border-gray-300'}`}>
-                                    {formData.fundSource === 'INSTITUTIONAL' && <div className="w-2 h-2 rounded-full bg-amber-600" />}
-                                </div>
-                                <span className="text-xs font-bold uppercase tracking-wider">Institutional</span>
-                            </button>
-
-                            <button
-                                type="button"
-                                onClick={() => setFormData({ ...formData, fundSource: 'DIRECTOR' })}
-                                className={`p-4 rounded-xl border-2 flex items-center justify-center gap-2 transition-all ${formData.fundSource === 'DIRECTOR'
-                                    ? 'bg-purple-50 border-purple-500 text-purple-700 shadow-sm'
-                                    : 'bg-white border-gray-100 text-gray-500 hover:bg-gray-50'
-                                    }`}
-                            >
-                                <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${formData.fundSource === 'DIRECTOR' ? 'border-purple-600' : 'border-gray-300'}`}>
-                                    {formData.fundSource === 'DIRECTOR' && <div className="w-2 h-2 rounded-full bg-purple-600" />}
-                                </div>
-                                <span className="text-xs font-bold uppercase tracking-wider">Director</span>
-                            </button>
-
-                            <button
-                                type="button"
-                                onClick={() => setFormData({ ...formData, fundSource: 'OTHERS' })}
-                                className={`p-4 rounded-xl border-2 flex items-center justify-center gap-2 transition-all ${formData.fundSource === 'OTHERS'
-                                    ? 'bg-emerald-50 border-emerald-500 text-emerald-700 shadow-sm'
-                                    : 'bg-white border-gray-100 text-gray-500 hover:bg-gray-50'
-                                    }`}
-                            >
-                                <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${formData.fundSource === 'OTHERS' ? 'border-emerald-600' : 'border-gray-300'}`}>
-                                    {formData.fundSource === 'OTHERS' && <div className="w-2 h-2 rounded-full bg-emerald-600" />}
-                                </div>
-                                <span className="text-xs font-bold uppercase tracking-wider">Others</span>
-                            </button>
+                                return (
+                                    <button
+                                        key={option.value}
+                                        type="button"
+                                        onClick={() => setFormData({ ...formData, fundSource: option.value })}
+                                        className={`p-4 rounded-xl border-2 flex items-center justify-center gap-2 transition-all ${
+                                            isActive ? styles.active : styles.inactive
+                                        }`}
+                                    >
+                                        <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${isActive ? styles.dot : 'border-gray-300'}`}>
+                                            {isActive && <div className={`w-2 h-2 rounded-full ${styles.fill}`} />}
+                                        </div>
+                                        <span className="text-xs font-bold uppercase tracking-wider">{option.label}</span>
+                                    </button>
+                                );
+                            })}
                         </div>
                         {fundSourceError && (
                             <p className="text-red-500 text-xs font-bold mt-1 ml-1">⚠ Please select a Fund Source Type.</p>
