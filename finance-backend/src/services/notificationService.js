@@ -14,14 +14,17 @@ class NotificationService {
                 return null;
             }
             console.log(`[NotificationService] Creating ${type} for user ${userId}: ${title}`);
-            return await Notification.create({
+            const notification = await Notification.create({
                 userId,
+                role: null,
                 title,
                 message,
                 type,
                 relatedId,
                 isRead: false
             });
+            console.log(`[NotificationService] SUCCESS: Created notification ${notification._id}`);
+            return notification;
         } catch (error) {
             console.error('[NotificationService] Error creating notification:', error);
             // Non-blocking failure
@@ -45,17 +48,21 @@ class NotificationService {
                 return [];
             }
 
-            return Notification.bulkCreate(
-                users.map((user) => ({
-                    userId: user._id || user.id,
-                    role,
-                    title,
-                    message,
-                    type,
-                    relatedId,
-                    isRead: false,
-                }))
-            );
+            console.log(`[NotificationService] Creating ${users.length} notifications for role ${role}`);
+            
+            const notificationEntries = users.map((user) => ({
+                userId: user._id || user.id,
+                role,
+                title,
+                message,
+                type,
+                relatedId,
+                isRead: false,
+            }));
+
+            const created = await Notification.bulkCreate(notificationEntries);
+            console.log(`[NotificationService] SUCCESS: Bulk created ${created.length} notifications`);
+            return created;
         } catch (error) {
             console.error('[NotificationService] Error notifying role:', error);
             return null;

@@ -189,6 +189,17 @@ exports.adminApproveInternshipFee = async (req, res) => {
             adminStatus: adminStatus || 'APPROVED',
             adminRemarks: adminRemarks || fee.adminRemarks
         });
+
+        // NOTIFY: Finance about internship fee verification
+        if ((adminStatus || 'APPROVED') === 'APPROVED') {
+            await NotificationService.notifyRole(
+                'FINANCE_OFFICER',
+                'Internship Fee Awaiting Verification',
+                `Payment verification required for ${fee.studentName} (${fee.internshipTitle}). Amount: ₹${fee.feeAmount}.`,
+                'INFO',
+                '/finance/internship-fees'
+            );
+        }
         
         res.status(200).json({ success: true, message: 'Admin status updated successfully', data: fee });
     } catch (error) {
@@ -249,6 +260,15 @@ exports.createInternshipFee = async (req, res) => {
             feeAmount: Number(feeAmount),
             paymentStatus: 'PENDING'
         });
+
+        // NOTIFY: Admin about new internship fee record
+        await NotificationService.notifyRole(
+            'ADMIN',
+            'New Internship Fee Record',
+            `A new fee record for ${studentName} (${internshipTitle}) has been created and awaits approval.`,
+            'INFO',
+            '/admin/internship-fees'
+        );
         res.status(201).json({ success: true, data: fee });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
@@ -289,6 +309,15 @@ exports.updateFundSourceAmount = async (req, res) => {
         if (!created) {
             await fundRecord.update({ totalAllocated: numericAmount });
         }
+
+        // NOTIFY: Finance about budget update
+        await NotificationService.notifyRole(
+            'FINANCE_OFFICER',
+            'Budget Allocation Updated',
+            `The allocation for ${dbSourceType.replace(/_/g, ' ')} has been updated to ₹${numericAmount.toLocaleString()}.`,
+            'INFO',
+            '/finance/dashboard'
+        );
 
         const overview = await getFundSourceOverview();
         res.status(200).json({

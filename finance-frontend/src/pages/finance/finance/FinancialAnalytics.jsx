@@ -18,7 +18,7 @@ const FinancialAnalytics = ({ data }) => {
     // Transform data for charts from the canonical fund-source overview.
     const barChartData = [
         {
-            name: 'Institutional Funds',
+            name: "Director's Innovation Fund",
             allocated: data?.institutionalFunds?.totalAllocated || 0,
             used: data?.institutionalFunds?.totalUsed || 0,
         },
@@ -35,7 +35,7 @@ const FinancialAnalytics = ({ data }) => {
     ];
 
     const pieChartData = [
-        { name: 'Institutional Funds', value: data?.institutionalFunds?.totalAllocated || 0 },
+        { name: "Director's Innovation Fund", value: data?.institutionalFunds?.totalAllocated || 0 },
         { name: 'PFMS Funds', value: data?.pfmsFunds?.totalAllocated || 0 },
         { name: "Other's Fund", value: data?.othersFunds?.totalAllocated || 0 }
     ].filter(d => d.value > 0); // hide slices with 0 allocation

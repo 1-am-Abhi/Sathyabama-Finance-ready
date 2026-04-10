@@ -113,12 +113,14 @@ exports.createFundRequest = async (req, res) => {
 
         if (!existingProject) {
             const centreAssignment = await resolveCentreAssignment(null, req.user);
+            const totalBudget = Number(req.body.totalBudget || req.body.requestedAmount);
+            
             existingProject = await Project.create({
                 title: req.body.projectTitle,
                 pi: req.user.name,
                 userId: req.user.id || req.user._id,
                 facultyId: req.user.id || req.user._id,
-                sanctionedBudget: Number(req.body.requestedAmount),
+                sanctionedBudget: totalBudget,
                 releasedBudget: 0,
                 utilizedBudget: 0,
                 status: 'PENDING',
@@ -271,6 +273,40 @@ exports.advanceStage = async (req, res) => {
         
         await request.advanceStage(nextStage, { _id: req.user.id, name: req.user.name }, remarks);
         
+        // NOTIFICATIONS based on stage transitions
+        if (nextStage === 'UTILIZATION_COMPLETED') {
+            await NotificationService.notifyRole(
+                'ADMIN',
+                'Utilization Submitted',
+                `Faculty ${request.faculty} submitted utilization for '${request.projectTitle}'.`,
+                'INFO',
+                '/admin/fund-requests'
+            );
+            await NotificationService.notifyRole(
+                'FINANCE_OFFICER',
+                'Utilization for Verification',
+                `Utilization report for '${request.projectTitle}' (₹${request.requestedAmount}) is ready for verification.`,
+                'INFO',
+                '/finance/settlements'
+            );
+        } else if (nextStage === 'SETTLEMENT_CLOSED') {
+            await NotificationService.create(
+                request.userId || request.facultyId,
+                'Settlement Closed',
+                `Your settlement for '${request.projectTitle}' has been verified and closed.`,
+                'SUCCESS',
+                '/faculty/request-funds'
+            );
+        } else if (['FUND_RELEASED', 'CHEQUE_RELEASED', 'AMOUNT_DISBURSED'].includes(nextStage)) {
+            await NotificationService.create(
+                request.userId || request.facultyId,
+                'Fund Stage Updated',
+                `Your fund request for '${request.projectTitle}' has moved to: ${nextStage.replace(/_/g, ' ')}.`,
+                'INFO',
+                '/faculty/request-funds'
+            );
+        }
+
         // If amount is disbursed, update the project released amount
         if (nextStage === 'AMOUNT_DISBURSED') {
             const project = await Project.findOne({ where: { title: request.projectTitle } });

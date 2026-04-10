@@ -254,3 +254,22 @@ exports.getCentres = async (req, res) => {
         res.status(500).json({ success: false, message: error.message });
     }
 };
+
+exports.addCentre = async (req, res) => {
+    try {
+        const { name } = req.body;
+        if (!name) {
+            return res.status(400).json({ success: false, message: 'Centre name is required' });
+        }
+
+        const existingCentre = await Centre.findOne({ where: { name } });
+        if (existingCentre) {
+            return res.status(400).json({ success: false, message: 'Centre already exists' });
+        }
+
+        const centre = await Centre.create({ name });
+        res.status(201).json({ success: true, message: 'Centre added successfully', centre });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};

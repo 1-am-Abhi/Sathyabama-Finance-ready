@@ -90,18 +90,18 @@ const FinanceManagerDashboard = () => {
                             </div>
                         ) : (
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                                {/* Institutional Funds Card */}
+                                {/* Director's Innovation Fund Card */}
                                 {isLoadingFundSources ? (
                                     <FundSourceCardSkeleton />
                                 ) : (
                                     <FundSourceCard
-                                        title="Institutional Funds"
+                                        title="Director's Innovation Fund"
                                         data={fundSourcesData?.institutionalFunds}
                                         icon={Building2}
                                         colorClass="bg-blue-50 text-blue-700"
                                         onEdit={() => handleEditFundSource(
                                             'INSTITUTIONAL',
-                                            'Institutional Funds',
+                                            "Director's Innovation Fund",
                                             fundSourcesData?.institutionalFunds?.totalAllocated
                                         )}
                                     />

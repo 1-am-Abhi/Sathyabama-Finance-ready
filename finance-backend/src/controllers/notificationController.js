@@ -12,8 +12,10 @@ const canAccessUserNotifications = (req, userId) =>
 exports.createNotification = async (req, res) => {
     try {
         const { title, message, type, role, targetUserId, relatedId, actionUrl } = req.body;
+        console.log(`[NotificationController] Request to create notification:`, { title, role, targetUserId });
 
         if (!targetUserId && role) {
+            console.log(`[NotificationController] Broadcasting to role: ${role}`);
             const notifications = await NotificationService.notifyRole(
                 role,
                 title || 'Notification',
@@ -25,8 +27,11 @@ exports.createNotification = async (req, res) => {
             return res.status(201).json({ success: true, data: notifications || [] });
         }
 
+        const target = targetUserId || req.user?.id || req.user?._id;
+        console.log(`[NotificationController] Creating for single user: ${target}`);
+        
         const notification = await NotificationService.create(
-            targetUserId || req.user?.id || req.user?._id,
+            target,
             title || 'Notification',
             message,
             normalizeType(type),

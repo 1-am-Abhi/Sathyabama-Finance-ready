@@ -237,6 +237,11 @@ const InitialFundRequestModal = ({ isOpen, onClose, onSubmit }) => {
                                         className="w-full pl-10 pr-4 py-4 bg-emerald-50/50 border-0 rounded-2xl focus:ring-2 focus:ring-emerald-100 transition-all outline-none font-bold text-emerald-900"
                                     />
                                 </div>
+                                {formData.totalBudget > 0 && (
+                                    <p className="text-[9px] text-emerald-600 font-bold uppercase tracking-wider mt-1 ml-1 animate-pulse">
+                                        💡 Suggested Phase 01 (40%): ₹{(formData.totalBudget * 0.4).toLocaleString()}
+                                    </p>
+                                )}
                             </div>
                         </div>
                     </div>

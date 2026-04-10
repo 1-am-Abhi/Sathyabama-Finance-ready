@@ -2,6 +2,7 @@ const Revenue = require('../models/Revenue');
 const User = require('../models/User');
 const { Op } = require('sequelize');
 const { syncRevenueLedger } = require('../services/financePipelineService');
+const NotificationService = require('../services/notificationService');
 
 exports.createRevenueRecord = async (req, res) => {
     try {
@@ -15,6 +16,15 @@ exports.createRevenueRecord = async (req, res) => {
             amountGenerated,
             details
         });
+
+        // NOTIFY: Admin about new revenue submission
+        await NotificationService.notifyRole(
+            'ADMIN',
+            'New Revenue Submitted',
+            `${req.user.name} submitted a new revenue record for ₹${amountGenerated}.`,
+            'INFO',
+            '/admin/revenue'
+        );
 
         res.status(201).json({
             success: true,
@@ -189,6 +199,19 @@ exports.adminApproveRevenue = async (req, res) => {
             status: status || 'ADMIN_APPROVED',
             adminRemarks: remarks || record.adminRemarks
         });
+
+        // NOTIFY: Finance about new revenue to verify
+        if ((status || 'ADMIN_APPROVED') === 'ADMIN_APPROVED') {
+            const User = require('../models/User');
+            const facultyUser = await User.findByPk(record.userId);
+            await NotificationService.notifyRole(
+                'FINANCE_OFFICER',
+                'Revenue Awaiting Verification',
+                `Institutional income from ${facultyUser?.name || 'Faculty'} (₹${record.amountGenerated}) is approved by Admin and ready for finance verification.`,
+                'INFO',
+                '/finance/revenue-verification'
+            );
+        }
         
         res.status(200).json({ success: true, message: 'Revenue admin status updated successfully', data: record });
     } catch (error) {

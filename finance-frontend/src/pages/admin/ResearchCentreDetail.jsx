@@ -179,9 +179,10 @@ const ResearchCentreDetail = ({ isOpen, onClose, centreName, isDark }) => {
     }));
 
     const formatCurrency = (amount) => {
+        if (amount === undefined || amount === null) return '₹0';
         if (amount >= 10000000) return `₹${(amount / 10000000).toFixed(2)}Cr`;
         if (amount >= 100000) return `₹${(amount / 100000).toFixed(2)}L`;
-        return `₹${amount.toLocaleString()}`;
+        return `₹${Number(amount).toLocaleString()}`;
     };
 
     const chartConfig = {
@@ -237,7 +238,7 @@ const ResearchCentreDetail = ({ isOpen, onClose, centreName, isDark }) => {
                                 <div className="text-sm text-gray-500 dark:text-gray-400">Utilization Rate</div>
                                 <div className="text-2xl font-bold dark:text-white">{details.summary.utilizationRate}%</div>
                                 <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                                    {formatCurrency(details.summary.fundsUtilized)} / {formatCurrency(details.summary.fundsReleased)}
+                                    {formatCurrency(details.summary.fundsUtilized)} / {formatCurrency(details.summary.totalDisbursed)}
                                 </div>
                             </CardContent>
                         </Card>

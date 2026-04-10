@@ -1,29 +1,55 @@
 const { sequelize } = require('./src/config/db');
-const User = require('./src/models/User');
-const Project = require('./src/models/Project');
-const { FundRequest } = require('./src/models/FundRequest');
-const ODRequest = require('./src/models/ODRequest');
-const EventRequest = require('./src/models/EventRequest');
-const Notification = require('./src/models/Notification');
-const AcademicMetric = require('./src/models/AcademicMetric');
-const Document = require('./src/models/Document');
-const EquipmentRequest = require('./src/models/EquipmentRequest');
+const models = require('./src/models');
+const { User, Centre, FundSource } = models;
 
 const seedData = async () => {
     try {
-        // Sync models (alter: false avoids dropping or modifying tables unnecessarily)
-        await sequelize.sync({ alter: false });
-        console.log('PostgreSQL Schema Synced (No destruction)...');
-
-        // Check if data already exists to avoid duplicates/overwrites
+        console.log('Initiating Database Seeding...');
+        
+        // Safety Check: Avoid accidental wipes unless FORCE_WIPE is set
         const userCount = await User.count();
-        if (userCount > 0) {
-            console.log('Database already contains data. Skipping seed process to preserve user entries.');
-            process.exit();
+        const shouldForce = process.env.FORCE_WIPE === 'true';
+
+        if (userCount > 0 && !shouldForce) {
+            console.log('Database already contains data. Skipping seed process to preserve entries.');
+            console.log('Use FORCE_WIPE=true to reset the database.');
+            process.exit(0);
         }
 
-        // Create Default Users
-        const admin = await User.create({
+        if (shouldForce) {
+            console.log('FORCE_WIPE detected. Resetting database...');
+            await sequelize.sync({ force: true });
+            console.log('PostgreSQL Schema Reset (All tables dropped and recreated)');
+        } else {
+            await sequelize.sync({ alter: false });
+            console.log('Syncing Schema (No destruction)...');
+        }
+
+        const centresList = [
+            'Centre for Nano Science and Nanotechnology',
+            'Centre of Excellence for Energy Research',
+            'Centre for Waste Management',
+            'Centre for Climate Studies',
+            'Centre for Molecular and Nanomedical Sciences',
+            'Centre for Drug Discovery and Development',
+            'Centre of Excellence for Additive Manufacturing',
+            'Centre for Indian System of Medicine',
+            'Centre for Aqua Culture',
+            'Others'
+        ];
+
+        // 1. Create Default Centres
+        console.log('Creating default centres...');
+        const createdCentres = {};
+        for (const name of centresList) {
+            const centre = await Centre.create({ name });
+            createdCentres[name] = centre;
+        }
+        console.log(`${centresList.length} Centres seeded.`);
+
+        // 2. Create Default Users
+        console.log('Creating default users...');
+        await User.create({
             name: 'Dr. Bharathi',
             email: 'admin@sathyabama.ac.in',
             password: 'password123',
@@ -31,27 +57,40 @@ const seedData = async () => {
             department: 'RESEARCH'
         });
 
-        const faculty = await User.create({
+        const nanoCentre = createdCentres['Centre for Nano Science and Nanotechnology'];
+        await User.create({
             name: 'Dr. Priya Sharma',
             email: 'faculty@sathyabama.ac.in',
             password: 'password123',
             role: 'FACULTY',
             department: 'CSE',
-            centre: 'Centre for Nano Science and Nanotechnology',
+            centre: nanoCentre.name,
+            centreId: nanoCentre._id,
             isProfileCompleted: false
         });
 
-        const finance = await User.create({
+        await User.create({
             name: 'Mr. Suresh Menon',
             email: 'finance@sathyabama.ac.in',
             password: 'password123',
             role: 'FINANCE_OFFICER',
             department: 'FINANCE'
         });
+        console.log('Users seeded.');
 
-        console.log('Default users seeded (Clean Slate)');
-        console.log('Seeding completed successfully');
-        process.exit();
+        // 3. Create Default Fund Sources
+        console.log('Creating default fund sources...');
+        await FundSource.findOrCreate({
+            where: { sourceType: 'collegeFunds' },
+            defaults: { totalAllocated: 5000000 }
+        });
+        await FundSource.findOrCreate({
+            where: { sourceType: 'pfmsFunds' },
+            defaults: { totalAllocated: 2500000 }
+        });
+
+        console.log('Database seeding completed successfully.');
+        process.exit(0);
     } catch (error) {
         console.error('Seeding failed:', error);
         process.exit(1);

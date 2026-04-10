@@ -382,10 +382,12 @@ const buildCentreBreakdown = ({ centres, projects, fundRequests, disbursements }
 };
 
 const getAdminDashboardData = async () => {
-    const [shared, fundingTotals, fundSources] = await Promise.all([
-        getSharedPipelineData(),
+    // Single shared fetch to nourish all dependent metrics
+    const shared = await getSharedPipelineData();
+    
+    const [fundingTotals, fundSources] = await Promise.all([
         getFundingTotals(),
-        getFundSourceOverview(),
+        getFundSourceOverview(shared),
     ]);
 
     const totalProjects = shared.projects.length;
@@ -469,8 +471,8 @@ const getFacultyDashboardData = async (facultyId, facultyName) => {
     };
 };
 
-const getFundSourceOverview = async () => {
-    const shared = await getSharedPipelineData();
+const getFundSourceOverview = async (existingShared = null) => {
+    const shared = existingShared || await getSharedPipelineData();
     const fundSourceRows = await FundSource.findAll({
         attributes: ['sourceType', 'totalAllocated'],
     });

@@ -45,22 +45,32 @@ const FacultyRequestFunds = () => {
     const allocatedStatuses = ['APPROVED', 'PENDING_DISBURSAL', 'DISBURSED'];
     const releasedStages = ['CHEQUE_RELEASED', 'AMOUNT_DISBURSED'];
     
-    // Adapted installment logic
+    // Dynamic installment logic based on actual released budget
+    const sanctionedAmount = selectedProject?.sanctionedBudget || 0;
+    const releasedAmount = selectedProject?.releasedBudget || 0;
+
+    // Check if there's any ongoing/pending fund request for this project
+    const activeRequest = (fundRequests || []).find(r => 
+        (r.projectId === selectedProjectId || r.projectRef === selectedProjectId) && 
+        !['DISBURSED', 'REJECTED'].includes((r.status || '').toUpperCase())
+    );
+
     const installments = [
-        { phase: 1, amount: (selectedProject?.sanctionedBudget || 0) * 0.4, status: 'RELEASED', date: 'Shared' },
-        { phase: 2, amount: (selectedProject?.sanctionedBudget || 0) * 0.3, status: 'PENDING', date: null },
+        { 
+            phase: 1, 
+            amount: sanctionedAmount * 0.4, 
+            status: releasedAmount >= (sanctionedAmount * 0.4) ? 'RELEASED' : 'PENDING', 
+            date: releasedAmount >= (sanctionedAmount * 0.4) ? 'Shared' : 'Upcoming' 
+        },
+        { 
+            phase: 2, 
+            amount: sanctionedAmount * 0.3, 
+            status: releasedAmount >= (sanctionedAmount * 0.7) ? 'RELEASED' : (activeRequest ? 'PENDING' : 'UPCOMING'), 
+            date: releasedAmount >= (sanctionedAmount * 0.7) ? 'Shared' : null 
+        },
     ];
 
-    const nextInstallment = installments.find(i => i.status === 'PENDING' || i.status === 'UPCOMING');
-    
-    const releasedAmount = selectedProject 
-        ? (selectedProject.releasedBudget || 0)
-        : (fundRequests || []).filter(r => allocatedStatuses.includes((r.status || '').toUpperCase()) && (releasedStages.includes(r.currentStage) || (r.status || '').toUpperCase() === 'DISBURSED')).reduce((acc, req) => acc + (req.requestedAmount || 0), 0);
-        
-    const sanctionedAmount = selectedProject
-        ? (selectedProject.sanctionedBudget || 0)
-        : (fundRequests || []).filter(r => allocatedStatuses.includes((r.status || '').toUpperCase())).reduce((acc, req) => acc + (req.requestedAmount || 0), 0);
-
+    const nextInstallment = installments.find(i => i.status === 'UPCOMING' || i.status === 'PENDING');
     const remainingAmount = sanctionedAmount - releasedAmount;
 
     const handleExportExcel = () => {
@@ -228,26 +238,35 @@ const FacultyRequestFunds = () => {
                                 <div className="mt-12 flex flex-col items-center text-center space-y-6">
                                     <div className="max-w-md">
                                         <h4 className="text-xl font-bold text-slate-800 italic uppercase tracking-tighter">
-                                            {isPI ? 'Request Disbursement' : 'Restricted Access'}
+                                            {!nextInstallment ? 'Project Fully Funded' : isPI ? 'Request Disbursement' : 'Restricted Access'}
                                         </h4>
                                         <p className="text-sm font-medium italic text-gray-400 mt-2">
-                                            {isPI 
-                                                ? 'Submit your progress report and expense justification to trigger the next phase release.'
-                                                : "You are a team member on this project. Only the Principal Investigator can process fund release phases."}
+                                            {!nextInstallment 
+                                                ? 'All planned installments for this project have been successfully released.'
+                                                : isPI 
+                                                    ? 'Submit your progress report and expense justification to trigger the next phase release.'
+                                                    : "You are a team member on this project. Only the Principal Investigator can process fund release phases."}
                                         </p>
                                     </div>
-                                    <Button
-                                        disabled={!isPI || !nextInstallment || nextInstallment.status === 'PENDING'}
-                                        onClick={() => { setRequestMode('RELEASE'); setIsModalOpen(true); }}
-                                        className={`h-16 px-12 rounded-2xl font-black text-xs uppercase tracking-widest italic transition-all flex items-center gap-3 ${
-                                            isPI 
-                                            ? 'bg-maroon-600 text-white shadow-xl shadow-maroon-600/20 hover:scale-105' 
-                                            : 'bg-gray-100 text-gray-400 cursor-not-allowed border border-gray-200 shadow-none'
-                                        }`}
-                                    >
-                                        {nextInstallment?.status === 'PENDING' ? 'Request Under Review' : isPI ? 'Process Next Phase' : 'PI Only Action'}
-                                        <ArrowRight className="w-4 h-4" />
-                                    </Button>
+                                    {nextInstallment && (
+                                        <Button
+                                            disabled={!isPI || nextInstallment.status === 'PENDING'}
+                                            onClick={() => { setRequestMode('RELEASE'); setIsModalOpen(true); }}
+                                            className={`h-16 px-12 rounded-2xl font-black text-xs uppercase tracking-widest italic transition-all flex items-center gap-3 ${
+                                                isPI && nextInstallment.status !== 'PENDING'
+                                                ? 'bg-maroon-600 text-white shadow-xl shadow-maroon-600/20 hover:scale-105' 
+                                                : 'bg-gray-100 text-gray-400 cursor-not-allowed border border-gray-200 shadow-none'
+                                            }`}
+                                        >
+                                            {nextInstallment?.status === 'PENDING' ? 'Request Under Review' : isPI ? 'Process Next Phase' : 'PI Only Action'}
+                                            <ArrowRight className="w-4 h-4" />
+                                        </Button>
+                                    )}
+                                    {!nextInstallment && (
+                                        <div className="flex items-center gap-2 text-emerald-600 font-bold bg-emerald-50 px-6 py-3 rounded-2xl border border-emerald-100 italic uppercase text-xs">
+                                            <CheckCircle2 className="w-4 h-4" /> Grant Utilization in Progress
+                                        </div>
+                                    )}
                                 </div>
                             </CardContent>
                         </Card>
@@ -310,16 +329,22 @@ const FacultyRequestFunds = () => {
                     onClose={() => setIsModalOpen(false)}
                     project={selectedProject}
                     nextInstallment={nextInstallment}
-                    maxClaimableAmount={remainingAmount}
+                    maxClaimableAmount={Math.min(nextInstallment.amount, remainingAmount)}
                     onSubmit={async (data) => {
                         try {
                             setIsSubmitting(true);
+                                const progressReport = ` PROGRESS REPORT (PHASE ${nextInstallment.phase})
+Work Completed: ${data.workCompleted}
+Reason for Request: ${data.reasonForFunds}
+Usage Plan: ${data.usagePlan}
+${data.sufficiencyExplanation ? `Final Status: ${data.sufficiencyExplanation}` : ''}`;
+
                             await createRequest({
                                 projectTitle: selectedProject.title,
                                 projectRef: selectedProject._id,
                                 requestedAmount: data.amount,
-                                purpose: data.purpose,
-                                source: selectedProject.fundingSource || 'INSTITUTIONAL'
+                                purpose: progressReport,
+                                source: data.fundSource || selectedProject.fundingSource || 'INSTITUTIONAL'
                             });
                             
                             addNotification({
@@ -347,6 +372,7 @@ const FacultyRequestFunds = () => {
                         setIsSubmitting(true);
                         await createRequest({
                             projectTitle: data.title,
+                            totalBudget: data.totalBudget,
                             requestedAmount: data.amount,
                             purpose: data.reason,
                             source: data.fundSource === 'PFMS' ? 'PFMS' : 'INSTITUTIONAL'

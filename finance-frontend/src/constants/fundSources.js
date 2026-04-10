@@ -1,6 +1,6 @@
 export const FUND_SOURCE_OPTIONS = [
     { value: 'PFMS', label: 'PFMS Funds', shortLabel: 'PFMS', overviewKey: 'pfmsFunds' },
-    { value: 'INSTITUTIONAL', label: 'Institutional Funds', shortLabel: 'Institutional', overviewKey: 'institutionalFunds' },
+    { value: 'INSTITUTIONAL', label: "Director's Innovation Fund", shortLabel: "Director's", overviewKey: 'institutionalFunds' },
     { value: 'OTHERS', label: "Other's Fund", shortLabel: "Other's Fund", overviewKey: 'othersFunds' },
 ];
 
@@ -13,12 +13,12 @@ export const normalizeFundSource = (value) => {
     case 'COLLEGE':
     case 'COLLEGE_FUNDED':
     case 'INSTITUTIONAL':
-        return 'INSTITUTIONAL';
-    case 'PFMS':
-        return 'PFMS';
     case 'DIRECTOR':
     case 'DIRECTOR_INNOVATION':
     case 'DIRECTOR_INNOVATION_FUND':
+        return 'INSTITUTIONAL';
+    case 'PFMS':
+        return 'PFMS';
     case 'OTHER':
     case 'OTHERS':
         return 'OTHERS';
@@ -29,10 +29,10 @@ export const normalizeFundSource = (value) => {
 
 export const getFundSourceLabel = (value) => {
     const normalized = normalizeFundSource(value);
-    return FUND_SOURCE_OPTIONS.find((option) => option.value === normalized)?.label || 'Institutional Funds';
+    return FUND_SOURCE_OPTIONS.find((option) => option.value === normalized)?.label || "Director's Innovation Fund";
 };
 
 export const getFundSourceShortLabel = (value) => {
     const normalized = normalizeFundSource(value);
-    return FUND_SOURCE_OPTIONS.find((option) => option.value === normalized)?.shortLabel || 'Institutional';
+    return FUND_SOURCE_OPTIONS.find((option) => option.value === normalized)?.shortLabel || "Director's";
 };

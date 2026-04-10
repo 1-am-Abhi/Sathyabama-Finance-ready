@@ -22,6 +22,7 @@ import { useCentres } from '../../constants/researchCentres';
 import ResearchCentreDetail from './ResearchCentreDetail';
 import { formatCurrency } from '../../utils/format';
 import apiClient from '../../api/client';
+import AddCentreModal from '../../components/shared/AddCentreModal';
 
 
 const AdminDashboard = () => {
@@ -38,53 +39,41 @@ const AdminDashboard = () => {
     const [detailModalOpen, setDetailModalOpen] = useState(false);
     const [selectedCentreDetail, setSelectedCentreDetail] = useState(null);
     const [aiModal, setAiModal] = useState({ open: false, loading: false, result: null });
+    const [isAddCentreOpen, setIsAddCentreOpen] = useState(false);
 
 
     const [stats, setStats] = useState(null);
     const [centresStats, setCentresStats] = useState([]);
     const [recentRequests, setRecentRequests] = useState([]);
     const [loading, setLoading] = useState(true);
-    const { centres: dynamicCentres } = useCentres();
+    const { centres: dynamicCentres, refreshCentres } = useCentres();
+
+    const fetchDashboardData = async () => {
+        try {
+            if (!stats) setLoading(true); // Only show spinner on first load
+            const [statsRes, requestsRes] = await Promise.all([
+                apiClient.get('/projects/stats'),
+                apiClient.get('/fund-requests')
+            ]);
+
+            if (statsRes.data.success) {
+                console.log("Admin Data Truth:", statsRes.data.stats);
+                setStats(statsRes.data.stats);
+                setCentresStats(statsRes.data.centres);
+            }
+            if (requestsRes.data.success) {
+                console.log("Admin Recent Requests:", requestsRes.data.data.slice(0, 5));
+                setRecentRequests(requestsRes.data.data.slice(0, 5));
+            }
+        } catch (error) {
+            console.error("Error fetching admin data:", error);
+        } finally {
+            setLoading(false);
+        }
+    };
 
     React.useEffect(() => {
-        let isMounted = true;
-        const fetchDashboardData = async () => {
-            try {
-                if (isMounted && !stats) setLoading(true); // Only show spinner on first load
-                const [statsRes, requestsRes] = await Promise.all([
-                    apiClient.get('/projects/stats'),
-                    apiClient.get('/fund-requests')
-                ]);
-
-                if (isMounted && statsRes.data.success) {
-                    console.log("Admin Data Truth:", statsRes.data.stats);
-                    setStats(statsRes.data.stats);
-                    setCentresStats(statsRes.data.centres);
-                }
-                if (isMounted && requestsRes.data.success) {
-                    console.log("Admin Recent Requests:", requestsRes.data.data.slice(0, 5));
-                    setRecentRequests(requestsRes.data.data.slice(0, 5));
-                }
-            } catch (error) {
-                console.error("Error fetching admin data:", error);
-            } finally {
-                if (isMounted) setLoading(false);
-            }
-        };
-
         fetchDashboardData();
-        // Poll every 60s (was 30s). Pause completely when tab is hidden.
-        let intervalId = setInterval(fetchDashboardData, 60000);
-
-        const handleVisibility = () => {
-            if (document.hidden) {
-                clearInterval(intervalId);
-            } else {
-                fetchDashboardData();
-                intervalId = setInterval(fetchDashboardData, 60000);
-            }
-        };
-        document.addEventListener('visibilitychange', handleVisibility);
 
         const handleFundingSync = () => {
             fetchDashboardData();
@@ -100,9 +89,6 @@ const AdminDashboard = () => {
         window.addEventListener('storage', handleStorage);
 
         return () => {
-            isMounted = false;
-            clearInterval(intervalId);
-            document.removeEventListener('visibilitychange', handleVisibility);
             window.removeEventListener('fund-sources-updated', handleFundingSync);
             window.removeEventListener('storage', handleStorage);
         };
@@ -165,7 +151,7 @@ const AdminDashboard = () => {
     const centreData = React.useMemo(() => {
         const normalize = (s) => (s || '').trim().toLowerCase()
             .replace(/^centre\s+(for|of\s+excellence\s+for)\s+/i, '');
-        
+
         return centres.map(name => {
             // Try exact match first, then fuzzy (core name match)
             const centreStat = (centresStats || []).find(c => {
@@ -323,6 +309,14 @@ const AdminDashboard = () => {
             iconBg: 'bg-amber-100',
             action: () => navigate('/admin/reports')
         },
+        {
+            title: 'Add Centre',
+            description: 'Register new research centre',
+            icon: Building2,
+            color: 'bg-indigo-50 text-indigo-600',
+            iconBg: 'bg-indigo-100',
+            action: () => setIsAddCentreOpen(true)
+        },
     ];
 
     const getIconColor = (color) => {
@@ -379,7 +373,7 @@ const AdminDashboard = () => {
                     </CardContent>
                 </Card>
 
-                {/* Institutional Funds */}
+                {/* Director's Innovation Fund */}
                 <Card className="border-0 shadow-md bg-white dark:bg-slate-900 overflow-hidden relative">
                     <div className="absolute top-0 right-0 w-32 h-32 bg-amber-50 dark:bg-amber-900/10 rounded-full -mr-10 -mt-10 blur-2xl"></div>
                     <CardHeader className="p-4 pb-2 border-b border-gray-100 dark:border-slate-800 z-10 relative">
@@ -389,7 +383,7 @@ const AdminDashboard = () => {
                                     <Activity className="w-4 h-4" />
                                 </div>
                                 <div>
-                                    <CardTitle className="text-sm font-bold text-gray-800 dark:text-white">Institutional Funds</CardTitle>
+                                    <CardTitle className="text-sm font-bold text-gray-800 dark:text-white">Director's Innovation Fund</CardTitle>
                                 </div>
                             </div>
                         </div>
@@ -559,9 +553,18 @@ const AdminDashboard = () => {
                     </div>
                 </div>
                 <div className="flex items-center gap-3 flex-wrap">
+                    <button 
+                        onClick={() => fetchDashboardData()} 
+                        disabled={loading}
+                        className="p-2 bg-gray-50 dark:bg-slate-800 hover:bg-gray-100 dark:hover:bg-slate-700 rounded-lg border border-gray-200 dark:border-slate-700 text-gray-500 hover:text-maroon-600 transition-all flex items-center gap-2"
+                        title="Refresh Dashboard"
+                    >
+                        <Activity className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+                        <span className="text-xs font-bold uppercase tracking-wider hidden sm:inline">Refresh</span>
+                    </button>
                     <div className="flex-1 min-w-[160px]"><DateFilter selectedDate={selectedDate} onChange={(date) => setSelectedDate(date)} placeholder="Filter by Date" /></div>
                     {selectedDate && <Badge variant="outline" className="border-blue-200 text-blue-600 bg-blue-50 dark:bg-blue-900/20 dark:text-blue-400 dark:border-blue-900 animate-pulse whitespace-nowrap">Daily View</Badge>}
-                    {(selectedDate || selectedFY !== '2024-25' || selectedCentre !== 'ALL') && (
+                    {(selectedDate || selectedFY !== '2026-27' || selectedCentre !== 'ALL') && (
                         <button onClick={() => { setSelectedDate(null); setSelectedFY('2024-25'); setSelectedCentre('ALL'); }} className="text-xs font-medium text-gray-400 hover:text-maroon-600 dark:hover:text-maroon-400 transition-colors flex items-center whitespace-nowrap">
                             <Filter className="w-3 h-3 mr-1" /> Reset
                         </button>
@@ -594,7 +597,7 @@ const AdminDashboard = () => {
                                         <TableCell className="text-xs sm:text-sm">{formatCurrency(centre.totalBudget)}</TableCell>
                                         <TableCell className="text-xs sm:text-sm">{formatCurrency(centre.disbursed)}</TableCell>
                                         <TableCell className="text-right pr-4 sm:pr-6">
-                                            <span className={`text-xs font-semibold ${centre.totalBudget > 0 && (centre.disbursed/centre.totalBudget) > 0.8 ? 'text-red-500' : centre.totalBudget > 0 && (centre.disbursed/centre.totalBudget) > 0.5 ? 'text-amber-500' : 'text-gray-500'}`}>
+                                            <span className={`text-xs font-semibold ${centre.totalBudget > 0 && (centre.disbursed / centre.totalBudget) > 0.8 ? 'text-red-500' : centre.totalBudget > 0 && (centre.disbursed / centre.totalBudget) > 0.5 ? 'text-amber-500' : 'text-gray-500'}`}>
                                                 {centre.totalBudget > 0 ? ((centre.disbursed / centre.totalBudget) * 100).toFixed(0) : 0}%
                                             </span>
                                         </TableCell>
@@ -690,20 +693,20 @@ const AdminDashboard = () => {
                                         .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
                                         .slice(0, 10)
                                         .map((log) => (
-                                        <TableRow key={log.id} className="text-xs">
-                                            <TableCell className="pl-4 sm:pl-8 py-3 sm:py-4">
-                                                <div className="flex flex-col">
-                                                    <span className="font-black italic uppercase text-slate-800 dark:text-white truncate max-w-[140px] sm:max-w-[200px]">{log.project}</span>
-                                                    <span className="text-[9px] font-bold text-indigo-500 uppercase italic mt-0.5">{log.stage}</span>
-                                                </div>
-                                            </TableCell>
-                                            <TableCell className="font-bold italic uppercase text-slate-600 dark:text-slate-400">{log.updatedByName || 'SYSTEM'}</TableCell>
-                                            <TableCell className="text-[10px] font-bold text-gray-400 italic">
-                                                {new Date(log.timestamp).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}
-                                            </TableCell>
-                                            <TableCell className="pr-4 sm:pr-8 text-right italic font-medium text-gray-500 truncate max-w-[160px] sm:max-w-[250px]">{log.remarks}</TableCell>
-                                        </TableRow>
-                                    ))
+                                            <TableRow key={log.id} className="text-xs">
+                                                <TableCell className="pl-4 sm:pl-8 py-3 sm:py-4">
+                                                    <div className="flex flex-col">
+                                                        <span className="font-black italic uppercase text-slate-800 dark:text-white truncate max-w-[140px] sm:max-w-[200px]">{log.project}</span>
+                                                        <span className="text-[9px] font-bold text-indigo-500 uppercase italic mt-0.5">{log.stage}</span>
+                                                    </div>
+                                                </TableCell>
+                                                <TableCell className="font-bold italic uppercase text-slate-600 dark:text-slate-400">{log.updatedByName || 'SYSTEM'}</TableCell>
+                                                <TableCell className="text-[10px] font-bold text-gray-400 italic">
+                                                    {new Date(log.timestamp).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}
+                                                </TableCell>
+                                                <TableCell className="pr-4 sm:pr-8 text-right italic font-medium text-gray-500 truncate max-w-[160px] sm:max-w-[250px]">{log.remarks}</TableCell>
+                                            </TableRow>
+                                        ))
                                 ) : (
                                     <TableRow><TableCell colSpan={4} className="text-center py-10 opacity-30 italic text-sm">No administrative logs currently synchronized.</TableCell></TableRow>
                                 )}
@@ -735,6 +738,7 @@ const AdminDashboard = () => {
 
             <ResearchCentreDetail isOpen={detailModalOpen} onClose={() => setDetailModalOpen(false)} centreName={selectedCentreDetail} isDark={isDark} />
             <AIResultModal open={aiModal.open} loading={aiModal.loading} result={aiModal.result} onClose={() => setAiModal({ ...aiModal, open: false })} />
+            <AddCentreModal isOpen={isAddCentreOpen} onClose={() => setIsAddCentreOpen(false)} onRefresh={refreshCentres} />
         </div>
     );
 };
