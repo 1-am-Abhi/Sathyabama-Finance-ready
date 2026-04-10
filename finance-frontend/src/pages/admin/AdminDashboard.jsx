@@ -28,8 +28,6 @@ const AdminDashboard = () => {
     const navigate = useNavigate();
     const { user } = useAuth();
     const userId = user?.id || user?._id;
-
-    if (!userId) return null;
     const [activeMetric] = useState('projects'); // 'projects' | 'budget' | 'disbursed'
     const [selectedCentre, setSelectedCentre] = useState('ALL');
     const [selectedMonth, setSelectedMonth] = useState('ALL');
@@ -104,6 +102,8 @@ const AdminDashboard = () => {
         });
         return base;
     }, [centresStats, dynamicCentres]);
+
+    if (!userId) return null;
 
     const fyOptions = ['2023-24', '2024-25', '2025-26'];
 

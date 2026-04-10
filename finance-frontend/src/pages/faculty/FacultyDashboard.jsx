@@ -25,8 +25,6 @@ const FacultyDashboard = () => {
     const userId = user?.id || user?._id;
     const [aiModal, setAiModal] = useState({ open: false, loading: false, result: null });
 
-    if (!userId) return null;
-
     // Real data
     const [projects, setProjects] = useState([]);
     const [events, setEvents] = useState([]);
@@ -40,6 +38,8 @@ const FacultyDashboard = () => {
         setLayout("Faculty Dashboard", "Research impact & grant performance monitoring");
         loadData();
     }, [setLayout]);
+
+    if (!userId) return null;
 
     const loadData = async () => {
         try {

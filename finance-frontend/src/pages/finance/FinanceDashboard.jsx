@@ -22,11 +22,11 @@ const FinanceDashboard = () => {
     const { data: internshipPayments = [], isLoading: isLoadingInternships } = useInternshipFees();
     const { data: pfmsTransactions = [], isLoading: isLoadingPFMS } = usePFMSTransactions();
 
-    if (!userId) return null;
-
     useEffect(() => {
         setLayout("Settlement & Activities", "Manage fund releases, PFMS tracking, and internship payments");
     }, [setLayout]);
+
+    if (!userId) return null;
 
     const stats = [
         {
