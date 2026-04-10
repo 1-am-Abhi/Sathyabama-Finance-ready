@@ -103,8 +103,6 @@ const AdminDashboard = () => {
         return base;
     }, [centresStats, dynamicCentres]);
 
-    if (!userId) return null;
-
     const fyOptions = ['2023-24', '2024-25', '2025-26'];
 
     const months = [
@@ -318,6 +316,8 @@ const AdminDashboard = () => {
         };
         return colors[color] || 'bg-gray-100 text-gray-600';
     };
+
+    if (!userId) return null;
 
     if (loading) {
         return <div className="flex-1 flex items-center justify-center p-20"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-maroon-600"></div></div>;
