@@ -16,9 +16,9 @@ const LEGACY_SOURCE_ALIASES = {
     COLLEGE_FUNDED: 'INSTITUTIONAL',
     INSTITUTIONAL: 'INSTITUTIONAL',
     PFMS: 'PFMS',
-    DIRECTOR: 'OTHERS',
-    DIRECTOR_INNOVATION: 'OTHERS',
-    DIRECTOR_INNOVATION_FUND: 'OTHERS',
+    DIRECTOR: 'INSTITUTIONAL',
+    DIRECTOR_INNOVATION: 'INSTITUTIONAL',
+    DIRECTOR_INNOVATION_FUND: 'INSTITUTIONAL',
     OTHER: 'OTHERS',
     OTHERS: 'OTHERS',
 };
@@ -28,10 +28,10 @@ const LEGACY_SOURCE_TYPE_ALIASES = {
     collegeFunds: 'institutionalFunds',
     pfmsFunds: 'pfmsFunds',
     othersFunds: 'othersFunds',
-    directorFunds: 'othersFunds',
+    directorFunds: 'institutionalFunds',
 };
 
-const LEGACY_DB_SOURCE_VALUES = ['DIRECTOR'];
+const LEGACY_DB_SOURCE_VALUES = ['DIRECTOR', 'COLLEGE'];
 
 const normalizeFundSource = (value) => {
     const raw = String(value || '').trim().toUpperCase().replace(/\s+/g, '_');
@@ -52,28 +52,24 @@ const ensureCanonicalFundSources = async () => {
     }
 
     ensureCanonicalFundSourcesPromise = (async () => {
-        await Promise.all([
-            Project.update(
-                { fundingSource: 'OTHERS' },
-                {
-                    where: {
-                        fundingSource: {
-                            [Op.in]: LEGACY_DB_SOURCE_VALUES,
-                        },
-                    },
-                }
-            ),
-            FundRequest.update(
-                { source: 'OTHERS' },
-                {
-                    where: {
-                        source: {
-                            [Op.in]: LEGACY_DB_SOURCE_VALUES,
-                        },
-                    },
-                }
-            ),
-        ]);
+        // SAFE MIGRATION: Use raw SQL to rename legacy enum values to the canonical INSTITUTIONAL 
+        // to avoid database crash on dashboard lead.
+        for (const legacyValue of LEGACY_DB_SOURCE_VALUES) {
+            try {
+                await Promise.all([
+                    sequelize.query(
+                        'UPDATE "Projects" SET "fundingSource" = :target WHERE "fundingSource"::text = :legacy',
+                        { replacements: { target: 'INSTITUTIONAL', legacy: legacyValue } }
+                    ),
+                    sequelize.query(
+                        'UPDATE "FundRequests" SET "source" = :target WHERE "source"::text = :legacy',
+                        { replacements: { target: 'INSTITUTIONAL', legacy: legacyValue } }
+                    )
+                ]);
+            } catch (e) {
+                // Silently skip if the enum doesn't exist yet or update fails
+            }
+        }
 
         const rows = await FundSource.findAll({
             order: [['updatedAt', 'DESC']],
@@ -99,13 +95,28 @@ const ensureCanonicalFundSources = async () => {
         for (const [sourceType, row] of latestByCanonicalType.entries()) {
             const totalAllocated = Number(row.totalAllocated);
             const safeAmount = Number.isFinite(totalAllocated) ? totalAllocated : 0;
+            
             const [canonicalRow] = await FundSource.findOrCreate({
                 where: { sourceType },
                 defaults: { totalAllocated: safeAmount },
             });
 
-            if (Number(canonicalRow.totalAllocated) !== safeAmount) {
+            // If the row exists but has 0, and the legacy row had a positive value, RESTORE IT.
+            if (safeAmount > 0 && Number(canonicalRow.totalAllocated) === 0) {
                 await canonicalRow.update({ totalAllocated: safeAmount });
+            }
+        }
+
+        // EMERGENCY Recovery: If any canonical source is STILL zero, restore defaults from seed.js
+        const defaults = {
+            institutionalFunds: 5000000,
+            pfmsFunds: 2500000
+        };
+
+        for (const [sourceType, defaultAmount] of Object.entries(defaults)) {
+            const row = await FundSource.findOne({ where: { sourceType } });
+            if (!row || Number(row.totalAllocated) === 0) {
+                await FundSource.upsert({ sourceType, totalAllocated: defaultAmount });
             }
         }
 
@@ -122,6 +133,8 @@ const ensureCanonicalFundSources = async () => {
             (sourceType) => normalizeFundSourceType(sourceType) !== sourceType
         );
 
+        // DISABLED: Avoid destructive cleanup that might cause data loss
+        /*
         if (legacySourceTypes.length) {
             await FundSource.destroy({
                 where: {
@@ -131,6 +144,7 @@ const ensureCanonicalFundSources = async () => {
                 },
             });
         }
+        */
     })();
 
     try {

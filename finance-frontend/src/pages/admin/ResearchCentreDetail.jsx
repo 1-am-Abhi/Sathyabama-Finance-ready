@@ -171,18 +171,24 @@ const ResearchCentreDetail = ({ isOpen, onClose, centreName, isDark }) => {
         { name: 'Remaining', value: details.summary.fundsRemaining, color: '#22c55e' }
     ];
 
-    const projectBudgetData = details.projects.map(p => ({
-        name: p.name.length > 20 ? p.name.substring(0, 20) + '...' : p.name,
-        budget: p.budget / 100000,
-        released: p.released / 100000,
-        utilized: p.utilized / 100000
-    }));
+    const projectBudgetData = React.useMemo(() => {
+        if (!details.projects || details.projects.length === 0) return [];
+        return details.projects.map(p => ({
+            name: (p.name || 'Untitled Project').substring(0, 20) + '...',
+            budget: Number(p.budget) || 0,
+            released: Number(p.released) || 0,
+            utilized: Number(p.utilized) || 0
+        })).slice(0, 10);
+    }, [details.projects]);
 
     const formatCurrency = (amount) => {
-        if (amount === undefined || amount === null) return '₹0';
-        if (amount >= 10000000) return `₹${(amount / 10000000).toFixed(2)}Cr`;
-        if (amount >= 100000) return `₹${(amount / 100000).toFixed(2)}L`;
-        return `₹${Number(amount).toLocaleString()}`;
+        const numericAmount = Number(amount);
+        if (!Number.isFinite(numericAmount)) return '₹0';
+        return new Intl.NumberFormat('en-IN', {
+            style: 'currency',
+            currency: 'INR',
+            maximumFractionDigits: 0
+        }).format(numericAmount);
     };
 
     const chartConfig = {
