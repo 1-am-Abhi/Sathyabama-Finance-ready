@@ -5,7 +5,7 @@ import { useDisbursementQueue, useExecuteDisbursement } from '../../hooks/useFin
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
 import { Badge } from '../../components/ui/badge';
-import { IndianRupee, Search, Filter, ArrowRight, Building2, Hash, Users, FileText, Clock, Calendar, Sparkles } from 'lucide-react';
+import { IndianRupee, Search, Filter, ArrowRight, Building2, Hash, Users, FileText, Clock, Calendar, Sparkles, TrendingUp } from 'lucide-react';
 import useToast from '../../hooks/useToast';
 
 const DisbursementQueue = () => {

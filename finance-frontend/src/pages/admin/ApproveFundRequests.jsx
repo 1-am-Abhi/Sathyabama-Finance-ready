@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card';
 import { useNotifications } from '../../contexts/NotificationContext';
 import { Button } from '../../components/ui/button';
@@ -19,6 +20,7 @@ const ApproveFundRequests = () => {
     const { fundRequests, approveRequest, rejectRequest, advanceStage, isLoading } = usePipeline();
     const { setLayout } = useLayout();
     const { addNotification } = useNotifications();
+    const navigate = useNavigate();
     const { centres: dynamicCentres } = useCentres();
     const [selectedDate, setSelectedDate] = useState(null);
     const [selectedCentre, setSelectedCentre] = useState('All');
