@@ -702,25 +702,25 @@ const AdminDashboard = () => {
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
-                                    {(recentRequests || []).flatMap(req => (req.auditTrail || []).map((log, idx) => ({ ...log, project: req.projectTitle, id: `${req._id}-${idx}` }))).length > 0 ? (
-                                        {(recentRequests || []).flatMap(req => (req.auditTrail || []).map((log, idx) => ({ ...log, project: req.projectTitle, id: `${req._id}-${idx}` })))
-                                            .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
-                                            .slice(0, 10)
-                                            .map((log) => (
-                                            <TableRow key={log.id} className="text-xs">
-                                                <TableCell className="pl-4 sm:pl-8 py-3 sm:py-4">
-                                                    <div className="flex flex-col">
-                                                        <span className="font-black italic uppercase text-slate-800 dark:text-white truncate max-w-[140px] sm:max-w-[200px]">{log.project}</span>
-                                                        <span className="text-[9px] font-bold text-indigo-500 uppercase italic mt-0.5">{log.stage}</span>
-                                                    </div>
-                                                </TableCell>
-                                                <TableCell className="font-bold italic uppercase text-slate-600 dark:text-slate-400">{log.updatedByName || 'SYSTEM'}</TableCell>
-                                                <TableCell className="text-[10px] font-bold text-gray-400 italic">
-                                                    {new Date(log.timestamp).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}
-                                                </TableCell>
-                                                <TableCell className="pr-4 sm:pr-8 text-right italic font-medium text-gray-500 truncate max-w-[160px] sm:max-w-[250px]">{log.remarks}</TableCell>
-                                            </TableRow>
-                                        ))
+                                {(recentRequests || []).flatMap(req => (req.auditTrail || []).map((log, idx) => ({ ...log, project: req.projectTitle, id: `${req._id}-${idx}` }))).length > 0 ? (
+                                    (recentRequests || []).flatMap(req => (req.auditTrail || []).map((log, idx) => ({ ...log, project: req.projectTitle, id: `${req._id}-${idx}` })))
+                                        .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
+                                        .slice(0, 10)
+                                        .map((log) => (
+                                        <TableRow key={log.id} className="text-xs">
+                                            <TableCell className="pl-4 sm:pl-8 py-3 sm:py-4">
+                                                <div className="flex flex-col">
+                                                    <span className="font-black italic uppercase text-slate-800 dark:text-white truncate max-w-[140px] sm:max-w-[200px]">{log.project}</span>
+                                                    <span className="text-[9px] font-bold text-indigo-500 uppercase italic mt-0.5">{log.stage}</span>
+                                                </div>
+                                            </TableCell>
+                                            <TableCell className="font-bold italic uppercase text-slate-600 dark:text-slate-400">{log.updatedByName || 'SYSTEM'}</TableCell>
+                                            <TableCell className="text-[10px] font-bold text-gray-400 italic">
+                                                {new Date(log.timestamp).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}
+                                            </TableCell>
+                                            <TableCell className="pr-4 sm:pr-8 text-right italic font-medium text-gray-500 truncate max-w-[160px] sm:max-w-[250px]">{log.remarks}</TableCell>
+                                        </TableRow>
+                                    ))
                                 ) : (
                                     <TableRow><TableCell colSpan={4} className="text-center py-10 opacity-30 italic text-sm">No administrative logs currently synchronized.</TableCell></TableRow>
                                 )}
