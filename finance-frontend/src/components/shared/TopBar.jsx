@@ -14,13 +14,13 @@ const TopBar = ({ title, subtitle, onMenuClick }) => {
     const fetchNotifications = async () => {
         try {
             const res = await axios.get(`/notifications/${userId}`);
-            setNotifications(res.data);
+            setNotifications(res.data.data || []);
         } catch (err) {
             console.error("Failed to fetch notifications", err);
         }
     };
 
-    const filteredNotifications = notifications?.filter(n => !n.isRead) || [];
+    const filteredNotifications = Array.isArray(notifications) ? notifications.filter(n => !n.isRead) : [];
     const unreadCount = filteredNotifications.length;
 
     const clearAll = async () => {
