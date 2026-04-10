@@ -56,7 +56,7 @@ exports.getNotifications = async (req, res) => {
             limit: 50
         });
 
-        res.status(200).json(notifications);
+        res.status(200).json({ success: true, data: notifications || [] });
     } catch (error) {
         console.error('Get Notifications Error:', error);
         res.status(500).json({ success: false, message: error.message });

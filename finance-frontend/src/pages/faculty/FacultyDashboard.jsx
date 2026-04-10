@@ -90,12 +90,11 @@ const FacultyDashboard = () => {
 
         window.addEventListener('fund-sources-updated', handleFundingSync);
         window.addEventListener('storage', handleStorage);
-        window.addEventListener('focus', handleFundingSync);
 
         return () => {
+            clearInterval(intervalId);
             window.removeEventListener('fund-sources-updated', handleFundingSync);
             window.removeEventListener('storage', handleStorage);
-            window.removeEventListener('focus', handleFundingSync);
         };
     }, [loadData, setLayout, userId]);
 
@@ -123,8 +122,8 @@ const FacultyDashboard = () => {
 
     const stats = [
         { title: 'Active Projects', value: loading ? '…' : String(statsData?.activeProjects || 0), icon: FileText, color: 'text-rose-400', bg: 'bg-rose-500/10', border: 'border-rose-500/20', subtitle: 'Ongoing research' },
-        { title: 'Amount Disbursed', value: loading ? '…' : formatCurrency(statsData?.totalDisbursed || 0), icon: TrendingUp, color: 'text-amber-400', bg: 'bg-amber-500/10', border: 'border-amber-500/20', subtitle: 'Released to projects' },
-        { title: 'Total Allocated', value: loading ? '…' : formatCurrency(statsData?.totalAllocated || 0), icon: Banknote, color: 'text-emerald-400', bg: 'bg-emerald-500/10', border: 'border-emerald-500/20', subtitle: 'Approved grants' },
+        { title: 'Amount Disbursed', value: loading ? '…' : formatCurrency(statsData?.facultyDisbursed || statsData?.totalDisbursed || 0), icon: TrendingUp, color: 'text-amber-400', bg: 'bg-amber-500/10', border: 'border-amber-500/20', subtitle: 'Released to projects' },
+        { title: 'Total Allocated', value: loading ? '…' : formatCurrency(statsData?.facultyApprovedFunds || statsData?.totalAllocated || 0), icon: Banknote, color: 'text-emerald-400', bg: 'bg-emerald-500/10', border: 'border-emerald-500/20', subtitle: 'Approved grants' },
         { title: 'Publications', value: String(publications), icon: Award, color: 'text-violet-400', bg: 'bg-violet-500/10', border: 'border-violet-500/20', subtitle: 'Research output' }
     ];
 

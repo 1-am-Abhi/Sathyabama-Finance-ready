@@ -123,6 +123,10 @@ const VerifyInternshipFees = () => {
                 );
                 setSelected(null);
                 setPaymentData({ paymentMode: '', receiptNumber: '', paymentDate: '' });
+                
+                // Sync with other tabs/components
+                window.dispatchEvent(new Event('fund-sources-updated'));
+                localStorage.setItem('fundSourcesUpdatedAt', Date.now());
             } else {
                 throw new Error(res.data.message);
             }

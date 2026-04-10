@@ -44,6 +44,10 @@ const UpdateFundSourceModal = ({ isOpen, onClose, fundSource, onSubmit, isLoadin
         try {
             await onSubmit(payload);
 
+            // Sync with other tabs/components
+            window.dispatchEvent(new Event('fund-sources-updated'));
+            localStorage.setItem('fundSourcesUpdatedAt', Date.now());
+
             // Reset form
             setAmount('');
             setRemarks('');

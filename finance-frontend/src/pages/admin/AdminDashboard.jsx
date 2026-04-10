@@ -6,7 +6,8 @@ import { Badge } from '../../components/ui/badge';
 import { Button } from '../../components/ui/button';
 import {
     FileText, Banknote, CheckCircle, TrendingUp,
-    UserPlus, BarChart3, Filter, Wallet, Building2, Activity, CircleDollarSign
+    UserPlus, BarChart3, Filter, Wallet, Building2, Activity, CircleDollarSign,
+    Sparkles
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useLayout } from '../../contexts/LayoutContext';

@@ -236,7 +236,7 @@ const TopBar = ({ title, subtitle, onMenuClick }) => {
                                     </div>
 
                                     <div className="max-h-[400px] overflow-y-auto">
-                                        {notifications.length === 0 ? (
+                                        {(notifications || []).length === 0 ? (
                                             <div className="p-8 text-center flex flex-col items-center">
                                                 <div className="w-16 h-16 bg-gray-50 dark:bg-slate-800 rounded-full flex items-center justify-center mb-3">
                                                     <Bell className="w-6 h-6 text-gray-300 dark:text-gray-600" />

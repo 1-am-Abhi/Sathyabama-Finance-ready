@@ -48,6 +48,10 @@ const UpdateFundingModal = ({ isOpen, onClose, department, onSuccess }) => {
                 onSuccess();
             }
 
+            // Sync with other tabs/components
+            window.dispatchEvent(new Event('fund-sources-updated'));
+            localStorage.setItem('fundSourcesUpdatedAt', Date.now());
+
             // Close modal
             onClose();
         } catch (error) {

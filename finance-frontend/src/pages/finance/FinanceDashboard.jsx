@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
 import { Badge } from '../../components/ui/badge';
@@ -16,6 +17,7 @@ const FinanceDashboard = () => {
     const navigate = useNavigate();
     const { user } = useAuth();
     const userId = user?.id || user?._id;
+    const queryClient = useQueryClient();
     
     const { data: financeStats = {}, isLoading: isLoadingStats } = useFinanceStats();
     const { data: fundFlowProjects = [], isLoading: isLoadingFundFlow } = useFundFlowProjects();
@@ -24,7 +26,25 @@ const FinanceDashboard = () => {
 
     useEffect(() => {
         setLayout("Settlement & Activities", "Manage fund releases, PFMS tracking, and internship payments");
-    }, [setLayout]);
+
+        const handleFundingSync = () => {
+            queryClient.invalidateQueries();
+        };
+
+        const handleStorage = (event) => {
+            if (event.key === 'fundSourcesUpdatedAt') {
+                queryClient.invalidateQueries();
+            }
+        };
+
+        window.addEventListener('fund-sources-updated', handleFundingSync);
+        window.addEventListener('storage', handleStorage);
+
+        return () => {
+            window.removeEventListener('fund-sources-updated', handleFundingSync);
+            window.removeEventListener('storage', handleStorage);
+        };
+    }, [setLayout, queryClient]);
 
     if (!userId) return null;
 

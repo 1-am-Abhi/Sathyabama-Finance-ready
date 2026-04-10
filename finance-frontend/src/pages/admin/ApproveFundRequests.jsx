@@ -54,6 +54,13 @@ const ApproveFundRequests = () => {
             
             setSelectedRequest(null);
             setApprovalNotes('');
+            
+            // Sync with other tabs/components
+            window.dispatchEvent(new Event('fund-sources-updated'));
+            localStorage.setItem('fundSourcesUpdatedAt', Date.now());
+            
+            // Redirect after successful approval
+            navigate('/finance/dashboard');
         } catch (error) {
             console.error('Approval failed:', error);
         }

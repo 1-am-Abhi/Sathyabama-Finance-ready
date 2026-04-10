@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useLayout } from '../../contexts/LayoutContext';
 import { useDisbursementQueue, useExecuteDisbursement } from '../../hooks/useFinance';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../../components/ui/card';
@@ -9,6 +10,7 @@ import useToast from '../../hooks/useToast';
 
 const DisbursementQueue = () => {
     const { setLayout } = useLayout();
+    const navigate = useNavigate();
     const { showToast, ToastPortal } = useToast();
     const [searchTerm, setSearchTerm] = useState('');
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -49,6 +51,13 @@ const DisbursementQueue = () => {
                 disbursementDate: new Date().toISOString().split('T')[0],
                 remarks: ''
             });
+
+            // Sync with other tabs/components
+            window.dispatchEvent(new Event('fund-sources-updated'));
+            localStorage.setItem('fundSourcesUpdatedAt', Date.now());
+
+            // Redirect after successful execution
+            navigate('/finance/dashboard');
         } catch (error) {
             showToast(error.response?.data?.message || 'Failed to execute disbursement', 'error');
         }
