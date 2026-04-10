@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../..
 import { Badge } from '../../components/ui/badge';
 import { Button } from '../../components/ui/button';
 import { 
-    CheckCircle, Briefcase, TrendingUp, Award, BarChart2, Brain, Sparkles, X, ChevronRight, Calendar,
+    CheckCircle, TrendingUp, Award, BarChart2, Brain, Sparkles, X, Calendar,
     Upload, FileCheck, AlertTriangle, Clock, Layers, BookOpen, Plus, Edit2, Building
 } from 'lucide-react';
 import * as XLSX from 'xlsx';

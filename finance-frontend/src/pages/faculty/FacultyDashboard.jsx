@@ -92,7 +92,6 @@ const FacultyDashboard = () => {
         window.addEventListener('storage', handleStorage);
 
         return () => {
-            clearInterval(intervalId);
             window.removeEventListener('fund-sources-updated', handleFundingSync);
             window.removeEventListener('storage', handleStorage);
         };
