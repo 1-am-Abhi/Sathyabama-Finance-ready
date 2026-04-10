@@ -37,9 +37,11 @@ const FacultyDetail = ({ isOpen, onClose, faculty, centreName, isDark }) => {
     const totalUtilized = projects.reduce((sum, p) => sum + p.utilized, 0);
 
     const formatCurrency = (amount) => {
-        if (amount >= 10000000) return `₹${(amount / 10000000).toFixed(2)}Cr`;
-        if (amount >= 100000) return `₹${(amount / 100000).toFixed(2)}L`;
-        return `₹${amount.toLocaleString()}`;
+        if (amount === undefined || amount === null) return '₹0';
+        const num = Number(amount);
+        if (num >= 10000000) return `₹${(num / 10000000).toFixed(2)}Cr`;
+        if (num >= 100000) return `₹${(num / 100000).toFixed(2)}L`;
+        return `₹${num.toLocaleString()}`;
     };
 
     // Chart data

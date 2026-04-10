@@ -203,7 +203,7 @@ const AdminDashboard = () => {
             }))
             : [
                 { name: 'Government Funded', value: Math.max(1, Math.round((filteredData[0]?.totalProjects || 0) * 0.65)) },
-                { name: 'Institutional', value: Math.max(0, Math.round((filteredData[0]?.totalProjects || 0) * 0.25)) },
+                { name: "Director's Innovation", value: Math.max(0, Math.round((filteredData[0]?.totalProjects || 0) * 0.25)) },
                 { name: 'Industry Sponsored', value: Math.max(0, Math.round((filteredData[0]?.totalProjects || 0) * 0.10)) },
             ];
         return data.filter(item => item.value > 0);

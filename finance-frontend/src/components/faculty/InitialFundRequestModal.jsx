@@ -182,7 +182,7 @@ const InitialFundRequestModal = ({ isOpen, onClose, onSubmit }) => {
                                     <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${formData.fundSource === 'INSTITUTIONAL' ? 'border-amber-600' : 'border-gray-300'}`}>
                                         {formData.fundSource === 'INSTITUTIONAL' && <div className="w-2 h-2 rounded-full bg-amber-600" />}
                                     </div>
-                                    <span className="text-xs font-bold uppercase tracking-wider">Institutional</span>
+                                    <span className="text-[10px] font-bold uppercase tracking-wider">Director's Innovation Fund</span>
                                 </button>
 
                                 <button
