@@ -5,6 +5,7 @@ import { ProjectProvider } from './contexts/ProjectContext';
 import { PipelineProvider } from './contexts/PipelineContext';
 import { AuthProvider } from './contexts/AuthContext';
 import { NotificationProvider } from './contexts/NotificationContext';
+import ErrorBoundary from './components/shared/ErrorBoundary';
 import { Toaster } from 'sonner';
 
 const queryClient = new QueryClient({
@@ -36,7 +37,9 @@ function App() {
         <NotificationProvider>
           <ProjectProvider>
             <PipelineProvider>
-              <AppRoutes />
+              <ErrorBoundary>
+                <AppRoutes />
+              </ErrorBoundary>
             </PipelineProvider>
           </ProjectProvider>
         </NotificationProvider>

@@ -3,6 +3,7 @@ const { Sequelize } = require('sequelize');
 
 const models = {
     AcademicMetric: require('./AcademicMetric'),
+    AuditLog: require('./AuditLog'),
     Centre: require('./Centre'),
     Disbursement: require('./Disbursement'),
     Document: require('./Document'),
@@ -23,6 +24,7 @@ const models = {
 
 const {
     AcademicMetric,
+    AuditLog,
     Centre,
     Disbursement,
     Document,
@@ -129,6 +131,10 @@ Revenue.hasMany(Ledger, { foreignKey: 'revenueId', as: 'ledgerEntries' });
 Ledger.belongsTo(Revenue, { foreignKey: 'revenueId', as: 'Revenue' });
 User.hasMany(Ledger, { foreignKey: 'createdByUserId', as: 'createdLedgerEntries' });
 Ledger.belongsTo(User, { foreignKey: 'createdByUserId', as: 'createdByUser' });
+
+// Audit logs
+User.hasMany(AuditLog, { foreignKey: 'userId', as: 'auditLogs' });
+AuditLog.belongsTo(User, { foreignKey: 'userId', as: 'user' });
 
 models.sequelize = sequelize;
 models.Sequelize = Sequelize;

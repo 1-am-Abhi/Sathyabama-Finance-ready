@@ -485,7 +485,9 @@ exports.getProjects = async (req, res) => {
 exports.getDisbursementQueue = async (req, res) => {
     try {
         const User = require('../models/User');
-        const requests = await FundRequest.findAll({
+        const page = parseInt(req.query.page, 10) || 1;
+        const limit = parseInt(req.query.limit, 10) || null;
+        const options = {
             where: {
                 status: 'PENDING_DISBURSAL'
             },
@@ -494,7 +496,13 @@ exports.getDisbursementQueue = async (req, res) => {
                 { model: User, attributes: ['name', 'email', 'department'], as: 'requester', required: false }
             ],
             order: [['updatedAt', 'ASC']]
-        });
+        };
+        if (limit) {
+            options.limit = limit;
+            options.offset = (page - 1) * limit;
+        }
+
+        const requests = await FundRequest.findAll(options);
 
         const normalized = requests.map((request) => {
             const data = normalizeFundRequest(request);
@@ -504,7 +512,12 @@ exports.getDisbursementQueue = async (req, res) => {
             };
         });
 
-        res.status(200).json({ success: true, data: normalized });
+        const responsePayload = { success: true, data: normalized };
+        if (limit) {
+            const count = await FundRequest.count({ where: options.where });
+            responsePayload.pagination = { total: count, page, pages: Math.ceil(count / limit) };
+        }
+        res.status(200).json(responsePayload);
     } catch (error) {
         console.error('getDisbursementQueue Error:', error);
         return serverError(res, error);
@@ -716,7 +729,9 @@ exports.getFinancialReports = async (req, res) => {
 
 exports.getDisbursalHistory = async (req, res) => {
     try {
-        const history = await Disbursement.findAll({
+        const page = parseInt(req.query.page, 10) || 1;
+        const limit = parseInt(req.query.limit, 10) || null;
+        const options = {
             include: [
                 {
                     model: FundRequest,
@@ -729,8 +744,19 @@ exports.getDisbursalHistory = async (req, res) => {
                 }
             ],
             order: [['disbursedAt', 'DESC']]
-        });
-        res.status(200).json({ success: true, data: history.map((entry) => normalizeDisbursement(entry)) });
+        };
+        if (limit) {
+            options.limit = limit;
+            options.offset = (page - 1) * limit;
+        }
+
+        const history = await Disbursement.findAll(options);
+        const responsePayload = { success: true, data: history.map((entry) => normalizeDisbursement(entry)) };
+        if (limit) {
+            const count = await Disbursement.count();
+            responsePayload.pagination = { total: count, page, pages: Math.ceil(count / limit) };
+        }
+        res.status(200).json(responsePayload);
     } catch (error) {
         return serverError(res, error);
     }

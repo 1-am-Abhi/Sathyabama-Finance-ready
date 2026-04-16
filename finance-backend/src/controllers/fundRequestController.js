@@ -12,6 +12,7 @@ const { serverError } = require('../utils/controllerError');
 const { FundRequest, FUND_FLOW_STAGES } = require('../models/FundRequest');
 const Project = require('../models/Project');
 const Disbursement = require('../models/Disbursement');
+const AuditLog = require('../models/AuditLog');
 const { Op } = require('sequelize');
 const NotificationService = require('../services/notificationService');
 const Centre = require('../models/Centre');
@@ -81,11 +82,19 @@ const nextInstallmentNumber = async (projectId) => {
 
 exports.getFundRequests = async (req, res) => {
     try {
-        console.log('[getFundRequests] Starting getFundRequests process...');
+        const page = parseInt(req.query.page, 10) || 1;
+        const limit = parseInt(req.query.limit, 10) || null; // default null maintains legacy behavior if not passed
+        
         const options = {
             order: [['createdAt', 'DESC']],
             include: [],
         };
+        
+        // Add offset limits if passed
+        if (limit) {
+            options.limit = limit;
+            options.offset = (page - 1) * limit;
+        }
 
         try {
             console.log('[getFundRequests] Building Centre include...');
@@ -131,7 +140,14 @@ exports.getFundRequests = async (req, res) => {
         });
         console.log(`[getFundRequests] Normalization loop completed. Returning ${data.length} records.`);
 
-        return res.status(200).json({ success: true, count: data.length, data });
+        const responsePayload = { success: true, count: data.length, data };
+        if (limit) {
+            const countOptions = { where: options.where };
+            const totalRecords = await FundRequest.count(countOptions);
+            responsePayload.pagination = { total: totalRecords, page, pages: Math.ceil(totalRecords / limit) };
+        }
+
+        return res.status(200).json(responsePayload);
     } catch (error) {
         console.error('[getFundRequests] FATAL: Database query or unexpected failure!', error);
         console.error('[getFundRequests] FATAL Stack Trace:', error.stack);
@@ -278,6 +294,14 @@ exports.createFundRequest = async (req, res) => {
             `/admin/fund-requests`
         );
 
+        await AuditLog.create({
+            userId: req.user.id || req.user._id,
+            action: 'FUND_REQUEST_CREATED',
+            entityType: 'FundRequest',
+            entityId: String(fundRequest.id),
+            metadata: { projectTitle, amount }
+        });
+
         return res.status(201).json({ success: true, data: fundRequest });
     } catch (error) {
         return serverError(res, error);
@@ -340,6 +364,14 @@ exports.approveFundRequest = async (req, res) => {
             '/finance/disbursements'
         );
 
+        await AuditLog.create({
+            userId: req.user.id || req.user._id,
+            action: 'FUND_REQUEST_APPROVED',
+            entityType: 'FundRequest',
+            entityId: String(request.id),
+            metadata: { remarks: req.body.remarks }
+        });
+
         return res.status(200).json({ success: true, data: request });
     } catch (error) {
         return serverError(res, error);
@@ -376,6 +408,14 @@ exports.rejectFundRequest = async (req, res) => {
             'ALERT',
             '/faculty/request-funds'
         );
+
+        await AuditLog.create({
+            userId: req.user.id || req.user._id,
+            action: 'FUND_REQUEST_REJECTED',
+            entityType: 'FundRequest',
+            entityId: String(request.id),
+            metadata: { remarks: req.body.remarks }
+        });
 
         return res.status(200).json({ success: true, data: request });
     } catch (error) {
@@ -462,6 +502,14 @@ exports.disburseFund = async (req, res) => {
             'SUCCESS',
             '/faculty/request-funds'
         );
+
+        await AuditLog.create({
+            userId: req.user.id || req.user._id,
+            action: 'FUND_REQUEST_DISBURSED',
+            entityType: 'FundRequest',
+            entityId: String(updatedRequest.id),
+            metadata: { transactionId: payload.transactionId, amount: Number(updatedRequest.requestedAmount) }
+        });
 
         return res.status(200).json({
             success: true,
