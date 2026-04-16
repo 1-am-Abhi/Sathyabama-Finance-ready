@@ -58,16 +58,17 @@ const AdminDashboard = () => {
                 apiClient.get('/fund-requests')
             ]);
 
-            if (statsRes.data?.success) {
+            if (statsRes?.data?.success) {
                 const fetchedStats = statsRes.data.data || statsRes.data.stats;
                 const fetchedCentres = statsRes.data.meta?.centres || statsRes.data.centres || [];
                 setStats(fetchedStats);
                 setCentresStats(fetchedCentres);
             }
-            if (requestsRes.data?.success) {
+            if (requestsRes?.data?.success) {
                 const requests = requestsRes.data.data || [];
                 setRecentRequests(requests.slice(0, 5));
             }
+
         } catch (error) {
             console.error("Error fetching admin data:", error);
         } finally {

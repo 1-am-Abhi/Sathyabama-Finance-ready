@@ -49,8 +49,12 @@ global.features = {
 
 const server = http.createServer(app);
 
-// Distributed Real-time: Socket.io with Redis Adapter
-const io = socketIo(server, { cors: { origin: '*' } });
+// Distributed Real-time: Socket.io with Redis Adapter (polling fallback enabled)
+const io = socketIo(server, { 
+    cors: { origin: '*', methods: ["GET", "POST"] },
+    transports: ["websocket", "polling"]
+});
+
 
 if (createAdapter && isHealthy()) {
     io.adapter(createAdapter(pubClient, subClient));

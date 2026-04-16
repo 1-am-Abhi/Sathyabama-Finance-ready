@@ -50,14 +50,15 @@ const FacultyDashboard = () => {
                 apiClient.get('/projects/faculty-stats').catch(() => ({ data: { success: false } }))
             ]);
 
-            setProjects(projRes.data.data || []);
-            setEvents(eventRes.data.data || []);
-            setFundRequests(fundRes.data.data || []);
-            setEquipmentRequests(eqRes.data.data || []);
+            setProjects(projRes?.data?.data || []);
+            setEvents(eventRes?.data?.data || []);
+            setFundRequests(fundRes?.data?.data || []);
+            setEquipmentRequests(eqRes?.data?.data || []);
             
-            if (revRes.data.success) {
-                setRevenueSummary(revRes.data.data.summary || { total: 0 });
+            if (revRes?.data?.success) {
+                setRevenueSummary(revRes.data.data?.summary || { total: 0 });
             }
+
 
             if (statsRes.data.success) {
                 console.log("Faculty Data Truth:", statsRes.data.stats);

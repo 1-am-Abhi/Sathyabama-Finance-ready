@@ -9,7 +9,7 @@ import ErrorBoundary from './components/shared/ErrorBoundary';
 import { Toaster, toast } from 'sonner';
 import { io } from 'socket.io-client';
 
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+const API_URL = process.env.REACT_APP_API_URL || 'https://finance-api-x1ig.onrender.com';
 
 const SocketHandler = () => {
   const { user } = useAuth();
@@ -18,10 +18,12 @@ const SocketHandler = () => {
     if (!user) return;
     
     const socket = io(API_URL, {
+      transports: ["websocket", "polling"],
       auth: {
         token: localStorage.getItem('token') || ''
       }
     });
+
     
     socket.on('notification', (data) => {
 
