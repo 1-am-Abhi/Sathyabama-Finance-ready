@@ -31,7 +31,8 @@ const FacultyEventRequests = () => {
         venue: '',
         startDate: '',
         endDate: '',
-        participants: '',
+        internalParticipants: '',
+        externalParticipants: '',
         fundingType: 'College Funded',
         fundingSource: '',
         requestedAmount: '',
@@ -82,7 +83,9 @@ const FacultyEventRequests = () => {
             const payload = {
                 ...formData,
                 dates: `${formData.startDate} to ${formData.endDate}`,
-                participants: parseInt(formData.participants) || 0,
+                participants: (parseInt(formData.internalParticipants) || 0) + (parseInt(formData.externalParticipants) || 0),
+                internalParticipants: parseInt(formData.internalParticipants) || 0,
+                externalParticipants: parseInt(formData.externalParticipants) || 0,
                 requestedAmount: parseFloat(formData.requestedAmount) || 0,
                 isFullDay: formData.isFullDay,
                 startTime: !formData.isFullDay ? formData.startTime : null,
@@ -93,7 +96,7 @@ const FacultyEventRequests = () => {
             setRequests([response.data.data, ...requests]);
             setIsModalOpen(false);
             setFormData({
-                eventTitle: '', eventType: 'Seminar', venue: '', startDate: '', endDate: '', participants: '', fundingType: 'College Funded', fundingSource: '', requestedAmount: '', isFullDay: true, startTime: '09:00', endTime: '17:00'
+                eventTitle: '', eventType: 'Seminar', venue: '', startDate: '', endDate: '', internalParticipants: '', externalParticipants: '', fundingType: 'College Funded', fundingSource: '', requestedAmount: '', isFullDay: true, startTime: '09:00', endTime: '17:00'
             });
 
 
@@ -204,11 +207,25 @@ const FacultyEventRequests = () => {
                                         <option>Workshop</option>
                                         <option>Conference</option>
                                         <option>Guest Lecture</option>
+                                        <option>Value Added Course</option>
+                                        <option>Summer Internship</option>
+                                        <option>Certification Project</option>
                                     </select>
                                 </div>
                                 <div className="space-y-3">
-                                    <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-1 italic">Expected Turnout</Label>
-                                    <Input required type="number" value={formData.participants} onChange={e => setFormData({...formData, participants: e.target.value})} className="h-14 bg-gray-50 dark:bg-slate-800 border-0 rounded-2xl font-bold italic text-sm" placeholder="0" />
+                                    <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-1 italic">Internal Participants (Inside College)</Label>
+                                    <Input required type="number" value={formData.internalParticipants} onChange={e => setFormData({...formData, internalParticipants: e.target.value})} className="h-14 bg-gray-50 dark:bg-slate-800 border-0 rounded-2xl font-bold italic text-sm" placeholder="0" />
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-6">
+                                <div className="space-y-3">
+                                    <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-1 italic">External Participants (Outside College)</Label>
+                                    <Input required type="number" value={formData.externalParticipants} onChange={e => setFormData({...formData, externalParticipants: e.target.value})} className="h-14 bg-gray-50 dark:bg-slate-800 border-0 rounded-2xl font-bold italic text-sm" placeholder="0" />
+                                </div>
+                                <div className="space-y-3">
+                                    <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-1 italic">Target Venue</Label>
+                                    <Input required value={formData.venue} onChange={e => setFormData({...formData, venue: e.target.value})} className="h-14 bg-gray-50 dark:bg-slate-800 border-0 rounded-2xl font-bold italic text-sm" placeholder="e.g. Main Auditorium" />
                                 </div>
                             </div>
 
@@ -255,10 +272,7 @@ const FacultyEventRequests = () => {
                                 </div>
                             )}
 
-                            <div className="space-y-3">
-                                <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-1 italic">Target Venue</Label>
-                                <Input required value={formData.venue} onChange={e => setFormData({...formData, venue: e.target.value})} className="h-14 bg-gray-50 dark:bg-slate-800 border-0 rounded-2xl font-bold italic text-sm" placeholder="e.g. Main Auditorium" />
-                            </div>
+                            {/* Removed original Venue location to fit participants grid above */}
 
                             <div className="grid grid-cols-2 gap-6">
                                 <div className="space-y-3">
@@ -282,7 +296,7 @@ const FacultyEventRequests = () => {
                             </div>
 
                             <Button type="submit" disabled={isSubmitting} className="w-full h-16 bg-maroon-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest italic shadow-xl shadow-maroon-600/20 hover:scale-[1.02] transition-all mt-4">
-                                {isSubmitting ? 'Transmitting...' : 'Transmit Protocol'}
+                                {isSubmitting ? 'Submitting...' : 'Submit'}
                             </Button>
                         </form>
                     </DialogContent>
@@ -316,7 +330,7 @@ const FacultyEventRequests = () => {
                                     </td>
                                     <td className="px-8 py-6">
                                         <p className="text-xs font-bold text-slate-700 dark:text-slate-300 line-clamp-1">{req.venue}</p>
-                                        <p className="text-[10px] font-black uppercase text-gray-400 tracking-wider mt-0.5">{req.dates} • {req.participants} PAX</p>
+                                        <p className="text-[10px] font-black uppercase text-gray-400 tracking-wider mt-0.5">{req.dates} • {req.participants} (Int: {req.internalParticipants || 0}, Ext: {req.externalParticipants || 0})</p>
                                     </td>
                                     <td className="px-8 py-6">
                                         <div className="flex items-center gap-1 mb-1">
@@ -416,7 +430,12 @@ const FacultyEventRequests = () => {
                                     </div>
                                     <div className="flex items-center gap-2 text-white font-bold italic mt-2">
                                         <Users className="w-4 h-4 text-blue-500" />
-                                        <span className="text-xs uppercase">{selectedRequest.participants} Expected Delegates</span>
+                                        <span className="text-xs uppercase">
+                                            {selectedRequest.participants} Participants 
+                                            <span className="text-[10px] text-slate-500 ml-1">
+                                                (Int: {selectedRequest.internalParticipants || 0}, Ext: {selectedRequest.externalParticipants || 0})
+                                            </span>
+                                        </span>
                                     </div>
                                     {!selectedRequest.isFullDay && selectedRequest.startTime && (
                                         <div className="flex items-center gap-2 text-indigo-400 font-black italic text-[11px] uppercase mt-2">
@@ -493,7 +512,7 @@ const FacultyEventRequests = () => {
                         )}
 
                         <Button onClick={() => setShowDetailsModal(false)} className="w-full h-16 bg-slate-800 hover:bg-slate-700 text-white rounded-2xl font-black text-xs uppercase tracking-widest italic border border-white/10 mt-4">
-                            Terminate View
+                            Close
                         </Button>
                     </div>
                 </div>

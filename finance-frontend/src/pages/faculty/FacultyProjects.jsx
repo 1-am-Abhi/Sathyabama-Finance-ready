@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { useLayout } from '../../contexts/LayoutContext';
+import { FUND_SOURCE_OPTIONS, getFundSourceLabel } from '../../constants/fundSources';
 import { useAuth } from '../../contexts/AuthContext';
 import AcademicWorkModal from '../../components/faculty/NewProjectModal';
 import AIResultModal from '../../components/shared/AIResultModal';
@@ -109,11 +110,14 @@ const FacultyProjects = () => {
                     department: user?.department || data.department || 'Research',
                     centre: user?.centre || 'Research Centre',
                     sanctionedBudget: Number(data.amount || data.budget || 0),
+                    releasedBudget: Number(data.amountReceived || 0),
+                    startDate: data.sanctionDate || null,
                     status: 'PENDING',
                     fundingSource,
                     projectType: (data.mainType || 'PROJECT').toUpperCase(),
                     publisher: data.publisher || null,
-                    publicationYear: Number(data.year || new Date().getFullYear()),
+                    publicationYear: data.sanctionDate ? new Date(data.sanctionDate).getFullYear() : (new Date().getFullYear()),
+                    duration: Number(data.duration || 0),
                     verificationScreenshot: data.verificationScreenshot || null
                 };
                 const res = await apiClient.post('/projects', payload);
@@ -125,10 +129,13 @@ const FacultyProjects = () => {
                     title: data.title,
                     description: data.description || 'Updated research project',
                     sanctionedBudget: Number(data.amount || data.budget || 0),
+                    releasedBudget: Number(data.amountReceived || 0),
+                    startDate: data.sanctionDate || null,
                     fundingSource,
                     projectType: (data.mainType || data.type || 'PROJECT').toUpperCase(),
                     publisher: data.publisher || null,
-                    publicationYear: Number(data.year || new Date().getFullYear()),
+                    publicationYear: data.sanctionDate ? new Date(data.sanctionDate).getFullYear() : (new Date().getFullYear()),
+                    duration: Number(data.duration || 0),
                     verificationScreenshot: data.verificationScreenshot || null
                 };
                 const res = await apiClient.put(`/projects/${data._id || data.id}`, payload);
@@ -233,7 +240,7 @@ const FacultyProjects = () => {
                             <tr className="bg-gray-50 dark:bg-slate-800 text-[10px] uppercase tracking-widest text-gray-500 font-bold italic">
                                 <th className="px-6 py-4">Title & Classification</th>
                                 <th className="px-6 py-4">Entity/Agency</th>
-                                <th className="px-6 py-4">Financials/Year</th>
+                                <th className="px-6 py-4">Financials/Duration</th>
                                 <th className="px-6 py-4">Status</th>
                                 <th className="px-6 py-4 text-right">Actions</th>
                             </tr>
@@ -248,14 +255,20 @@ const FacultyProjects = () => {
                                         </div>
                                     </td>
                                     <td className="px-6 py-4">
-                                        <p className="text-xs font-bold text-slate-500 italic uppercase">{work.fundingSource || work.publisher || 'N/A'}</p>
+                                        <p className="text-xs font-bold text-slate-500 italic uppercase">{work.fundingSource ? getFundSourceLabel(work.fundingSource) : (work.publisher || 'N/A')}</p>
                                     </td>
                                     <td className="px-6 py-4">
-                                        {work.sanctionedBudget ? (
-                                            <p className="text-sm font-bold text-maroon-600 italic">{formatCurrency(work.sanctionedBudget)}</p>
-                                        ) : (
-                                            <p className="text-sm font-bold text-slate-400 italic">{work.publicationYear || 'N/A'}</p>
-                                        )}
+                                        <div className="space-y-1">
+                                            {work.sanctionedBudget ? (
+                                                <p className="text-sm font-bold text-maroon-600 italic">Sanc: {formatCurrency(work.sanctionedBudget)}</p>
+                                            ) : null}
+                                            {work.releasedBudget ? (
+                                                <p className="text-[10px] font-bold text-green-600 italic">Rec: {formatCurrency(work.releasedBudget)}</p>
+                                            ) : null}
+                                            <p className="text-[10px] font-bold text-slate-400 italic">
+                                                {work.projectType === 'PUBLICATION' ? `Year: ${work.publicationYear}` : `Duration: ${work.publicationYear} Yrs`}
+                                            </p>
+                                        </div>
                                     </td>
                                     <td className="px-6 py-4">
                                         {/* Status badge + Impact badge */}
@@ -299,7 +312,7 @@ const FacultyProjects = () => {
                                         <div className="flex items-center justify-end gap-1 flex-wrap">
                                             {/* Only PI can edit */}
                                             {(work.piId === user?._id || user?.role === 'ADMIN') && (
-                                                <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); setSelectedWork({...work, id: work._id, type: work.projectType, budget: work.sanctionedBudget, year: work.publicationYear }); setModalMode('edit'); setIsModalOpen(true); }} className="text-slate-400 hover:text-maroon-600">
+                                                <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); setSelectedWork({...work, id: work._id, mainType: work.projectType, amount: work.sanctionedBudget, amountReceived: work.releasedBudget, sanctionDate: work.startDate ? work.startDate.split('T')[0] : '', duration: work.publicationYear }); setModalMode('edit'); setIsModalOpen(true); }} className="text-slate-400 hover:text-maroon-600">
                                                     <Edit2 className="w-4 h-4" />
                                                 </Button>
                                             )}
@@ -422,11 +435,15 @@ const FacultyProjects = () => {
                                     <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic mb-1">Entity Details</p>
                                     <div className="flex items-center gap-2 text-white font-bold italic mt-2">
                                         <Building className="w-4 h-4 text-rose-500" />
-                                        <span className="text-xs uppercase">{viewedProject.fundingSource || viewedProject.publisher || 'Internal/NA'}</span>
+                                        <span className="text-xs uppercase">{viewedProject.fundingSource ? getFundSourceLabel(viewedProject.fundingSource) : (viewedProject.publisher || 'Internal/NA')}</span>
                                     </div>
                                     <div className="flex items-center gap-2 text-white font-bold italic mt-2">
                                         <Calendar className="w-4 h-4 text-blue-500" />
-                                        <span className="text-xs uppercase">Cycle/Year: {viewedProject.publicationYear || (viewedProject.startDate ? new Date(viewedProject.startDate).getFullYear() : null) || new Date(viewedProject.createdAt).getFullYear()}</span>
+                                        <span className="text-xs uppercase">Sanc. Date: {work.startDate ? new Date(work.startDate).toLocaleDateString() : 'N/A'}</span>
+                                    </div>
+                                    <div className="flex items-center gap-2 text-white font-bold italic mt-2">
+                                        <Clock className="w-4 h-4 text-amber-500" />
+                                        <span className="text-xs uppercase">Duration: {viewedProject.publicationYear || 'N/A'} Yrs</span>
                                     </div>
                                 </div>
                                 <div>

@@ -19,14 +19,15 @@ const AcademicWorkModal = ({ isOpen, onClose, onSubmit, initialData = null, mode
         fundingSource: 'INSTITUTIONAL',
         fundingAgency: '',
         amount: '',
-        startDate: '',
-        endDate: '',
+        amountReceived: '',
+        sanctionDate: '',
+        duration: '',
         description: '',
 
         // Project Resources
         equipments: [],
         consumables: [],
-        patientDetails: {
+        patentDetails: {
             count: '',
             category: 'Adult',
             ethicalApproval: false
@@ -61,12 +62,13 @@ const AcademicWorkModal = ({ isOpen, onClose, onSubmit, initialData = null, mode
                 fundingSource: 'INSTITUTIONAL',
                 fundingAgency: '',
                 amount: '',
-                startDate: '',
-                endDate: '',
+                amountReceived: '',
+                sanctionDate: '',
+                duration: '',
                 description: '',
                 equipments: [],
                 consumables: [],
-                patientDetails: { count: '', category: 'Adult', ethicalApproval: false },
+                patentDetails: { count: '', category: 'Adult', ethicalApproval: false },
                 verificationScreenshot: null,
                 publicationType: 'JOURNAL',
                 authorRole: 'First Author',
@@ -289,8 +291,8 @@ const AcademicWorkModal = ({ isOpen, onClose, onSubmit, initialData = null, mode
                                 </div>
 
                                 <div className="grid grid-cols-2 gap-4">
-                                    <div className="col-span-2">
-                                        <label className="text-xs font-bold text-gray-500 uppercase italic">Amount (₹)</label>
+                                    <div>
+                                        <label className="text-xs font-bold text-gray-500 uppercase italic">Sanctioned Amount (₹)</label>
                                         <input
                                             type="number"
                                             value={formData.amount}
@@ -300,47 +302,46 @@ const AcademicWorkModal = ({ isOpen, onClose, onSubmit, initialData = null, mode
                                             min="0"
                                         />
                                     </div>
+                                    <div>
+                                        <label className="text-xs font-bold text-gray-500 uppercase italic">Amount Received (₹)</label>
+                                        <input
+                                            type="number"
+                                            value={formData.amountReceived}
+                                            onChange={(e) => setFormData({ ...formData, amountReceived: e.target.value })}
+                                            className="w-full mt-1 px-4 py-2 border dark:border-slate-700 bg-white dark:bg-slate-800 dark:text-white rounded-lg outline-none italic font-bold"
+                                            placeholder="Released amount"
+                                            min="0"
+                                        />
+                                    </div>
                                 </div>
 
                                 {/* FIX #5, #6 — min date blocks past date selection, colorScheme:light fixes dark mode calendar */}
-                                <div className="grid grid-cols-3 gap-4">
+                                <div className="grid grid-cols-2 gap-4">
                                     <div>
-                                        <label className="text-xs font-bold text-gray-500 uppercase italic">Start Date</label>
+                                        <label className="text-xs font-bold text-gray-500 uppercase italic">Date of Sanction Order</label>
                                         <input
                                             type="date"
-                                            min={today}
-                                            value={formData.startDate}
-                                            onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
+                                            value={formData.sanctionDate}
+                                            onChange={(e) => setFormData({ ...formData, sanctionDate: e.target.value })}
                                             className="w-full mt-1 px-4 py-2 border dark:border-slate-700 bg-white dark:bg-slate-800 dark:text-white rounded-lg outline-none italic font-bold"
                                             style={{ colorScheme: 'light' }}
                                         />
                                     </div>
                                     <div>
-                                        <label className="text-xs font-bold text-gray-500 uppercase italic">End Date</label>
-                                        <input
-                                            type="date"
-                                            min={formData.startDate || today}
-                                            value={formData.endDate}
-                                            onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
-                                            className="w-full mt-1 px-4 py-2 border dark:border-slate-700 bg-white dark:bg-slate-800 dark:text-white rounded-lg outline-none italic font-bold"
-                                            style={{ colorScheme: 'light' }}
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="text-xs font-bold text-gray-500 uppercase italic">Year</label>
+                                        <label className="text-xs font-bold text-gray-500 uppercase italic">Duration (Years)</label>
                                         <input
                                             type="number"
                                             required
-                                            value={formData.year}
-                                            onChange={(e) => setFormData({ ...formData, year: Number(e.target.value) || 0 })}
+                                            value={formData.duration}
+                                            onChange={(e) => setFormData({ ...formData, duration: e.target.value })}
                                             className="w-full mt-1 px-4 py-2 border dark:border-slate-700 bg-white dark:bg-slate-800 dark:text-white rounded-lg outline-none italic font-bold"
-                                            placeholder="YYYY"
+                                            placeholder="Duration in years"
                                         />
                                     </div>
                                 </div>
                                 
                                 <div className="p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl space-y-2">
-                                    <label className="text-xs font-bold text-amber-700 dark:text-amber-400 uppercase italic">Screenshot of Mail by Company (Verification) *</label>
+                                    <label className="text-xs font-bold text-amber-700 dark:text-amber-400 uppercase italic">Screenshot of Mail by Agency (Verification) *</label>
                                     <input
                                         type="file"
                                         accept="image/*"
@@ -353,7 +354,7 @@ const AcademicWorkModal = ({ isOpen, onClose, onSubmit, initialData = null, mode
                                             <img src={formData.verificationScreenshot} alt="Preview" className="w-full h-full object-cover" />
                                         </div>
                                     )}
-                                    <p className="text-[10px] text-amber-600 dark:text-amber-500 italic">Please upload a screenshot of the official mail from the company for verification.</p>
+                                    <p className="text-[10px] text-amber-600 dark:text-amber-500 italic">Please upload a screenshot of the official mail from the agency for verification.</p>
                                 </div>
 
                                 {/* Project Resources Section */}
@@ -506,18 +507,18 @@ const AcademicWorkModal = ({ isOpen, onClose, onSubmit, initialData = null, mode
                                         ))}
                                     </div>
 
-                                    {/* Patient Details (Optional) */}
+                                    {/* Patent Details (Optional) */}
                                     <div className="bg-gray-50 dark:bg-slate-800/50 p-4 rounded-lg space-y-3">
-                                        <h5 className="text-xs font-bold text-gray-600 dark:text-gray-400 uppercase italic">Patient Details (Optional)</h5>
+                                        <h5 className="text-xs font-bold text-gray-600 dark:text-gray-400 uppercase italic">Patent Details (Optional)</h5>
                                         <div className="grid grid-cols-2 gap-4">
                                             <div>
-                                                <label className="text-xs font-bold text-gray-500 uppercase italic">Number of Patients</label>
+                                                <label className="text-xs font-bold text-gray-500 uppercase italic">Number of Patents</label>
                                                 <input
                                                     type="number"
-                                                    value={formData.patientDetails.count}
+                                                    value={formData.patentDetails.count}
                                                     onChange={(e) => setFormData({
                                                         ...formData,
-                                                        patientDetails: { ...formData.patientDetails, count: e.target.value }
+                                                        patentDetails: { ...formData.patentDetails, count: e.target.value }
                                                     })}
                                                     className="w-full mt-1 px-4 py-2 border dark:border-slate-700 bg-white dark:bg-slate-800 dark:text-white rounded-lg outline-none font-bold italic"
                                                     placeholder="Count"
@@ -526,10 +527,10 @@ const AcademicWorkModal = ({ isOpen, onClose, onSubmit, initialData = null, mode
                                             <div>
                                                 <label className="text-xs font-bold text-gray-500 uppercase italic">Category</label>
                                                 <select
-                                                    value={formData.patientDetails.category}
+                                                    value={formData.patentDetails.category}
                                                     onChange={(e) => setFormData({
                                                         ...formData,
-                                                        patientDetails: { ...formData.patientDetails, category: e.target.value }
+                                                        patentDetails: { ...formData.patentDetails, category: e.target.value }
                                                     })}
                                                     className="w-full mt-1 px-4 py-2 border dark:border-slate-700 bg-white dark:bg-slate-800 dark:text-white rounded-lg outline-none font-bold italic"
                                                 >
@@ -544,10 +545,10 @@ const AcademicWorkModal = ({ isOpen, onClose, onSubmit, initialData = null, mode
                                             <input
                                                 type="checkbox"
                                                 id="ethicalApproval"
-                                                checked={formData.patientDetails.ethicalApproval}
+                                                checked={formData.patentDetails.ethicalApproval}
                                                 onChange={(e) => setFormData({
                                                     ...formData,
-                                                    patientDetails: { ...formData.patientDetails, ethicalApproval: e.target.checked }
+                                                    patentDetails: { ...formData.patentDetails, ethicalApproval: e.target.checked }
                                                 })}
                                                 className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                                             />

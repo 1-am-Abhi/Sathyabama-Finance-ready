@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Eye, Clock, CheckCircle, XCircle, Search, Filter, FileText, Plus, Hammer, ArrowUpRight, Building2, DollarSign, Upload, AlertCircle, ChevronRight } from 'lucide-react';
+import { Eye, Clock, CheckCircle, XCircle, Search, Filter, FileText, Plus, Hammer, ArrowUpRight, Building2, IndianRupee, Upload, AlertCircle, ChevronRight } from 'lucide-react';
 import { useNotifications } from '../../../contexts/NotificationContext';
 import { Badge } from '../../../components/ui/badge';
 import { Button } from '../../../components/ui/button';
@@ -160,8 +160,8 @@ const MyRequests = () => {
             {/* Header Area */}
             <div className="flex flex-col md:flex-row items-center justify-between gap-6 px-2">
                 <div>
-                    <h2 className="text-2xl font-black italic tracking-tighter uppercase text-slate-800 dark:text-white">Infrastructure Pipeline</h2>
-                    <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 italic mt-1">Audit trail for laboratory assets and equipment procurement</p>
+                    <h2 className="text-2xl font-black italic tracking-tighter uppercase text-slate-800 dark:text-white">Equipment Infrastructure</h2>
+                    <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 italic mt-1">Audit trail for laboratory equipment procurement</p>
                 </div>
                 
                 <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
@@ -172,8 +172,8 @@ const MyRequests = () => {
                     </DialogTrigger>
                     <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto border-0 shadow-2xl rounded-[2.5rem] p-0 bg-white dark:bg-slate-900">
                         <DialogHeader className="p-10 border-b border-gray-50 dark:border-slate-800">
-                            <DialogTitle className="text-2xl font-black italic tracking-tighter uppercase text-slate-800 dark:text-white">Procurement Terminal</DialogTitle>
-                            <DialogDescription className="text-[10px] font-black uppercase tracking-widest text-gray-400 italic">Configure asset request parameters for institutional verification</DialogDescription>
+                            <DialogTitle className="text-2xl font-black italic tracking-tighter uppercase text-slate-800 dark:text-white">Equipment Request</DialogTitle>
+                            <DialogDescription className="text-[10px] font-black uppercase tracking-widest text-gray-400 italic">Configure equipment request parameters for institutional verification</DialogDescription>
                         </DialogHeader>
                         
                         <div className="p-10">
@@ -191,7 +191,7 @@ const MyRequests = () => {
                                         <Building2 className="absolute left-5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-300" />
                                         <Select value={formData.projectId} onValueChange={(v) => setFormData({ ...formData, projectId: v })}>
                                             <SelectTrigger className="h-16 pl-14 rounded-2xl border-0 bg-gray-50 dark:bg-slate-800 font-black text-xs italic uppercase tracking-widest dark:text-white">
-                                                <SelectValue placeholder="SELECT AN ACTIVE MISSION..." />
+                                                <SelectValue placeholder="SELECT AN ACTIVE PROJECT..." />
                                             </SelectTrigger>
                                             <SelectContent className="border-0 shadow-xl rounded-2xl bg-white dark:bg-slate-800 font-black text-xs italic uppercase">
                                                 {projects.length > 0 ? projects.map(project => (
@@ -208,7 +208,7 @@ const MyRequests = () => {
 
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                                     <div className="space-y-3">
-                                        <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-1 italic">Asset Nomenclature</Label>
+                                        <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-1 italic">Equipment Name</Label>
                                         <div className="relative">
                                             <FileText className="absolute left-5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-300" />
                                             <Input
@@ -245,9 +245,9 @@ const MyRequests = () => {
                                         </Select>
                                     </div>
                                     <div className="space-y-3">
-                                        <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-1 italic">Requested Yield (₹)</Label>
+                                        <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-1 italic">Requested Amount(₹)</Label>
                                         <div className="relative">
-                                            <DollarSign className="absolute left-5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-300" />
+                                            <IndianRupee className="absolute left-5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-300" />
                                             <Input
                                                 type="number"
                                                 value={formData.requestedAmount}
@@ -260,7 +260,17 @@ const MyRequests = () => {
                                 </div>
 
                                 <div className="space-y-3">
-                                    <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-1 italic">Artifact Transmission (Bill / Quotation)</Label>
+                                    <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-1 italic">Justification of Equipment</Label>
+                                    <Textarea
+                                        value={formData.justification}
+                                        onChange={(e) => setFormData({ ...formData, justification: e.target.value })}
+                                        placeholder="SUPPLY JUSTIFICATION FOR THIS EQUIPMENT PROCUREMENT..."
+                                        className="min-h-[140px] bg-gray-50 dark:bg-slate-800 border-0 rounded-[2rem] p-6 font-black text-xs italic uppercase tracking-widest text-slate-800 dark:text-white shadow-inner"
+                                    />
+                                </div>
+
+                                <div className="space-y-3">
+                                    <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-1 italic">Bills/Quotation Proof</Label>
                                     <label className="border-2 border-dashed border-gray-100 dark:border-slate-800 rounded-[2rem] p-10 flex flex-col items-center justify-center bg-gray-50/50 dark:bg-slate-800/50 hover:bg-maroon-50/30 transition-colors cursor-pointer group relative overflow-hidden">
                                         <input
                                             type="file"
@@ -270,20 +280,10 @@ const MyRequests = () => {
                                         />
                                         <Upload className="w-10 h-10 text-gray-300 mb-4 group-hover:text-maroon-600 group-hover:scale-110 transition-all" />
                                         <p className="text-xs font-black uppercase tracking-widest italic text-slate-600 dark:text-slate-400 transition-colors text-center">
-                                            {formData.billData ? '✓ Bill Attached' : 'Transmit Artifact Proof to Command Center'}
+                                            {formData.billData ? '✓ Proof Attached' : 'Submit Bill/Quotation Copy'}
                                         </p>
                                         <p className="text-[9px] font-black text-gray-400 mt-2 uppercase italic tracking-tighter">Verified File Types: PDF, JPG, PNG (Max Limit: 5MB)</p>
                                     </label>
-                                </div>
-
-                                <div className="space-y-3">
-                                    <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-1 italic">Mission Justification (Strategic Narrative)</Label>
-                                    <Textarea
-                                        value={formData.justification}
-                                        onChange={(e) => setFormData({ ...formData, justification: e.target.value })}
-                                        placeholder="SUPPLY STRATEGIC RATIONALE FOR THIS ASSET PROCURMENT..."
-                                        className="min-h-[140px] bg-gray-50 dark:bg-slate-800 border-0 rounded-[2rem] p-6 font-black text-xs italic uppercase tracking-widest text-slate-800 dark:text-white shadow-inner"
-                                    />
                                 </div>
 
                                 <div className="flex justify-end pt-4">
@@ -303,7 +303,7 @@ const MyRequests = () => {
                     <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 font-black italic" />
                     <input
                         type="text"
-                        placeholder="EXECUTE SEARCH BY ASSET OR PROJECT..."
+                        placeholder="EXECUTE SEARCH BY EQUIPMENT OR PROJECT..."
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                         className="w-full h-14 pl-12 pr-6 bg-white dark:bg-slate-900 border-0 rounded-2xl shadow-sm text-xs font-black italic uppercase tracking-widest outline-none focus:ring-2 focus:ring-maroon-500 transition-all placeholder:text-gray-300 dark:text-white"
@@ -328,9 +328,9 @@ const MyRequests = () => {
                     <table className="w-full text-left border-collapse">
                         <thead>
                             <tr className="bg-gray-50 dark:bg-slate-800 text-[10px] uppercase tracking-widest text-gray-500 font-black italic">
-                                <th className="px-8 py-5">Asset Description</th>
+                                <th className="px-8 py-5">Equipment Description</th>
                                 <th className="px-8 py-5">Project Entity</th>
-                                <th className="px-8 py-5">Financial Yield</th>
+                                <th className="px-8 py-5">Financial Amount</th>
                                 <th className="px-8 py-5">Categorization</th>
                                 <th className="px-8 py-5 text-right">Audit Status</th>
                             </tr>
@@ -379,7 +379,7 @@ const MyRequests = () => {
                                     <td colSpan="5" className="px-8 py-20 text-center">
                                         <div className="flex flex-col items-center justify-center space-y-3 opacity-20">
                                             <FileText className="w-12 h-12 dark:text-white" />
-                                            <p className="text-xs font-black uppercase tracking-widest italic dark:text-white">Zero asset requests detected in current stream</p>
+                                            <p className="text-xs font-black uppercase tracking-widest italic dark:text-white">Zero equipment requests detected in current stream</p>
                                         </div>
                                     </td>
                                 </tr>

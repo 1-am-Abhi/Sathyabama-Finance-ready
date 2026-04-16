@@ -1,6 +1,6 @@
 export const FUND_SOURCE_OPTIONS = [
     { value: 'PFMS', label: 'PFMS Funds', shortLabel: 'PFMS', overviewKey: 'pfmsFunds' },
-    { value: 'INSTITUTIONAL', label: "Director's Innovation Fund", shortLabel: "Director's", overviewKey: 'institutionalFunds' },
+    { value: 'INSTITUTIONAL', label: "Institutional (Research) Funds", shortLabel: "Institutional", overviewKey: 'institutionalFunds' },
     { value: 'OTHERS', label: "Other's Fund", shortLabel: "Other's Fund", overviewKey: 'othersFunds' },
 ];
 

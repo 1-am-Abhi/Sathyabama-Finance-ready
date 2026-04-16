@@ -131,7 +131,12 @@ FundRequest.init({
 }, { 
     sequelize, 
     modelName: 'FundRequest',
-    timestamps: true 
+    timestamps: true,
+    indexes: [
+        { fields: ['status'] },
+        { fields: ['currentStage'] },
+        { fields: ['facultyId'] }
+    ]
 });
 
 

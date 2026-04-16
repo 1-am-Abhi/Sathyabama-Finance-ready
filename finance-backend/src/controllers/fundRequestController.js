@@ -83,18 +83,14 @@ const nextInstallmentNumber = async (projectId) => {
 exports.getFundRequests = async (req, res) => {
     try {
         const page = parseInt(req.query.page, 10) || 1;
-        const limit = parseInt(req.query.limit, 10) || null; // default null maintains legacy behavior if not passed
+        const limit = Math.min(parseInt(req.query.limit, 10) || 10, 50);
         
         const options = {
             order: [['createdAt', 'DESC']],
+            limit,
+            offset: (page - 1) * limit,
             include: [],
         };
-        
-        // Add offset limits if passed
-        if (limit) {
-            options.limit = limit;
-            options.offset = (page - 1) * limit;
-        }
 
         try {
             console.log('[getFundRequests] Building Centre include...');
@@ -141,11 +137,17 @@ exports.getFundRequests = async (req, res) => {
         console.log(`[getFundRequests] Normalization loop completed. Returning ${data.length} records.`);
 
         const responsePayload = { success: true, count: data.length, data };
-        if (limit) {
-            const countOptions = { where: options.where };
-            const totalRecords = await FundRequest.count(countOptions);
-            responsePayload.pagination = { total: totalRecords, page, pages: Math.ceil(totalRecords / limit) };
-        }
+        const countOptions = { where: options.where };
+        const total = await FundRequest.count(countOptions);
+        const totalPages = Math.ceil(total / limit);
+        responsePayload.pagination = { 
+            total, 
+            page, 
+            limit, 
+            totalPages, 
+            hasNext: page < totalPages, 
+            hasPrev: page > 1 
+        };
 
         return res.status(200).json(responsePayload);
     } catch (error) {

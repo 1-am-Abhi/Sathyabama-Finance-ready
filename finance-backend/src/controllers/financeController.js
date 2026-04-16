@@ -149,7 +149,11 @@ exports.getPFMSTransactions = async (req, res) => {
     try {
         const transactions = await PFMSTransaction.findAll({
             order: [['createdAt', 'DESC']],
-            include: [{ model: Project, as: 'Project' }]
+            include: [{ 
+                model: Project, 
+                as: 'Project',
+                attributes: ['_id', 'id', 'title', 'sanctionedBudget']
+            }]
         });
         res.status(200).json({ success: true, data: transactions });
     } catch (error) {
@@ -486,7 +490,7 @@ exports.getDisbursementQueue = async (req, res) => {
     try {
         const User = require('../models/User');
         const page = parseInt(req.query.page, 10) || 1;
-        const limit = parseInt(req.query.limit, 10) || null;
+        const limit = Math.min(parseInt(req.query.limit, 10) || 10, 50);
         const options = {
             where: {
                 status: 'PENDING_DISBURSAL'
@@ -495,12 +499,10 @@ exports.getDisbursementQueue = async (req, res) => {
                 buildProjectInclude(),
                 { model: User, attributes: ['name', 'email', 'department'], as: 'requester', required: false }
             ],
-            order: [['updatedAt', 'ASC']]
+            order: [['updatedAt', 'ASC']],
+            limit,
+            offset: (page - 1) * limit
         };
-        if (limit) {
-            options.limit = limit;
-            options.offset = (page - 1) * limit;
-        }
 
         const requests = await FundRequest.findAll(options);
 
@@ -513,10 +515,17 @@ exports.getDisbursementQueue = async (req, res) => {
         });
 
         const responsePayload = { success: true, data: normalized };
-        if (limit) {
-            const count = await FundRequest.count({ where: options.where });
-            responsePayload.pagination = { total: count, page, pages: Math.ceil(count / limit) };
-        }
+        const total = await FundRequest.count({ where: options.where });
+        const totalPages = Math.ceil(total / limit);
+        responsePayload.pagination = { 
+            total, 
+            page, 
+            limit, 
+            totalPages, 
+            hasNext: page < totalPages, 
+            hasPrev: page > 1 
+        };
+        
         res.status(200).json(responsePayload);
     } catch (error) {
         console.error('getDisbursementQueue Error:', error);
@@ -730,7 +739,7 @@ exports.getFinancialReports = async (req, res) => {
 exports.getDisbursalHistory = async (req, res) => {
     try {
         const page = parseInt(req.query.page, 10) || 1;
-        const limit = parseInt(req.query.limit, 10) || null;
+        const limit = Math.min(parseInt(req.query.limit, 10) || 10, 50);
         const options = {
             include: [
                 {
@@ -743,19 +752,24 @@ exports.getDisbursalHistory = async (req, res) => {
                     ...buildProjectInclude(),
                 }
             ],
-            order: [['disbursedAt', 'DESC']]
+            order: [['disbursedAt', 'DESC']],
+            limit,
+            offset: (page - 1) * limit
         };
-        if (limit) {
-            options.limit = limit;
-            options.offset = (page - 1) * limit;
-        }
 
         const history = await Disbursement.findAll(options);
         const responsePayload = { success: true, data: history.map((entry) => normalizeDisbursement(entry)) };
-        if (limit) {
-            const count = await Disbursement.count();
-            responsePayload.pagination = { total: count, page, pages: Math.ceil(count / limit) };
-        }
+        const total = await Disbursement.count();
+        const totalPages = Math.ceil(total / limit);
+        responsePayload.pagination = { 
+            total, 
+            page, 
+            limit, 
+            totalPages, 
+            hasNext: page < totalPages, 
+            hasPrev: page > 1 
+        };
+        
         res.status(200).json(responsePayload);
     } catch (error) {
         return serverError(res, error);

@@ -55,6 +55,14 @@ const EventRequest = sequelize.define('EventRequest', {
         type: DataTypes.INTEGER,
         defaultValue: 0
     },
+    internalParticipants: {
+        type: DataTypes.INTEGER,
+        defaultValue: 0
+    },
+    externalParticipants: {
+        type: DataTypes.INTEGER,
+        defaultValue: 0
+    },
     fundingType: {
         type: DataTypes.STRING,
         allowNull: false
