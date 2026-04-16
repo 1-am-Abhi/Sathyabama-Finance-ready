@@ -116,17 +116,58 @@ exports.getProjects = async (req, res) => {
     }
 };
 
+/**
+ * GET /projects/:id
+ * Returns full project details including:
+ *   - Budget summary: totalAmount, disbursedAmount, remainingAmount
+ *   - Team members
+ *   - All fund requests (installments) sorted by installmentNumber
+ */
 exports.getProject = async (req, res) => {
     try {
-        const project = await Project.findByPk(req.params.id);
+        const project = await Project.findByPk(req.params.id, {
+            include: [
+                {
+                    model: ProjectMember,
+                    as: 'members',
+                    include: [{ model: User, as: 'user', attributes: ['_id', 'name', 'email', 'department', 'centre'] }]
+                },
+                { model: Centre, as: 'researchCentre', attributes: ['name'] }
+            ]
+        });
         if (!project) {
             return res.status(404).json({ success: false, message: 'Project not found' });
         }
-        res.status(200).json({ success: true, data: project });
+
+        // Fetch all installment fund requests for this project
+        const { FundRequest: FR } = require('../models/FundRequest');
+        const installments = await FR.findAll({
+            where: { projectId: project._id || project.id },
+            order: [['installmentNumber', 'ASC'], ['createdAt', 'ASC']],
+            attributes: ['_id', 'installmentNumber', 'requestedAmount', 'purpose', 'status', 'currentStage', 'createdAt', 'faculty']
+        });
+
+        const totalAmount     = Number(project.sanctionedBudget || 0);
+        const disbursedAmount = Number(project.releasedBudget   || 0);
+        const remainingAmount = Math.max(0, totalAmount - disbursedAmount);
+
+        return res.status(200).json({
+            success: true,
+            data: {
+                ...project.toJSON(),
+                // Explicit budget fields for installment workflow consumers
+                totalAmount,
+                disbursedAmount,
+                remainingAmount,
+                installments,
+            }
+        });
     } catch (error) {
         return serverError(res, error);
     }
 };
+
+
 
 exports.createProject = async (req, res) => {
     try {

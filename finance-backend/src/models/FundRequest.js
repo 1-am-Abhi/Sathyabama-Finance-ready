@@ -72,7 +72,14 @@ FundRequest.init({
     },
     requestedAmount: {
         type: DataTypes.FLOAT,
-        allowNull: false
+        allowNull: false,
+        validate: { min: 1 }
+    },
+    installmentNumber: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+        defaultValue: 1,
+        comment: 'Sequential installment number per project (1, 2, 3…)'
     },
     purpose: {
         type: DataTypes.TEXT,

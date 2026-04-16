@@ -68,6 +68,23 @@ class NotificationService {
             return null;
         }
     }
+    /**
+     * Convenience alias: createNotification(userId, title, message)
+     * Matches the required helper signature in the spec.
+     */
+    static async createNotification(userId, title, message) {
+        return NotificationService.create(userId, title, message, 'INFO', null);
+    }
+
+    /**
+     * Notify the faculty member who owns a fund request.
+     * Reads userId → facultyId from the request object so callers don't need to
+     * duplicate that lookup.
+     */
+    static async notifyFaculty(fundRequest, title, message, type = 'INFO', relatedId = null) {
+        const recipientId = fundRequest.userId || fundRequest.facultyId;
+        return NotificationService.create(recipientId, title, message, type, relatedId);
+    }
 }
 
 module.exports = NotificationService;

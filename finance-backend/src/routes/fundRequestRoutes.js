@@ -4,22 +4,52 @@ const fundRequestController = require('../controllers/fundRequestController');
 const { protect, authorize } = require('../middleware/authMiddleware');
 const { validate, fundRequestSchema } = require('../utils/validation');
 
-router.use(protect); // All routes protected
+// All routes require authentication
+router.use(protect);
 
+// ── Read ─────────────────────────────────────────────────────────────────────
 router.get('/', fundRequestController.getFundRequests);
 router.get('/:id', fundRequestController.getFundRequest);
 
-// Only FACULTY can submit requests
-router.post('/', authorize('FACULTY'), validate(fundRequestSchema), fundRequestController.createFundRequest);
+/**
+ * GET /fund-requests/project/:projectId
+ * Returns project budget summary (totalAmount, disbursedAmount, remainingAmount)
+ * plus all installment fund requests for that project.
+ * Faculty see only their own; Admin/Finance see all.
+ */
+router.get('/project/:projectId', fundRequestController.getProjectWithInstallments);
 
-// Update a fund request
+// ── Create (Faculty only) ─────────────────────────────────────────────────────
+router.post(
+    '/',
+    authorize('FACULTY'),
+    validate(fundRequestSchema),
+    fundRequestController.createFundRequest
+);
+
+// ── Update (Faculty only — documents / stage field) ───────────────────────────
 router.put('/:id', authorize('FACULTY'), fundRequestController.updateFundRequest);
 
-// Only ADMIN can approve/reject initial request
-router.put('/:id/approve', authorize('ADMIN'), fundRequestController.approveFundRequest);
-router.put('/:id/reject', authorize('ADMIN'), fundRequestController.rejectFundRequest);
+// ── Admin: Approve / Reject ───────────────────────────────────────────────────
+// Support both PUT (legacy) and PATCH (REST-idiomatic) verbs
+router.put('/:id/approve',    authorize('ADMIN'), fundRequestController.approveFundRequest);
+router.patch('/:id/approve',  authorize('ADMIN'), fundRequestController.approveFundRequest);
 
-// Finance or Faculty can advance appropriate stages (sequentially enforced in controller)
+router.put('/:id/reject',     authorize('ADMIN'), fundRequestController.rejectFundRequest);
+router.patch('/:id/reject',   authorize('ADMIN'), fundRequestController.rejectFundRequest);
+
+// ── Finance: Disburse ─────────────────────────────────────────────────────────
+/**
+ * PATCH /fund-requests/:id/disburse
+ * Finance Officer disburses an Admin-approved request.
+ * Updates: FundRequest status → DISBURSED, Project.releasedBudget += amount,
+ *          creates Disbursement record + Ledger OUTFLOW entry.
+ * Notifies: Faculty
+ */
+router.patch('/:id/disburse', authorize('FINANCE_OFFICER'), fundRequestController.disburseFund);
+
+// ── Granular pipeline advancement (Finance / Faculty) ─────────────────────────
+// Retained for backward-compat with the stage-based pipeline UI
 router.post('/:id/advance', fundRequestController.advanceStage);
 
 module.exports = router;
