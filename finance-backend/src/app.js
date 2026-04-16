@@ -6,7 +6,14 @@ const compression = require('compression');
 const timeout = require('connect-timeout');
 const rateLimit = require('express-rate-limit');
 const { v4: uuidv4 } = require('uuid');
-const logger = require('./utils/logger');
+let logger;
+try {
+    logger = require('./utils/logger');
+} catch (e) {
+    console.warn("Logger not found, using console fallback");
+    logger = console;
+}
+
 
 const app = express();
 

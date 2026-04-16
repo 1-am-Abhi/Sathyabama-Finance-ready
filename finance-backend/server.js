@@ -1,6 +1,14 @@
 const dotenv = require('dotenv');
 const { connectDB, sequelize } = require('./src/config/db');
-const logger = require('./utils/logger');
+const path = require('path');
+let logger;
+try {
+    logger = require('./src/utils/logger');
+} catch (e) {
+    console.warn("Logger not found, using console fallback");
+    logger = console;
+}
+
 const http = require('http');
 const socketIo = require('socket.io');
 const { createAdapter } = require('@socket.io/redis-adapter');
