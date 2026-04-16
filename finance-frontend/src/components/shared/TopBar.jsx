@@ -3,8 +3,11 @@ import { Search, Bell, CheckCircle, DollarSign, UserPlus, FileText, X, User, Set
 import { useAuth } from '../../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { useNotifications } from '../../contexts/NotificationContext';
+import SystemStatus from './SystemStatus';
 
 const TopBar = ({ title, subtitle, onMenuClick }) => {
+
+
     const { user, logout } = useAuth();
     const { notifications, unreadCount, markAsRead, markAllAsRead } = useNotifications();
     const navigate = useNavigate();
@@ -181,7 +184,11 @@ const TopBar = ({ title, subtitle, onMenuClick }) => {
                 </div>
 
                 <div className="flex items-center gap-2 md:gap-4">
+                    {/* System Status Indicator */}
+                    <SystemStatus />
+
                     {/* Search */}
+
                     {/* Search */}
                     {/* Search */}
                     <div className="flex items-center">

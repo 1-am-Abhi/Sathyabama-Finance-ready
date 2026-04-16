@@ -63,11 +63,13 @@ const AlertService = {
 
     getSystemStatus() {
         return {
-            tier: currentSystemTier,
+            status: currentSystemTier === 'CRITICAL' ? 'DEGRADED' : 'HEALTHY',
+            loadTier: currentSystemTier,
             operational: currentSystemTier !== 'CRITICAL',
             message: currentSystemTier === 'HEALTHY' ? 'All systems operational' : 'System under high load. Processing may be slightly delayed.'
         };
     }
+
 };
 
 module.exports = AlertService;

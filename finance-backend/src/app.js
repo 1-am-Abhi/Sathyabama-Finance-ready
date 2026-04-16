@@ -43,7 +43,19 @@ app.use((req, res, next) => {
 });
 
 app.use(morgan('dev'));
+app.use((req, res, next) => {
+    const start = Date.now();
+    res.on('finish', () => {
+        const duration = Date.now() - start;
+        logger.info(`[API] ${req.method} ${req.originalUrl} ${res.statusCode} - ${duration}ms`, {
+            requestId: req.id,
+            user: req.user?.id || 'anonymous'
+        });
+    });
+    next();
+});
 app.use(express.json({ limit: '10mb' }));
+
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 const AlertService = require('./services/alertService');
