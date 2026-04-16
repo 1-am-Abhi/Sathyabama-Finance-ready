@@ -2,9 +2,11 @@ const Project = require('../models/Project');
 const { FundRequest } = require('../models/FundRequest');
 const Disbursement = require('../models/Disbursement');
 const Revenue = require('../models/Revenue');
+const User = require('../models/User');
 const { Op, fn, col, literal } = require('sequelize');
 const logger = require('../utils/logger');
 const asyncHandler = require('../utils/asyncHandler');
+
 
 /**
  * Aggregated Financial Metrics
@@ -12,37 +14,48 @@ const asyncHandler = require('../utils/asyncHandler');
 exports.getFinanceStats = asyncHandler(async (req, res) => {
     const [
         totalProjects,
-        totalBudgetRaw,
-        totalDisbursedRaw,
-        pendingRequests,
-        totalRevenueRaw
+        activeProjects,
+        pendingApprovals,
+        totalAllocated,
+        totalDisbursed,
+        totalFaculty,
+        totalRevenue
     ] = await Promise.all([
         Project.count(),
-        Project.sum('sanctionedBudget'),
-        Disbursement.sum('amount'),
+        Project.count({ where: { status: { [Op.in]: ['ACTIVE', 'APPROVED'] } } }),
         FundRequest.count({ where: { status: 'PENDING' } }),
-        Revenue.sum('verifiedAmount', { where: { status: 'VERIFIED' } })
+        Project.sum('sanctionedBudget') || 0,
+        Disbursement.sum('amount') || 0,
+        User.count({ where: { role: 'FACULTY' } }),
+        Revenue.sum('verifiedAmount', { where: { status: 'VERIFIED' } }) || 0
     ]);
 
-    const totalBudget = Number(totalBudgetRaw) || 0;
-    const totalDisbursed = Number(totalDisbursedRaw) || 0;
-    const totalRevenue = Number(totalRevenueRaw) || 0;
-
     if (totalProjects === 0) {
-        logger.warn('[Finance] Empty DB → returning zero metrics');
+        logger.warn('[Finance] Dashboard requested but database is empty. Returning zeroed metrics.');
     }
 
     res.json({
         success: true,
         data: {
             totalProjects,
-            totalBudget,
+            activeProjects,
+            pendingApprovals,
+            totalAllocated,
             totalDisbursed,
-            pendingRequests,
+            totalFaculty,
             totalRevenue,
-            utilizationRate: totalBudget > 0
-                ? Number(((totalDisbursed / totalBudget) * 100).toFixed(2))
-                : 0
+            pfmsStats: {
+                allotted: 2500000, // Static baseline for PFMS cluster
+                consumed: totalDisbursed * 0.4 // Mocked distribution for dashboard
+            },
+            institutionalStats: {
+                allotted: 5000000,
+                consumed: totalDisbursed * 0.3
+            },
+            othersStats: {
+                allotted: 1000000,
+                consumed: totalDisbursed * 0.1
+            }
         }
     });
 });
@@ -116,5 +129,36 @@ exports.getDisbursalHistory = asyncHandler(async (req, res) => {
             month: h.month,
             total: Number(h.total) || 0
         }))
+    });
+});
+
+/**
+ * Full Reports Data (Detailed Aggregation)
+ */
+exports.getReportsData = asyncHandler(async (req, res) => {
+    const [
+        projectCounts,
+        fundingSummary,
+        disbursalMeta
+    ] = await Promise.all([
+        Project.count({ group: ['status'] }),
+        Project.findAll({
+            attributes: [
+                'fundingSource',
+                [Project.sequelize.fn('SUM', Project.sequelize.col('sanctionedBudget')), 'total']
+            ],
+            group: ['fundingSource']
+        }),
+        Disbursement.sum('amount')
+    ]);
+
+    res.json({
+        success: true,
+        data: {
+            projects: projectCounts,
+            funding: fundingSummary,
+            totalDisbursed: disbursalMeta || 0,
+            generatedAt: new Date().toISOString()
+        }
     });
 });

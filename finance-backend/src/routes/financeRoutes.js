@@ -13,8 +13,10 @@ router.get('/fund-sources/overview', financeController.getFundSourcesOverview);
 
 router.get('/departments', financeController.getDepartmentFinance);
 router.get('/disbursal-history', financeController.getDisbursalHistory);
+router.get('/reports-data', financeController.getReportsData);
 
 // Fallbacks for remaining secondary modules
+
 const safeFallback = (req, res) => {
     res.json({ success: true, data: [], meta: {} });
 };

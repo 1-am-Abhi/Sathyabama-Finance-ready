@@ -151,13 +151,14 @@ app.use((err, req, res, next) => {
 
 // Final 404 Catch-all (Must be last)
 app.use((req, res) => {
-    logger.warn(`[404] ${req.method} ${req.url} - Legacy or Missing Route`);
+    logger.warn(`[API ERROR] Missing route: ${req.method} ${req.originalUrl}`);
     res.status(404).json({
         success: false,
         message: "Route not found",
-        data: [] // Safe fallback for data-consuming frontends
+        data: [] 
     });
 });
+
 
 module.exports = app;
 
