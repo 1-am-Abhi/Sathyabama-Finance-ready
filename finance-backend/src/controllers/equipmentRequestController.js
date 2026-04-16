@@ -2,7 +2,7 @@ const { serverError } = require("../utils/controllerError");
 const EquipmentRequest = require('../models/EquipmentRequest');
 const NotificationService = require('../services/notificationService');
 
-exports.createEquipmentRequest = async (req, res) => {
+const createEquipmentRequest = async (req, res) => {
     try {
         const payload = {
             ...req.body,
@@ -24,7 +24,7 @@ exports.createEquipmentRequest = async (req, res) => {
     }
 };
 
-exports.getEquipmentRequests = async (req, res) => {
+const getEquipmentRequests = async (req, res) => {
     try {
         let options = { order: [['createdAt', 'DESC']] };
         if (req.user.role === 'FACULTY') {
@@ -37,7 +37,7 @@ exports.getEquipmentRequests = async (req, res) => {
     }
 };
 
-exports.updateEquipmentStatus = async (req, res) => {
+const updateEquipmentStatus = async (req, res) => {
     try {
         const eq = await EquipmentRequest.findByPk(req.params.id);
         if (!eq) return res.status(404).json({ success: false, message: 'Not found' });
@@ -71,3 +71,10 @@ exports.updateEquipmentStatus = async (req, res) => {
         return serverError(res, error);
     }
 };
+
+module.exports = {
+    createEquipmentRequest,
+    getEquipmentRequests,
+    updateEquipmentStatus
+};
+

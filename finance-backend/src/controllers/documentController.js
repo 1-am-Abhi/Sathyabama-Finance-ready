@@ -2,7 +2,7 @@ const { serverError } = require("../utils/controllerError");
 const Document = require('../models/Document');
 const NotificationService = require('../services/notificationService');
 
-exports.createDocument = async (req, res) => {
+const createDocument = async (req, res) => {
     try {
         const doc = await Document.create({
             facultyId: req.user.id || req.user._id,
@@ -28,7 +28,7 @@ exports.createDocument = async (req, res) => {
     }
 };
 
-exports.getDocuments = async (req, res) => {
+const getDocuments = async (req, res) => {
     try {
         let where = {};
         if (req.user.role === 'FACULTY') {
@@ -41,7 +41,7 @@ exports.getDocuments = async (req, res) => {
     }
 };
 
-exports.updateDocumentStatus = async (req, res) => {
+const updateDocumentStatus = async (req, res) => {
     try {
         const doc = await Document.findByPk(req.params.id);
         if (!doc) return res.status(404).json({ success: false, message: 'Document not found' });
@@ -55,14 +55,13 @@ exports.updateDocumentStatus = async (req, res) => {
     }
 };
 
-exports.updateDocument = async (req, res) => {
+const updateDocument = async (req, res) => {
     try {
         const doc = await Document.findOne({ 
             where: { _id: req.params.id, facultyId: req.user.id || req.user._id } 
         });
         if (!doc) return res.status(404).json({ success: false, message: 'Document not found or access denied' });
         
-        // Reset status to PENDING on re-upload/edit
         doc.status = 'PENDING';
         doc.adminRemarks = null;
         
@@ -79,3 +78,11 @@ exports.updateDocument = async (req, res) => {
         return serverError(res, error);
     }
 };
+
+module.exports = {
+    createDocument,
+    getDocuments,
+    updateDocumentStatus,
+    updateDocument
+};
+

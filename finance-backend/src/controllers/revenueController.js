@@ -5,7 +5,7 @@ const { Op } = require('sequelize');
 const { syncRevenueLedger } = require('../services/financePipelineService');
 const NotificationService = require('../services/notificationService');
 
-exports.createRevenueRecord = async (req, res) => {
+const createRevenueRecord = async (req, res) => {
     try {
         const { year, revenueSource, amountGenerated, details } = req.body;
         const userId = req.user.id;
@@ -37,7 +37,7 @@ exports.createRevenueRecord = async (req, res) => {
     }
 };
 
-exports.getMyRevenueRecords = async (req, res) => {
+const getMyRevenueRecords = async (req, res) => {
     try {
         const userId = req.user.id;
         const records = await Revenue.findAll({
@@ -54,7 +54,7 @@ exports.getMyRevenueRecords = async (req, res) => {
     }
 };
 
-exports.getRevenueSummary = async (req, res) => {
+const getRevenueSummary = async (req, res) => {
     try {
         const userId = req.user.id;
         const { year } = req.query;
@@ -102,7 +102,7 @@ exports.getRevenueSummary = async (req, res) => {
     }
 };
 
-exports.updateFinanceMetrics = async (req, res) => {
+const updateFinanceMetrics = async (req, res) => {
     try {
         const { id } = req.params;
         const { growthRate, efficiency } = req.body;
@@ -124,8 +124,7 @@ exports.updateFinanceMetrics = async (req, res) => {
     }
 };
 
-// Revenue Verification: Finance gets all consultancy income for verification (ONLY Admin Approved ones)
-exports.getAllRevenueForVerification = async (req, res) => {
+const getAllRevenueForVerification = async (req, res) => {
     try {
         const records = await Revenue.findAll({
             where: { status: { [Op.in]: ['ADMIN_APPROVED', 'VERIFIED'] } },
@@ -144,8 +143,7 @@ exports.getAllRevenueForVerification = async (req, res) => {
     }
 };
 
-// Verify Revenue: Finance marks the inflow as verified
-exports.verifyRevenue = async (req, res) => {
+const verifyRevenue = async (req, res) => {
     try {
         const { id } = req.params;
         const { verifiedAmount, bankReference, remarks } = req.body;
@@ -170,8 +168,7 @@ exports.verifyRevenue = async (req, res) => {
     }
 };
 
-// Admin approves revenue to release to Finance
-exports.getAdminRevenueApprovals = async (req, res) => {
+const getAdminRevenueApprovals = async (req, res) => {
     try {
         const records = await Revenue.findAll({
             include: [{ 
@@ -188,7 +185,7 @@ exports.getAdminRevenueApprovals = async (req, res) => {
     }
 };
 
-exports.adminApproveRevenue = async (req, res) => {
+const adminApproveRevenue = async (req, res) => {
     try {
         const { id } = req.params;
         const { status, remarks } = req.body;
@@ -219,3 +216,15 @@ exports.adminApproveRevenue = async (req, res) => {
         return serverError(res, error);
     }
 };
+
+module.exports = {
+    createRevenueRecord,
+    getMyRevenueRecords,
+    getRevenueSummary,
+    updateFinanceMetrics,
+    getAllRevenueForVerification,
+    verifyRevenue,
+    getAdminRevenueApprovals,
+    adminApproveRevenue
+};
+

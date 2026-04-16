@@ -8,6 +8,7 @@ router.use(protect);
 
 router.post('/', authorize('FACULTY'), createEquipmentRequest);
 router.get('/', getEquipmentRequests);
-router.put('/:id/status', updateEquipmentStatus);
+router.put('/:id/status', authorize('ADMIN'), updateEquipmentStatus);
 
 module.exports = router;
+

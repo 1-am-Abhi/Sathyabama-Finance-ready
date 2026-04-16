@@ -2,7 +2,7 @@ const { serverError } = require("../utils/controllerError");
 const AcademicMetric = require('../models/AcademicMetric');
 const User = require('../models/User');
 
-exports.getMetrics = async (req, res) => {
+const getMetrics = async (req, res) => {
     try {
         const cycle = req.query.cycle || '2024-25';
         const facultyId = req.user.role === 'ADMIN' ? req.query.facultyId : req.user.id;
@@ -20,7 +20,7 @@ exports.getMetrics = async (req, res) => {
     }
 };
 
-exports.getAllMetrics = async (req, res) => {
+const getAllMetrics = async (req, res) => {
     try {
         const cycle = req.query.cycle || '2024-25';
         const metrics = await AcademicMetric.findAll({ where: { cycle } });
@@ -30,7 +30,7 @@ exports.getAllMetrics = async (req, res) => {
     }
 };
 
-exports.getPendingMetrics = async (req, res) => {
+const getPendingMetrics = async (req, res) => {
     try {
         const metrics = await AcademicMetric.findAll({ where: { status: 'PENDING_APPROVAL' } });
         res.status(200).json({ success: true, count: metrics.length, data: metrics });
@@ -39,7 +39,7 @@ exports.getPendingMetrics = async (req, res) => {
     }
 };
 
-exports.updateMetrics = async (req, res) => {
+const updateMetrics = async (req, res) => {
     try {
         const { cycle } = req.body;
         const facultyId = req.user.id;
@@ -65,7 +65,7 @@ exports.updateMetrics = async (req, res) => {
     }
 };
 
-exports.approveMetrics = async (req, res) => {
+const approveMetrics = async (req, res) => {
     try {
         const metrics = await AcademicMetric.findByPk(req.params.id);
         if (!metrics) return res.status(404).json({ success: false, message: 'Metrics not found' });
@@ -77,7 +77,7 @@ exports.approveMetrics = async (req, res) => {
     }
 };
 
-exports.rejectMetrics = async (req, res) => {
+const rejectMetrics = async (req, res) => {
     try {
         const metrics = await AcademicMetric.findByPk(req.params.id);
         if (!metrics) return res.status(404).json({ success: false, message: 'Metrics not found' });
@@ -88,3 +88,13 @@ exports.rejectMetrics = async (req, res) => {
         return serverError(res, error);
     }
 };
+
+module.exports = {
+    getMetrics,
+    getAllMetrics,
+    getPendingMetrics,
+    updateMetrics,
+    approveMetrics,
+    rejectMetrics
+};
+

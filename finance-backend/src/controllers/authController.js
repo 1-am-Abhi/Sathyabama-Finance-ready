@@ -19,7 +19,7 @@ const serverError = (res, error) => {
   return res.status(500).json({ success: false, message });
 };
 
-exports.login = async (req, res) => {
+const login = async (req, res) => {
   try {
     const { email, password } = req.body;
 
@@ -54,7 +54,7 @@ exports.login = async (req, res) => {
   }
 };
 
-exports.register = async (req, res) => {
+const register = async (req, res) => {
   try {
     const { name, email, password, role, department, centre } = req.body;
 
@@ -79,7 +79,7 @@ exports.register = async (req, res) => {
   }
 };
 
-exports.getMe = async (req, res) => {
+const getMe = async (req, res) => {
   try {
     const user = await User.findByPk(req.user.id || req.user._id);
     if (!user) {
@@ -93,7 +93,7 @@ exports.getMe = async (req, res) => {
   }
 };
 
-exports.getUsers = async (req, res) => {
+const getUsers = async (req, res) => {
   try {
     const users = await User.findAll({
       attributes: {
@@ -130,7 +130,7 @@ exports.getUsers = async (req, res) => {
   }
 };
 
-exports.updateUser = async (req, res) => {
+const updateUser = async (req, res) => {
   try {
     const user = await User.findByPk(req.params.id);
     if (!user) {
@@ -144,7 +144,7 @@ exports.updateUser = async (req, res) => {
   }
 };
 
-exports.deleteUser = async (req, res) => {
+const deleteUser = async (req, res) => {
   try {
     const user = await User.findByPk(req.params.id);
     if (!user) {
@@ -158,7 +158,7 @@ exports.deleteUser = async (req, res) => {
   }
 };
 
-exports.updatePassword = async (req, res) => {
+const updatePassword = async (req, res) => {
   try {
     const { currentPassword, newPassword } = req.body;
     const user = await User.findByPk(req.user.id || req.user._id);
@@ -176,7 +176,7 @@ exports.updatePassword = async (req, res) => {
   }
 };
 
-exports.getCentres = async (req, res) => {
+const getCentres = async (req, res) => {
   try {
     const centres = await Centre.findAll({ order: [["name", "ASC"]] });
     res.status(200).json({ success: true, data: centres.map((c) => c.name) });
@@ -185,7 +185,7 @@ exports.getCentres = async (req, res) => {
   }
 };
 
-exports.addCentre = async (req, res) => {
+const addCentre = async (req, res) => {
   try {
     const { name } = req.body;
     const [centre, created] = await Centre.findOrCreate({ where: { name } });
@@ -197,3 +197,16 @@ exports.addCentre = async (req, res) => {
     return serverError(res, error);
   }
 };
+
+module.exports = {
+  login,
+  register,
+  getMe,
+  getUsers,
+  updateUser,
+  deleteUser,
+  updatePassword,
+  getCentres,
+  addCentre
+};
+

@@ -36,8 +36,7 @@ const resolveCentreAssignment = async (centreInput, centreIdInput) => {
     return { centreId: null, centre: null };
 };
 
-
-exports.getAdminStats = asyncHandler(async (req, res) => {
+const getAdminStats = asyncHandler(async (req, res) => {
     const cacheKey = 'admin:dashboard:stats';
     const cachedData = await cache.get(cacheKey);
     
@@ -83,7 +82,7 @@ exports.getAdminStats = asyncHandler(async (req, res) => {
     });
 });
 
-exports.getFacultyStats = asyncHandler(async (req, res) => {
+const getFacultyStats = asyncHandler(async (req, res) => {
     const userId = req.user?.id || req.user?._id;
     const data = await getFacultyDashboardData(userId, req.user?.name);
 
@@ -96,7 +95,7 @@ exports.getFacultyStats = asyncHandler(async (req, res) => {
     });
 });
 
-exports.getProjects = asyncHandler(async (req, res) => {
+const getProjects = asyncHandler(async (req, res) => {
     const includeMembers = {
         include: [
             {
@@ -135,15 +134,7 @@ exports.getProjects = asyncHandler(async (req, res) => {
     });
 });
 
-
-/**
- * GET /projects/:id
- * Returns full project details including:
- *   - Budget summary: totalAmount, disbursedAmount, remainingAmount
- *   - Team members
- *   - All fund requests (installments) sorted by installmentNumber
- */
-exports.getProject = asyncHandler(async (req, res) => {
+const getProject = asyncHandler(async (req, res) => {
     const project = await Project.findByPk(req.params.id, {
         include: [
             {
@@ -182,9 +173,7 @@ exports.getProject = asyncHandler(async (req, res) => {
     });
 });
 
-
-
-exports.createProject = async (req, res) => {
+const createProject = async (req, res) => {
     try {
         const { projectSchema } = require('../utils/validation');
         const validated = projectSchema.parse({ body: req.body });
@@ -250,7 +239,7 @@ exports.createProject = async (req, res) => {
     }
 };
 
-exports.updateProject = async (req, res) => {
+const updateProject = async (req, res) => {
     try {
         const project = await Project.findByPk(req.params.id);
         if (!project) {
@@ -325,7 +314,7 @@ exports.updateProject = async (req, res) => {
     }
 };
 
-exports.deleteProject = async (req, res) => {
+const deleteProject = async (req, res) => {
     try {
         const project = await Project.findByPk(req.params.id);
         if (!project) {
@@ -338,8 +327,7 @@ exports.deleteProject = async (req, res) => {
     }
 };
 
-// Get members for a specific project
-exports.getProjectMembers = async (req, res) => {
+const getProjectMembers = async (req, res) => {
     try {
         const members = await ProjectMember.findAll({
             where: { projectId: req.params.id },
@@ -351,8 +339,7 @@ exports.getProjectMembers = async (req, res) => {
     }
 };
 
-// Update team: receives { piId, memberIds[] }
-exports.updateProjectMembers = async (req, res) => {
+const updateProjectMembers = async (req, res) => {
     try {
         const { piId, memberIds } = req.body;
         const projectId = req.params.id;
@@ -398,3 +385,16 @@ exports.updateProjectMembers = async (req, res) => {
         return serverError(res, error);
     }
 };
+
+module.exports = {
+    getAdminStats,
+    getFacultyStats,
+    getProjects,
+    getProject,
+    createProject,
+    updateProject,
+    deleteProject,
+    getProjectMembers,
+    updateProjectMembers
+};
+

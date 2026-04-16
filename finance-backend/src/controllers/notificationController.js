@@ -10,7 +10,7 @@ const canAccessUserNotifications = (req, userId) =>
     String(userId || '') === getAuthUserId(req) ||
     String(req.user?.role || '').toUpperCase() === 'ADMIN';
 
-exports.createNotification = async (req, res) => {
+const createNotification = async (req, res) => {
     try {
         const { title, message, type, role, targetUserId, relatedId, actionUrl } = req.body;
         console.log(`[NotificationController] Request to create notification:`, { title, role, targetUserId });
@@ -46,7 +46,7 @@ exports.createNotification = async (req, res) => {
     }
 };
 
-exports.getNotifications = async (req, res) => {
+const getNotifications = async (req, res) => {
     try {
         const userId = req.params.userId || req.user.id || req.user._id;
 
@@ -69,7 +69,7 @@ exports.getNotifications = async (req, res) => {
     }
 };
 
-exports.markAsRead = async (req, res) => {
+const markAsRead = async (req, res) => {
     try {
         const { id } = req.params;
         const notification = await Notification.findByPk(id);
@@ -90,7 +90,7 @@ exports.markAsRead = async (req, res) => {
     }
 };
 
-exports.markAllAsRead = async (req, res) => {
+const markAllAsRead = async (req, res) => {
     try {
         const userId = req.params.userId || req.user.id || req.user._id;
 
@@ -113,3 +113,11 @@ exports.markAllAsRead = async (req, res) => {
         return serverError(res, error);
     }
 };
+
+module.exports = {
+    createNotification,
+    getNotifications,
+    markAsRead,
+    markAllAsRead
+};
+

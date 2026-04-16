@@ -10,7 +10,7 @@ const {
     getRecordId,
 } = require('../services/financePipelineService');
 
-exports.createEventRequest = async (req, res) => {
+const createEventRequest = async (req, res) => {
     try {
         console.log('Creating Event Request. User:', req.user?.name, 'Dept:', req.user?.department);
         console.log('Payload:', req.body);
@@ -41,7 +41,7 @@ exports.createEventRequest = async (req, res) => {
     }
 };
 
-exports.getEventRequests = async (req, res) => {
+const getEventRequests = async (req, res) => {
     try {
         const options = { order: [['createdAt', 'DESC']] };
         
@@ -50,7 +50,6 @@ exports.getEventRequests = async (req, res) => {
             options.where = { facultyId: userId };
         }
         
-        // STEP 1: SAFE QUERY (Add includes as optional, catching association errors if models are missing)
         try {
             const Project = require('../models/Project');
             const Centre = require('../models/Centre');
@@ -62,7 +61,6 @@ exports.getEventRequests = async (req, res) => {
             console.warn('Associations not found for EventRequest, continuing without include.');
         }
 
-        // Try querying with include, fallback to without include if association is not strict
         let events = [];
         try {
             events = await EventRequest.findAll(options);
@@ -71,7 +69,6 @@ exports.getEventRequests = async (req, res) => {
             events = await EventRequest.findAll(options);
         }
 
-        // STEP 2: HANDLE EMPTY DATA
         if (!events || events.length === 0) {
             return res.json({
                 success: true,
@@ -82,7 +79,6 @@ exports.getEventRequests = async (req, res) => {
 
         const membersMap = await getEventMembersMap(events).catch(() => new Map());
 
-        // STEP 3: SAFE MAPPING
         const safeData = events.map((request) => {
             const raw = request.toJSON ? request.toJSON() : request;
             
@@ -96,7 +92,6 @@ exports.getEventRequests = async (req, res) => {
             };
         });
 
-        // STEP 4: NEVER THROW RAW ERRORS (already handled by returning res.json)
         return res.json({ success: true, count: safeData.length, data: safeData });
     } catch (error) {
         console.error("EVENT REQUEST ERROR:", error);
@@ -107,7 +102,7 @@ exports.getEventRequests = async (req, res) => {
     }
 };
 
-exports.updateEventRequestStatus = async (req, res) => {
+const updateEventRequestStatus = async (req, res) => {
     try {
         const evt = await EventRequest.findByPk(req.params.id);
         if (!evt) {
@@ -167,7 +162,7 @@ exports.updateEventRequestStatus = async (req, res) => {
     }
 };
 
-exports.updateEventMembers = async (req, res) => {
+const updateEventMembers = async (req, res) => {
     try {
         const { piId, memberIds } = req.body;
         const eventId = req.params.id;
@@ -198,3 +193,11 @@ exports.updateEventMembers = async (req, res) => {
         return serverError(res, error);
     }
 };
+
+module.exports = {
+    createEventRequest,
+    getEventRequests,
+    updateEventRequestStatus,
+    updateEventMembers
+};
+

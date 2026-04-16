@@ -3,12 +3,11 @@ const ODRequest = require('../models/ODRequest');
 const AcademicMetric = require('../models/AcademicMetric');
 const { Op } = require('sequelize');
 
-exports.createODRequest = async (req, res) => {
+const createODRequest = async (req, res) => {
     try {
         console.log('Creating OD Request. User:', req.user?.name, 'Dept:', req.user?.department);
         console.log('Payload:', req.body);
         
-        // Validation: Cannot apply for OD same-day or past (must be at least tomorrow)
         const tomorrow = new Date();
         tomorrow.setDate(tomorrow.getDate() + 1);
         const tomorrowStr = tomorrow.toISOString().split('T')[0];
@@ -19,7 +18,6 @@ exports.createODRequest = async (req, res) => {
             });
         }
 
-        // Idempotency check: prevent duplicate requests within 5 minutes
         const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
         const duplicate = await ODRequest.findOne({
             where: {
@@ -40,7 +38,7 @@ exports.createODRequest = async (req, res) => {
         const payload = {
             facultyId: req.user.id || req.user._id,
             facultyName: req.user.name || 'Faculty Member',
-            department: req.user.department || 'RESEARCH', // Fallback to RESEARCH if missing
+            department: req.user.department || 'RESEARCH',
             odType: req.body.type,
             purpose: req.body.purpose,
             startDate: req.body.startDate,
@@ -59,7 +57,7 @@ exports.createODRequest = async (req, res) => {
     }
 };
 
-exports.getODRequests = async (req, res) => {
+const getODRequests = async (req, res) => {
     try {
         let options = { order: [['createdAt', 'DESC']] };
         if (req.user.role === 'FACULTY') {
@@ -72,7 +70,7 @@ exports.getODRequests = async (req, res) => {
     }
 };
 
-exports.updateODRequestStatus = async (req, res) => {
+const updateODRequestStatus = async (req, res) => {
     try {
         const od = await ODRequest.findByPk(req.params.id);
         if (!od) {
@@ -81,11 +79,9 @@ exports.updateODRequestStatus = async (req, res) => {
         const userRole = (req.user.role || '').toUpperCase();
         
         if (userRole === 'FACULTY') {
-            // Faculty can only update proof-related fields. Ignore status change requests.
             if (req.body.proofUploaded !== undefined) od.proofUploaded = req.body.proofUploaded;
             if (req.body.proofData !== undefined) od.proofData = req.body.proofData;
         } else {
-            // Admins can update everything including status
             if (req.body.status) od.status = req.body.status;
             if (req.body.proofUploaded !== undefined) od.proofUploaded = req.body.proofUploaded;
             if (req.body.proofData !== undefined) od.proofData = req.body.proofData;
@@ -101,10 +97,8 @@ exports.updateODRequestStatus = async (req, res) => {
         
         await od.save();
 
-
-        // Auto-sync with AcademicMetrics if APPROVED
         if (od.status === 'APPROVED') {
-            const cycle = '2023-24'; // Current cycle
+            const cycle = '2023-24'; 
             let metrics = await AcademicMetric.findOne({ where: { facultyId: od.facultyId, cycle } });
             if (!metrics) {
                 metrics = await AcademicMetric.create({ facultyId: od.facultyId, cycle });
@@ -114,12 +108,9 @@ exports.updateODRequestStatus = async (req, res) => {
             if (type === 'EXAM DUTY') {
                 await metrics.increment('examDuty');
             } else if (type === 'INTERNATIONAL VISIT' || od.purpose?.toLowerCase().includes('international')) {
-                // If it's a text field for International Visit, we'll append it
                 const currentVal = metrics.internationalVisit || '';
                 const newVal = currentVal ? `${currentVal}, Approved ${od.odType}` : `Approved ${od.odType}`;
                 await metrics.update({ internationalVisit: newVal });
-            } else {
-                // Default to some field or just don't increment
             }
         }
 
@@ -128,3 +119,10 @@ exports.updateODRequestStatus = async (req, res) => {
         return serverError(res, error);
     }
 };
+
+module.exports = {
+    createODRequest,
+    getODRequests,
+    updateODRequestStatus
+};
+

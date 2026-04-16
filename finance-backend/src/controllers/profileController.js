@@ -2,7 +2,7 @@ const { serverError } = require("../utils/controllerError");
 const User = require('../models/User');
 const { syncScopusData } = require('../services/scopusService');
 
-exports.updateProfile = async (req, res) => {
+const updateProfile = async (req, res) => {
     try {
         console.log('Profile Update Request Received for User:', req.user.id);
         console.log('Payload:', JSON.stringify(req.body, null, 2));
@@ -56,7 +56,7 @@ exports.updateProfile = async (req, res) => {
     }
 };
 
-exports.syncScopus = async (req, res) => {
+const syncScopus = async (req, res) => {
     try {
         const user = await User.findByPk(req.user.id);
         if (!user || !user.scopusId) {
@@ -78,7 +78,7 @@ exports.syncScopus = async (req, res) => {
     }
 };
 
-exports.getAllProfiles = async (req, res) => {
+const getAllProfiles = async (req, res) => {
     try {
         const users = await User.findAll({
             attributes: ['_id', 'name', 'email', 'role', 'designation', 'centre', 'department', 'scopusId', 'photo', 'isProfileCompleted']
@@ -89,3 +89,10 @@ exports.getAllProfiles = async (req, res) => {
         return serverError(res, error);
     }
 };
+
+module.exports = {
+    updateProfile,
+    syncScopus,
+    getAllProfiles
+};
+

@@ -2,7 +2,7 @@ const { FacultyRequest, AuditLog, User } = require('../models');
 const NotificationService = require('../services/notificationService');
 const { serverError } = require('../utils/controllerError');
 
-exports.createRequest = async (req, res) => {
+const createRequest = async (req, res) => {
     try {
         const payload = {
             ...req.body,
@@ -44,7 +44,7 @@ exports.createRequest = async (req, res) => {
     }
 };
 
-exports.getAdminRequests = async (req, res) => {
+const getAdminRequests = async (req, res) => {
     try {
         const requests = await FacultyRequest.findAll({
             where: { currentStage: 'ADMIN', status: 'PENDING' },
@@ -57,7 +57,7 @@ exports.getAdminRequests = async (req, res) => {
     }
 };
 
-exports.approveAdminRequest = async (req, res) => {
+const approveAdminRequest = async (req, res) => {
     try {
         const { id } = req.params;
         const request = await FacultyRequest.findByPk(id);
@@ -87,7 +87,7 @@ exports.approveAdminRequest = async (req, res) => {
     }
 };
 
-exports.rejectAdminRequest = async (req, res) => {
+const rejectAdminRequest = async (req, res) => {
     try {
         const { id } = req.params;
         const request = await FacultyRequest.findByPk(id);
@@ -108,7 +108,7 @@ exports.rejectAdminRequest = async (req, res) => {
     }
 };
 
-exports.getFinanceRequests = async (req, res) => {
+const getFinanceRequests = async (req, res) => {
     try {
          const requests = await FacultyRequest.findAll({
             where: { currentStage: 'FINANCE', status: 'APPROVED' },
@@ -121,7 +121,7 @@ exports.getFinanceRequests = async (req, res) => {
     }
 };
 
-exports.disburseFinanceRequest = async (req, res) => {
+const disburseFinanceRequest = async (req, res) => {
     try {
         const { id } = req.params;
         const request = await FacultyRequest.findByPk(id);
@@ -134,7 +134,7 @@ exports.disburseFinanceRequest = async (req, res) => {
             action: 'REQUEST_DISBURSED',
             entityType: 'FacultyRequest',
             entityId: String(request.id),
-            metadata: { disbursedAmount: request.approvedAmount } // Assuming approvedAmount or requestedAmount
+            metadata: { disbursedAmount: request.approvedAmount }
         });
 
         await NotificationService.create(
@@ -150,3 +150,13 @@ exports.disburseFinanceRequest = async (req, res) => {
         return serverError(res, error);
     }
 };
+
+module.exports = {
+    createRequest,
+    getAdminRequests,
+    approveAdminRequest,
+    rejectAdminRequest,
+    getFinanceRequests,
+    disburseFinanceRequest
+};
+

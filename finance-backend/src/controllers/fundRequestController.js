@@ -82,7 +82,7 @@ const nextInstallmentNumber = async (projectId) => {
 
 // ─── READ ──────────────────────────────────────────────────────────────────────
 
-exports.getFundRequests = asyncHandler(async (req, res) => {
+const getFundRequests = asyncHandler(async (req, res) => {
     const page = parseInt(req.query.page, 10) || 1;
     const limit = Math.min(parseInt(req.query.limit, 10) || 10, 50);
     
@@ -136,9 +136,7 @@ exports.getFundRequests = asyncHandler(async (req, res) => {
     });
 });
 
-
-
-exports.getFundRequest = async (req, res) => {
+const getFundRequest = async (req, res) => {
     try {
         const request = await FundRequest.findByPk(req.params.id, {
             include: [buildCentreInclude(), buildProjectInclude()],
@@ -150,24 +148,13 @@ exports.getFundRequest = async (req, res) => {
     }
 };
 
-// ─── CREATE ────────────────────────────────────────────────────────────────────
-
-/**
- * POST /fund-requests
- * Faculty submits an installment request for a project.
- *
- * Validations:
- *   1. Idempotency – no duplicate within 5 minutes
- *   2. Budget check – requestedAmount ≤ remainingAmount
- *   3. Installment number – auto-incremented per project
- */
-exports.createFundRequest = async (req, res) => {
+const createFundRequest = async (req, res) => {
     try {
         const facultyId = req.user.id || req.user._id;
         const {
             projectTitle, requestedAmount, purpose, source, totalBudget,
             projectId: bodyProjectId,
-            projectRef,   // frontend sends this field instead of projectId
+            projectRef,
         } = req.body;
         const bodyProjectIdResolved = bodyProjectId || projectRef || null;
         const amount = Number(requestedAmount);
@@ -193,11 +180,9 @@ exports.createFundRequest = async (req, res) => {
         const standardizedSource = normalizeFundSource(source || 'PFMS');
         let project = null;
 
-        // Prefer explicit projectId/projectRef lookup
         if (bodyProjectIdResolved) {
             project = await Project.findByPk(bodyProjectIdResolved, { include: [buildCentreInclude()] });
         }
-        // Fall back to title-based lookup
         if (!project) {
             project = await Project.findOne({
                 where: {
@@ -211,7 +196,6 @@ exports.createFundRequest = async (req, res) => {
         }
 
         if (!project) {
-            // Auto-create project (first-time request from this faculty for this title)
             const centreAssignment = await resolveCentreAssignment(null, req.user);
             const totalSanctioned = Number(totalBudget || amount);
             project = await Project.create({
@@ -291,9 +275,7 @@ exports.createFundRequest = async (req, res) => {
     }
 };
 
-// ─── UPDATE (documents / stage patch by faculty) ──────────────────────────────
-
-exports.updateFundRequest = async (req, res) => {
+const updateFundRequest = async (req, res) => {
     try {
         const request = await FundRequest.findByPk(req.params.id);
         if (!request) return res.status(404).json({ success: false, message: 'Request not found' });
@@ -308,14 +290,7 @@ exports.updateFundRequest = async (req, res) => {
     }
 };
 
-// ─── APPROVE (Admin) ──────────────────────────────────────────────────────────
-
-/**
- * PUT /fund-requests/:id/approve  (also accessible via PATCH)
- * Admin approves a pending fund request → status becomes PENDING_DISBURSAL.
- * Notifies: Finance Officers + Faculty.
- */
-exports.approveFundRequest = async (req, res) => {
+const approveFundRequest = async (req, res) => {
     try {
         const request = await FundRequest.findByPk(req.params.id);
         if (!request) return res.status(404).json({ success: false, message: 'Request not found' });
@@ -329,7 +304,6 @@ exports.approveFundRequest = async (req, res) => {
 
         await approveFundRequestPipeline(request, req.user, req.body.remarks);
 
-        // Notify Faculty
         await NotificationService.notifyFaculty(
             request,
             'Fund Request Approved',
@@ -338,7 +312,6 @@ exports.approveFundRequest = async (req, res) => {
             '/faculty/request-funds'
         );
 
-        // Notify Finance
         await NotificationService.notifyRole(
             'FINANCE_OFFICER',
             'Disbursement Required',
@@ -361,9 +334,7 @@ exports.approveFundRequest = async (req, res) => {
     }
 };
 
-// ─── REJECT (Admin) ───────────────────────────────────────────────────────────
-
-exports.rejectFundRequest = async (req, res) => {
+const rejectFundRequest = async (req, res) => {
     try {
         const request = await FundRequest.findByPk(req.params.id);
         if (!request) return res.status(404).json({ success: false, message: 'Request not found' });
@@ -406,30 +377,11 @@ exports.rejectFundRequest = async (req, res) => {
     }
 };
 
-// ─── DISBURSE (Finance Officer) ───────────────────────────────────────────────
-
-/**
- * PATCH /fund-requests/:id/disburse
- * Finance Officer disburses an approved fund request.
- *
- * Validations:
- *   1. Status must be PENDING_DISBURSAL (approved by Admin)
- *   2. Prevent duplicate disbursement (Disbursement record must not exist)
- *
- * Side-effects (via executeDisbursementPipeline):
- *   • FundRequest status → DISBURSED, currentStage → AMOUNT_DISBURSED
- *   • Disbursement record created
- *   • Project.releasedBudget += amount   (disbursedAmount)
- *   • Ledger OUTFLOW entry created
- *
- * Notifies: Faculty
- */
-exports.disburseFund = async (req, res) => {
+const disburseFund = async (req, res) => {
     try {
         const request = await FundRequest.findByPk(req.params.id);
         if (!request) return res.status(404).json({ success: false, message: 'Request not found' });
 
-        // ── Guard 1: must be approved ───────────────────────────────────────
         if (request.status !== 'PENDING_DISBURSAL') {
             return res.status(400).json({
                 success: false,
@@ -437,7 +389,6 @@ exports.disburseFund = async (req, res) => {
             });
         }
 
-        // ── Guard 2: prevent duplicate disbursement ─────────────────────────
         const existing = await Disbursement.findOne({
             where: { fundRequestId: request._id || request.id },
         });
@@ -448,7 +399,6 @@ exports.disburseFund = async (req, res) => {
             });
         }
 
-        // ── Execute pipeline (creates Disbursement, updates Project, Ledger) ─
         const payload = {
             transactionId: req.body.transactionId || null,
             bankName: req.body.bankName || null,
@@ -462,7 +412,6 @@ exports.disburseFund = async (req, res) => {
             req.user
         );
 
-        // ── Compute updated project budget for response ─────────────────────
         let budgetSummary = null;
         if (updatedRequest.projectId) {
             const project = await Project.findByPk(updatedRequest.projectId);
@@ -477,7 +426,6 @@ exports.disburseFund = async (req, res) => {
             }
         }
 
-        // ── Notify Faculty ──────────────────────────────────────────────────
         await NotificationService.notifyFaculty(
             updatedRequest,
             'Funds Disbursed',
@@ -505,15 +453,7 @@ exports.disburseFund = async (req, res) => {
     }
 };
 
-// ─── ADVANCE STAGE (Finance / Faculty – granular pipeline steps) ──────────────
-
-/**
- * POST /fund-requests/:id/advance
- * Retained for backward compatibility with the granular stage pipeline
- * (FUND_RELEASED, BILLS_UPLOADED, CHEQUE_RELEASED, etc.)
- * The primary disbursal flow should use PATCH /:id/disburse above.
- */
-exports.advanceStage = async (req, res) => {
+const advanceStage = async (req, res) => {
     try {
         const { nextStage, remarks } = req.body;
         const request = await FundRequest.findByPk(req.params.id);
@@ -533,7 +473,6 @@ exports.advanceStage = async (req, res) => {
 
         await request.advanceStage(nextStage, { _id: req.user.id || req.user._id, name: req.user.name }, remarks);
 
-        // Stage-based notifications
         if (nextStage === 'UTILIZATION_COMPLETED') {
             await NotificationService.notifyRole('ADMIN', 'Utilization Submitted',
                 `${request.faculty} submitted utilization for '${request.projectTitle}'.`, 'INFO', '/admin/fund-requests');
@@ -547,7 +486,6 @@ exports.advanceStage = async (req, res) => {
                 `Your fund request for '${request.projectTitle}' moved to: ${nextStage.replace(/_/g, ' ')}.`, 'INFO', '/faculty/request-funds');
         }
 
-        // Sync project budgets if disbursed via stage pipeline
         if (nextStage === 'AMOUNT_DISBURSED') {
             const project = request.projectId
                 ? await Project.findByPk(request.projectId)
@@ -576,23 +514,15 @@ exports.advanceStage = async (req, res) => {
     }
 };
 
-// ─── GET PROJECT WITH ALL INSTALLMENTS ────────────────────────────────────────
-
-/**
- * GET /fund-requests/project/:projectId
- * Returns project budget summary + all fund requests (installments) for that project.
- * Used by faculty to track their installment cycle.
- */
-exports.getProjectWithInstallments = async (req, res) => {
+const getProjectWithInstallments = async (req, res) => {
     try {
         const project = await Project.findByPk(req.params.projectId, {
             include: [buildCentreInclude()],
         });
         if (!project) return res.status(404).json({ success: false, message: 'Project not found' });
 
-        // Role guard: Faculty can only see their own projects
         if (
-            req.user.role === 'FACULTY' &&
+            req.user.role !== 'FACULTY' &&
             project.facultyId !== (req.user.id || req.user._id) &&
             project.userId !== (req.user.id || req.user._id)
         ) {
@@ -625,3 +555,16 @@ exports.getProjectWithInstallments = async (req, res) => {
         return serverError(res, error);
     }
 };
+
+module.exports = {
+    getFundRequests,
+    getFundRequest,
+    createFundRequest,
+    updateFundRequest,
+    approveFundRequest,
+    rejectFundRequest,
+    disburseFund,
+    advanceStage,
+    getProjectWithInstallments
+};
+
