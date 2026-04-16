@@ -81,23 +81,28 @@ const nextInstallmentNumber = async (projectId) => {
 
 exports.getFundRequests = async (req, res) => {
     try {
+        console.log('[getFundRequests] Starting getFundRequests process...');
         const options = {
             order: [['createdAt', 'DESC']],
             include: [],
         };
 
         try {
+            console.log('[getFundRequests] Building Centre include...');
             const centreInc = buildCentreInclude();
             if (centreInc) options.include.push(centreInc);
+            console.log('[getFundRequests] Successfully built Centre include.');
         } catch (incErr) {
-            console.warn('[getFundRequests] WARNING: buildCentreInclude failed. Details:', incErr.message);
+            console.warn('[getFundRequests] WARNING: buildCentreInclude failed. Details:', incErr.message, incErr.stack);
         }
 
         try {
+            console.log('[getFundRequests] Building Project include...');
             const projectInc = buildProjectInclude();
             if (projectInc) options.include.push(projectInc);
+            console.log('[getFundRequests] Successfully built Project include.');
         } catch (incErr) {
-            console.warn('[getFundRequests] WARNING: buildProjectInclude failed. Details:', incErr.message);
+            console.warn('[getFundRequests] WARNING: buildProjectInclude failed. Details:', incErr.message, incErr.stack);
         }
 
         if (req.user.role === 'FACULTY') {
@@ -110,22 +115,27 @@ exports.getFundRequests = async (req, res) => {
             };
         }
 
-        console.log(`[getFundRequests] Executing query with ${options.include.length} includes`);
+        console.log(`[getFundRequests] Executing query with ${options.include.length} includes...`);
         const requests = await FundRequest.findAll(options);
+        console.log(`[getFundRequests] Query executed successfully. Found ${requests.length} records.`);
         
         const data = [];
+        console.log(`[getFundRequests] Starting normalization loop...`);
         requests.forEach((r) => {
             try {
                 data.push(normalizeFundRequest(r));
             } catch (normErr) {
-                console.error(`[getFundRequests] ERROR: Normalization failed for request ${r._id || r.id || 'unknown'}. Skipping record. Details:`, normErr.message);
+                console.error(`[getFundRequests] ERROR: Normalization failed for request ${r._id || r.id || 'unknown'}. Skipping record.`);
+                console.error(`[getFundRequests] Normalization Stack Trace:`, normErr.stack);
             }
         });
+        console.log(`[getFundRequests] Normalization loop completed. Returning ${data.length} records.`);
 
         return res.status(200).json({ success: true, count: data.length, data });
     } catch (error) {
-        console.error('[getFundRequests] FATAL: Database query or unexpected failure:', error.message);
-        return serverError(res, error);
+        console.error('[getFundRequests] FATAL: Database query or unexpected failure!', error);
+        console.error('[getFundRequests] FATAL Stack Trace:', error.stack);
+        return serverError(res, error, 'getFundRequests');
     }
 };
 
