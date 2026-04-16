@@ -9,6 +9,8 @@ const router = express.Router();
 router.get('/admin/dashboard', protect, authorize('ADMIN'), projectController.getAdminStats);
 router.get('/faculty/dashboard', protect, authorize('FACULTY'), projectController.getFacultyStats);
 router.get('/finance/dashboard', protect, authorize('FINANCE_OFFICER', 'ADMIN'), financeController.getFinanceDashboard);
+
+// ✅ FIXED LINE (will now work)
 router.get('/dashboard/metrics', protect, dashboardController.getGlobalMetrics);
 
 module.exports = router;

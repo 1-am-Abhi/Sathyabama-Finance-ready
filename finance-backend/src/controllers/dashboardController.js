@@ -1,52 +1,76 @@
 const { Project, FundRequest } = require('../models');
 const { serverError } = require('../utils/controllerError');
 const { fn, col, literal } = require('sequelize');
+const logger = require('../utils/logger');
 
 const dashboardCache = new Map();
 
 exports.getGlobalMetrics = async (req, res) => {
     try {
-        if (dashboardCache.has('global_metrics')) {
+        const cacheKey = 'global_metrics';
+
+        // ✅ Cache check
+        if (dashboardCache.has(cacheKey)) {
             return res.status(200).json({
                 success: true,
-                data: dashboardCache.get('global_metrics'),
+                data: dashboardCache.get(cacheKey),
                 cached: true
             });
         }
 
-        const result = await Project.findAll({
-            attributes: [
-                [fn('SUM', col('sanctionedBudget')), 'totalSanctioned'],
-                [fn('SUM', col('releasedBudget')), 'totalDisbursed'],
-                [
-                    fn('SUM', literal(`CASE WHEN status NOT IN ('COMPLETED','CLOSED') THEN 1 ELSE 0 END`)),
-                    'activeProjects'
-                ]
-            ],
-            raw: true
-        });
+        // ✅ Parallel queries (better than single aggregation)
+        const [projectStats, pendingRequests] = await Promise.all([
+            Project.findAll({
+                attributes: [
+                    [fn('SUM', col('sanctionedBudget')), 'totalSanctioned'],
+                    [fn('SUM', col('releasedBudget')), 'totalDisbursed'],
+                    [
+                        fn(
+                            'SUM',
+                            literal(`CASE WHEN status IS NOT NULL AND status NOT IN ('COMPLETED','CLOSED') THEN 1 ELSE 0 END`)
+                        ),
+                        'activeProjects'
+                    ]
+                ],
+                raw: true
+            }),
+            FundRequest.count({ where: { status: 'PENDING' } })
+        ]);
 
-        const metricsRow = result[0] || { totalSanctioned: 0, totalDisbursed: 0, activeProjects: 0 };
-        const totalSanctioned = Number(metricsRow.totalSanctioned || 0);
-        const totalDisbursed = Number(metricsRow.totalDisbursed || 0);
+        const metricsRow = projectStats[0] || {};
+
+        const totalSanctioned = Number(metricsRow.totalSanctioned) || 0;
+        const totalDisbursed = Number(metricsRow.totalDisbursed) || 0;
+        const activeProjects = Number(metricsRow.activeProjects) || 0;
         const remainingFunds = Math.max(0, totalSanctioned - totalDisbursed);
-        const activeProjects = Number(metricsRow.activeProjects || 0);
 
         const data = {
             totalSanctioned,
             totalDisbursed,
             remainingFunds,
-            activeProjects
+            activeProjects,
+            pendingRequests
         };
 
-        dashboardCache.set('global_metrics', data);
-        setTimeout(() => dashboardCache.delete('global_metrics'), 5000); // 5s TTL — avoid stale data after DB reset
+        // ✅ Logging (important for observability)
+        if (totalSanctioned === 0 && totalDisbursed === 0) {
+            logger.warn('[Dashboard] Empty metrics returned');
+        }
+
+        // ✅ Cache (safe TTL)
+        dashboardCache.set(cacheKey, data);
+
+        setTimeout(() => {
+            dashboardCache.delete(cacheKey);
+        }, 5000);
 
         return res.status(200).json({
             success: true,
             data
         });
+
     } catch (error) {
+        logger.error('[Dashboard Error]', error);
         return serverError(res, error);
     }
 };
