@@ -89,8 +89,8 @@ exports.getFundRequests = async (req, res) => {
             options.where = {
                 [Op.or]: [
                     { facultyId: req.user.id || req.user._id },
-                    { userId:    req.user.id || req.user._id },
-                    { faculty:   req.user.name },
+                    { userId: req.user.id || req.user._id },
+                    { faculty: req.user.name },
                 ],
             };
         }
@@ -204,7 +204,7 @@ exports.createFundRequest = async (req, res) => {
                 success: false,
                 message: `Requested amount ₹${amount.toLocaleString()} exceeds remaining project budget ₹${remaining.toLocaleString()}.`,
                 data: {
-                    totalAmount:     Number(project.sanctionedBudget),
+                    totalAmount: Number(project.sanctionedBudget),
                     disbursedAmount: Number(project.releasedBudget),
                     remainingAmount: remaining,
                 },
@@ -219,17 +219,17 @@ exports.createFundRequest = async (req, res) => {
         const fundRequest = await FundRequest.create({
             projectTitle,
             projectId,
-            faculty:          req.user.name,
+            faculty: req.user.name,
             facultyId,
-            userId:           facultyId,
-            requestedAmount:  amount,
+            userId: facultyId,
+            requestedAmount: amount,
             installmentNumber,
             purpose,
-            department:       req.user.department || 'RESEARCH',
-            centre:           centreAssignment.centre,
-            centreId:         centreAssignment.centreId,
-            source:           standardizedSource,
-            status:           'PENDING',
+            department: req.user.department || 'RESEARCH',
+            centre: centreAssignment.centre,
+            centreId: centreAssignment.centreId,
+            source: standardizedSource,
+            status: 'PENDING',
         });
 
         // ── 6. Notify Admin ─────────────────────────────────────────────────
@@ -254,7 +254,7 @@ exports.updateFundRequest = async (req, res) => {
         const request = await FundRequest.findByPk(req.params.id);
         if (!request) return res.status(404).json({ success: false, message: 'Request not found' });
 
-        if (req.body.documents)    request.documents    = req.body.documents;
+        if (req.body.documents) request.documents = req.body.documents;
         if (req.body.currentStage) request.currentStage = req.body.currentStage;
 
         await request.save();
@@ -322,12 +322,12 @@ exports.rejectFundRequest = async (req, res) => {
             auditTrail: [
                 ...currentAudit,
                 {
-                    stage:         'REJECTED',
-                    prevStage:     request.currentStage,
-                    updatedBy:     req.user.id || req.user._id,
+                    stage: 'REJECTED',
+                    prevStage: request.currentStage,
+                    updatedBy: req.user.id || req.user._id,
                     updatedByName: req.user.name,
-                    timestamp:     new Date(),
-                    remarks:       req.body.remarks || 'Rejected by Admin',
+                    timestamp: new Date(),
+                    remarks: req.body.remarks || 'Rejected by Admin',
                 },
             ],
         });
@@ -390,10 +390,10 @@ exports.disburseFund = async (req, res) => {
 
         // ── Execute pipeline (creates Disbursement, updates Project, Ledger) ─
         const payload = {
-            transactionId:    req.body.transactionId    || null,
-            bankName:         req.body.bankName         || null,
+            transactionId: req.body.transactionId || null,
+            bankName: req.body.bankName || null,
             disbursementDate: req.body.disbursementDate || new Date(),
-            remarks:          req.body.remarks          || null,
+            remarks: req.body.remarks || null,
         };
 
         const { request: updatedRequest, disbursement } = await executeDisbursementPipeline(
@@ -408,7 +408,7 @@ exports.disburseFund = async (req, res) => {
             const project = await Project.findByPk(updatedRequest.projectId);
             if (project) {
                 const disbursedAmount = Number(project.releasedBudget || 0);
-                const totalAmount     = Number(project.sanctionedBudget || 0);
+                const totalAmount = Number(project.sanctionedBudget || 0);
                 budgetSummary = {
                     totalAmount,
                     disbursedAmount,
@@ -427,8 +427,8 @@ exports.disburseFund = async (req, res) => {
         );
 
         return res.status(200).json({
-            success:       true,
-            data:          updatedRequest,
+            success: true,
+            data: updatedRequest,
             disbursement,
             budgetSummary,
         });
@@ -526,7 +526,7 @@ exports.getProjectWithInstallments = async (req, res) => {
         if (
             req.user.role === 'FACULTY' &&
             project.facultyId !== (req.user.id || req.user._id) &&
-            project.userId   !== (req.user.id || req.user._id)
+            project.userId !== (req.user.id || req.user._id)
         ) {
             return res.status(403).json({ success: false, message: 'Access denied' });
         }
@@ -536,8 +536,8 @@ exports.getProjectWithInstallments = async (req, res) => {
             order: [['installmentNumber', 'ASC'], ['createdAt', 'ASC']],
         });
 
-        const totalAmount     = Number(project.sanctionedBudget || 0);
-        const disbursedAmount = Number(project.releasedBudget   || 0);
+        const totalAmount = Number(project.sanctionedBudget || 0);
+        const disbursedAmount = Number(project.releasedBudget || 0);
         const remainingAmount = Math.max(0, totalAmount - disbursedAmount);
 
         return res.status(200).json({

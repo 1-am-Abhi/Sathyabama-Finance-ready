@@ -32,27 +32,27 @@ const {
 
 exports.getFinanceStats = async (req, res) => {
     try {
-        const pendingReleases = await FundRequest.count({ 
-            where: { 
+        const pendingReleases = await FundRequest.count({
+            where: {
                 status: 'PENDING_DISBURSAL',
-                currentStage: { [Op.in]: ['FUND_APPROVED', 'BILLS_UPLOADED'] } 
-            } 
+                currentStage: { [Op.in]: ['FUND_APPROVED', 'BILLS_UPLOADED'] }
+            }
         });
-        
+
         const pendingDisbursements = await FundRequest.count({
             where: {
                 status: 'PENDING_DISBURSAL',
                 currentStage: { [Op.in]: ['FUND_RELEASED', 'CHEQUE_RELEASED'] }
             }
         });
-        
+
         const pendingSettlements = await FundRequest.count({
             where: {
                 status: 'DISBURSED',
                 currentStage: { [Op.in]: ['AMOUNT_DISBURSED', 'UTILIZATION_COMPLETED'] }
             }
         });
-        
+
         // Internship Fees: PENDING payment status
         const pendingInternships = await InternshipFee.count({ where: { paymentStatus: 'PENDING' } });
         const fundingTotals = await getFundingTotals();
@@ -113,7 +113,7 @@ exports.getFundFlowProjects = async (req, res) => {
             order: [['updatedAt', 'DESC']],
             include: [buildProjectInclude()]
         });
-        
+
         const data = fundRequests.map((request) => {
             const normalized = normalizeFundRequest(request);
             return {
@@ -159,9 +159,9 @@ exports.getPFMSTransactions = async (req, res) => {
 
 exports.getInternshipFees = async (req, res) => {
     try {
-        const fees = await InternshipFee.findAll({ 
+        const fees = await InternshipFee.findAll({
             where: { adminStatus: 'APPROVED' },
-            order: [['createdAt', 'DESC']] 
+            order: [['createdAt', 'DESC']]
         });
         res.status(200).json({ success: true, data: fees });
     } catch (error) {
@@ -182,10 +182,10 @@ exports.adminApproveInternshipFee = async (req, res) => {
     try {
         const { id } = req.params;
         const { adminStatus, adminRemarks } = req.body;
-        
+
         const fee = await InternshipFee.findByPk(id);
         if (!fee) return res.status(404).json({ success: false, message: 'Fee record not found' });
-        
+
         await fee.update({
             adminStatus: adminStatus || 'APPROVED',
             adminRemarks: adminRemarks || fee.adminRemarks
@@ -201,7 +201,7 @@ exports.adminApproveInternshipFee = async (req, res) => {
                 '/finance/internship-fees'
             );
         }
-        
+
         res.status(200).json({ success: true, message: 'Admin status updated successfully', data: fee });
     } catch (error) {
         return serverError(res, error);
@@ -213,10 +213,10 @@ exports.verifyInternshipFee = async (req, res) => {
     try {
         const { id } = req.params;
         const { paymentStatus, paymentMode, receiptNumber, paymentDate } = req.body;
-        
+
         const fee = await InternshipFee.findByPk(id);
         if (!fee) return res.status(404).json({ success: false, message: 'Fee record not found' });
-        
+
         await fee.update({
             paymentStatus: paymentStatus || 'PAID',
             paymentMode,
@@ -224,7 +224,7 @@ exports.verifyInternshipFee = async (req, res) => {
             paymentDate,
             verifiedBy: req.user.id
         });
-        
+
         res.status(200).json({ success: true, data: fee });
     } catch (error) {
         return serverError(res, error);
@@ -459,7 +459,7 @@ exports.getProjects = async (req, res) => {
         const projects = await Project.findAll({
             order: [['createdAt', 'DESC']]
         });
-        
+
         // Map to format expected by the new Finance portal
         const formattedProjects = projects.map(p => ({
             id: p._id || p.id,
@@ -495,7 +495,7 @@ exports.getDisbursementQueue = async (req, res) => {
             ],
             order: [['updatedAt', 'ASC']]
         });
-        
+
         const normalized = requests.map((request) => {
             const data = normalizeFundRequest(request);
             return {
@@ -503,7 +503,7 @@ exports.getDisbursementQueue = async (req, res) => {
                 faculty: data.faculty || data.requester?.name || 'N/A',
             };
         });
-        
+
         res.status(200).json({ success: true, data: normalized });
     } catch (error) {
         console.error('getDisbursementQueue Error:', error);
@@ -548,7 +548,7 @@ exports.executeDisbursement = async (req, res) => {
 exports.getEquipmentDisbursements = async (req, res) => {
     try {
         const EquipmentRequest = require('../models/EquipmentRequest');
-        
+
         const fundRequests = await FundRequest.findAll({
             where: {
                 status: 'PENDING_DISBURSAL',
@@ -608,12 +608,12 @@ exports.executeEquipmentDisbursement = async (req, res) => {
     try {
         const { id } = req.params;
         const { transactionId, bankName, disbursementDate, remarks } = req.body;
-        
+
         const EquipmentRequest = require('../models/EquipmentRequest');
         const eq = await EquipmentRequest.findByPk(id);
-        
+
         if (!eq) return res.status(404).json({ success: false, message: 'Equipment request not found' });
-        
+
         await eq.update({
             status: 'DISBURSED',
             adminRemarks: remarks ? `${eq.adminRemarks || ''} | Finance: ${remarks}` : eq.adminRemarks
@@ -626,7 +626,7 @@ exports.executeEquipmentDisbursement = async (req, res) => {
             'SUCCESS',
             '/faculty/equipment/dashboard'
         );
-        
+
         res.status(200).json({ success: true, message: 'Equipment Disbursement executed successfully', data: eq });
     } catch (error) {
         return serverError(res, error);
@@ -639,14 +639,14 @@ exports.getFinancialReports = async (req, res) => {
         const { period, department, fundType, centre } = req.query;
         const history = await Disbursement.findAll({
             include: [
-                { 
-                    model: FundRequest, 
+                {
+                    model: FundRequest,
                     as: 'FundRequest',
                     attributes: ['projectTitle', 'purpose', 'source', 'faculty'],
                     include: [{ model: require('../models/Centre'), as: 'researchCentre', attributes: ['name'] }, buildProjectInclude()]
                 },
-                { 
-                    model: Project, 
+                {
+                    model: Project,
                     as: 'Project',
                     attributes: ['title', 'pi', 'department'],
                     include: [{ model: require('../models/Centre'), as: 'researchCentre', attributes: ['name'] }]
@@ -718,13 +718,13 @@ exports.getDisbursalHistory = async (req, res) => {
     try {
         const history = await Disbursement.findAll({
             include: [
-                { 
-                    model: FundRequest, 
+                {
+                    model: FundRequest,
                     as: 'FundRequest',
                     attributes: ['_id', 'projectId', 'projectTitle', 'purpose', 'source', 'faculty', 'centre', 'centreId', 'requestedAmount'],
                     include: [buildCentreInclude(), buildProjectInclude()],
                 },
-                { 
+                {
                     ...buildProjectInclude(),
                 }
             ],

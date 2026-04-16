@@ -384,7 +384,7 @@ const buildCentreBreakdown = ({ centres, projects, fundRequests, disbursements }
 const getAdminDashboardData = async () => {
     // Single shared fetch to nourish all dependent metrics
     const shared = await getSharedPipelineData();
-    
+
     const [fundingTotals, fundSources] = await Promise.all([
         getFundingTotals(),
         getFundSourceOverview(shared),
