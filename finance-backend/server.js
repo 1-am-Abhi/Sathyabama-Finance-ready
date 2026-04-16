@@ -11,11 +11,19 @@ try {
 
 const http = require('http');
 const socketIo = require('socket.io');
-const { createAdapter } = require('@socket.io/redis-adapter');
+
+let createAdapter;
+try {
+    createAdapter = require('@socket.io/redis-adapter').createAdapter;
+} catch (e) {
+    console.warn("⚠️ Redis adapter not installed, running in single-instance mode");
+}
+
 const client = require('prom-client');
 const jwt = require('jsonwebtoken');
 const app = require('./src/app');
-const { pubClient, subClient } = require('./src/services/redisService');
+const { pubClient, subClient, isHealthy } = require('./src/services/redisService');
+
 
 dotenv.config();
 
@@ -43,7 +51,14 @@ const server = http.createServer(app);
 
 // Distributed Real-time: Socket.io with Redis Adapter
 const io = socketIo(server, { cors: { origin: '*' } });
-io.adapter(createAdapter(pubClient, subClient));
+
+if (createAdapter && isHealthy()) {
+    io.adapter(createAdapter(pubClient, subClient));
+    logger.info('[HA] Socket.io Redis Adapter initialized.');
+} else {
+    logger.info('[HA] Running Socket.io in single-instance mode.');
+}
+
 global.io = io;
 
 // Enforce JWT Expiration & Auth
