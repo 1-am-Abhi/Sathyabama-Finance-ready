@@ -397,15 +397,20 @@ const getAdminDashboardData = async () => {
         .filter((request) => ALLOCATED_STATUSES.includes(request.status))
         .reduce((sum, request) => sum + toNumber(request.requestedAmount), 0);
 
+    const totalAllocatedFromProjects = shared.projects.reduce(
+        (sum, p) => sum + Number(p.sanctionedBudget || 0),
+        0
+    );
+
     return {
         stats: {
             totalProjects,
             activeProjects,
             pendingApprovals,
-            totalAllocated: fundingTotals.totalAllocated,
+            totalAllocated: totalAllocatedFromProjects,
             totalUsed: fundingTotals.totalUsed,
             totalDisbursed: fundingTotals.totalDisbursed,
-            remaining: fundingTotals.remaining,
+            remaining: Math.max(0, totalAllocatedFromProjects - fundingTotals.totalUsed),
             approvedFunds,
             totalFaculty: shared.totalFaculty,
             pfmsStats: {
@@ -458,14 +463,19 @@ const getFacultyDashboardData = async (facultyId, facultyName) => {
         .reduce((sum, request) => sum + toNumber(request.requestedAmount), 0);
     const facultyDisbursed = disbursements.reduce((sum, entry) => sum + toNumber(entry.amount), 0);
 
+    const facultyTotalAllocated = projects.reduce(
+        (sum, p) => sum + Number(p.sanctionedBudget || 0),
+        0
+    );
+
     return {
         totalProjects: projects.length,
         activeProjects: projects.filter((project) => ACTIVE_PROJECT_STATUSES.includes(project.status)).length,
-        totalAllocated: fundingTotals.totalAllocated,
+        totalAllocated: facultyTotalAllocated,
         totalUsed: fundingTotals.totalUsed,
         totalDisbursed: fundingTotals.totalDisbursed,
-        remaining: fundingTotals.remaining,
-        balance: fundingTotals.remaining,
+        remaining: Math.max(0, facultyTotalAllocated - fundingTotals.totalUsed),
+        balance: Math.max(0, facultyTotalAllocated - fundingTotals.totalUsed),
         facultyApprovedFunds,
         facultyDisbursed,
     };

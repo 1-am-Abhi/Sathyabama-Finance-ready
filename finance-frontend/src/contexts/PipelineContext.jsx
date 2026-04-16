@@ -18,13 +18,19 @@ export const PipelineProvider = ({ children }) => {
     const queryClient = useQueryClient();
 
     // Fetch projects
-    const { data: projects, isLoading: projectsLoading } = useQuery({
+    const { data: projects, isLoading: projectsLoading, error: projectsError } = useQuery({
         queryKey: ['projects'],
         queryFn: async () => {
-            const response = await apiClient.get('/projects');
-            return response.data.data;
+            try {
+                const response = await apiClient.get('/projects');
+                return response.data.data || [];
+            } catch (err) {
+                console.warn('[PipelineContext] /projects fetch failed:', err.message);
+                return [];
+            }
         },
-        enabled: !!user
+        enabled: !!user,
+        retry: false,
     });
 
     // Fetch fund requests

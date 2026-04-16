@@ -109,6 +109,11 @@ exports.getProjects = async (req, res) => {
         }
 
         const projects = await Project.findAll(includeMembers);
+
+        if (!projects || projects.length === 0) {
+            return res.json({ success: true, count: 0, data: [] });
+        }
+
         res.status(200).json({ success: true, count: projects.length, data: projects });
     } catch (error) {
         console.error('Get Projects Error:', error);

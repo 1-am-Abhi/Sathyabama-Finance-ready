@@ -58,25 +58,8 @@ const seedData = async () => {
         });
 
         const nanoCentre = createdCentres['Centre for Nano Science and Nanotechnology'];
-        await User.create({
-            name: 'Dr. Priya Sharma',
-            email: 'faculty@sathyabama.ac.in',
-            password: 'password123',
-            role: 'FACULTY',
-            department: 'CSE',
-            centre: nanoCentre.name,
-            centreId: nanoCentre._id,
-            isProfileCompleted: false
-        });
-
-        await User.create({
-            name: 'Mr. Suresh Menon',
-            email: 'finance@sathyabama.ac.in',
-            password: 'password123',
-            role: 'FINANCE_OFFICER',
-            department: 'FINANCE'
-        });
-        console.log('Users seeded.');
+        // Faculty and Finance Officer seeding removed to ensure a clean state
+        console.log('Admin User seeded.');
 
         // 3. Create Default Fund Sources
         console.log('Creating default fund sources...');

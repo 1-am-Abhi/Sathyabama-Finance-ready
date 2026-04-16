@@ -40,7 +40,7 @@ exports.getGlobalMetrics = async (req, res) => {
         };
 
         dashboardCache.set('global_metrics', data);
-        setTimeout(() => dashboardCache.delete('global_metrics'), 30000);
+        setTimeout(() => dashboardCache.delete('global_metrics'), 5000); // 5s TTL — avoid stale data after DB reset
 
         return res.status(200).json({
             success: true,

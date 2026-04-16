@@ -107,18 +107,8 @@ const ensureCanonicalFundSources = async () => {
             }
         }
 
-        // EMERGENCY Recovery: If any canonical source is STILL zero, restore defaults from seed.js
-        const defaults = {
-            institutionalFunds: 5000000,
-            pfmsFunds: 2500000
-        };
-
-        for (const [sourceType, defaultAmount] of Object.entries(defaults)) {
-            const row = await FundSource.findOne({ where: { sourceType } });
-            if (!row || Number(row.totalAllocated) === 0) {
-                await FundSource.upsert({ sourceType, totalAllocated: defaultAmount });
-            }
-        }
+        // REMOVED: Emergency recovery with hardcoded defaults is intentionally deleted.
+        // FundSource values should only reflect what finance officers explicitly configure.
 
         await Promise.all(
             Object.values(FUND_SOURCE_KEYS).map((sourceType) =>

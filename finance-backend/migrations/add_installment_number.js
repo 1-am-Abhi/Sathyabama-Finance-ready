@@ -18,8 +18,10 @@ dotenv.config({ path: fs.existsSync(prodEnv) ? prodEnv : rootEnv });
 
 const { sequelize } = require('../src/config/db');
 
-(async () => {
-    const qi = sequelize.getQueryInterface();
+module.exports = {
+  up: async (queryInterface, Sequelize) => {
+    const qi = queryInterface;
+    const sequelize = queryInterface.sequelize;
 
     // ── Check if column already exists ────────────────────────────────────────
     const tableDesc = await qi.describeTable('FundRequests').catch(() => null);
@@ -30,7 +32,6 @@ const { sequelize } = require('../src/config/db');
 
     if (tableDesc.installmentNumber) {
         console.log('ℹ️   Column installmentNumber already exists — nothing to do.');
-        await sequelize.close();
         return;
     }
 
@@ -64,8 +65,9 @@ const { sequelize } = require('../src/config/db');
     }
 
     console.log(`✅  Back-filled installmentNumber for ${results.length} existing rows.`);
-    await sequelize.close();
-})().catch((err) => {
-    console.error('❌  Migration failed:', err.message);
-    process.exit(1);
-});
+  },
+
+  down: async (queryInterface, Sequelize) => {
+    await queryInterface.removeColumn('FundRequests', 'installmentNumber');
+  }
+};

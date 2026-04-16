@@ -192,30 +192,28 @@ const EventRequests = () => {
         };
         fetchData();
 
-        // Fetch Google Calendar Holidays
+        // Fetch Google Calendar Holidays (optional — requires REACT_APP_GOOGLE_API_KEY)
         const fetchHolidays = async () => {
+            if (!API_KEY) {
+                // No API key configured — skip silently, calendar shows no holidays
+                console.warn('REACT_APP_GOOGLE_API_KEY not set. Holiday display disabled.');
+                return;
+            }
             try {
                 const year = new Date().getFullYear();
                 const response = await fetch(`https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(CALENDAR_ID)}/events?key=${API_KEY}&timeMin=${year}-01-01T00:00:00Z&timeMax=${year}-12-31T23:59:59Z&singleEvents=true`);
                 if (response.ok) {
                     const data = await response.json();
-                    const formattedHolidays = data.items.map(item => ({
+                    const formattedHolidays = (data.items || []).map(item => ({
                         name: item.summary,
-                        date: item.start.date || item.start.dateTime.split('T')[0]
-                    }));
+                        date: item.start?.date || (item.start?.dateTime || '').split('T')[0]
+                    })).filter(h => h.date);
                     setHolidays(formattedHolidays);
                 } else {
-                    console.error("Failed to fetch holidays", response.statusText);
-                    // Fallback holidays
-                    setHolidays([
-                        { name: 'New Year', date: '2026-01-01' },
-                        { name: 'Pongal', date: '2026-01-15' },
-                        { name: 'Republic Day', date: '2026-01-26' },
-                        { name: 'Good Friday', date: '2026-03-29' },
-                    ]);
+                    console.warn('Google Calendar API responded with error:', response.statusText);
                 }
             } catch (error) {
-                console.error("Error fetching holidays:", error);
+                console.warn('Failed to fetch Google Calendar holidays (non-critical):', error.message);
             }
         };
 

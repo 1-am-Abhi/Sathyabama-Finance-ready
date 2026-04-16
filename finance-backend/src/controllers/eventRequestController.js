@@ -45,28 +45,65 @@ exports.getEventRequests = async (req, res) => {
     try {
         const options = { order: [['createdAt', 'DESC']] };
         
-        if (req.user.role === 'FACULTY') {
+        if (req.user && req.user.role === 'FACULTY') {
             const userId = req.user.id || req.user._id;
-
-            options.where = {
-                facultyId: userId,
-            };
+            options.where = { facultyId: userId };
         }
         
-        const requests = await EventRequest.findAll(options);
-        const membersMap = await getEventMembersMap(requests);
-        const data = requests.map((request) => {
+        // STEP 1: SAFE QUERY (Add includes as optional, catching association errors if models are missing)
+        try {
+            const Project = require('../models/Project');
+            const Centre = require('../models/Centre');
+            options.include = [
+                { model: Project, required: false },
+                { model: Centre, required: false }
+            ];
+        } catch (assocErr) {
+            console.warn('Associations not found for EventRequest, continuing without include.');
+        }
+
+        // Try querying with include, fallback to without include if association is not strict
+        let events = [];
+        try {
+            events = await EventRequest.findAll(options);
+        } catch (queryErr) {
+            options.include = undefined;
+            events = await EventRequest.findAll(options);
+        }
+
+        // STEP 2: HANDLE EMPTY DATA
+        if (!events || events.length === 0) {
+            return res.json({
+                success: true,
+                count: 0,
+                data: []
+            });
+        }
+
+        const membersMap = await getEventMembersMap(events).catch(() => new Map());
+
+        // STEP 3: SAFE MAPPING
+        const safeData = events.map((request) => {
             const raw = request.toJSON ? request.toJSON() : request;
+            
             return {
                 ...raw,
+                id: raw.id || raw._id,
+                projectName: raw.project?.title || raw.project?.name || "N/A",
+                centreName: raw.centre?.name || "N/A",
+                amount: raw.amount || raw.approvedAmount || 0,
                 members: membersMap.get(getRecordId(raw)) || [],
             };
         });
 
-        res.status(200).json({ success: true, data });
+        // STEP 4: NEVER THROW RAW ERRORS (already handled by returning res.json)
+        return res.json({ success: true, count: safeData.length, data: safeData });
     } catch (error) {
-        console.error('Get Event Requests Error:', error);
-        return serverError(res, error);
+        console.error("EVENT REQUEST ERROR:", error);
+        return res.status(500).json({
+            success: false,
+            message: error.message || "An unexpected error occurred processing event requests"
+        });
     }
 };
 
