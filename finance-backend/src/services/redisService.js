@@ -1,5 +1,4 @@
 const Redis = require('ioredis');
-const Redlock = require('redlock');
 const logger = require('../utils/logger');
 
 const redisUrl = process.env.REDIS_URL || 'redis://localhost:6379';
@@ -25,13 +24,25 @@ let redisHealthy = false;
 redis.on('ready', () => { redisHealthy = true; logger.info('[Redis] Healthy'); });
 redis.on('error', (err) => { redisHealthy = false; logger.error('[Redis] Error', err.message); });
 
-const redlock = new Redlock([redis], {
-    driftFactor: 0.01,
-    retryCount: 10,
-    retryDelay: 200,
-    retryJitter: 200,
-    automaticExtensionThreshold: 500, // Extend if lock has <500ms remaining
-});
+// Specialized Redlock Initialization for Distributed Systems
+let redlock;
+try {
+    const Redlock = require('redlock');
+    redlock = new Redlock([redis], {
+        driftFactor: 0.01,
+        retryCount: 10,
+        retryDelay: 200,
+        retryJitter: 200,
+        automaticExtensionThreshold: 500
+    });
+
+    redlock.on('error', (err) => {
+        logger.error('[Redlock] Critical Failure:', err.message);
+    });
+} catch (err) {
+    logger.warn('[Redlock] Failed to initialize. Running without distributed locks.', err.message);
+    redlock = null;
+}
 
 const cache = {
     async get(key) {
@@ -60,14 +71,15 @@ const cache = {
     },
 
     /**
-     * Managed Redlock with auto-renewal support
-     * Usage: const lock = await cache.lock('res'); try { ... } finally { await lock.release(); }
+     * Managed Redlock with auto-renewal and graceful fallback
      */
     async lock(resource, ttlMs = 5000) {
-        if (!redisHealthy) return null;
+        if (!redisHealthy || !redlock) {
+            logger.warn(`[Lock] Skipping lock for ${resource}: System in standalone mode.`);
+            return null;
+        }
         try {
-            const lock = await redlock.acquire([`lock:${resource}`], ttlMs);
-            return lock;
+            return await redlock.acquire([`lock:${resource}`], ttlMs);
         } catch (err) {
             logger.warn(`[Redlock] Failed to acquire lock for ${resource}`);
             return null;

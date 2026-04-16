@@ -14,7 +14,7 @@
     "concurrently": "^8.2.2"
   },
   "dependencies": {
-    "compression": "^1.8.1"
+    "compression": "^1.8.1",
+    "redlock": "^4.2.0"
   }
 }
-
