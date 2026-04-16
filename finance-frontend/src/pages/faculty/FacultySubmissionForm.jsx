@@ -175,13 +175,13 @@ const FacultySubmissionForm = () => {
             </h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Company / Agency Name</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Agency Name</label>
                 <input
                   type="text"
                   name="companyName"
                   value={formData.companyName}
                   onChange={handleChange}
-                  placeholder="Enter company or agency name"
+                  placeholder="Enter agency name"
                   className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none"
                 />
               </div>
@@ -226,13 +226,13 @@ const FacultySubmissionForm = () => {
             </h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Approved Amount</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Sanctioned Amount (₹)</label>
                 <input
                   type="number"
                   name="approvedAmount"
                   value={formData.approvedAmount}
                   onChange={handleChange}
-                  placeholder="Enter total amount"
+                  placeholder="Enter sanctioned amount"
                   className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none"
                 />
               </div>
@@ -273,7 +273,7 @@ const FacultySubmissionForm = () => {
                 </select>
               </div>
               <div className="sm:col-span-2">
-                <label className="block text-sm font-medium text-gray-700 mb-2">Approval Date</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Date of Sanction Order</label>
                 <input
                   type="date"
                   name="approvalDate"

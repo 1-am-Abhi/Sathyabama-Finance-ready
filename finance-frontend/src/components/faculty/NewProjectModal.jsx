@@ -29,7 +29,7 @@ const AcademicWorkModal = ({ isOpen, onClose, onSubmit, initialData = null, mode
         consumables: [],
         patentDetails: {
             count: '',
-            category: 'Adult',
+            category: 'Submitted',
             ethicalApproval: false
         },
         verificationScreenshot: null,
@@ -68,7 +68,7 @@ const AcademicWorkModal = ({ isOpen, onClose, onSubmit, initialData = null, mode
                 description: '',
                 equipments: [],
                 consumables: [],
-                patentDetails: { count: '', category: 'Adult', ethicalApproval: false },
+                patentDetails: { count: '', category: 'Submitted', ethicalApproval: false },
                 verificationScreenshot: null,
                 publicationType: 'JOURNAL',
                 authorRole: 'First Author',
@@ -534,10 +534,10 @@ const AcademicWorkModal = ({ isOpen, onClose, onSubmit, initialData = null, mode
                                                     })}
                                                     className="w-full mt-1 px-4 py-2 border dark:border-slate-700 bg-white dark:bg-slate-800 dark:text-white rounded-lg outline-none font-bold italic"
                                                 >
-                                                    <option value="Adult">Adult</option>
-                                                    <option value="Pediatric">Pediatric</option>
-                                                    <option value="Geriatric">Geriatric</option>
-                                                    <option value="Mixed">Mixed</option>
+                                                    <option value="Published">Published</option>
+                                                    <option value="FER">FER</option>
+                                                    <option value="Granted">Granted</option>
+                                                    <option value="Submitted">Submitted</option>
                                                 </select>
                                             </div>
                                         </div>
