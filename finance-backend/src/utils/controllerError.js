@@ -12,15 +12,22 @@
  *   }
  */
 
+const logger = require('./logger');
+
 const serverError = (res, error, context = 'CONTROLLER') => {
-  console.error(`🔥 [${context}] FULL ERROR OBJECT:`, error);
-  console.error(`🔥 [${context}] STACK TRACE:`, error.stack);
+  logger.error(`[${context}] Error occurred`, {
+    message: error.message,
+    stack: process.env.NODE_ENV === 'development' ? error.stack : undefined,
+  });
   
   const payload = {
       success: false, 
-      message: error.message || 'Internal server error',
-      stack: error.stack
+      message: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error',
   };
+
+  if (process.env.NODE_ENV === 'development' && error.stack) {
+      payload.stack = error.stack;
+  }
 
   return res.status(500).json(payload);
 };

@@ -4,6 +4,8 @@ const helmet = require('helmet');
 const morgan = require('morgan');
 const path = require('path');
 const rateLimit = require('express-rate-limit');
+const { v4: uuidv4 } = require('uuid');
+const logger = require('./utils/logger');
 
 const app = express();
 const allowedOrigins = (process.env.FRONTEND_URL || '')
@@ -46,9 +48,17 @@ const corsOptions = {
 };
 app.use(cors(corsOptions));
 
-// Request Logging Middleware
+// Request Tracing & Logging Middleware
 app.use((req, res, next) => {
-    console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
+    req.id = req.headers['x-request-id'] || uuidv4();
+    res.setHeader('x-request-id', req.id);
+    
+    logger.info(`Incoming Request`, {
+        requestId: req.id,
+        method: req.method,
+        url: req.url,
+        ip: req.ip
+    });
     next();
 });
 
@@ -65,8 +75,12 @@ const authLimiter = rateLimit({
     legacyHeaders: false,
 });
 
-// Serve static files (for document uploads)
-app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
+// Local local filesystem upload handler deleted. Replaced with Cloudinary.
+const { upload } = require('./services/uploadService');
+app.post('/api/upload', upload.single('file'), (req, res) => {
+    if (!req.file) return res.status(400).json({ success: false, message: 'No file provided' });
+    res.status(200).json({ success: true, url: req.file.path, message: 'File uploaded to Cloudinary safely' });
+});
 
 // Routes
 const authRoutes = require('./routes/authRoutes');
@@ -123,7 +137,7 @@ app.get('/test-db', async (req, res) => {
             server_time: results[0].current_time 
         });
     } catch (error) {
-        console.error('Test DB Route Error:', error);
+        logger.error('Test DB Route Error:', { error: error.message, stack: error.stack, requestId: req.id });
         res.status(500).json({ 
             success: false, 
             message: 'Database connection failed',
@@ -134,19 +148,22 @@ app.get('/test-db', async (req, res) => {
 
 // Error handling middleware
 app.use((err, req, res, next) => {
-    // Log error for developers
-    console.error(`[ERROR] ${req.method} ${req.url}:`, err.message);
-    if (process.env.NODE_ENV === 'development') {
-        console.error(err.stack);
-    }
-
-    // Default error status and message
     const status = err.status || err.statusCode || 500;
     const message = err.message || 'Internal Server Error';
+
+    // Log error using centralized structured logger
+    logger.error(`API Error: ${message}`, {
+        requestId: req.id,
+        userId: req.user?.id || req.user?._id || 'unauthenticated',
+        method: req.method,
+        url: req.url,
+        stack: process.env.NODE_ENV === 'development' ? err.stack : undefined,
+    });
 
     res.status(status).json({
         success: false,
         message: message,
+        requestId: req.id,
         error: process.env.NODE_ENV === 'development' ? err : undefined
     });
 });

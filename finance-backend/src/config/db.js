@@ -1,5 +1,6 @@
 const { Sequelize } = require('sequelize');
 const dotenv = require('dotenv');
+const logger = require('../utils/logger');
 
 dotenv.config();
 
@@ -12,7 +13,8 @@ const sequelize = process.env.DATABASE_URL
                 rejectUnauthorized: false
             }
         },
-        logging: process.env.NODE_ENV === 'development' ? console.log : false,
+        },
+        logging: process.env.NODE_ENV === 'development' ? (msg) => logger.debug(msg) : false,
     })
     : new Sequelize(
         process.env.DB_NAME,
@@ -22,7 +24,7 @@ const sequelize = process.env.DATABASE_URL
             host: process.env.DB_HOST,
             dialect: 'postgres',
             port: process.env.DB_PORT || 5432,
-            logging: process.env.NODE_ENV === 'development' ? console.log : false,
+            logging: process.env.NODE_ENV === 'development' ? (msg) => logger.debug(msg) : false,
             pool: {
                 max: 5,
                 min: 0,
@@ -32,26 +34,26 @@ const sequelize = process.env.DATABASE_URL
         }
     );
 
-const shouldSyncDatabase = process.env.DB_SYNC === 'true';
+const shouldSyncDatabase = process.env.DB_SYNC === 'true' && process.env.NODE_ENV !== 'production';
 const shouldAlterSchema = process.env.DB_SYNC_ALTER !== 'false';
 
 const connectDB = async () => {
     try {
         await sequelize.authenticate();
-        console.log('PostgreSQL (Sequelize) Connected successfully.');
+        logger.info('PostgreSQL (Sequelize) Connected successfully.');
         
         // Import models to ensure associations are registered
         const models = require('../models');
-        console.log('Models and associations initialized.');
+        logger.info('Models and associations initialized.');
         
         if (shouldSyncDatabase) {
             await sequelize.sync({ alter: shouldAlterSchema });
-            console.log(`Database synced (alter=${shouldAlterSchema}).`);
+            logger.warn(`WARNING: Database synced (alter=${shouldAlterSchema}). This should not happen in production!`);
         } else {
-            console.log('Database sync skipped. Set DB_SYNC=true to enable schema synchronization.');
+            logger.info('Database sync skipped natively. Migrations should manage the schemas moving forward.');
         }
     } catch (error) {
-        console.error('PostgreSQL connection error:', error);
+        logger.error('PostgreSQL connection error:', { error: error.message, stack: error.stack });
         process.exit(1);
     }
 };
