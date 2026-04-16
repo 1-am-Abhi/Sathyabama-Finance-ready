@@ -26,6 +26,8 @@ const {
     executeDisbursementPipeline,
 } = require('../services/financePipelineService');
 const { normalizeFundSource } = require('../services/fundSourceCatalogService');
+const asyncHandler = require('../utils/asyncHandler');
+
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -80,82 +82,61 @@ const nextInstallmentNumber = async (projectId) => {
 
 // ─── READ ──────────────────────────────────────────────────────────────────────
 
-exports.getFundRequests = async (req, res) => {
+exports.getFundRequests = asyncHandler(async (req, res) => {
+    const page = parseInt(req.query.page, 10) || 1;
+    const limit = Math.min(parseInt(req.query.limit, 10) || 10, 50);
+    
+    const options = {
+        order: [['createdAt', 'DESC']],
+        limit,
+        offset: (page - 1) * limit,
+        include: [],
+    };
+
+    // Safely build includes
     try {
-        const page = parseInt(req.query.page, 10) || 1;
-        const limit = Math.min(parseInt(req.query.limit, 10) || 10, 50);
-        
-        const options = {
-            order: [['createdAt', 'DESC']],
-            limit,
-            offset: (page - 1) * limit,
-            include: [],
-        };
-
-        try {
-            console.log('[getFundRequests] Building Centre include...');
-            const centreInc = buildCentreInclude();
-            if (centreInc) options.include.push(centreInc);
-            console.log('[getFundRequests] Successfully built Centre include.');
-        } catch (incErr) {
-            console.warn('[getFundRequests] WARNING: buildCentreInclude failed. Details:', incErr.message, incErr.stack);
-        }
-
-        try {
-            console.log('[getFundRequests] Building Project include...');
-            const projectInc = buildProjectInclude();
-            if (projectInc) options.include.push(projectInc);
-            console.log('[getFundRequests] Successfully built Project include.');
-        } catch (incErr) {
-            console.warn('[getFundRequests] WARNING: buildProjectInclude failed. Details:', incErr.message, incErr.stack);
-        }
-
-        if (req.user.role === 'FACULTY') {
-            options.where = {
-                [Op.or]: [
-                    { facultyId: req.user.id || req.user._id },
-                    { userId:    req.user.id || req.user._id },
-                    { faculty:   req.user.name },
-                ],
-            };
-        }
-
-        console.log(`[getFundRequests] Executing query with ${options.include.length} includes...`);
-        const requests = await FundRequest.findAll(options);
-        console.log(`[getFundRequests] Query executed successfully. Found ${requests.length} records.`);
-        
-        const data = [];
-        console.log(`[getFundRequests] Starting normalization loop...`);
-        requests.forEach((r) => {
-            try {
-                data.push(normalizeFundRequest(r));
-            } catch (normErr) {
-                console.error(`[getFundRequests] ERROR: Normalization failed for request ${r._id || r.id || 'unknown'}. Skipping record.`);
-                console.error(`[getFundRequests] Normalization Stack Trace:`, normErr.stack);
-            }
-        });
-        console.log(`[getFundRequests] Normalization loop completed. Returning ${data.length} records.`);
-
-        const responsePayload = { success: true, count: data.length, data };
-        const countOptions = { where: options.where };
-        const total = await FundRequest.count(countOptions);
-        const totalPages = Math.ceil(total / limit);
-        responsePayload.pagination = { 
-            total, 
-            page, 
-            limit, 
-            totalPages, 
-            hasNext: page < totalPages, 
-            hasPrev: page > 1 
-        };
-
-        return res.status(200).json(responsePayload);
-    } catch (error) {
-        console.error('[getFundRequests] FATAL: Database query or unexpected failure!', error);
-        console.error('[getFundRequests] FATAL Stack Trace:', error.stack);
-        return serverError(res, error, 'getFundRequests');
+        const centreInc = buildCentreInclude();
+        if (centreInc) options.include.push(centreInc);
+        const projectInc = buildProjectInclude();
+        if (projectInc) options.include.push(projectInc);
+    } catch (incErr) {
+        console.warn('[getFundRequests] Optional includes failed:', incErr.message);
     }
-};
+
+    if (req.user?.role === 'FACULTY') {
+        const userId = req.user?.id || req.user?._id;
+        options.where = {
+            [Op.or]: [
+                { facultyId: userId },
+                { userId: userId },
+                { faculty: req.user?.name },
+            ],
+        };
+    }
+
+    const { count, rows } = await FundRequest.findAndCountAll(options);
+    
+    const data = (rows || []).map(r => {
+        try {
+            return normalizeFundRequest(r);
+        } catch (err) {
+            return r.toJSON();
+        }
+    });
+
+    return res.status(200).json({
+        success: true,
+        data: data || [],
+        meta: {
+            total: count || 0,
+            page,
+            limit,
+            totalPages: Math.ceil((count || 0) / limit)
+        }
+    });
+});
+
+
 
 exports.getFundRequest = async (req, res) => {
     try {
