@@ -5,7 +5,7 @@ const logger = require('../utils/logger');
 
 const dashboardCache = new Map();
 
-exports.getGlobalMetrics = async (req, res) => {
+const getGlobalMetrics = async (req, res) => {
     try {
         const cacheKey = 'global_metrics';
 
@@ -74,3 +74,5 @@ exports.getGlobalMetrics = async (req, res) => {
         return serverError(res, error);
     }
 };
+
+module.exports = { getGlobalMetrics };

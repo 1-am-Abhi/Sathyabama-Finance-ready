@@ -1,7 +1,7 @@
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 
-exports.protect = async (req, res, next) => {
+const protect = async (req, res, next) => {
     let token;
     
     if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
@@ -29,7 +29,7 @@ exports.protect = async (req, res, next) => {
     }
 };
 
-exports.authorizeRoles = (...roles) => {
+const authorize = (...roles) => {
     return (req, res, next) => {
         if (!req.user || !req.user.role) {
             return res.status(401).json({ success: false, message: 'Not authorized, user missing' });
@@ -42,7 +42,6 @@ exports.authorizeRoles = (...roles) => {
 
         if (!requiredRoles.includes(userRole)) {
             console.warn(`[RBAC] Access Denied: User "${req.user.name}" with role "${userRole}" attempted to access restricted route.`);
-            // Send exact structured error to help frontend debugging
             return res.status(403).json({ 
                 success: false, 
                 message: 'Not authorized for this role'
@@ -52,4 +51,5 @@ exports.authorizeRoles = (...roles) => {
     };
 };
 
-exports.authorize = exports.authorizeRoles;
+module.exports = { protect, authorize };
+

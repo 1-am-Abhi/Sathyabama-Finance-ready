@@ -11,7 +11,7 @@ const asyncHandler = require('../utils/asyncHandler');
 /**
  * Aggregated Financial Metrics
  */
-exports.getFinanceStats = asyncHandler(async (req, res) => {
+const getFinanceStats = asyncHandler(async (req, res) => {
     const [
         totalProjects,
         activeProjects,
@@ -45,8 +45,8 @@ exports.getFinanceStats = asyncHandler(async (req, res) => {
             totalFaculty,
             totalRevenue,
             pfmsStats: {
-                allotted: 2500000, // Static baseline for PFMS cluster
-                consumed: totalDisbursed * 0.4 // Mocked distribution for dashboard
+                allotted: 2500000,
+                consumed: totalDisbursed * 0.4
             },
             institutionalStats: {
                 allotted: 5000000,
@@ -60,10 +60,7 @@ exports.getFinanceStats = asyncHandler(async (req, res) => {
     });
 });
 
-/**
- * Fund Sources Overview
- */
-exports.getFundSourcesOverview = asyncHandler(async (req, res) => {
+const getFundSourcesOverview = asyncHandler(async (req, res) => {
     const sources = await Project.findAll({
         attributes: [
             'fundingSource',
@@ -84,10 +81,7 @@ exports.getFundSourcesOverview = asyncHandler(async (req, res) => {
     });
 });
 
-/**
- * Department-wise Finance
- */
-exports.getDepartmentFinance = asyncHandler(async (req, res) => {
+const getDepartmentFinance = asyncHandler(async (req, res) => {
     const departments = await Project.findAll({
         attributes: [
             'department',
@@ -108,10 +102,7 @@ exports.getDepartmentFinance = asyncHandler(async (req, res) => {
     });
 });
 
-/**
- * Disbursal History
- */
-exports.getDisbursalHistory = asyncHandler(async (req, res) => {
+const getDisbursalHistory = asyncHandler(async (req, res) => {
     const history = await Disbursement.findAll({
         attributes: [
             [fn('date_trunc', 'month', col('createdAt')), 'month'],
@@ -132,10 +123,7 @@ exports.getDisbursalHistory = asyncHandler(async (req, res) => {
     });
 });
 
-/**
- * Full Reports Data (Detailed Aggregation)
- */
-exports.getReportsData = asyncHandler(async (req, res) => {
+const getReportsData = asyncHandler(async (req, res) => {
     const [
         projectCounts,
         fundingSummary,
@@ -162,3 +150,11 @@ exports.getReportsData = asyncHandler(async (req, res) => {
         }
     });
 });
+
+module.exports = {
+    getFinanceStats,
+    getFundSourcesOverview,
+    getDepartmentFinance,
+    getDisbursalHistory,
+    getReportsData
+};
