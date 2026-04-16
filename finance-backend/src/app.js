@@ -93,6 +93,9 @@ const dashboardRoutes = require('./routes/dashboardRoutes');
 const eventRequestRoutes = require('./routes/eventRequestRoutes');
 const equipmentRequestRoutes = require('./routes/equipmentRequestRoutes');
 const revenueRoutes = require('./routes/revenueRoutes');
+const odRequestRoutes = require('./routes/odRequestRoutes');
+const documentRoutes = require('./routes/documentRoutes');
+
 
 
 v1.use('/auth', authRoutes);
@@ -103,6 +106,9 @@ v1.use('/dashboard', dashboardRoutes);
 v1.use('/event-requests', eventRequestRoutes);
 v1.use('/equipment-requests', equipmentRequestRoutes);
 v1.use('/revenue', revenueRoutes);
+v1.use('/od-requests', odRequestRoutes);
+v1.use('/documents', documentRoutes);
+
 
 
 app.use('/api/v1', v1);
