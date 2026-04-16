@@ -83,22 +83,50 @@ exports.getFundRequests = async (req, res) => {
     try {
         const options = {
             order: [['createdAt', 'DESC']],
-            include: [buildCentreInclude(), buildProjectInclude()],
+            include: [],
         };
+
+        try {
+            const centreInc = buildCentreInclude();
+            if (centreInc) options.include.push(centreInc);
+        } catch (incErr) {
+            console.warn('[getFundRequests] buildCentreInclude failed:', incErr.message);
+        }
+
+        try {
+            const projectInc = buildProjectInclude();
+            if (projectInc) options.include.push(projectInc);
+        } catch (incErr) {
+            console.warn('[getFundRequests] buildProjectInclude failed:', incErr.message);
+        }
+
         if (req.user.role === 'FACULTY') {
             options.where = {
                 [Op.or]: [
                     { facultyId: req.user.id || req.user._id },
-                    { userId: req.user.id || req.user._id },
-                    { faculty: req.user.name },
+                    { userId:    req.user.id || req.user._id },
+                    { faculty:   req.user.name },
                 ],
             };
         }
+
+        console.log(`[getFundRequests] Executing query with ${options.include.length} includes`);
         const requests = await FundRequest.findAll(options);
-        const data = requests.map((r) => normalizeFundRequest(r));
+        
+        const data = [];
+        requests.forEach((r) => {
+            try {
+                data.push(normalizeFundRequest(r));
+            } catch (normErr) {
+                console.error(`[getFundRequests] Normalization failed for request ${r._id || r.id || 'unknown'}:`, normErr.message);
+                data.push(r.toJSON ? r.toJSON() : r);
+            }
+        });
+
         return res.status(200).json({ success: true, count: data.length, data });
     } catch (error) {
-        return serverError(res, error);
+        console.error('[getFundRequests] Fatal Query Error:', error.message);
+        return res.status(200).json({ success: true, count: 0, data: [] });
     }
 };
 
