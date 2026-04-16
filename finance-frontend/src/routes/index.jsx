@@ -18,6 +18,7 @@ import AdminReports from '../pages/admin/AdminReports';
 import AdminDocuments from '../pages/admin/AdminDocuments';
 import AdminRevenue from '../pages/admin/AdminRevenue';
 import AdminInternship from '../pages/admin/AdminInternship';
+import AdminFacultyRequests from '../pages/admin/AdminFacultyRequests';
 import Settings from '../components/shared/Settings';
 import Profile from '../pages/shared/Profile';
 
@@ -35,6 +36,7 @@ import EquipmentMyRequests from '../pages/faculty/EquipmentFinancialRecords/MyRe
 import AcademicSupportDashboard from '../pages/shared/AcademicSupportDashboard';
 import AIProposalGenerator from '../pages/faculty/AIProposalGenerator';
 import ProfileSetup from '../pages/faculty/ProfileSetup';
+import FacultySubmissionForm from '../pages/faculty/FacultySubmissionForm';
 
 // Finance Pages
 import FinanceDashboard from '../pages/finance/FinanceDashboard';
@@ -48,6 +50,7 @@ import EquipmentDisbursements from '../pages/finance/EquipmentDisbursements';
 import RevenueVerification from '../pages/finance/RevenueVerification';
 import FinancialReports from '../pages/finance/FinancialReports';
 import DisbursalHistory from '../pages/finance/DisbursalHistory';
+import FinanceFacultyRequests from '../pages/finance/FinanceFacultyRequests';
 
 const AppRoutes = () => {
     // Apply theme on initial load
@@ -102,6 +105,7 @@ const AppRoutes = () => {
                                         <Route path="internship-approvals" element={<AdminInternship />} />
                                         <Route path="reports" element={<AdminReports />} />
                                         <Route path="documents" element={<AdminDocuments />} />
+                                        <Route path="faculty-requests" element={<AdminFacultyRequests />} />
                                         <Route path="settings" element={<Settings />} />
                                         <Route path="profile" element={<Profile />} />
                                     </Routes>
@@ -129,6 +133,7 @@ const AppRoutes = () => {
                                         <Route path="equipment/dashboard" element={<EquipmentMyRequests />} />
                                         <Route path="academic-support" element={<AcademicSupportDashboard />} />
                                         <Route path="ai-generator" element={<AIProposalGenerator />} />
+                                        <Route path="submit-request" element={<FacultySubmissionForm />} />
                                         <Route path="settings" element={<Settings />} />
                                         <Route path="profile" element={<Profile />} />
                                     </Routes>
@@ -155,6 +160,7 @@ const AppRoutes = () => {
                                         <Route path="internships" element={<VerifyInternshipFees />} />
                                         <Route path="reports" element={<FinanceDashboard />} />
                                         <Route path="financial-reports" element={<FinancialReports />} />
+                                        <Route path="faculty-requests" element={<FinanceFacultyRequests />} />
                                         <Route path="settings" element={<Settings />} />
                                         <Route path="profile" element={<Profile />} />
                                     </Routes>

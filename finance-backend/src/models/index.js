@@ -9,6 +9,7 @@ const models = {
     Document: require('./Document'),
     EquipmentRequest: require('./EquipmentRequest'),
     EventRequest: require('./EventRequest'),
+    FacultyRequest: require('./FacultyRequest'),
     FundRequest: require('./FundRequest').FundRequest || require('./FundRequest'),
     FundSource: require('./FundSource'),
     InternshipFee: require('./InternshipFee'),
@@ -30,6 +31,7 @@ const {
     Document,
     EquipmentRequest,
     EventRequest,
+    FacultyRequest,
     FundRequest,
     InternshipFee,
     Ledger,
@@ -101,6 +103,9 @@ EquipmentRequest.belongsTo(User, { foreignKey: 'facultyId', as: 'faculty' });
 
 User.hasMany(Document, { foreignKey: 'facultyId', as: 'documents' });
 Document.belongsTo(User, { foreignKey: 'facultyId', as: 'faculty' });
+
+User.hasMany(FacultyRequest, { foreignKey: 'createdBy', as: 'facultyRequests' });
+FacultyRequest.belongsTo(User, { foreignKey: 'createdBy', as: 'user' });
 
 User.hasMany(ODRequest, { foreignKey: 'facultyId', as: 'odRequests' });
 ODRequest.belongsTo(User, { foreignKey: 'facultyId', as: 'faculty' });
