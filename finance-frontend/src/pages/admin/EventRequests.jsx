@@ -194,9 +194,9 @@ const EventRequests = () => {
 
         // Fetch Google Calendar Holidays (optional — requires REACT_APP_GOOGLE_API_KEY)
         const fetchHolidays = async () => {
-            if (!API_KEY) {
-                // No API key configured — skip silently, calendar shows no holidays
-                console.warn('REACT_APP_GOOGLE_API_KEY not set. Holiday display disabled.');
+            if (!API_KEY || API_KEY === "your-google-api-key") {
+                // No valid API key configured — skip silently, calendar shows no holidays
+                console.warn('REACT_APP_GOOGLE_API_KEY not set or placeholder. Holiday display disabled.');
                 return;
             }
             try {
@@ -216,6 +216,7 @@ const EventRequests = () => {
                 console.warn('Failed to fetch Google Calendar holidays (non-critical):', error.message);
             }
         };
+
 
         fetchHolidays();
 

@@ -95,6 +95,9 @@ const equipmentRequestRoutes = require('./routes/equipmentRequestRoutes');
 const revenueRoutes = require('./routes/revenueRoutes');
 const odRequestRoutes = require('./routes/odRequestRoutes');
 const documentRoutes = require('./routes/documentRoutes');
+const financeRoutes = require('./routes/financeRoutes');
+const academicMetricRoutes = require('./routes/academicMetricRoutes');
+
 
 
 
@@ -108,6 +111,9 @@ v1.use('/equipment-requests', equipmentRequestRoutes);
 v1.use('/revenue', revenueRoutes);
 v1.use('/od-requests', odRequestRoutes);
 v1.use('/documents', documentRoutes);
+v1.use('/finance', financeRoutes);
+v1.use('/academic-metrics', academicMetricRoutes);
+
 
 
 
@@ -131,4 +137,15 @@ app.use((err, req, res, next) => {
     });
 });
 
+// Final 404 Catch-all (Must be last)
+app.use((req, res) => {
+    logger.warn(`[404] ${req.method} ${req.url} - Legacy or Missing Route`);
+    res.status(404).json({
+        success: false,
+        message: "Route not found",
+        data: [] // Safe fallback for data-consuming frontends
+    });
+});
+
 module.exports = app;
+

@@ -637,7 +637,8 @@ const AdminDashboard = () => {
                     </CardHeader>
                     <CardContent className="p-3 sm:p-6 flex-1 flex flex-col justify-center">
                         <div className="h-[240px] sm:h-[300px] w-full">
-                            <ResponsiveContainer width="100%" height="100%">
+                            <ResponsiveContainer width="100%" height={300}>
+
                                 <BarChart data={barChartData}>
                                     <CartesianGrid strokeDasharray="3 3" vertical={false} />
                                     <XAxis dataKey="name" fontSize={10} />
@@ -660,7 +661,8 @@ const AdminDashboard = () => {
                     <CardContent className="p-3 sm:p-6 flex-1 flex flex-col justify-center">
                         <div className="flex flex-col sm:flex-row items-center justify-center gap-4 sm:gap-6">
                             <div className="h-[220px] sm:h-[280px] w-full sm:w-3/5">
-                                <ResponsiveContainer width="100%" height="100%">
+                                <ResponsiveContainer width="100%" height={300}>
+
                                     <PieChart>
                                         <Pie activeIndex={activeIndex} activeShape={renderActiveShape} data={pieData} cx="50%" cy="50%" innerRadius={55} outerRadius={75} dataKey="value" onMouseEnter={onPieEnter} onMouseLeave={() => setActiveIndex(-1)}>
                                             {pieData.map((entry, index) => <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />)}

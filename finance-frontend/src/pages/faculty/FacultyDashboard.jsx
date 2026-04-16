@@ -228,7 +228,8 @@ const FacultyDashboard = () => {
                     <CardContent className="p-6">
                         <div className="h-56 w-full">
                             {trendData.some(d => d.amount > 0) ? (
-                                <ResponsiveContainer width="100%" height="100%">
+                                <ResponsiveContainer width="100%" height={300}>
+
                                     <AreaChart data={trendData} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
                                         <defs>
                                             <linearGradient id="fundGrad" x1="0" y1="0" x2="0" y2="1">
@@ -282,7 +283,8 @@ const FacultyDashboard = () => {
                         {projectStatus.length > 0 ? (
                             <>
                                 <div className="h-40 w-full mb-4">
-                                    <ResponsiveContainer width="100%" height="100%">
+                                    <ResponsiveContainer width="100%" height={300}>
+
                                         <PieChart>
                                             <Pie data={projectStatus} cx="50%" cy="50%" outerRadius={60} innerRadius={35} dataKey="value">
                                                 {projectStatus.map((e, i) => <Cell key={i} fill={e.color} />)}
