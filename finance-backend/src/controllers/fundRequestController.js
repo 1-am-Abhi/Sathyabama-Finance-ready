@@ -128,7 +128,12 @@ exports.getFundRequest = async (req, res) => {
 exports.createFundRequest = async (req, res) => {
     try {
         const facultyId = req.user.id || req.user._id;
-        const { projectTitle, requestedAmount, purpose, source, totalBudget, projectId: bodyProjectId } = req.body;
+        const {
+            projectTitle, requestedAmount, purpose, source, totalBudget,
+            projectId: bodyProjectId,
+            projectRef,   // frontend sends this field instead of projectId
+        } = req.body;
+        const bodyProjectIdResolved = bodyProjectId || projectRef || null;
         const amount = Number(requestedAmount);
 
         // ── 1. Idempotency guard ────────────────────────────────────────────
@@ -152,9 +157,9 @@ exports.createFundRequest = async (req, res) => {
         const standardizedSource = normalizeFundSource(source || 'PFMS');
         let project = null;
 
-        // Prefer explicit projectId lookup
-        if (bodyProjectId) {
-            project = await Project.findByPk(bodyProjectId, { include: [buildCentreInclude()] });
+        // Prefer explicit projectId/projectRef lookup
+        if (bodyProjectIdResolved) {
+            project = await Project.findByPk(bodyProjectIdResolved, { include: [buildCentreInclude()] });
         }
         // Fall back to title-based lookup
         if (!project) {

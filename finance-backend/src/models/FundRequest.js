@@ -91,7 +91,8 @@ FundRequest.init({
     },
     currentStage: {
         type: DataTypes.ENUM(...FUND_FLOW_STAGES),
-        defaultValue: 'FUND_APPROVED'
+        allowNull: true,
+        defaultValue: null,
     },
     chequeStatus: {
         type: DataTypes.ENUM('Pending', 'Approved', 'Disbursed'),

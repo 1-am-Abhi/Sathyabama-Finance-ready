@@ -1,4 +1,4 @@
-const { Op } = require('sequelize');
+const { Op, Sequelize } = require('sequelize');
 const Notification = require('../models/Notification');
 const User = require('../models/User');
 
@@ -35,19 +35,27 @@ class NotificationService {
 
     /**
      * Notify all users with a specific role (Admin/Finance).
-     * Uses Op.iLike for case-insensitive matching so 'FINANCE_OFFICER',
-     * 'finance_officer', 'Finance_Officer' all resolve correctly.
+     *
+     * ⚠️  PostgreSQL ENUM columns do NOT support ILIKE / ~~ operators.
+     *     Using Op.iLike on an ENUM column throws:
+     *       "ERROR: operator does not exist: user_role ~~* unknown"
+     *     which cascades into HTTP 500 on every endpoint that triggers a
+     *     notification (fund-requests, finance/disbursements, etc.).
+     *
+     * ✅  Fix: cast the column to TEXT via Sequelize.fn('LOWER', ...) and
+     *     compare against a lowercased literal — works on both PG and SQLite.
      */
     static async notifyRole(role, title, message, type = 'INFO', relatedId = null) {
         try {
             console.log(`[NotificationService] Broadcasting ${type} to role ${role}: ${title}`);
 
+            const roleLower = (role || '').toLowerCase();
+
             const users = await User.findAll({
-                where: {
-                    role: {
-                        [Op.iLike]: role   // case-insensitive match
-                    }
-                },
+                where: Sequelize.where(
+                    Sequelize.fn('LOWER', Sequelize.col('role')),
+                    roleLower
+                ),
                 attributes: ['_id'],
             });
 
@@ -73,7 +81,8 @@ class NotificationService {
             return created;
         } catch (error) {
             console.error('[NotificationService] Error notifying role:', error);
-            return null;
+            // Non-blocking — never crash the caller
+            return [];
         }
     }
     /**
