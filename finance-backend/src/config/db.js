@@ -13,7 +13,6 @@ const sequelize = process.env.DATABASE_URL
                 rejectUnauthorized: false
             }
         },
-        },
         logging: process.env.NODE_ENV === 'development' ? (msg) => logger.debug(msg) : false,
     })
     : new Sequelize(
