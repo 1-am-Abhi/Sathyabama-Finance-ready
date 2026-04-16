@@ -148,15 +148,15 @@ app.get('/test-db', async (req, res) => {
     }
 });
 
-// Error handling middleware
+// Global error handling middleware
 app.use((err, req, res, next) => {
     const status = err.status || err.statusCode || 500;
     const message = err.message || 'Internal Server Error';
 
     // Log error using centralized structured logger
-    logger.error(`API Error: ${message}`, {
+    logger.error(`[Global Error] ${message}`, {
         requestId: req.id,
-        userId: req.user?.id || req.user?._id || 'unauthenticated',
+        userId: req.user?.id || 'unauthenticated',
         method: req.method,
         url: req.url,
         stack: process.env.NODE_ENV === 'development' ? err.stack : undefined,
@@ -164,7 +164,9 @@ app.use((err, req, res, next) => {
 
     res.status(status).json({
         success: false,
-        message: message,
+        message: process.env.NODE_ENV === 'production' && status === 500 
+            ? 'Internal Server Error' 
+            : message,
         requestId: req.id,
         error: process.env.NODE_ENV === 'development' ? err : undefined
     });

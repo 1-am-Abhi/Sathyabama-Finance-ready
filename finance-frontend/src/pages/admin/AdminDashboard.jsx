@@ -23,6 +23,8 @@ import ResearchCentreDetail from './ResearchCentreDetail';
 import { formatCurrency } from '../../utils/format';
 import apiClient from '../../api/client';
 import AddCentreModal from '../../components/shared/AddCentreModal';
+import Loader from '../../components/shared/Loader';
+import EmptyState from '../../components/shared/EmptyState';
 
 
 const AdminDashboard = () => {
@@ -50,20 +52,21 @@ const AdminDashboard = () => {
 
     const fetchDashboardData = async () => {
         try {
-            if (!stats) setLoading(true); // Only show spinner on first load
+            if (!stats) setLoading(true);
             const [statsRes, requestsRes] = await Promise.all([
                 apiClient.get('/projects/stats'),
                 apiClient.get('/fund-requests')
             ]);
 
-            if (statsRes.data.success) {
-                console.log("Admin Data Truth:", statsRes.data.stats);
-                setStats(statsRes.data.stats);
-                setCentresStats(statsRes.data.centres);
+            if (statsRes.data?.success) {
+                const fetchedStats = statsRes.data.data || statsRes.data.stats;
+                const fetchedCentres = statsRes.data.meta?.centres || statsRes.data.centres || [];
+                setStats(fetchedStats);
+                setCentresStats(fetchedCentres);
             }
-            if (requestsRes.data.success) {
-                console.log("Admin Recent Requests:", requestsRes.data.data.slice(0, 5));
-                setRecentRequests(requestsRes.data.data.slice(0, 5));
+            if (requestsRes.data?.success) {
+                const requests = requestsRes.data.data || [];
+                setRecentRequests(requests.slice(0, 5));
             }
         } catch (error) {
             console.error("Error fetching admin data:", error);
@@ -331,7 +334,15 @@ const AdminDashboard = () => {
     if (!userId) return null;
 
     if (loading) {
-        return <div className="flex-1 flex items-center justify-center p-20"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-maroon-600"></div></div>;
+        return <Loader message="Analyzing financial metrics..." />;
+    }
+
+    const hasData = totalStats.totalProjects > 0 || (recentRequests || []).length > 0;
+    if (!hasData && !loading && selectedCentre === 'ALL' && selectedFY === '2024-25') {
+        return <EmptyState 
+            message="No Dashboard Data" 
+            description="All financial tables are currently empty. Seed the database or create projects to see analytics." 
+        />;
     }
 
     return (
@@ -589,20 +600,28 @@ const AdminDashboard = () => {
                                 <TableHead className="text-right pr-4 sm:pr-6">Utilization</TableHead>
                             </TableRow></TableHeader>
                             <TableBody>
-                                {filteredData.map((centre, index) => (
-                                    <TableRow key={index} className="hover:bg-gray-50 dark:hover:bg-slate-800/50 cursor-pointer" onClick={() => { setSelectedCentreDetail(centre.centre); setDetailModalOpen(true); }}>
-                                        <TableCell className="font-semibold pl-4 sm:pl-6 text-xs sm:text-sm">{centre.centre}</TableCell>
-                                        <TableCell><Badge className="bg-maroon-100 text-maroon-700 dark:bg-maroon-900/40 dark:text-maroon-300">{centre.totalProjects}</Badge></TableCell>
-                                        <TableCell><Badge className={`${centre.activeProjects > 0 ? 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300' : 'bg-gray-100 text-gray-500'}`}>{centre.activeProjects}</Badge></TableCell>
-                                        <TableCell className="text-xs sm:text-sm">{formatCurrency(centre.totalBudget)}</TableCell>
-                                        <TableCell className="text-xs sm:text-sm">{formatCurrency(centre.disbursed)}</TableCell>
-                                        <TableCell className="text-right pr-4 sm:pr-6">
-                                            <span className={`text-xs font-semibold ${centre.totalBudget > 0 && (centre.disbursed / centre.totalBudget) > 0.8 ? 'text-red-500' : centre.totalBudget > 0 && (centre.disbursed / centre.totalBudget) > 0.5 ? 'text-amber-500' : 'text-gray-500'}`}>
-                                                {centre.totalBudget > 0 ? ((centre.disbursed / centre.totalBudget) * 100).toFixed(0) : 0}%
-                                            </span>
+                                {filteredData.length > 0 ? (
+                                    filteredData.map((centre, index) => (
+                                        <TableRow key={index} className="hover:bg-gray-50 dark:hover:bg-slate-800/50 cursor-pointer" onClick={() => { setSelectedCentreDetail(centre.centre); setDetailModalOpen(true); }}>
+                                            <TableCell className="font-semibold pl-4 sm:pl-6 text-xs sm:text-sm">{centre.centre}</TableCell>
+                                            <TableCell><Badge className="bg-maroon-100 text-maroon-700 dark:bg-maroon-900/40 dark:text-maroon-300">{centre.totalProjects}</Badge></TableCell>
+                                            <TableCell><Badge className={`${centre.activeProjects > 0 ? 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300' : 'bg-gray-100 text-gray-500'}`}>{centre.activeProjects}</Badge></TableCell>
+                                            <TableCell className="text-xs sm:text-sm">{formatCurrency(centre.totalBudget)}</TableCell>
+                                            <TableCell className="text-xs sm:text-sm">{formatCurrency(centre.disbursed)}</TableCell>
+                                            <TableCell className="text-right pr-4 sm:pr-6">
+                                                <span className={`text-xs font-semibold ${centre.totalBudget > 0 && (centre.disbursed / centre.totalBudget) > 0.8 ? 'text-red-500' : centre.totalBudget > 0 && (centre.disbursed / centre.totalBudget) > 0.5 ? 'text-amber-500' : 'text-gray-500'}`}>
+                                                    {centre.totalBudget > 0 ? ((centre.disbursed / centre.totalBudget) * 100).toFixed(0) : 0}%
+                                                </span>
+                                            </TableCell>
+                                        </TableRow>
+                                    ))
+                                ) : (
+                                    <TableRow>
+                                        <TableCell colSpan={6} className="py-8">
+                                            <EmptyState message="No Centres Matched" description="Try adjusting your filters or adding a new centre." />
                                         </TableCell>
                                     </TableRow>
-                                ))}
+                                )}
                             </TableBody>
                         </Table>
                     </div>
@@ -708,7 +727,14 @@ const AdminDashboard = () => {
                                             </TableRow>
                                         ))
                                 ) : (
-                                    <TableRow><TableCell colSpan={4} className="text-center py-10 opacity-30 italic text-sm">No administrative logs currently synchronized.</TableCell></TableRow>
+                                    <TableRow>
+                                        <TableCell colSpan={4} className="py-12">
+                                            <EmptyState 
+                                                message="Audit Trail Empty" 
+                                                description="No administrative actions or state changes have been logged yet." 
+                                            />
+                                        </TableCell>
+                                    </TableRow>
                                 )}
                             </TableBody>
                         </Table>

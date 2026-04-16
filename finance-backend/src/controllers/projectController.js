@@ -13,6 +13,7 @@ const {
     getFacultyDashboardData,
 } = require('../services/pipelineMetricsService');
 const { normalizeFundSource } = require('../services/fundSourceCatalogService');
+const asyncHandler = require('../utils/asyncHandler');
 
 const resolveCentreAssignment = async (centreInput, centreIdInput) => {
     if (centreIdInput) {
@@ -33,93 +34,87 @@ const resolveCentreAssignment = async (centreInput, centreIdInput) => {
     return { centreId: null, centre: null };
 };
 
-exports.getAdminStats = async (req, res) => {
-    try {
-        const adminData = await getAdminDashboardData();
-        const [totalRevenue, consultancyRevenue, internshipRevenue, eventsRevenue] = await Promise.all([
-            Revenue.sum('verifiedAmount', { where: { status: 'VERIFIED' } }) || 0,
-            Revenue.sum('verifiedAmount', { where: { status: 'VERIFIED', revenueSource: 'Consultancy' } }) || 0,
-            Revenue.sum('verifiedAmount', { where: { status: 'VERIFIED', revenueSource: 'Internships' } }) || 0,
-            Revenue.sum('verifiedAmount', { where: { status: 'VERIFIED', revenueSource: 'Events' } }) || 0,
-        ]);
 
-        const stats = {
-            ...adminData.stats,
-            revenueStats: {
-                total: totalRevenue || 0,
-                consultancy: consultancyRevenue || 0,
-                internships: internshipRevenue || 0,
-                events: eventsRevenue || 0,
+exports.getAdminStats = asyncHandler(async (req, res) => {
+    const adminData = await getAdminDashboardData();
+    const [totalRevenue, consultancyRevenue, internshipRevenue, eventsRevenue] = await Promise.all([
+        Revenue.sum('verifiedAmount', { where: { status: 'VERIFIED' } }) || 0,
+        Revenue.sum('verifiedAmount', { where: { status: 'VERIFIED', revenueSource: 'Consultancy' } }) || 0,
+        Revenue.sum('verifiedAmount', { where: { status: 'VERIFIED', revenueSource: 'Internships' } }) || 0,
+        Revenue.sum('verifiedAmount', { where: { status: 'VERIFIED', revenueSource: 'Events' } }) || 0,
+    ]);
+
+    const stats = {
+        ...(adminData?.stats || {}),
+        revenueStats: {
+            total: totalRevenue || 0,
+            consultancy: consultancyRevenue || 0,
+            internships: internshipRevenue || 0,
+            events: eventsRevenue || 0,
+        },
+    };
+
+    return res.status(200).json({
+        success: true,
+        data: stats,
+        meta: {
+            centres: adminData?.centres || [],
+        }
+    });
+});
+
+exports.getFacultyStats = asyncHandler(async (req, res) => {
+    const userId = req.user?.id || req.user?._id;
+    const data = await getFacultyDashboardData(userId, req.user?.name);
+
+    return res.status(200).json({
+        success: true,
+        data: data || {},
+        meta: {
+            facultyName: req.user?.name || 'N/A'
+        }
+    });
+});
+
+exports.getProjects = asyncHandler(async (req, res) => {
+    const includeMembers = {
+        include: [
+            {
+                model: ProjectMember,
+                as: 'members',
+                include: [{ model: User, as: 'user', attributes: ['_id', 'name', 'email', 'centre', 'department'] }]
             },
+            { model: require('../models/Centre'), as: 'researchCentre', attributes: ['name'] }
+        ],
+        order: [['createdAt', 'DESC']]
+    };
+
+    if (req.user?.role === 'FACULTY') {
+        const userId = req.user?.id || req.user?._id;
+        const memberRows = await ProjectMember.findAll({ where: { userId }, attributes: ['projectId'] });
+        const memberProjectIds = memberRows.map(m => m.projectId || m._id);
+
+        includeMembers.where = {
+            [Op.or]: [
+                { facultyId: userId },
+                { userId: userId },
+                { pi: req.user?.name },
+                ...(memberProjectIds.length > 0 ? [{ _id: { [Op.in]: memberProjectIds } }] : [])
+            ]
         };
-
-        console.log("[PIPELINE] Admin Data Truth:", stats);
-        res.status(200).json({
-            success: true,
-            stats,
-            centres: adminData.centres,
-        });
-    } catch (error) {
-        console.error('getAdminStats error:', error);
-        return serverError(res, error);
     }
-};
 
-exports.getFacultyStats = async (req, res) => {
-    try {
-        const facultyId = req.user.id || req.user._id;
-        const data = await getFacultyDashboardData(facultyId, req.user.name);
+    const projects = await Project.findAll(includeMembers);
 
-        console.log(`[PIPELINE] Faculty Data Truth (${req.user.name}):`, data);
-        res.status(200).json({ success: true, stats: data });
-    } catch (error) {
-        console.error('getFacultyStats error:', error);
-        return serverError(res, error);
-    }
-};
-
-exports.getProjects = async (req, res) => {
-    try {
-        const includeMembers = {
-            include: [
-                {
-                    model: ProjectMember,
-                    as: 'members',
-                    include: [{ model: User, as: 'user', attributes: ['_id', 'name', 'email', 'centre', 'department'] }]
-                },
-                { model: require('../models/Centre'), as: 'researchCentre', attributes: ['name'] }
-            ],
-            order: [['createdAt', 'DESC']]
-        };
-
-        if (req.user.role === 'FACULTY') {
-            const userId = req.user.id || req.user._id;
-            // Find project IDs where this user is a member
-            const memberRows = await ProjectMember.findAll({ where: { userId }, attributes: ['projectId'] });
-            const memberProjectIds = memberRows.map(m => m.projectId);
-
-            includeMembers.where = {
-                [Op.or]: [
-                    { facultyId: userId },
-                    { userId: userId },
-                    { pi: req.user.name },
-                    ...(memberProjectIds.length > 0 ? [{ _id: { [Op.in]: memberProjectIds } }] : [])
-                ]
-            };
+    return res.status(200).json({
+        success: true,
+        data: projects || [],
+        meta: {
+            count: projects?.length || 0
         }
+    });
+});
 
-        const projects = await Project.findAll(includeMembers);
-
-        if (!projects || projects.length === 0) {
-            return res.json({ success: true, count: 0, data: [] });
-        }
-
-        res.status(200).json({ success: true, count: projects.length, data: projects });
-    } catch (error) {
-        console.error('Get Projects Error:', error);
-        return serverError(res, error);
-    }
-};
 
 /**
  * GET /projects/:id
@@ -128,49 +123,44 @@ exports.getProjects = async (req, res) => {
  *   - Team members
  *   - All fund requests (installments) sorted by installmentNumber
  */
-exports.getProject = async (req, res) => {
-    try {
-        const project = await Project.findByPk(req.params.id, {
-            include: [
-                {
-                    model: ProjectMember,
-                    as: 'members',
-                    include: [{ model: User, as: 'user', attributes: ['_id', 'name', 'email', 'department', 'centre'] }]
-                },
-                { model: Centre, as: 'researchCentre', attributes: ['name'] }
-            ]
-        });
-        if (!project) {
-            return res.status(404).json({ success: false, message: 'Project not found' });
-        }
+exports.getProject = asyncHandler(async (req, res) => {
+    const project = await Project.findByPk(req.params.id, {
+        include: [
+            {
+                model: ProjectMember,
+                as: 'members',
+                include: [{ model: User, as: 'user', attributes: ['_id', 'name', 'email', 'department', 'centre'] }]
+            },
+            { model: Centre, as: 'researchCentre', attributes: ['name'] }
+        ]
+    });
 
-        // Fetch all installment fund requests for this project
-        const { FundRequest: FR } = require('../models/FundRequest');
-        const installments = await FR.findAll({
-            where: { projectId: project._id || project.id },
-            order: [['installmentNumber', 'ASC'], ['createdAt', 'ASC']],
-            attributes: ['_id', 'installmentNumber', 'requestedAmount', 'purpose', 'status', 'currentStage', 'createdAt', 'faculty']
-        });
-
-        const totalAmount     = Number(project.sanctionedBudget || 0);
-        const disbursedAmount = Number(project.releasedBudget   || 0);
-        const remainingAmount = Math.max(0, totalAmount - disbursedAmount);
-
-        return res.status(200).json({
-            success: true,
-            data: {
-                ...project.toJSON(),
-                // Explicit budget fields for installment workflow consumers
-                totalAmount,
-                disbursedAmount,
-                remainingAmount,
-                installments,
-            }
-        });
-    } catch (error) {
-        return serverError(res, error);
+    if (!project) {
+        return res.status(404).json({ success: false, message: 'Project not found' });
     }
-};
+
+    const { FundRequest: FR } = require('../models/FundRequest');
+    const installments = await FR.findAll({
+        where: { projectId: project._id || project.id },
+        order: [['installmentNumber', 'ASC'], ['createdAt', 'ASC']],
+        attributes: ['_id', 'installmentNumber', 'requestedAmount', 'purpose', 'status', 'currentStage', 'createdAt', 'faculty']
+    });
+
+    const totalAmount = Number(project.sanctionedBudget || 0);
+    const disbursedAmount = Number(project.releasedBudget || 0);
+    const remainingAmount = Math.max(0, totalAmount - disbursedAmount);
+
+    return res.status(200).json({
+        success: true,
+        data: {
+            ...project.toJSON(),
+            totalAmount,
+            disbursedAmount,
+            remainingAmount,
+            installments: installments || [],
+        }
+    });
+});
 
 
 
