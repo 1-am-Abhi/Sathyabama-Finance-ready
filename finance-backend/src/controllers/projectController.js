@@ -14,8 +14,10 @@ const {
 } = require('../services/pipelineMetricsService');
 const { normalizeFundSource } = require('../services/fundSourceCatalogService');
 const asyncHandler = require('../utils/asyncHandler');
+const { cache } = require('../services/redisService');
 
 const resolveCentreAssignment = async (centreInput, centreIdInput) => {
+
     if (centreIdInput) {
         const centre = await Centre.findByPk(centreIdInput);
         if (centre) {
@@ -36,6 +38,20 @@ const resolveCentreAssignment = async (centreInput, centreIdInput) => {
 
 
 exports.getAdminStats = asyncHandler(async (req, res) => {
+    const cacheKey = 'admin:dashboard:stats';
+    const cachedData = await cache.get(cacheKey);
+    
+    if (cachedData) {
+        return res.status(200).json({
+            success: true,
+            data: cachedData.stats,
+            meta: {
+                centres: cachedData.centres,
+                cached: true
+            }
+        });
+    }
+
     const adminData = await getAdminDashboardData();
     const [totalRevenue, consultancyRevenue, internshipRevenue, eventsRevenue] = await Promise.all([
         Revenue.sum('verifiedAmount', { where: { status: 'VERIFIED' } }) || 0,
@@ -54,11 +70,15 @@ exports.getAdminStats = asyncHandler(async (req, res) => {
         },
     };
 
+    const response = { stats, centres: adminData?.centres || [] };
+    await cache.set(cacheKey, response, 60); // Cache for 60 seconds
+
     return res.status(200).json({
         success: true,
         data: stats,
         meta: {
             centres: adminData?.centres || [],
+            cached: false
         }
     });
 });

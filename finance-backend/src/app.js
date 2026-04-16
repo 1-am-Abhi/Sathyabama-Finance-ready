@@ -2,173 +2,111 @@ const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
-const path = require('path');
+const compression = require('compression');
+const timeout = require('connect-timeout');
 const rateLimit = require('express-rate-limit');
 const { v4: uuidv4 } = require('uuid');
 const logger = require('./utils/logger');
 
 const app = express();
-const allowedOrigins = (process.env.FRONTEND_URL || '')
-    .split(',')
-    .map((origin) => origin.trim())
-    .filter(Boolean);
 
+// Security & Optimization
+app.use(helmet());
+app.use(compression());
+app.use(timeout('10s')); // Fail fast on slow requests
+app.set('trust proxy', 1);
+app.disable('x-powered-by');
+
+// CORS configuration
+const allowedOrigins = (process.env.FRONTEND_URL || '').split(',').map(o => o.trim()).filter(Boolean);
 if (process.env.NODE_ENV !== 'production') {
     allowedOrigins.push('http://localhost:3000', 'http://127.0.0.1:3000');
 }
-
-const uniqueAllowedOrigins = [...new Set(allowedOrigins)];
-
-// Middleware
-app.set('trust proxy', 1);
-app.disable('x-powered-by');
-app.use(helmet());
-
-const corsOptions = {
-    origin: (origin, callback) => {
-        if (!origin) {
-            return callback(null, true);
-        }
-
-        if (
-            uniqueAllowedOrigins.length === 0 &&
-            process.env.NODE_ENV !== 'production'
-        ) {
-            return callback(null, true);
-        }
-
-        if (uniqueAllowedOrigins.includes(origin)) {
-            return callback(null, true);
-        }
-
-        return callback(new Error(`CORS blocked for origin: ${origin}`));
-    },
+app.use(cors({
+    origin: [...new Set(allowedOrigins)],
     credentials: true,
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
-};
-app.use(cors(corsOptions));
+}));
 
-// Request Tracing & Logging Middleware
+// Request Tracing
 app.use((req, res, next) => {
     req.id = req.headers['x-request-id'] || uuidv4();
     res.setHeader('x-request-id', req.id);
-    
-    logger.info(`Incoming Request`, {
-        requestId: req.id,
-        method: req.method,
-        url: req.url,
-        ip: req.ip
-    });
     next();
 });
 
 app.use(morgan('dev'));
-app.use(express.json({ limit: process.env.REQUEST_BODY_LIMIT || '10mb' }));
-app.use(express.urlencoded({ extended: true, limit: process.env.REQUEST_BODY_LIMIT || '10mb' }));
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// Rate limiting
-const authLimiter = rateLimit({
-    windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 20, // Limit each IP to 20 login requests per windowMs
-    message: { success: false, message: 'Too many login attempts, please try again after 15 minutes' },
-    standardHeaders: true,
-    legacyHeaders: false,
-});
+const AlertService = require('./services/alertService');
 
-// Local local filesystem upload handler deleted. Replaced with Cloudinary.
-const { upload } = require('./services/uploadService');
-app.post('/api/upload', upload.single('file'), (req, res) => {
-    if (!req.file) return res.status(400).json({ success: false, message: 'No file provided' });
-    res.status(200).json({ success: true, url: req.file.path, message: 'File uploaded to Cloudinary safely' });
-});
-
-// Routes
-const authRoutes = require('./routes/authRoutes');
-const projectRoutes = require('./routes/projectRoutes');
-const fundRequestRoutes = require('./routes/fundRequestRoutes');
-const odRequestRoutes = require('./routes/odRequestRoutes');
-const eventRequestRoutes = require('./routes/eventRequestRoutes');
-const notificationRoutes = require('./routes/notificationRoutes');
-const equipmentRequestRoutes = require('./routes/equipmentRequestRoutes');
-const documentRoutes = require('./routes/documentRoutes');
-const academicMetricRoutes = require('./routes/academicMetricRoutes');
-const profileRoutes = require('./routes/profileRoutes');
-const revenueRoutes = require('./routes/revenueRoutes');
-const financeRoutes = require('./routes/financeRoutes');
-const dashboardRoutes = require('./routes/dashboardRoutes');
-const facultyRequestRoutes = require('./routes/facultyRequestRoutes');
-
-app.use('/api/auth/login', authLimiter);
-app.use('/api/auth', authRoutes);
-app.use('/api/projects', projectRoutes);
-app.use('/api/fund-requests', fundRequestRoutes);
-app.use('/api/od-requests', odRequestRoutes);
-app.use('/api/event-requests', eventRequestRoutes);
-app.use('/api/notifications', notificationRoutes);
-app.use('/notifications', notificationRoutes);
-app.use('/api/equipment-requests', equipmentRequestRoutes);
-app.use('/api/documents', documentRoutes);
-app.use('/api/academic-metrics', academicMetricRoutes);
-app.use('/api/profile', profileRoutes);
-app.use('/api/revenue', revenueRoutes);
-app.use('/api/finance', financeRoutes);
-app.use('/api', dashboardRoutes);
-app.use('/api', facultyRequestRoutes);
-
-app.get('/api/health', (req, res) => {
-    res.json({ status: 'ok', message: 'Sathyabama Finance API is running' });
-});
-
-// Root route
-app.get('/', (req, res) => {
-    res.json({ 
-        message: 'Welcome to Sathyabama Finance API',
-        status: 'Live',
+// System Status (Public)
+app.get('/api/status', (req, res) => {
+    res.json({
+        success: true,
+        data: AlertService.getSystemStatus(),
         timestamp: new Date().toISOString()
     });
 });
 
-// Test Database Route
-app.get('/test-db', async (req, res) => {
-    try {
-        const { sequelize } = require('./config/db');
-        const [results] = await sequelize.query('SELECT NOW() as current_time');
-        res.json({ 
-            success: true, 
-            message: 'PostgreSQL Database connected successfully via Sequelize!', 
-            server_time: results[0].current_time 
-        });
-    } catch (error) {
-        logger.error('Test DB Route Error:', { error: error.message, stack: error.stack, requestId: req.id });
-        res.status(500).json({ 
-            success: false, 
-            message: 'Database connection failed',
-            error: error.message 
-        });
-    }
+// Health Check (Deep)
+app.get('/health', async (req, res) => {
+
+    const { sequelize } = require('./config/db');
+    const { redis } = require('./services/redisService');
+    
+    const dbStatus = await sequelize.authenticate().then(() => 'up').catch(() => 'down');
+    const redisStatus = redis.status === 'ready' ? 'up' : 'down';
+    
+    const status = (dbStatus === 'up' && redisStatus === 'up') ? 200 : 503;
+    
+    res.status(status).json({
+        status: status === 200 ? 'healthy' : 'degraded',
+        timestamp: new Date().toISOString(),
+        services: { database: dbStatus, redis: redisStatus }
+    });
 });
 
-// Global error handling middleware
-app.use((err, req, res, next) => {
-    const status = err.status || err.statusCode || 500;
-    const message = err.message || 'Internal Server Error';
+// Rate Limiting
+const globalLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 200,
+    message: { success: false, message: 'Too many requests' }
+});
+app.use('/api/', globalLimiter);
 
-    // Log error using centralized structured logger
-    logger.error(`[Global Error] ${message}`, {
+// API Versioning & Routes
+const v1 = express.Router();
+const authRoutes = require('./routes/authRoutes');
+const projectRoutes = require('./routes/projectRoutes');
+const fundRequestRoutes = require('./routes/fundRequestRoutes');
+const notificationRoutes = require('./routes/notificationRoutes');
+const dashboardRoutes = require('./routes/dashboardRoutes');
+
+v1.use('/auth', authRoutes);
+v1.use('/projects', projectRoutes);
+v1.use('/fund-requests', fundRequestRoutes);
+v1.use('/notifications', notificationRoutes);
+v1.use('/dashboard', dashboardRoutes);
+
+app.use('/api/v1', v1);
+app.use('/api', v1); // Fallback for backward compatibility
+
+// Global Error Handler
+app.use((err, req, res, next) => {
+    if (req.timedout) return res.status(503).json({ success: false, message: 'Request timed out' });
+    
+    const status = err.status || 500;
+    logger.error(`[App Error] ${err.message}`, {
         requestId: req.id,
-        userId: req.user?.id || 'unauthenticated',
-        method: req.method,
-        url: req.url,
-        stack: process.env.NODE_ENV === 'development' ? err.stack : undefined,
+        stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
     });
 
     res.status(status).json({
         success: false,
-        message: process.env.NODE_ENV === 'production' && status === 500 
-            ? 'Internal Server Error' 
-            : message,
-        requestId: req.id,
-        error: process.env.NODE_ENV === 'development' ? err : undefined
+        message: status === 500 ? 'Internal Server Error' : err.message,
+        requestId: req.id
     });
 });
 

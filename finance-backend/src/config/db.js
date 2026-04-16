@@ -25,8 +25,8 @@ const sequelize = process.env.DATABASE_URL
             port: process.env.DB_PORT || 5432,
             logging: process.env.NODE_ENV === 'development' ? (msg) => logger.debug(msg) : false,
             pool: {
-                max: 5,
-                min: 0,
+                max: 20,
+                min: 5,
                 acquire: 30000,
                 idle: 10000
             }
