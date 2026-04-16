@@ -1,3 +1,4 @@
+const { serverError } = require("../utils/controllerError");
 const User = require('../models/User');
 const { syncScopusData } = require('../services/scopusService');
 
@@ -51,7 +52,7 @@ exports.updateProfile = async (req, res) => {
         });
     } catch (error) {
         console.error('Update profile error:', error);
-        res.status(500).json({ success: false, message: error.message });
+        return serverError(res, error);
     }
 };
 
@@ -73,7 +74,7 @@ exports.syncScopus = async (req, res) => {
         }
     } catch (error) {
         console.error('Scopus sync error:', error);
-        res.status(500).json({ success: false, message: error.message });
+        return serverError(res, error);
     }
 };
 
@@ -85,6 +86,6 @@ exports.getAllProfiles = async (req, res) => {
         res.status(200).json({ success: true, data: users });
     } catch (error) {
         console.error('Get all profiles error:', error);
-        res.status(500).json({ success: false, message: error.message });
+        return serverError(res, error);
     }
 };

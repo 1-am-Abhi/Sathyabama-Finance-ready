@@ -1,3 +1,4 @@
+const { serverError } = require("../utils/controllerError");
 const AcademicMetric = require('../models/AcademicMetric');
 const User = require('../models/User');
 
@@ -15,7 +16,7 @@ exports.getMetrics = async (req, res) => {
         
         res.status(200).json({ success: true, data: metrics });
     } catch (error) {
-        res.status(500).json({ success: false, message: error.message });
+        return serverError(res, error);
     }
 };
 
@@ -25,7 +26,7 @@ exports.getAllMetrics = async (req, res) => {
         const metrics = await AcademicMetric.findAll({ where: { cycle } });
         res.status(200).json({ success: true, count: metrics.length, data: metrics });
     } catch (error) {
-        res.status(500).json({ success: false, message: error.message });
+        return serverError(res, error);
     }
 };
 
@@ -34,7 +35,7 @@ exports.getPendingMetrics = async (req, res) => {
         const metrics = await AcademicMetric.findAll({ where: { status: 'PENDING_APPROVAL' } });
         res.status(200).json({ success: true, count: metrics.length, data: metrics });
     } catch (error) {
-        res.status(500).json({ success: false, message: error.message });
+        return serverError(res, error);
     }
 };
 
@@ -60,7 +61,7 @@ exports.updateMetrics = async (req, res) => {
         
         res.status(200).json({ success: true, data: metrics, message: 'Metrics submitted for admin approval' });
     } catch (error) {
-        res.status(500).json({ success: false, message: error.message });
+        return serverError(res, error);
     }
 };
 
@@ -72,7 +73,7 @@ exports.approveMetrics = async (req, res) => {
         await metrics.update({ status: 'APPROVED', remarks: req.body.remarks || 'Approved by Admin' });
         res.status(200).json({ success: true, data: metrics });
     } catch (error) {
-        res.status(500).json({ success: false, message: error.message });
+        return serverError(res, error);
     }
 };
 
@@ -84,6 +85,6 @@ exports.rejectMetrics = async (req, res) => {
         await metrics.update({ status: 'REJECTED', remarks: req.body.remarks });
         res.status(200).json({ success: true, data: metrics });
     } catch (error) {
-        res.status(500).json({ success: false, message: error.message });
+        return serverError(res, error);
     }
 };

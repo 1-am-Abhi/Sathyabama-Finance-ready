@@ -1,3 +1,4 @@
+const { serverError } = require("../utils/controllerError");
 const PFMSTransaction = require('../models/PFMSTransaction');
 const InternshipFee = require('../models/InternshipFee');
 const { FundRequest } = require('../models/FundRequest');
@@ -70,7 +71,7 @@ exports.getFinanceStats = async (req, res) => {
             }
         });
     } catch (error) {
-        res.status(500).json({ success: false, message: error.message });
+        return serverError(res, error);
     }
 };
 
@@ -96,7 +97,7 @@ exports.getFinanceDashboard = async (req, res) => {
             },
         });
     } catch (error) {
-        res.status(500).json({ success: false, message: error.message });
+        return serverError(res, error);
     }
 };
 
@@ -131,7 +132,7 @@ exports.getFundFlowProjects = async (req, res) => {
             data
         });
     } catch (error) {
-        res.status(500).json({ success: false, message: error.message });
+        return serverError(res, error);
     }
 };
 
@@ -140,7 +141,7 @@ exports.createPFMSTransaction = async (req, res) => {
         const transaction = await PFMSTransaction.create(req.body);
         res.status(201).json({ success: true, data: transaction });
     } catch (error) {
-        res.status(500).json({ success: false, message: error.message });
+        return serverError(res, error);
     }
 };
 
@@ -152,7 +153,7 @@ exports.getPFMSTransactions = async (req, res) => {
         });
         res.status(200).json({ success: true, data: transactions });
     } catch (error) {
-        res.status(500).json({ success: false, message: error.message });
+        return serverError(res, error);
     }
 };
 
@@ -164,7 +165,7 @@ exports.getInternshipFees = async (req, res) => {
         });
         res.status(200).json({ success: true, data: fees });
     } catch (error) {
-        res.status(500).json({ success: false, message: error.message });
+        return serverError(res, error);
     }
 };
 
@@ -173,7 +174,7 @@ exports.getAdminInternshipFees = async (req, res) => {
         const fees = await InternshipFee.findAll({ order: [['createdAt', 'DESC']] });
         res.status(200).json({ success: true, data: fees });
     } catch (error) {
-        res.status(500).json({ success: false, message: error.message });
+        return serverError(res, error);
     }
 };
 
@@ -203,7 +204,7 @@ exports.adminApproveInternshipFee = async (req, res) => {
         
         res.status(200).json({ success: true, message: 'Admin status updated successfully', data: fee });
     } catch (error) {
-        res.status(500).json({ success: false, message: error.message });
+        return serverError(res, error);
     }
 };
 
@@ -226,7 +227,7 @@ exports.verifyInternshipFee = async (req, res) => {
         
         res.status(200).json({ success: true, data: fee });
     } catch (error) {
-        res.status(500).json({ success: false, message: error.message });
+        return serverError(res, error);
     }
 };
 
@@ -238,7 +239,7 @@ exports.deleteInternshipFee = async (req, res) => {
         await fee.destroy();
         res.status(200).json({ success: true, message: 'Record deleted successfully' });
     } catch (error) {
-        res.status(500).json({ success: false, message: error.message });
+        return serverError(res, error);
     }
 };
 
@@ -271,7 +272,7 @@ exports.createInternshipFee = async (req, res) => {
         );
         res.status(201).json({ success: true, data: fee });
     } catch (error) {
-        res.status(500).json({ success: false, message: error.message });
+        return serverError(res, error);
     }
 };
 
@@ -284,7 +285,7 @@ exports.getFundSourcesOverview = async (req, res) => {
         res.status(200).json(overview);
     } catch (error) {
         console.error('getFundSources Error:', error);
-        res.status(500).json({ success: false, message: error.message });
+        return serverError(res, error);
     }
 };
 
@@ -330,7 +331,7 @@ exports.updateFundSourceAmount = async (req, res) => {
         });
     } catch (error) {
         console.error('updateFundSource Error:', error);
-        res.status(500).json({ success: false, message: error.message });
+        return serverError(res, error);
     }
 };
 
@@ -362,7 +363,7 @@ exports.getDepartments = async (req, res) => {
             .map((name) => ({ id: name, name }));
         res.status(200).json(departments);
     } catch (error) {
-        res.status(500).json({ success: false, message: error.message });
+        return serverError(res, error);
     }
 };
 
@@ -371,7 +372,7 @@ exports.getDepartmentFunding = async (req, res) => {
         const rows = await getDepartmentFundingRows(req.params.id);
         res.status(200).json(rows);
     } catch (error) {
-        res.status(500).json({ success: false, message: error.message });
+        return serverError(res, error);
     }
 };
 
@@ -379,7 +380,7 @@ exports.updateDepartmentFunding = async (req, res) => {
     try {
         res.status(200).json({ success: true, message: 'Funding updated' });
     } catch (error) {
-        res.status(500).json({ success: false, message: error.message });
+        return serverError(res, error);
     }
 };
 
@@ -448,7 +449,7 @@ exports.getFunctionRequests = async (req, res) => {
         });
         res.status(200).json({ success: true, data });
     } catch (error) {
-        res.status(500).json({ success: false, message: error.message });
+        return serverError(res, error);
     }
 };
 
@@ -476,7 +477,7 @@ exports.getProjects = async (req, res) => {
         res.status(200).json(formattedProjects);
     } catch (error) {
         console.error('getProjects Error:', error);
-        res.status(500).json({ success: false, message: error.message });
+        return serverError(res, error);
     }
 };
 
@@ -506,7 +507,7 @@ exports.getDisbursementQueue = async (req, res) => {
         res.status(200).json({ success: true, data: normalized });
     } catch (error) {
         console.error('getDisbursementQueue Error:', error);
-        res.status(500).json({ success: false, message: error.message });
+        return serverError(res, error);
     }
 };
 
@@ -539,7 +540,7 @@ exports.executeDisbursement = async (req, res) => {
         });
     } catch (error) {
         console.error('executeDisbursement Error:', error);
-        res.status(500).json({ success: false, message: error.message });
+        return serverError(res, error);
     }
 };
 
@@ -598,7 +599,7 @@ exports.getEquipmentDisbursements = async (req, res) => {
         res.status(200).json({ success: true, count: normalized.length, data: normalized });
     } catch (error) {
         console.error('getEquipmentDisbursements Error:', error);
-        res.status(500).json({ success: false, message: error.message });
+        return serverError(res, error);
     }
 };
 
@@ -628,7 +629,7 @@ exports.executeEquipmentDisbursement = async (req, res) => {
         
         res.status(200).json({ success: true, message: 'Equipment Disbursement executed successfully', data: eq });
     } catch (error) {
-        res.status(500).json({ success: false, message: error.message });
+        return serverError(res, error);
     }
 };
 
@@ -709,7 +710,7 @@ exports.getFinancialReports = async (req, res) => {
             filters: { period, department, fundType, centre },
         });
     } catch (error) {
-        res.status(500).json({ success: false, message: error.message });
+        return serverError(res, error);
     }
 };
 
@@ -731,6 +732,6 @@ exports.getDisbursalHistory = async (req, res) => {
         });
         res.status(200).json({ success: true, data: history.map((entry) => normalizeDisbursement(entry)) });
     } catch (error) {
-        res.status(500).json({ success: false, message: error.message });
+        return serverError(res, error);
     }
 };

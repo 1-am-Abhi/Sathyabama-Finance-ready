@@ -1,3 +1,4 @@
+const { serverError } = require("../utils/controllerError");
 const ODRequest = require('../models/ODRequest');
 const AcademicMetric = require('../models/AcademicMetric');
 const { Op } = require('sequelize');
@@ -54,7 +55,7 @@ exports.createODRequest = async (req, res) => {
         res.status(201).json({ success: true, data: newRequest });
     } catch (error) {
         console.error('OD Submission Error:', error);
-        res.status(500).json({ success: false, message: error.message });
+        return serverError(res, error);
     }
 };
 
@@ -67,7 +68,7 @@ exports.getODRequests = async (req, res) => {
         const requests = await ODRequest.findAll(options);
         res.status(200).json({ success: true, data: requests });
     } catch (error) {
-        res.status(500).json({ success: false, message: error.message });
+        return serverError(res, error);
     }
 };
 
@@ -124,6 +125,6 @@ exports.updateODRequestStatus = async (req, res) => {
 
         res.status(200).json({ success: true, data: od });
     } catch (error) {
-        res.status(500).json({ success: false, message: error.message });
+        return serverError(res, error);
     }
 };

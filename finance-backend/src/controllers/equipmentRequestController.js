@@ -1,3 +1,4 @@
+const { serverError } = require("../utils/controllerError");
 const EquipmentRequest = require('../models/EquipmentRequest');
 const NotificationService = require('../services/notificationService');
 
@@ -19,7 +20,7 @@ exports.createEquipmentRequest = async (req, res) => {
         );
         res.status(201).json({ success: true, data: newReq });
     } catch (error) {
-        res.status(500).json({ success: false, message: error.message });
+        return serverError(res, error);
     }
 };
 
@@ -32,7 +33,7 @@ exports.getEquipmentRequests = async (req, res) => {
         const reqs = await EquipmentRequest.findAll(options);
         res.status(200).json({ success: true, data: reqs });
     } catch (error) {
-        res.status(500).json({ success: false, message: error.message });
+        return serverError(res, error);
     }
 };
 
@@ -67,6 +68,6 @@ exports.updateEquipmentStatus = async (req, res) => {
         }
         res.status(200).json({ success: true, data: eq });
     } catch (error) {
-        res.status(500).json({ success: false, message: error.message });
+        return serverError(res, error);
     }
 };

@@ -1,3 +1,4 @@
+const { serverError } = require("../utils/controllerError");
 const Revenue = require('../models/Revenue');
 const User = require('../models/User');
 const { Op } = require('sequelize');
@@ -32,7 +33,7 @@ exports.createRevenueRecord = async (req, res) => {
             data: record
         });
     } catch (error) {
-        res.status(500).json({ success: false, message: error.message });
+        return serverError(res, error);
     }
 };
 
@@ -49,7 +50,7 @@ exports.getMyRevenueRecords = async (req, res) => {
             data: records
         });
     } catch (error) {
-        res.status(500).json({ success: false, message: error.message });
+        return serverError(res, error);
     }
 };
 
@@ -97,7 +98,7 @@ exports.getRevenueSummary = async (req, res) => {
             }
         });
     } catch (error) {
-        res.status(500).json({ success: false, message: error.message });
+        return serverError(res, error);
     }
 };
 
@@ -119,7 +120,7 @@ exports.updateFinanceMetrics = async (req, res) => {
             data: record
         });
     } catch (error) {
-        res.status(500).json({ success: false, message: error.message });
+        return serverError(res, error);
     }
 };
 
@@ -139,7 +140,7 @@ exports.getAllRevenueForVerification = async (req, res) => {
         
         res.status(200).json({ success: true, data: records });
     } catch (error) {
-        res.status(500).json({ success: false, message: error.message });
+        return serverError(res, error);
     }
 };
 
@@ -165,7 +166,7 @@ exports.verifyRevenue = async (req, res) => {
         
         res.status(200).json({ success: true, message: 'Revenue verified successfully', data: record });
     } catch (error) {
-        res.status(500).json({ success: false, message: error.message });
+        return serverError(res, error);
     }
 };
 
@@ -183,7 +184,7 @@ exports.getAdminRevenueApprovals = async (req, res) => {
         });
         res.status(200).json({ success: true, data: records });
     } catch (error) {
-        res.status(500).json({ success: false, message: error.message });
+        return serverError(res, error);
     }
 };
 
@@ -215,6 +216,6 @@ exports.adminApproveRevenue = async (req, res) => {
         
         res.status(200).json({ success: true, message: 'Revenue admin status updated successfully', data: record });
     } catch (error) {
-        res.status(500).json({ success: false, message: error.message });
+        return serverError(res, error);
     }
 };

@@ -1,3 +1,4 @@
+const { serverError } = require("../utils/controllerError");
 const EventRequest = require('../models/EventRequest');
 const { Op } = require('sequelize');
 const NotificationService = require('../services/notificationService');
@@ -36,7 +37,7 @@ exports.createEventRequest = async (req, res) => {
         res.status(201).json({ success: true, data: newRequest });
     } catch (error) {
         console.error('Event Submission Error:', error);
-        res.status(500).json({ success: false, message: error.message });
+        return serverError(res, error);
     }
 };
 
@@ -65,7 +66,7 @@ exports.getEventRequests = async (req, res) => {
         res.status(200).json({ success: true, data });
     } catch (error) {
         console.error('Get Event Requests Error:', error);
-        res.status(500).json({ success: false, message: error.message });
+        return serverError(res, error);
     }
 };
 
@@ -125,7 +126,7 @@ exports.updateEventRequestStatus = async (req, res) => {
             },
         });
     } catch (error) {
-        res.status(500).json({ success: false, message: error.message });
+        return serverError(res, error);
     }
 };
 
@@ -157,6 +158,6 @@ exports.updateEventMembers = async (req, res) => {
         res.status(200).json({ success: true, data: updatedMembers });
     } catch (error) {
         console.error('Update Event Members Error:', error);
-        res.status(500).json({ success: false, message: error.message });
+        return serverError(res, error);
     }
 };

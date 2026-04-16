@@ -1,3 +1,4 @@
+const { serverError } = require("../utils/controllerError");
 const Notification = require('../models/Notification');
 const NotificationService = require('../services/notificationService');
 
@@ -41,7 +42,7 @@ exports.createNotification = async (req, res) => {
         res.status(201).json({ success: true, data: notification });
     } catch (error) {
         console.error('Create Notification Error:', error);
-        res.status(500).json({ success: false, message: error.message });
+        return serverError(res, error);
     }
 };
 
@@ -64,7 +65,7 @@ exports.getNotifications = async (req, res) => {
         res.status(200).json({ success: true, data: notifications || [] });
     } catch (error) {
         console.error('Get Notifications Error:', error);
-        res.status(500).json({ success: false, message: error.message });
+        return serverError(res, error);
     }
 };
 
@@ -85,7 +86,7 @@ exports.markAsRead = async (req, res) => {
 
         res.status(200).json({ success: true, message: 'Marked as read', data: notification });
     } catch (error) {
-        res.status(500).json({ success: false, message: error.message });
+        return serverError(res, error);
     }
 };
 
@@ -109,6 +110,6 @@ exports.markAllAsRead = async (req, res) => {
 
         res.status(200).json({ success: true, message: 'All notifications marked as read' });
     } catch (error) {
-        res.status(500).json({ success: false, message: error.message });
+        return serverError(res, error);
     }
 };

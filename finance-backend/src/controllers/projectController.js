@@ -1,3 +1,4 @@
+const { serverError } = require("../utils/controllerError");
 const Project = require('../models/Project');
 const User = require('../models/User');
 const ProjectMember = require('../models/ProjectMember');
@@ -60,7 +61,7 @@ exports.getAdminStats = async (req, res) => {
         });
     } catch (error) {
         console.error('getAdminStats error:', error);
-        res.status(500).json({ success: false, message: error.message });
+        return serverError(res, error);
     }
 };
 
@@ -73,7 +74,7 @@ exports.getFacultyStats = async (req, res) => {
         res.status(200).json({ success: true, stats: data });
     } catch (error) {
         console.error('getFacultyStats error:', error);
-        res.status(500).json({ success: false, message: error.message });
+        return serverError(res, error);
     }
 };
 
@@ -111,7 +112,7 @@ exports.getProjects = async (req, res) => {
         res.status(200).json({ success: true, count: projects.length, data: projects });
     } catch (error) {
         console.error('Get Projects Error:', error);
-        res.status(500).json({ success: false, message: error.message });
+        return serverError(res, error);
     }
 };
 
@@ -123,7 +124,7 @@ exports.getProject = async (req, res) => {
         }
         res.status(200).json({ success: true, data: project });
     } catch (error) {
-        res.status(500).json({ success: false, message: error.message });
+        return serverError(res, error);
     }
 };
 
@@ -277,7 +278,7 @@ exports.deleteProject = async (req, res) => {
         await project.destroy();
         res.status(200).json({ success: true, data: {} });
     } catch (error) {
-        res.status(500).json({ success: false, message: error.message });
+        return serverError(res, error);
     }
 };
 
@@ -290,7 +291,7 @@ exports.getProjectMembers = async (req, res) => {
         });
         res.status(200).json({ success: true, data: members });
     } catch (error) {
-        res.status(500).json({ success: false, message: error.message });
+        return serverError(res, error);
     }
 };
 
@@ -338,6 +339,6 @@ exports.updateProjectMembers = async (req, res) => {
         res.status(200).json({ success: true, data: updatedMembers });
     } catch (error) {
         console.error('Update Project Members Error:', error);
-        res.status(500).json({ success: false, message: error.message });
+        return serverError(res, error);
     }
 };

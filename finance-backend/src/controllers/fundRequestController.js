@@ -1,3 +1,4 @@
+const { serverError } = require("../utils/controllerError");
 const { FundRequest, FUND_FLOW_STAGES } = require('../models/FundRequest');
 const Project = require('../models/Project');
 const { Op } = require('sequelize');
@@ -64,7 +65,7 @@ exports.getFundRequests = async (req, res) => {
         const data = requests.map((request) => normalizeFundRequest(request));
         res.status(200).json({ success: true, count: data.length, data });
     } catch (error) {
-        res.status(500).json({ success: false, message: error.message });
+        return serverError(res, error);
     }
 };
 
@@ -74,7 +75,7 @@ exports.getFundRequest = async (req, res) => {
         if (!request) return res.status(404).json({ success: false, message: 'Request not found' });
         res.status(200).json({ success: true, data: request });
     } catch (error) {
-        res.status(500).json({ success: false, message: error.message });
+        return serverError(res, error);
     }
 };
 
@@ -161,7 +162,7 @@ exports.createFundRequest = async (req, res) => {
 
         res.status(201).json({ success: true, data: request });
     } catch (error) {
-        res.status(500).json({ success: false, message: error.message });
+        return serverError(res, error);
     }
 };
 
@@ -182,7 +183,7 @@ exports.updateFundRequest = async (req, res) => {
         await request.save();
         res.status(200).json({ success: true, data: request });
     } catch (error) {
-        res.status(500).json({ success: false, message: error.message });
+        return serverError(res, error);
     }
 };
 
@@ -214,7 +215,7 @@ exports.approveFundRequest = async (req, res) => {
 
         res.status(200).json({ success: true, data: request });
     } catch (error) {
-        res.status(500).json({ success: false, message: error.message });
+        return serverError(res, error);
     }
 };
 
@@ -251,7 +252,7 @@ exports.rejectFundRequest = async (req, res) => {
 
         res.status(200).json({ success: true, data: request });
     } catch (error) {
-        res.status(500).json({ success: false, message: error.message });
+        return serverError(res, error);
     }
 };
 

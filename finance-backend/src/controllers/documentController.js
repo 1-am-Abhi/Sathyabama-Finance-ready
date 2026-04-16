@@ -1,3 +1,4 @@
+const { serverError } = require("../utils/controllerError");
 const Document = require('../models/Document');
 const NotificationService = require('../services/notificationService');
 
@@ -23,7 +24,7 @@ exports.createDocument = async (req, res) => {
         );
         res.status(201).json({ success: true, data: doc });
     } catch (error) {
-        res.status(500).json({ success: false, message: error.message });
+        return serverError(res, error);
     }
 };
 
@@ -36,7 +37,7 @@ exports.getDocuments = async (req, res) => {
         const docs = await Document.findAll({ where, order: [['createdAt', 'DESC']] });
         res.status(200).json({ success: true, data: docs });
     } catch (error) {
-        res.status(500).json({ success: false, message: error.message });
+        return serverError(res, error);
     }
 };
 
@@ -50,7 +51,7 @@ exports.updateDocumentStatus = async (req, res) => {
         await doc.save();
         res.status(200).json({ success: true, data: doc });
     } catch (error) {
-        res.status(500).json({ success: false, message: error.message });
+        return serverError(res, error);
     }
 };
 
@@ -75,6 +76,6 @@ exports.updateDocument = async (req, res) => {
         await doc.save();
         res.status(200).json({ success: true, data: doc });
     } catch (error) {
-        res.status(500).json({ success: false, message: error.message });
+        return serverError(res, error);
     }
 };
