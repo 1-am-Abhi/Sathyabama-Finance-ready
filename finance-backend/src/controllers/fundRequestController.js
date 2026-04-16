@@ -90,14 +90,14 @@ exports.getFundRequests = async (req, res) => {
             const centreInc = buildCentreInclude();
             if (centreInc) options.include.push(centreInc);
         } catch (incErr) {
-            console.warn('[getFundRequests] buildCentreInclude failed:', incErr.message);
+            console.warn('[getFundRequests] WARNING: buildCentreInclude failed. Details:', incErr.message);
         }
 
         try {
             const projectInc = buildProjectInclude();
             if (projectInc) options.include.push(projectInc);
         } catch (incErr) {
-            console.warn('[getFundRequests] buildProjectInclude failed:', incErr.message);
+            console.warn('[getFundRequests] WARNING: buildProjectInclude failed. Details:', incErr.message);
         }
 
         if (req.user.role === 'FACULTY') {
@@ -118,15 +118,14 @@ exports.getFundRequests = async (req, res) => {
             try {
                 data.push(normalizeFundRequest(r));
             } catch (normErr) {
-                console.error(`[getFundRequests] Normalization failed for request ${r._id || r.id || 'unknown'}:`, normErr.message);
-                data.push(r.toJSON ? r.toJSON() : r);
+                console.error(`[getFundRequests] ERROR: Normalization failed for request ${r._id || r.id || 'unknown'}. Skipping record. Details:`, normErr.message);
             }
         });
 
         return res.status(200).json({ success: true, count: data.length, data });
     } catch (error) {
-        console.error('[getFundRequests] Fatal Query Error:', error.message);
-        return res.status(200).json({ success: true, count: 0, data: [] });
+        console.error('[getFundRequests] FATAL: Database query or unexpected failure:', error.message);
+        return serverError(res, error);
     }
 };
 
