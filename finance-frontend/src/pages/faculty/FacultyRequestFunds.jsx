@@ -4,7 +4,7 @@ import { Badge } from '../../components/ui/badge';
 import { Button } from '../../components/ui/button';
 import {
     History, ChevronRight, PlusCircle, Wallet, Activity, DollarSign,
-    CheckCircle, Clock, Banknote, ArrowRight, X, FileText, Globe, Upload
+    CheckCircle, CheckCircle2, Clock, Banknote, ArrowRight, X, FileText, Globe, Upload
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { useLayout } from '../../contexts/LayoutContext';

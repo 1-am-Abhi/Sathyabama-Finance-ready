@@ -163,14 +163,7 @@ const ResearchCentreDetail = ({ isOpen, onClose, centreName, isDark }) => {
         fetchDetails();
     }, [isOpen, centreName]);
 
-    if (!isOpen || !centreName) return null;
-
-    // Chart data
-    const budgetChartData = [
-        { name: 'Utilized', value: details.summary.fundsUtilized, color: '#6366f1' },
-        { name: 'Remaining', value: details.summary.fundsRemaining, color: '#22c55e' }
-    ];
-
+    // ⚠️ useMemo MUST be declared before any early returns (Rules of Hooks)
     const projectBudgetData = React.useMemo(() => {
         if (!details.projects || details.projects.length === 0) return [];
         return details.projects.map(p => ({
@@ -180,6 +173,14 @@ const ResearchCentreDetail = ({ isOpen, onClose, centreName, isDark }) => {
             utilized: Number(p.utilized) || 0
         })).slice(0, 10);
     }, [details.projects]);
+
+    if (!isOpen || !centreName) return null;
+
+    // Chart data
+    const budgetChartData = [
+        { name: 'Utilized', value: details.summary.fundsUtilized, color: '#6366f1' },
+        { name: 'Remaining', value: details.summary.fundsRemaining, color: '#22c55e' }
+    ];
 
     const formatCurrency = (amount) => {
         const numericAmount = Number(amount);

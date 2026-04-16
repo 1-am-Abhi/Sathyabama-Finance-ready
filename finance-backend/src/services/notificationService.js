@@ -1,3 +1,4 @@
+const { Op } = require('sequelize');
 const Notification = require('../models/Notification');
 const User = require('../models/User');
 
@@ -33,23 +34,30 @@ class NotificationService {
     }
 
     /**
-     * Notify all users with a specific role (Admin/Finance)
+     * Notify all users with a specific role (Admin/Finance).
+     * Uses Op.iLike for case-insensitive matching so 'FINANCE_OFFICER',
+     * 'finance_officer', 'Finance_Officer' all resolve correctly.
      */
     static async notifyRole(role, title, message, type = 'INFO', relatedId = null) {
         try {
             console.log(`[NotificationService] Broadcasting ${type} to role ${role}: ${title}`);
 
             const users = await User.findAll({
-                where: { role },
+                where: {
+                    role: {
+                        [Op.iLike]: role   // case-insensitive match
+                    }
+                },
                 attributes: ['_id'],
             });
 
             if (!users.length) {
+                console.warn(`[NotificationService] No users found with role "${role}" — notification NOT delivered.`);
                 return [];
             }
 
             console.log(`[NotificationService] Creating ${users.length} notifications for role ${role}`);
-            
+
             const notificationEntries = users.map((user) => ({
                 userId: user._id || user.id,
                 role,
