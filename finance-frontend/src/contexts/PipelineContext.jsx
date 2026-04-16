@@ -28,13 +28,27 @@ export const PipelineProvider = ({ children }) => {
     });
 
     // Fetch fund requests
-    const { data: fundRequests, isLoading: requestsLoading } = useQuery({
+    const { data: fundRequests, isLoading: requestsLoading, error: requestsError } = useQuery({
         queryKey: ['fund-requests'],
         queryFn: async () => {
-            const response = await apiClient.get('/fund-requests');
-            return response.data.data;
+            try {
+                const response = await apiClient.get('/fund-requests');
+                return response.data.data;
+            } catch (err) {
+                console.error("🔥 FULL AXIOS ERROR:", err);
+
+                if (err.response) {
+                    console.error("🔥 BACKEND RESPONSE DATA:", err.response.data);
+                    console.error("🔥 STATUS:", err.response.status);
+                } else {
+                    console.error("🔥 NO RESPONSE (network error):", err.message);
+                }
+
+                throw err;
+            }
         },
-        enabled: !!user
+        enabled: !!user,
+        retry: false
     });
 
     // Create fund request mutation
@@ -124,6 +138,15 @@ export const PipelineProvider = ({ children }) => {
         isUpdatingProject: updateProjectMutation.isPending,
         isUpdatingFundRequest: updateFundRequestMutation.isPending
     };
+
+    if (requestsError) {
+        return (
+            <div style={{ padding: '20px', backgroundColor: '#ffebee', color: '#c62828', fontFamily: 'monospace', zIndex: 9999, position: 'relative' }}>
+                <h2>🔥 Backend API Error (`/api/fund-requests`)</h2>
+                <pre>{JSON.stringify(requestsError.response?.data || requestsError.message, null, 2)}</pre>
+            </div>
+        );
+    }
 
     return (
         <PipelineContext.Provider value={value}>
