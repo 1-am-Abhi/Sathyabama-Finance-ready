@@ -61,7 +61,13 @@ const FacultySubmissionForm = () => {
       const payload = new FormData();
       Object.entries(formData).forEach(([key, value]) => {
           if (value !== null && value !== '') {
-              payload.append(key, value);
+              if (key === 'billFile') {
+                  payload.append('bill', value);
+              } else if (key === 'proposalFile') {
+                  payload.append('proposal', value);
+              } else {
+                  payload.append(key, value);
+              }
           }
       });
       payload.append('participants', JSON.stringify(participants));

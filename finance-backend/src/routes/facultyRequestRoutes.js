@@ -2,12 +2,12 @@ const express = require('express');
 const router = express.Router();
 const facultyRequestController = require('../controllers/facultyRequestController');
 const { protect, authorize } = require('../middleware/authMiddleware');
-const upload = require('../middleware/uploadMiddleware');
+const upload = require('../middleware/upload');
 
 // Base route /api
 
 // 1. Faculty Routes
-router.post('/faculty/request', protect, authorize('FACULTY'), upload.fields([{ name: 'billFile', maxCount: 1 }, { name: 'proposalFile', maxCount: 1 }]), facultyRequestController.createRequest);
+router.post('/faculty/request', protect, authorize('FACULTY'), upload.fields([{ name: 'bill', maxCount: 1 }, { name: 'proposal', maxCount: 1 }]), facultyRequestController.createRequest);
 
 // 2. Admin Routes
 router.get('/admin/requests', protect, authorize('ADMIN'), facultyRequestController.getAdminRequests);

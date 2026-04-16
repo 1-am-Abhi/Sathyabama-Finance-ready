@@ -13,8 +13,8 @@ exports.createRequest = async (req, res) => {
 
         // File uploads mapped directly
         if (req.files) {
-            if (req.files.billFile) payload.billFile = req.files.billFile[0].path;
-            if (req.files.proposalFile) payload.proposalFile = req.files.proposalFile[0].path;
+            if (req.files.bill) payload.billFile = req.files.bill[0].path;
+            if (req.files.proposal) payload.proposalFile = req.files.proposal[0].path;
         }
 
         if (payload.participants && typeof payload.participants === 'string') {
