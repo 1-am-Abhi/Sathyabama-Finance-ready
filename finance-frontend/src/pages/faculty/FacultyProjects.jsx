@@ -439,7 +439,7 @@ const FacultyProjects = () => {
                                     </div>
                                     <div className="flex items-center gap-2 text-white font-bold italic mt-2">
                                         <Calendar className="w-4 h-4 text-blue-500" />
-                                        <span className="text-xs uppercase">Sanc. Date: {work.startDate ? new Date(work.startDate).toLocaleDateString() : 'N/A'}</span>
+                                        <span className="text-xs uppercase">Sanc. Date: {viewedProject.startDate ? new Date(viewedProject.startDate).toLocaleDateString() : 'N/A'}</span>
                                     </div>
                                     <div className="flex items-center gap-2 text-white font-bold italic mt-2">
                                         <Clock className="w-4 h-4 text-amber-500" />
