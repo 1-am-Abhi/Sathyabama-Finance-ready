@@ -45,13 +45,6 @@ const login = asyncHandler(async (req, res) => {
 const register = asyncHandler(async (req, res) => {
   const { name, email, password, role, department, centre } = req.body;
 
-  if (role === 'FACULTY') {
-    return res.status(403).json({
-      success: false,
-      message: 'Faculty creation is disabled. Only Admin and Finance Officer accounts are permitted.'
-    });
-  }
-
   const existingUser = await User.findOne({ where: { email } });
   if (existingUser) {
     return res.status(400).json({ success: false, message: "User already exists" });

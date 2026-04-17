@@ -49,9 +49,17 @@ const seedData = async () => {
             department: 'FINANCE',
             isProfileCompleted: true
         });
-        console.log(`[USER CREATED] ${finance.email} - ${finance.role}`);
+        const faculty = await User.create({
+            name: 'Sample Faculty',
+            email: 'faculty@sathyabama.ac.in',
+            password: 'password123',
+            role: 'FACULTY',
+            department: 'CSE',
+            isProfileCompleted: true
+        });
+        console.log(`[USER CREATED] ${faculty.email} - ${faculty.role}`);
 
-        console.log('Seeding completed. ONLY Admin and Finance Officer users exist in the system.');
+        console.log('Seeding completed. Admin, Finance Officer, and Faculty users initialized.');
         process.exit(0);
     } catch (error) {
         console.error('Seeding failed:', error);
