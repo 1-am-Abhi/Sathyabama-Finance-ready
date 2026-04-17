@@ -1,11 +1,9 @@
-const { serverError } = require("../utils/controllerError");
+const asyncHandler = require('../utils/asyncHandler');
 const Project = require('../models/Project');
 const User = require('../models/User');
 const ProjectMember = require('../models/ProjectMember');
-const { FundRequest } = require('../models/FundRequest');
-const EventRequest = require('../models/EventRequest');
+const { FundRequest: FR } = require('../models/FundRequest');
 const Revenue = require('../models/Revenue');
-const Disbursement = require('../models/Disbursement');
 const { Op } = require('sequelize');
 const Centre = require('../models/Centre');
 const {
@@ -13,11 +11,9 @@ const {
     getFacultyDashboardData,
 } = require('../services/pipelineMetricsService');
 const { normalizeFundSource } = require('../services/fundSourceCatalogService');
-const asyncHandler = require('../utils/asyncHandler');
 const { cache } = require('../services/redisService');
 
 const resolveCentreAssignment = async (centreInput, centreIdInput) => {
-
     if (centreIdInput) {
         const centre = await Centre.findByPk(centreIdInput);
         if (centre) {
@@ -43,9 +39,9 @@ const getAdminStats = asyncHandler(async (req, res) => {
     if (cachedData) {
         return res.status(200).json({
             success: true,
-            data: cachedData.stats,
+            data: cachedData.stats || {},
             meta: {
-                centres: cachedData.centres,
+                centres: cachedData.centres || [],
                 cached: true
             }
         });
@@ -74,7 +70,7 @@ const getAdminStats = asyncHandler(async (req, res) => {
 
     return res.status(200).json({
         success: true,
-        data: stats,
+        data: stats || {},
         meta: {
             centres: adminData?.centres || [],
             cached: false
@@ -150,7 +146,6 @@ const getProject = asyncHandler(async (req, res) => {
         return res.status(404).json({ success: false, message: 'Project not found' });
     }
 
-    const { FundRequest: FR } = require('../models/FundRequest');
     const installments = await FR.findAll({
         where: { projectId: project._id || project.id },
         order: [['installmentNumber', 'ASC'], ['createdAt', 'ASC']],
@@ -173,218 +168,169 @@ const getProject = asyncHandler(async (req, res) => {
     });
 });
 
-const createProject = async (req, res) => {
-    try {
-        const { projectSchema } = require('../utils/validation');
-        const validated = projectSchema.parse({ body: req.body });
-        const data = validated.body;
+const createProject = asyncHandler(async (req, res) => {
+    const { projectSchema } = require('../utils/validation');
+    const validated = projectSchema.parse({ body: req.body });
+    const data = validated.body;
 
-        const isAdmin = (req.user.role || '').toUpperCase() === 'ADMIN';
+    const isAdmin = (req.user.role || '').toUpperCase() === 'ADMIN';
+    const centreAssignment = await resolveCentreAssignment(
+        req.body.centre || req.user.centre || 'Research Centre',
+        req.body.centreId || req.user.centreId || null
+    );
+    const projectData = {
+        title: data.title,
+        description: data.description,
+        sanctionedBudget: Number(data.sanctionedBudget || 0),
+        fundingSource: data.fundingSource,
+        projectType: (data.projectType || 'PROJECT').toUpperCase(),
+        publisher: data.publisher || null,
+        publicationYear: data.publicationYear || null,
+        status: isAdmin ? (req.body.status || 'ACTIVE').toUpperCase() : 'PENDING',
+        userId: isAdmin ? (req.body.facultyId || req.user.id) : req.user.id,
+        facultyId: isAdmin ? (req.body.facultyId || null) : req.user.id,
+        pi: isAdmin ? (req.body.pi || 'Admin Created') : (req.user.name || req.body.pi || 'Faculty Member'),
+        department: req.body.department || req.user.department || 'RESEARCH',
+        centre: centreAssignment.centre,
+        centreId: centreAssignment.centreId,
+        verificationScreenshot: req.body.verificationScreenshot || null
+    };
+    
+    const project = await Project.create(projectData);
+
+    const piUserId = projectData.facultyId || projectData.userId;
+    if (piUserId) {
+        await ProjectMember.create({
+            projectId: project._id || project.id,
+            userId: piUserId,
+            role: 'PI'
+        });
+    }
+
+    res.status(201).json({ success: true, data: project || {} });
+});
+
+const updateProject = asyncHandler(async (req, res) => {
+    const project = await Project.findByPk(req.params.id);
+    if (!project) {
+        return res.status(404).json({ success: false, message: 'Project not found' });
+    }
+    
+    const updateData = { ...req.body };
+    if (req.body.sanctionedBudget !== undefined) {
+        updateData.sanctionedBudget = Number(req.body.sanctionedBudget);
+    }
+
+    if (req.body.centre || req.body.centreId) {
         const centreAssignment = await resolveCentreAssignment(
-            req.body.centre || req.user.centre || 'Research Centre',
-            req.body.centreId || req.user.centreId || null
+            req.body.centre || project.centre,
+            req.body.centreId || project.centreId
         );
-        const projectData = {
-            title: data.title,
-            description: data.description,
-            sanctionedBudget: Number(data.sanctionedBudget || 0),
-            fundingSource: data.fundingSource,
-            projectType: (data.projectType || 'PROJECT').toUpperCase(),
-            publisher: data.publisher || null,
-            publicationYear: data.publicationYear || null,
-            // Status is ALWAYS set server-side — never trust client
-            status: isAdmin ? (req.body.status || 'ACTIVE').toUpperCase() : 'PENDING',
-            userId: isAdmin ? (req.body.facultyId || req.user.id) : req.user.id,
-            facultyId: isAdmin ? (req.body.facultyId || null) : req.user.id,
-            pi: isAdmin ? (req.body.pi || 'Admin Created') : (req.user.name || req.body.pi || 'Faculty Member'),
-            department: req.body.department || req.user.department || 'RESEARCH',
-            centre: centreAssignment.centre,
-            centreId: centreAssignment.centreId,
-            verificationScreenshot: req.body.verificationScreenshot || null
-        };
-        
-        const project = await Project.create(projectData);
+        updateData.centre = centreAssignment.centre;
+        updateData.centreId = centreAssignment.centreId;
+    }
+    
+    if (req.body.proofStatus === 'REJECTED') {
+        updateData.proofUploaded = false;
+    }
+    if (req.body.status) {
+        const newStatus = req.body.status.toUpperCase();
+        const isActuallyApproved = ['ACTIVE', 'APPROVED'].includes(newStatus);
+        const wasNotApproved = !['ACTIVE', 'APPROVED'].includes(project.status);
 
-        // SYNC: Add the PI/Owner as a ProjectMember so project counts work
-        const piUserId = projectData.facultyId || projectData.userId;
-        if (piUserId) {
-            await ProjectMember.create({
-                projectId: project._id || project.id,
-                userId: piUserId,
-                role: 'PI'
+        if (isActuallyApproved && wasNotApproved) {
+            await FR.findOrCreate({
+                where: {
+                    projectId: project._id || project.id,
+                    purpose: `Initial advance for approved project: ${project.title}`,
+                },
+                defaults: {
+                    projectTitle: project.title,
+                    projectId: project._id || project.id,
+                    faculty: project.pi || 'Faculty Member',
+                    facultyId: project.facultyId || project.userId,
+                    userId: project.userId,
+                    requestedAmount: project.sanctionedBudget || 1,
+                    purpose: `Initial advance for approved project: ${project.title}`,
+                    status: 'PENDING_DISBURSAL',
+                    currentStage: 'FUND_APPROVED',
+                    department: project.department || 'Research',
+                    centre: project.centre || 'Research Centre',
+                    centreId: project.centreId || null,
+                    source: normalizeFundSource(project.fundingSource || 'INSTITUTIONAL'),
+                },
             });
         }
-
-        res.status(201).json({ success: true, data: project });
-    } catch (error) {
-        console.error('Create Project Error:', error);
-        let errorMessage = 'Failed to create work';
-        if (error.issues && error.issues.length > 0) {
-            errorMessage = error.issues[0].message;
-        } else if (error.errors && error.errors.length > 0) {
-            errorMessage = error.errors[0].message;
-        } else {
-            try {
-                const parsed = JSON.parse(error.message);
-                if (Array.isArray(parsed) && parsed[0].message) {
-                    errorMessage = parsed[0].message;
-                } else {
-                    errorMessage = error.message;
-                }
-            } catch (e) {
-                errorMessage = error.message;
-            }
-        }
-        res.status(400).json({ success: false, message: errorMessage });
+        updateData.status = newStatus;
     }
-};
+    await project.update(updateData);
 
-const updateProject = async (req, res) => {
-    try {
-        const project = await Project.findByPk(req.params.id);
-        if (!project) {
-            return res.status(404).json({ success: false, message: 'Project not found' });
-        }
-        
-        const updateData = { ...req.body };
-        if (req.body.sanctionedBudget !== undefined) {
-            updateData.sanctionedBudget = Number(req.body.sanctionedBudget);
-        }
-
-        if (req.body.centre || req.body.centreId) {
-            const centreAssignment = await resolveCentreAssignment(
-                req.body.centre || project.centre,
-                req.body.centreId || project.centreId
-            );
-            updateData.centre = centreAssignment.centre;
-            updateData.centreId = centreAssignment.centreId;
-        }
-        
-        if (req.body.proofStatus === 'REJECTED') {
-            updateData.proofUploaded = false;
-        }
-        if (req.body.status) {
-            const newStatus = req.body.status.toUpperCase();
-            // Automation: If project is being approved (ACTIVE or APPROVED), create an initial fund request
-            const isActuallyApproved = ['ACTIVE', 'APPROVED'].includes(newStatus);
-            const wasNotApproved = !['ACTIVE', 'APPROVED'].includes(project.status);
-
-            if (isActuallyApproved && wasNotApproved) {
-                const { FundRequest } = require('../models/FundRequest');
-                await FundRequest.findOrCreate({
-                    where: {
-                        projectId: project._id || project.id,
-                        purpose: `Initial advance for approved project: ${project.title}`,
-                    },
-                    defaults: {
-                        projectTitle: project.title,
-                        projectId: project._id || project.id,
-                        faculty: project.pi || 'Faculty Member',
-                        facultyId: project.facultyId || project.userId,
-                        userId: project.userId,
-                        requestedAmount: project.sanctionedBudget || 1,
-                        purpose: `Initial advance for approved project: ${project.title}`,
-                        status: 'PENDING_DISBURSAL',
-                        currentStage: 'FUND_APPROVED',
-                        department: project.department || 'Research',
-                        centre: project.centre || 'Research Centre',
-                        centreId: project.centreId || null,
-                        source: normalizeFundSource(project.fundingSource || 'INSTITUTIONAL'),
-                    },
-                });
-            }
-            updateData.status = newStatus;
-        }
-        await project.update(updateData);
-
-        // SYNC: If facultyId changed, update the PI in ProjectMembers
-        if (req.body.facultyId) {
-            const projectId = project._id || project.id;
-            await ProjectMember.destroy({ where: { projectId, role: 'PI' } });
-            await ProjectMember.create({
-                projectId,
-                userId: req.body.facultyId,
-                role: 'PI'
-            });
-        }
-
-        res.status(200).json({ success: true, data: project });
-    } catch (error) {
-        res.status(400).json({ success: false, message: error.message });
-    }
-};
-
-const deleteProject = async (req, res) => {
-    try {
-        const project = await Project.findByPk(req.params.id);
-        if (!project) {
-            return res.status(404).json({ success: false, message: 'Project not found' });
-        }
-        await project.destroy();
-        res.status(200).json({ success: true, data: {} });
-    } catch (error) {
-        return serverError(res, error);
-    }
-};
-
-const getProjectMembers = async (req, res) => {
-    try {
-        const members = await ProjectMember.findAll({
-            where: { projectId: req.params.id },
-            include: [{ model: User, as: 'user', attributes: ['_id', 'name', 'email', 'centre', 'department'] }]
+    if (req.body.facultyId) {
+        const projectId = project._id || project.id;
+        await ProjectMember.destroy({ where: { projectId, role: 'PI' } });
+        await ProjectMember.create({
+            projectId,
+            userId: req.body.facultyId,
+            role: 'PI'
         });
-        res.status(200).json({ success: true, data: members });
-    } catch (error) {
-        return serverError(res, error);
     }
-};
 
-const updateProjectMembers = async (req, res) => {
-    try {
-        const { piId, memberIds } = req.body;
-        const projectId = req.params.id;
+    res.status(200).json({ success: true, data: project || {} });
+});
 
-        const project = await Project.findByPk(projectId);
-        if (!project) {
-            return res.status(404).json({ success: false, message: 'Project not found' });
-        }
+const deleteProject = asyncHandler(async (req, res) => {
+    const project = await Project.findByPk(req.params.id);
+    if (!project) {
+        return res.status(404).json({ success: false, message: 'Project not found' });
+    }
+    await project.destroy();
+    res.status(200).json({ success: true, data: {} });
+});
 
-        // Remove all existing members for this project
-        await ProjectMember.destroy({ where: { projectId } });
+const getProjectMembers = asyncHandler(async (req, res) => {
+    const members = await ProjectMember.findAll({
+        where: { projectId: req.params.id },
+        include: [{ model: User, as: 'user', attributes: ['_id', 'name', 'email', 'centre', 'department'] }]
+    });
+    res.status(200).json({ success: true, data: members || [] });
+});
 
-        const newMembers = [];
+const updateProjectMembers = asyncHandler(async (req, res) => {
+    const { piId, memberIds } = req.body;
+    const projectId = req.params.id;
 
-        // Add PI
-        if (piId) {
-            newMembers.push({ projectId, userId: piId, role: 'PI' });
-            // Also update the legacy fields on Project for backward compat
-            const piUser = await User.findByPk(piId);
-            await project.update({ facultyId: piId, pi: piUser ? piUser.name : 'PI' });
-        }
+    const project = await Project.findByPk(projectId);
+    if (!project) {
+        return res.status(404).json({ success: false, message: 'Project not found' });
+    }
 
-        // Add other members (exclude PI to avoid duplicate)
-        if (memberIds && memberIds.length > 0) {
-            for (const memberId of memberIds) {
-                if (memberId !== piId) {
-                    newMembers.push({ projectId, userId: memberId, role: 'MEMBER' });
-                }
+    await ProjectMember.destroy({ where: { projectId } });
+
+    const newMembers = [];
+
+    if (piId) {
+        newMembers.push({ projectId, userId: piId, role: 'PI' });
+        const piUser = await User.findByPk(piId);
+        await project.update({ facultyId: piId, pi: piUser ? piUser.name : 'PI' });
+    }
+
+    if (memberIds && Array.isArray(memberIds)) {
+        for (const memberId of memberIds) {
+            if (memberId !== piId) {
+                newMembers.push({ projectId, userId: memberId, role: 'MEMBER' });
             }
         }
-
-        await ProjectMember.bulkCreate(newMembers);
-
-        // Fetch the updated members with user details
-        const updatedMembers = await ProjectMember.findAll({
-            where: { projectId },
-            include: [{ model: User, as: 'user', attributes: ['_id', 'name', 'email', 'centre', 'department'] }]
-        });
-
-        res.status(200).json({ success: true, data: updatedMembers });
-    } catch (error) {
-        console.error('Update Project Members Error:', error);
-        return serverError(res, error);
     }
-};
+
+    await ProjectMember.bulkCreate(newMembers);
+
+    const updatedMembers = await ProjectMember.findAll({
+        where: { projectId },
+        include: [{ model: User, as: 'user', attributes: ['_id', 'name', 'email', 'centre', 'department'] }]
+    });
+
+    res.status(200).json({ success: true, data: updatedMembers || [] });
+});
 
 module.exports = {
     getAdminStats,

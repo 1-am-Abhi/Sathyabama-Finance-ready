@@ -97,41 +97,11 @@ app.use('/api/', globalLimiter);
 
 // API Versioning & Routes
 const v1 = express.Router();
-const authRoutes = require('./routes/authRoutes');
-const projectRoutes = require('./routes/projectRoutes');
-const fundRequestRoutes = require('./routes/fundRequestRoutes');
-const notificationRoutes = require('./routes/notificationRoutes');
-const dashboardRoutes = require('./routes/dashboardRoutes');
-const eventRequestRoutes = require('./routes/eventRequestRoutes');
-const equipmentRequestRoutes = require('./routes/equipmentRequestRoutes');
-const revenueRoutes = require('./routes/revenueRoutes');
-const odRequestRoutes = require('./routes/odRequestRoutes');
-const documentRoutes = require('./routes/documentRoutes');
-const financeRoutes = require('./routes/financeRoutes');
-const academicMetricRoutes = require('./routes/academicMetricRoutes');
-const profileRoutes = require('./routes/profileRoutes');
-const facultyPortalRoutes = require('./routes/facultyPortalRoutes');
+const path = require('path');
+const { mountRoutes } = require('./utils/routeHelper');
 
-
-
-
-v1.use('/auth', authRoutes);
-v1.use('/projects', projectRoutes);
-v1.use('/fund-requests', fundRequestRoutes);
-v1.use('/notifications', notificationRoutes);
-v1.use('/dashboard', dashboardRoutes);
-v1.use('/event-requests', eventRequestRoutes);
-v1.use('/equipment-requests', equipmentRequestRoutes);
-v1.use('/revenue', revenueRoutes);
-v1.use('/od-requests', odRequestRoutes);
-v1.use('/documents', documentRoutes);
-v1.use('/finance', financeRoutes);
-v1.use('/academic-metrics', academicMetricRoutes);
-v1.use('/profile', profileRoutes);
-v1.use('/faculty', facultyPortalRoutes);
-
-
-
+// Automatically mount all routes in the routes directory
+mountRoutes(v1, path.join(__dirname, 'routes'));
 
 app.use('/api/v1', v1);
 app.use('/api', v1); // Fallback for backward compatibility
