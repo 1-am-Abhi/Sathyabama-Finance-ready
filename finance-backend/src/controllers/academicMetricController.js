@@ -59,7 +59,7 @@ const updateMetrics = asyncHandler(async (req, res) => {
 const approveMetrics = asyncHandler(async (req, res) => {
     const metrics = await AcademicMetric.findByPk(req.params.id);
     if (!metrics) {
-        return res.status(404).json({ success: true, message: 'Metrics not found', data: {} });
+        return res.status(404).json({ success: false, message: 'Metrics not found', data: {} });
     }
     
     await metrics.update({ status: 'APPROVED', remarks: req.body.remarks || 'Approved by Admin' });
@@ -69,7 +69,7 @@ const approveMetrics = asyncHandler(async (req, res) => {
 const rejectMetrics = asyncHandler(async (req, res) => {
     const metrics = await AcademicMetric.findByPk(req.params.id);
     if (!metrics) {
-        return res.status(404).json({ success: true, message: 'Metrics not found', data: {} });
+        return res.status(404).json({ success: false, message: 'Metrics not found', data: {} });
     }
     
     await metrics.update({ status: 'REJECTED', remarks: req.body.remarks });
