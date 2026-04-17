@@ -109,6 +109,8 @@ const odRequestRoutes = require('./routes/odRequestRoutes');
 const documentRoutes = require('./routes/documentRoutes');
 const financeRoutes = require('./routes/financeRoutes');
 const academicMetricRoutes = require('./routes/academicMetricRoutes');
+const profileRoutes = require('./routes/profileRoutes');
+const facultyPortalRoutes = require('./routes/facultyPortalRoutes');
 
 
 
@@ -125,6 +127,8 @@ v1.use('/od-requests', odRequestRoutes);
 v1.use('/documents', documentRoutes);
 v1.use('/finance', financeRoutes);
 v1.use('/academic-metrics', academicMetricRoutes);
+v1.use('/profile', profileRoutes);
+v1.use('/faculty', facultyPortalRoutes);
 
 
 

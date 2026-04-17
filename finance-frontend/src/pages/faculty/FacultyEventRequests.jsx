@@ -48,7 +48,7 @@ const FacultyEventRequests = () => {
 
     const fetchRequests = async () => {
         try {
-            const response = await apiClient.get('/event-requests');
+            const response = await apiClient.get('/faculty/event-requests');
             setRequests(response.data.data);
         } catch (error) {
             console.error("Failed to fetch events", error);
@@ -91,7 +91,7 @@ const FacultyEventRequests = () => {
                 startTime: !formData.isFullDay ? formData.startTime : null,
                 endTime: !formData.isFullDay ? formData.endTime : null
             };
-            const response = await apiClient.post('/event-requests', payload);
+            const response = await apiClient.post('/faculty/event-requests', payload);
             
             setRequests([response.data.data, ...requests]);
             setIsModalOpen(false);
@@ -153,7 +153,7 @@ const FacultyEventRequests = () => {
         reader.onloadend = async () => {
             try {
                 const base64data = reader.result;
-                await apiClient.put(`/event-requests/${id}/status`, { 
+                await apiClient.put(`/faculty/event-requests/${id}/status`, { 
                     photosUploaded: true, 
                     photoData: base64data,
                     status: 'APPROVED' // Keep status same, update photo proof

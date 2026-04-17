@@ -135,20 +135,23 @@ const verifyInternshipFee = asyncHandler(async (req, res) => {
  * @access  Private (ADMIN)
  */
 const approveInternship = asyncHandler(async (req, res) => {
-    const { status, remarks } = req.body;
+    const { status, adminStatus, remarks, adminRemarks } = req.body;
     const fee = await InternshipFee.findByPk(req.params.id);
-
+ 
     if (!fee) {
         return res.status(404).json({ success: false, message: 'Record not found' });
     }
-
+ 
+    const finalStatus = adminStatus || status || 'APPROVED';
+    const finalRemarks = adminRemarks || remarks;
+ 
     await fee.update({
-        adminStatus: status || 'APPROVED',
-        adminRemarks: remarks
+        adminStatus: finalStatus,
+        adminRemarks: finalRemarks
     });
-
+ 
     // If approved and paid, we might want to log it as Revenue
-    if ((status === 'APPROVED' || !status) && fee.paymentStatus === 'PAID') {
+    if (finalStatus === 'APPROVED' && fee.paymentStatus === 'PAID') {
         await Revenue.create({
             title: `Internship Fee - ${fee.studentName}`,
             amount: fee.feeAmount,

@@ -120,7 +120,7 @@ const FacultyProjects = () => {
                     duration: Number(data.duration || 0),
                     verificationScreenshot: data.verificationScreenshot || null
                 };
-                const res = await apiClient.post('/projects', payload);
+                const res = await apiClient.post('/faculty/projects', payload);
                 if (!res.data.success) throw new Error(res.data.message);
                 setLocalProjects(prev => [res.data.data, ...prev]);
                 toast.success('Work submitted successfully! Pending admin approval.');
@@ -138,7 +138,7 @@ const FacultyProjects = () => {
                     duration: Number(data.duration || 0),
                     verificationScreenshot: data.verificationScreenshot || null
                 };
-                const res = await apiClient.put(`/projects/${data._id || data.id}`, payload);
+                const res = await apiClient.put(`/faculty/projects/${data._id || data.id}`, payload);
                 if (!res.data.success) throw new Error(res.data.message);
                 setLocalProjects(prev => prev.map(p => (p._id === (data._id || data.id)) ? res.data.data : p));
                 toast.success('Work updated successfully!');
@@ -164,7 +164,7 @@ const FacultyProjects = () => {
         reader.onloadend = async () => {
             try {
                 const base64data = reader.result;
-                await apiClient.put(`/projects/${id}`, { 
+                await apiClient.put(`/faculty/projects/${id}`, { 
                     proofUploaded: true, 
                     proofData: base64data,
                     proofStatus: 'PENDING'

@@ -42,12 +42,12 @@ const FacultyDashboard = () => {
         try {
             const currentYear = new Date().getFullYear();
             const [projRes, eventRes, fundRes, eqRes, revRes, statsRes] = await Promise.all([
-                apiClient.get('/projects').catch(() => ({ data: { data: [] } })),
-                apiClient.get('/event-requests').catch(() => ({ data: { data: [] } })),
-                apiClient.get('/fund-requests').catch(() => ({ data: { data: [] } })),
-                apiClient.get('/equipment-requests').catch(() => ({ data: { data: [] } })),
+                apiClient.get('/faculty/projects').catch(() => ({ data: { data: [] } })),
+                apiClient.get('/faculty/event-requests').catch(() => ({ data: { data: [] } })),
+                apiClient.get('/faculty/fund-requests').catch(() => ({ data: { data: [] } })),
+                apiClient.get('/faculty/equipment-requests').catch(() => ({ data: { data: [] } })),
                 apiClient.get(`/revenue/summary?year=${currentYear}`).catch(() => ({ data: { success: true, data: { summary: { total: 0 } } } })),
-                apiClient.get('/projects/faculty-stats').catch(() => ({ data: { success: false } }))
+                apiClient.get('/faculty/projects/stats').catch(() => ({ data: { success: false } }))
             ]);
 
             setProjects(projRes?.data?.data || []);

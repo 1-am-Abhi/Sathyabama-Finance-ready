@@ -58,7 +58,7 @@ const MyRequests = () => {
 
     const fetchRequests = async () => {
         try {
-            const res = await apiClient.get('/equipment-requests');
+            const res = await apiClient.get('/faculty/equipment-requests');
             const data = res.data.data || [];
             setRequests(data);
             setFilteredRequests(data);
@@ -69,7 +69,7 @@ const MyRequests = () => {
 
     const fetchProjects = async () => {
         try {
-            const res = await apiClient.get('/projects');
+            const res = await apiClient.get('/faculty/projects');
             setProjects(res.data.data || []);
         } catch (err) {
             console.error('Failed to load projects', err);
@@ -115,7 +115,7 @@ const MyRequests = () => {
                 requestedAmount: parseFloat(formData.requestedAmount),
                 quantity: formData.quantity.toString()
             };
-            const res = await apiClient.post('/equipment-requests', payload);
+            const res = await apiClient.post('/faculty/equipment-requests', payload);
             const newRequest = res.data.data;
             const updated = [newRequest, ...requests];
             setRequests(updated);

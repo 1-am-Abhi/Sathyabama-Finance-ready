@@ -22,10 +22,11 @@ export const PipelineProvider = ({ children }) => {
         queryKey: ['projects'],
         queryFn: async () => {
             try {
-                const response = await apiClient.get('/projects');
+                const prefix = user?.role === 'FACULTY' ? '/faculty' : '';
+                const response = await apiClient.get(`${prefix}/projects`);
                 return response.data.data || [];
             } catch (err) {
-                console.warn('[PipelineContext] /projects fetch failed:', err.message);
+                console.warn('[PipelineContext] projects fetch failed:', err.message);
                 return [];
             }
         },
@@ -38,7 +39,8 @@ export const PipelineProvider = ({ children }) => {
         queryKey: ['fund-requests'],
         queryFn: async () => {
             try {
-                const response = await apiClient.get('/fund-requests');
+                const prefix = user?.role === 'FACULTY' ? '/faculty' : '';
+                const response = await apiClient.get(`${prefix}/fund-requests`);
                 return response.data.data;
             } catch (err) {
                 console.error("🔥 FULL AXIOS ERROR:", err);
@@ -61,7 +63,8 @@ export const PipelineProvider = ({ children }) => {
     const createRequestMutation = useMutation({
         mutationFn: async (requestData) => {
             try {
-                const response = await apiClient.post('/fund-requests', requestData);
+                const prefix = user?.role === 'FACULTY' ? '/faculty' : '';
+                const response = await apiClient.post(`${prefix}/fund-requests`, requestData);
                 return response.data.data;
             } catch (error) {
                 console.error('PipelineContext - createRequest error:', error.response?.data || error.message);
@@ -97,7 +100,8 @@ export const PipelineProvider = ({ children }) => {
 
     const updateProjectMutation = useMutation({
         mutationFn: async ({ projectId, updates }) => {
-            const response = await apiClient.put(`/projects/${projectId}`, updates);
+            const prefix = user?.role === 'FACULTY' ? '/faculty' : '';
+            const response = await apiClient.put(`${prefix}/projects/${projectId}`, updates);
             return response.data.data;
         },
         onSuccess: () => {
@@ -107,7 +111,8 @@ export const PipelineProvider = ({ children }) => {
 
     const updateFundRequestMutation = useMutation({
         mutationFn: async ({ requestId, updates }) => {
-            const response = await apiClient.put(`/fund-requests/${requestId}`, updates);
+            const prefix = user?.role === 'FACULTY' ? '/faculty' : '';
+            const response = await apiClient.put(`${prefix}/fund-requests/${requestId}`, updates);
             return response.data.data;
         },
         onSuccess: () => {

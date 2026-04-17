@@ -51,7 +51,7 @@ const FacultyODRequest = () => {
 
     const fetchODs = async () => {
         try {
-            const response = await apiClient.get('/od-requests');
+            const response = await apiClient.get('/faculty/od-requests');
             setHistory(response.data.data);
         } catch (error) {
             console.error('Error fetching ODs:', error);
@@ -89,7 +89,7 @@ const FacultyODRequest = () => {
         reader.onloadend = async () => {
             try {
                 const base64data = reader.result;
-                await apiClient.put(`/od-requests/${id}/status`, { 
+                await apiClient.put(`/faculty/od-requests/${id}/status`, { 
                     proofUploaded: true, 
                     proofData: base64data,
                     status: 'APPROVED' // Keep status same, update proof
@@ -170,7 +170,7 @@ const FacultyODRequest = () => {
         };
 
         try {
-            const res = await apiClient.post('/od-requests', payload);
+            const res = await apiClient.post('/faculty/od-requests', payload);
             if (res.data.success) {
                 setHistory([res.data.data, ...history]);
                 setShowForm(false);

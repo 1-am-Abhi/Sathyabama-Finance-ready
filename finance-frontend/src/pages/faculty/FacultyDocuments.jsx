@@ -50,7 +50,7 @@ const FacultyDocuments = () => {
 
     const fetchDocuments = async () => {
         try {
-            const res = await apiClient.get('/documents');
+            const res = await apiClient.get('/faculty/documents');
             setDocuments(res.data.data || []);
         } catch (e) {
             console.error('Failed to fetch documents', e);
@@ -80,7 +80,7 @@ const FacultyDocuments = () => {
                 }
 
                 if (editingDocId) {
-                    await apiClient.put(`/documents/${editingDocId}`, payload);
+                    await apiClient.put(`/faculty/documents/${editingDocId}`, payload);
                     addNotification({
                         role: 'ADMIN',
                         type: 'info',
@@ -88,7 +88,7 @@ const FacultyDocuments = () => {
                         actionUrl: '/admin/documents'
                     });
                 } else {
-                    await apiClient.post('/documents', {
+                    await apiClient.post('/faculty/documents', {
                         ...payload,
                         fileName: selectedFile.name,
                         fileType: selectedFile.type,
