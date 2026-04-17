@@ -101,7 +101,7 @@ const Project = sequelize.define('Project', {
     }
 }, {
     timestamps: true,
-    paranoid: true
+    paranoid: false
 });
 
 module.exports = Project;
