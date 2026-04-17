@@ -67,6 +67,13 @@ const nextInstallmentNumber = async (projectId) => {
 // ─── READ ──────────────────────────────────────────────────────────────────────
 
 const getFundRequests = asyncHandler(async (req, res) => {
+    console.log(`[FundRequestController] getFundRequests hit. User: ${req.user?.name || 'Unknown'} (${req.user?.role || 'No Role'})`);
+    console.log(`[FundRequestController] Query Params:`, req.query);
+
+    if (!req.user) {
+        throw new Error('User not authenticated - authentication middleware failed to attach user.');
+    }
+
     const page = parseInt(req.query.page, 10) || 1;
     const limit = Math.min(parseInt(req.query.limit, 10) || 10, 50);
     
@@ -98,15 +105,33 @@ const getFundRequests = asyncHandler(async (req, res) => {
         };
     }
 
-    const { count, rows } = await FundRequest.findAndCountAll(options);
+    let result;
+    try {
+        result = await FundRequest.findAndCountAll(options);
+    } catch (queryError) {
+        console.error('🔥 [FundRequestController] findAndCountAll CRASHED:', queryError);
+        return res.status(500).json({
+            success: false,
+            message: `CRITICAL: Database Query Failed for FundRequests. Reason: ${queryError.message}`,
+            detail: queryError.toString(),
+            stack: queryError.stack
+        });
+    }
     
-    const data = (rows || []).map(r => {
+    const { count, rows } = result || { count: 0, rows: [] };
+    
+    const data = [];
+    for (const r of (rows || [])) {
         try {
-            return normalizeFundRequest(r);
-        } catch (err) {
-            return r.toJSON();
+            data.push(normalizeFundRequest(r));
+        } catch (normErr) {
+            console.error(`[FundRequestController] Normalization failed for record ${r?._id || r?.id}:`, normErr.message);
+            // Fallback to raw data if normalization fails to prevent 500
+            data.push(r.toJSON ? r.toJSON() : r);
         }
-    });
+    }
+
+    console.log(`[FundRequestController] Success: Returning ${data.length} records.`);
 
     return res.status(200).json({
         success: true,

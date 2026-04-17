@@ -111,14 +111,19 @@ app.use((err, req, res, next) => {
     if (req.timedout) return res.status(503).json({ success: false, message: 'Request timed out' });
     
     const status = err.status || 500;
+    console.error("🔥 INTERNAL SERVER ERROR:", err);
+    
     logger.error(`[App Error] ${err.message}`, {
         requestId: req.id,
-        stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
+        stack: err.stack,
+        url: req.originalUrl,
+        method: req.method
     });
 
     res.status(status).json({
         success: false,
-        message: status === 500 ? 'Internal Server Error' : err.message,
+        message: err.message || 'Internal Server Error',
+        stack: process.env.NODE_ENV === 'development' ? err.stack : undefined,
         requestId: req.id
     });
 });
