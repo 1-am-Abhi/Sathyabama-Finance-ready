@@ -46,12 +46,20 @@ const login = asyncHandler(async (req, res) => {
 const register = asyncHandler(async (req, res) => {
   const { name, email, password, role, department, centre } = req.body;
 
+  if (role === 'FACULTY') {
+    return res.status(403).json({
+      success: false,
+      message: 'Faculty creation is disabled. Only Admin and Finance Officer accounts are permitted.'
+    });
+  }
+
   const existingUser = await User.findOne({ where: { email } });
   if (existingUser) {
     return res.status(400).json({ success: false, message: "User already exists" });
   }
 
   const user = await User.create({ name, email, password, role, department, centre });
+  console.log(`[USER CREATED] ${user.email} - ${user.role}`);
 
   const token = generateToken(user);
   const userData = user.toJSON();
@@ -62,6 +70,23 @@ const register = asyncHandler(async (req, res) => {
     token,
     user: userData,
   });
+});
+
+const cleanupUsers = asyncHandler(async (req, res) => {
+    const { Op } = require('sequelize');
+    const deletedCount = await User.destroy({
+      where: {
+        role: {
+          [Op.notIn]: ['ADMIN', 'FINANCE_OFFICER']
+        }
+      }
+    });
+
+    res.status(200).json({
+      success: true,
+      message: `System cleanup completed. Removed ${deletedCount} unauthorized users.`,
+      data: { deletedCount }
+    });
 });
 
 const getMe = asyncHandler(async (req, res) => {
@@ -164,6 +189,7 @@ module.exports = {
   deleteUser,
   updatePassword,
   getCentres,
-  addCentre
+  addCentre,
+  cleanupUsers
 };
 

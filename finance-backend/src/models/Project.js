@@ -99,6 +99,9 @@ const Project = sequelize.define('Project', {
         type: DataTypes.TEXT,
         allowNull: true
     }
+}, {
+    timestamps: true,
+    paranoid: true
 });
 
 module.exports = Project;

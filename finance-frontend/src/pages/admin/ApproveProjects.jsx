@@ -4,7 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../..
 import { Button } from '../../components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
 import { Badge } from '../../components/ui/badge';
-import { CheckCircle, XCircle, Eye, Calendar, User, Clock, Info, ShieldAlert, RefreshCw, Users, Brain, Sparkles, TrendingUp, Download, FileCheck, BookOpen, Edit2 } from 'lucide-react';
+import { CheckCircle, XCircle, Eye, Calendar, User, Clock, Info, ShieldAlert, RefreshCw, Users, Brain, Sparkles, TrendingUp, Download, FileCheck, BookOpen, Edit2, Trash2 } from 'lucide-react';
 import { useNotifications } from '../../contexts/NotificationContext';
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend, ResponsiveContainer } from 'recharts';
 import { useLayout } from '../../contexts/LayoutContext';
@@ -25,7 +25,7 @@ import useToast from '../../hooks/useToast';
 const ApproveProjects = () => {
     const { setLayout } = useLayout();
     const { addNotification } = useNotifications();
-    const { projects: pipelineProjects, updateProject, isLoading } = usePipeline();
+    const { projects: pipelineProjects, updateProject, deleteProject, isLoading } = usePipeline();
     const { showToast, ToastPortal } = useToast();
     const { centres: dynamicCentres } = useCentres();
     const [selectedDate, setSelectedDate] = useState(null);
@@ -223,6 +223,18 @@ const ApproveProjects = () => {
             });
         } catch (error) {
             console.error(error);
+        }
+    };
+
+    const handleDelete = async (id, title) => {
+        if (!window.confirm(`Are you sure you want to PERMANENTLY delete "${title}"? This will move it to the system archive.`)) return;
+        try {
+            await deleteProject(id);
+            showToast('Project deleted successfully', 'warning');
+            setSelectedProject(null);
+        } catch (error) {
+            console.error(error);
+            showToast('Failed to delete project', 'destructive');
         }
     };
 
@@ -548,6 +560,17 @@ const ApproveProjects = () => {
                                                 >
                                                     <TrendingUp className="w-3 h-3 mr-1" /> Predict
                                                 </Button>
+                                                <Button
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    className="text-red-400 hover:bg-red-500/10 text-[10px] h-7 font-black action-btn"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        handleDelete(project.id, project.title);
+                                                    }}
+                                                >
+                                                    <Trash2 className="w-3 h-3 mr-1" /> Delete
+                                                </Button>
                                             </div>
                                         </TableCell>
                                     </TableRow>
@@ -775,6 +798,13 @@ const ApproveProjects = () => {
                                 )}
 
                                 <div className="flex justify-end space-x-3 pt-4 border-t dark:border-slate-800">
+                                    <Button 
+                                        variant="ghost" 
+                                        className="text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20"
+                                        onClick={() => handleDelete(selectedProject.id, selectedProject.title)}
+                                    >
+                                        <Trash2 className="w-4 h-4 mr-2" /> Delete Project
+                                    </Button>
                                     <Button variant="outline" className="dark:border-slate-700 dark:hover:bg-slate-800" onClick={() => setSelectedProject(null)}>
                                         Close Details
                                     </Button>

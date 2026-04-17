@@ -283,8 +283,17 @@ const deleteProject = asyncHandler(async (req, res) => {
     if (!project) {
         return res.status(404).json({ success: false, message: 'Project not found' });
     }
+    
+    const projectTitle = project.title;
     await project.destroy();
-    res.status(200).json({ success: true, data: {} });
+    
+    console.log(`[PROJECT DELETED] ${projectTitle} (ID: ${req.params.id}) by Admin ${req.user.email}`);
+    
+    res.status(200).json({ 
+        success: true, 
+        message: 'Project deleted successfully',
+        data: {} 
+    });
 });
 
 const getProjectMembers = asyncHandler(async (req, res) => {
