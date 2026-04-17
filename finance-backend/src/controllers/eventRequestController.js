@@ -1,5 +1,5 @@
 const asyncHandler = require('../utils/asyncHandler');
-const EventRequest = require('../models/EventRequest');
+const { EventRequest } = require('../models');
 const { Op } = require('sequelize');
 const NotificationService = require('../services/notificationService');
 const {

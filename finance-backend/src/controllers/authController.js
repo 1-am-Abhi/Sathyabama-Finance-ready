@@ -1,7 +1,6 @@
 const asyncHandler = require('../utils/asyncHandler');
-const User = require("../models/User");
+const { User, Centre } = require("../models");
 const jwt = require("jsonwebtoken");
-const Centre = require("../models/Centre");
 const { sequelize } = require("../config/db");
 
 const generateToken = (user) => {

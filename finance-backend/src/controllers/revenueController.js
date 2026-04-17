@@ -1,6 +1,5 @@
 const asyncHandler = require('../utils/asyncHandler');
-const Revenue = require('../models/Revenue');
-const User = require('../models/User');
+const { Revenue, User } = require('../models');
 const { Op } = require('sequelize');
 const { syncRevenueLedger } = require('../services/financePipelineService');
 const NotificationService = require('../services/notificationService');

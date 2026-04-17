@@ -1,11 +1,13 @@
 const asyncHandler = require('../utils/asyncHandler');
-const Project = require('../models/Project');
-const User = require('../models/User');
-const ProjectMember = require('../models/ProjectMember');
-const { FundRequest: FR } = require('../models/FundRequest');
-const Revenue = require('../models/Revenue');
+const { 
+    Project, 
+    User, 
+    ProjectMember, 
+    FundRequest: FR, 
+    Revenue,
+    Centre
+} = require('../models');
 const { Op } = require('sequelize');
-const Centre = require('../models/Centre');
 const {
     getAdminDashboardData,
     getFacultyDashboardData,

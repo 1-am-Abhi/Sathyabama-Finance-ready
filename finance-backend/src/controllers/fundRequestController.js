@@ -1,11 +1,15 @@
 const asyncHandler = require('../utils/asyncHandler');
-const { FundRequest, FUND_FLOW_STAGES } = require('../models/FundRequest');
-const Project = require('../models/Project');
-const Disbursement = require('../models/Disbursement');
-const AuditLog = require('../models/AuditLog');
+const { 
+    FundRequest, 
+    Project, 
+    Disbursement, 
+    AuditLog, 
+    Centre,
+    User
+} = require('../models');
+const { FUND_FLOW_STAGES } = require('../models/FundRequest');
 const { Op } = require('sequelize');
 const NotificationService = require('../services/notificationService');
-const Centre = require('../models/Centre');
 const {
     buildCentreInclude,
     buildProjectInclude,

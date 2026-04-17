@@ -1,6 +1,5 @@
 const asyncHandler = require('../utils/asyncHandler');
-const ODRequest = require('../models/ODRequest');
-const AcademicMetric = require('../models/AcademicMetric');
+const { ODRequest, AcademicMetric } = require('../models');
 const { Op } = require('sequelize');
 
 const createODRequest = asyncHandler(async (req, res) => {

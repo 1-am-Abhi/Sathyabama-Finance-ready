@@ -1,5 +1,5 @@
 const asyncHandler = require('../utils/asyncHandler');
-const User = require('../models/User');
+const { User } = require('../models');
 const { syncScopusData } = require('../services/scopusService');
 
 const updateProfile = asyncHandler(async (req, res) => {

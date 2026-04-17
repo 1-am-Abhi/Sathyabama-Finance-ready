@@ -1,5 +1,5 @@
 const asyncHandler = require('../utils/asyncHandler');
-const Document = require('../models/Document');
+const { Document } = require('../models');
 const NotificationService = require('../services/notificationService');
 
 const createDocument = asyncHandler(async (req, res) => {

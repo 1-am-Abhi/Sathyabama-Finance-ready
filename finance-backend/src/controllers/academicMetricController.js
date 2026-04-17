@@ -1,6 +1,5 @@
 const asyncHandler = require('../utils/asyncHandler');
-const AcademicMetric = require('../models/AcademicMetric');
-const User = require('../models/User');
+const { AcademicMetric, User } = require('../models');
 
 const getMetrics = asyncHandler(async (req, res) => {
     const cycle = req.query.cycle || '2024-25';

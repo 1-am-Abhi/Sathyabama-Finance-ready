@@ -1,5 +1,5 @@
 const asyncHandler = require('../utils/asyncHandler');
-const EquipmentRequest = require('../models/EquipmentRequest');
+const { EquipmentRequest } = require('../models');
 const NotificationService = require('../services/notificationService');
 
 const createEquipmentRequest = asyncHandler(async (req, res) => {

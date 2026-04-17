@@ -1,5 +1,5 @@
 const asyncHandler = require('../utils/asyncHandler');
-const Notification = require('../models/Notification');
+const { Notification } = require('../models');
 const NotificationService = require('../services/notificationService');
 
 const normalizeType = (type = 'INFO') => String(type).trim().toUpperCase();

@@ -1,9 +1,5 @@
 const asyncHandler = require('../utils/asyncHandler');
-const Project = require('../models/Project');
-const { FundRequest } = require('../models/FundRequest');
-const Disbursement = require('../models/Disbursement');
-const Revenue = require('../models/Revenue');
-const User = require('../models/User');
+const { Project, FundRequest, Disbursement, Revenue, User } = require('../models');
 const { Op, fn, col, literal } = require('sequelize');
 const logger = require('../utils/logger');
 
