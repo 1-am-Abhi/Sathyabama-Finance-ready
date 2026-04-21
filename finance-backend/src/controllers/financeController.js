@@ -99,7 +99,9 @@ const getDepartmentFinance = asyncHandler(async (req, res) => {
 
     res.json({
         success: true,
-        data: (Array.isArray(departments) ? departments : []).map(d => ({
+        data: (Array.isArray(departments) ? departments : []).map((d, index) => ({
+            id: d.department || `dept-${index}`,
+            name: d.department || 'Unknown Department',
             department: d.department,
             count: Number(d.count) || 0,
             totalBudget: Number(d.totalBudget) || 0
