@@ -9,7 +9,6 @@ router.use(protect);
 
 // ── Read ─────────────────────────────────────────────────────────────────────
 router.get('/', fundRequestController.getFundRequests);
-router.get('/:id', fundRequestController.getFundRequest);
 
 /**
  * GET /fund-requests/project/:projectId
@@ -18,6 +17,8 @@ router.get('/:id', fundRequestController.getFundRequest);
  * Faculty see only their own; Admin/Finance see all.
  */
 router.get('/project/:projectId', fundRequestController.getProjectWithInstallments);
+
+router.get('/:id', fundRequestController.getFundRequest);
 
 // ── Create (Faculty only) ─────────────────────────────────────────────────────
 router.post(

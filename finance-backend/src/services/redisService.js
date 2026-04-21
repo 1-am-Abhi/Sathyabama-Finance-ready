@@ -7,12 +7,19 @@ const createClient = () => {
     return new Redis(redisUrl, {
         maxRetriesPerRequest: null,
         enableReadyCheck: true,
+        lazyConnect: process.env.NODE_ENV !== 'production',
         reconnectOnError: (err) => {
             const targetError = 'READONLY';
             if (err.message.slice(0, targetError.length) === targetError) return true;
             return false;
         },
-        retryStrategy: (times) => Math.min(times * 100, 3000)
+        retryStrategy: (times) => {
+            if (process.env.NODE_ENV !== 'production' && times > 2) {
+                logger.warn('[Redis] Max retries reached, running in standalone mode.');
+                return null; // Stop retrying
+            }
+            return Math.min(times * 100, 3000);
+        }
     });
 };
 

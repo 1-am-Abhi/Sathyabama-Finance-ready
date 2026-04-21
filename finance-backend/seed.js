@@ -5,7 +5,7 @@ const { User, Centre } = models;
 const seedData = async () => {
     try {
         console.log('Initiating Strict Administrative Database Seeding...');
-        
+
         // Disable constraints and truncate all involved tables safely
         await sequelize.query('TRUNCATE TABLE "Users" CASCADE;');
         await sequelize.query('TRUNCATE TABLE "Centres" CASCADE;');
@@ -13,7 +13,7 @@ const seedData = async () => {
         await sequelize.query('TRUNCATE TABLE "FundRequests" CASCADE;');
         await sequelize.query('TRUNCATE TABLE "Disbursements" CASCADE;');
         await sequelize.query('TRUNCATE TABLE "Revenues" CASCADE;');
-        
+
         console.log('Database Cleaned: Truncated Users, Centres, Projects, and Financial tables.');
 
         const centresList = [
@@ -21,6 +21,11 @@ const seedData = async () => {
             'Centre of Excellence for Energy Research',
             'Centre for Waste Management',
             'Centre for Climate Studies',
+            'Centre for Molecular and Nanomedical Sciences',
+            'Centre for Drug Discovery and Development',
+            'Centre of Excellence for Additive Manufacturing',
+            'Centre for Indian System of Medicine',
+            'Centre for Aqua Culture',
             'Others'
         ];
 
@@ -30,7 +35,7 @@ const seedData = async () => {
         }
 
         console.log('Seeding primary administrative users...');
-        
+
         const admin = await User.create({
             name: 'System Admin',
             email: 'admin@sathyabama.ac.in',
