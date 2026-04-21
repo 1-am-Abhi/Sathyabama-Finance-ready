@@ -4,45 +4,50 @@ const { protect, authorize } = require('../middleware/authMiddleware');
 const financeController = require('../controllers/financeController');
 const projectController = require('../controllers/projectController');
 const internshipController = require('../controllers/internshipController');
+const fundRequestController = require('../controllers/fundRequestController');
 
 // All finance routes require authentication
 router.use(protect);
 
-// Mapped Routes to Real Controllers
+// ── Core Dashboard & Overview ─────────────────────────────────────────────────
 router.get('/stats', financeController.getFinanceStats);
-router.get('/projects', projectController.getProjects);
+router.get('/dashboard', financeController.getFinanceStats);
 router.get('/fund-sources/overview', financeController.getFundSourcesOverview);
+router.put('/funds/update', authorize('FINANCE_OFFICER', 'ADMIN'), financeController.updateFundSourceAmount);
 
+// ── Departments ───────────────────────────────────────────────────────────────
 router.get('/departments', financeController.getDepartmentFinance);
+router.get('/departments/:id/funding', financeController.getDepartmentFundingDetails);
+router.post('/funding/update', authorize('FINANCE_OFFICER', 'ADMIN'), financeController.updateDepartmentFunding);
+router.get('/departments/:id/funding-history', async (req, res) => {
+    // Return disbursement history filtered by department
+    try {
+        const { Disbursement, FundRequest } = require('../models');
+        const { Op } = require('sequelize');
+        const history = await Disbursement.findAll({
+            include: [{
+                model: FundRequest,
+                as: 'FundRequest',
+                where: { department: req.params.id },
+                attributes: ['projectTitle', 'source', 'department'],
+            }],
+            order: [['createdAt', 'DESC']],
+            limit: 50,
+        });
+        res.json({ success: true, data: history || [] });
+    } catch (err) {
+        res.json({ success: true, data: [] });
+    }
+});
+
+// ── Disbursal & Reports ───────────────────────────────────────────────────────
 router.get('/disbursal-history', financeController.getDisbursalHistory);
 router.get('/reports-data', financeController.getReportsData);
 
-// Internship Routes (requested by Admin & Finance dashboards)
-router.get('/internship-fees', authorize('FINANCE_OFFICER', 'ADMIN'), internshipController.getInternshipFees);
-router.post('/internship-fees', authorize('FINANCE_OFFICER', 'ADMIN'), internshipController.createInternshipFee);
-router.put('/internship-fees/:id', authorize('FINANCE_OFFICER', 'ADMIN'), internshipController.updateInternshipFee);
-router.delete('/internship-fees/:id', authorize('ADMIN'), internshipController.deleteInternshipFee);
-router.put('/internship-fees/:id/verify', authorize('FINANCE_OFFICER'), internshipController.verifyInternshipFee);
-
-router.get('/admin-internships', authorize('ADMIN'), internshipController.getAdminInternships);
-router.put('/admin-internships/:id/approve', authorize('ADMIN'), internshipController.approveInternship);
-
-// Fallbacks for remaining secondary modules
-const safeFallback = (req, res) => {
-    res.json({ success: true, data: [], meta: {} });
-};
-
-router.get('/pfms', safeFallback);
-router.post('/pfms', safeFallback);
-router.get('/fund-flow', safeFallback);
-
-// ── COMPATIBILITY ALIASES for frontend financeService.js ──
-
-// Projects
+// ── Projects ──────────────────────────────────────────────────────────────────
+router.get('/projects', projectController.getProjects);
 router.get('/projects/:id', projectController.getProject);
-
-// Full update capabilities mapped to standard controller
-router.post('/projects/:id/status', authorize('ADMIN', 'FINANCE_OFFICER'), projectController.updateProject); 
+router.post('/projects/:id/status', authorize('ADMIN', 'FINANCE_OFFICER'), projectController.updateProject);
 
 router.get('/projects/:id/history', async (req, res) => {
     try {
@@ -57,44 +62,63 @@ router.get('/projects/:id/history', async (req, res) => {
     }
 });
 
-// Disbursements
-const fundRequestController = require('../controllers/fundRequestController');
+// ── Disbursements ─────────────────────────────────────────────────────────────
 router.get('/disbursements', fundRequestController.getFundRequests);
 router.put('/disbursements/:id/execute', authorize('FINANCE_OFFICER', 'ADMIN'), fundRequestController.disburseFund);
 
-// Empty return for hardware-heavy disbursement table if requested
+// ── PFMS Transactions (real DB queries) ───────────────────────────────────────
+router.get('/pfms', financeController.getPFMSTransactionsController);
+router.post('/pfms', authorize('FINANCE_OFFICER', 'ADMIN'), financeController.createPFMSTransactionController);
+
+// ── Fund Flow ─────────────────────────────────────────────────────────────────
+router.get('/fund-flow', financeController.getFundFlowData);
+
+// ── Internship Routes ─────────────────────────────────────────────────────────
+router.get('/internship-fees', authorize('FINANCE_OFFICER', 'ADMIN'), internshipController.getInternshipFees);
+router.post('/internship-fees', authorize('FINANCE_OFFICER', 'ADMIN'), internshipController.createInternshipFee);
+router.put('/internship-fees/:id', authorize('FINANCE_OFFICER', 'ADMIN'), internshipController.updateInternshipFee);
+router.delete('/internship-fees/:id', authorize('ADMIN'), internshipController.deleteInternshipFee);
+router.put('/internship-fees/:id/verify', authorize('FINANCE_OFFICER'), internshipController.verifyInternshipFee);
+
+router.get('/admin-internships', authorize('ADMIN'), internshipController.getAdminInternships);
+router.put('/admin-internships/:id/approve', authorize('ADMIN'), internshipController.approveInternship);
+
+// ── Equipment Disbursements ───────────────────────────────────────────────────
 router.get('/equipment-disbursements', async (req, res) => {
     try {
         const { FundRequest } = require('../models');
         const eqReqs = await FundRequest.findAll({
-            where: { projectTitle: 'Equipment' } // Or any specific logic
+            where: { projectTitle: { [require('sequelize').Op.like]: '%Equipment%' } },
+            order: [['createdAt', 'DESC']],
+            limit: 50,
         });
-        res.json({ success: true, data: eqReqs });
+        res.json({ success: true, data: eqReqs || [] });
     } catch (err) {
         res.json({ success: true, data: [] });
     }
 });
 
-// Dashboard
-router.get('/dashboard', financeController.getFinanceStats);
-
-// Function Requests (Events/Functions)
+// ── Function Requests (Events/Functions) ──────────────────────────────────────
 router.get('/function-requests', async (req, res) => {
     try {
         const { FundRequest } = require('../models');
+        const { Op } = require('sequelize');
         const fnReqs = await FundRequest.findAll({
-            where: { purpose: 'FUNCTION' } // Assume purpose mapping
+            where: {
+                [Op.or]: [
+                    { purpose: { [Op.like]: '%FUNCTION%' } },
+                    { purpose: { [Op.like]: '%EVENT%' } },
+                    { purpose: { [Op.like]: '%function%' } },
+                    { purpose: { [Op.like]: '%event%' } },
+                ]
+            },
+            order: [['createdAt', 'DESC']],
+            limit: 50,
         });
-        res.json({ success: true, data: fnReqs });
+        res.json({ success: true, data: fnReqs || [] });
     } catch (err) {
         res.json({ success: true, data: [] });
     }
 });
-
-// Funding & Departments
-router.put('/funds/update', safeFallback);
-router.post('/funding/update', safeFallback);
-router.get('/departments/:id/funding', safeFallback);
-router.get('/departments/:id/funding-history', safeFallback);
 
 module.exports = router;

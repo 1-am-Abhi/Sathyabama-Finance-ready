@@ -15,24 +15,24 @@ import {
 } from 'recharts';
 
 const FinancialAnalytics = ({ data }) => {
-    const getSource = (name) => (Array.isArray(data) ? data : []).find(d => d.name === name) || { totalAllocated: 0, used: 0 };
+    const getSource = (name) => (Array.isArray(data) ? data : []).find(d => d.name === name) || { totalAllocated: 0, totalUsed: 0, remainingBalance: 0 };
 
     // Transform data for charts from the canonical fund-source overview array.
     const barChartData = [
         {
             name: "Director's Innovation Fund",
             allocated: getSource('INSTITUTIONAL').totalAllocated,
-            used: getSource('INSTITUTIONAL').used,
+            used: getSource('INSTITUTIONAL').totalUsed,
         },
         {
             name: 'PFMS Funds',
             allocated: getSource('PFMS').totalAllocated,
-            used: getSource('PFMS').used,
+            used: getSource('PFMS').totalUsed,
         },
         {
             name: "Other's Fund",
             allocated: getSource('OTHERS').totalAllocated,
-            used: getSource('OTHERS').used,
+            used: getSource('OTHERS').totalUsed,
         }
     ];
 
