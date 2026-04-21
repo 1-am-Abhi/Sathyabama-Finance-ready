@@ -30,13 +30,7 @@ const getFundingTotals = async () => {
     await ensureCanonicalFundSources();
 
     const [allocated, used] = await Promise.all([
-        FundSource.sum('totalAllocated', {
-            where: {
-                sourceType: {
-                    [Op.in]: Object.values(FUND_SOURCE_KEYS),
-                },
-            },
-        }),
+        FundSource.sum('totalAllocated'),
         Disbursement.sum('amount'),
     ]);
 
@@ -410,7 +404,7 @@ const getAdminDashboardData = async () => {
             totalAllocated: Number(fundingTotals.totalAllocated) || 0,
             totalUsed: Number(fundingTotals.totalUsed) || 0,
             totalDisbursed: Number(fundingTotals.totalDisbursed) || 0,
-            remaining: Math.max(0, Number(fundingTotals.totalAllocated) - Number(fundingTotals.totalUsed)),
+            remaining: Math.max(0, (Number(fundingTotals.totalAllocated) || 0) - (Number(fundingTotals.totalUsed) || 0)),
             approvedFunds: Number(approvedFunds) || 0,
             totalFaculty: shared.totalFaculty,
             pfmsStats: {
@@ -434,8 +428,9 @@ const getAdminDashboardData = async () => {
         shared,
     };
 
-    console.log("DEBUG totalAllocated:", result.stats.totalAllocated);
-    console.log("DEBUG used:", result.stats.totalUsed);
+    console.log("DEBUG DB NAME:", process.env.DB_NAME);
+    console.log("ADMIN DEBUG → totalAllocated:", result.stats.totalAllocated);
+    console.log("ADMIN DEBUG → used:", result.stats.totalUsed);
 
     return result;
 };

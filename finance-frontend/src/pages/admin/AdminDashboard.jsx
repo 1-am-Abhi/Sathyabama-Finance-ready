@@ -368,7 +368,7 @@ const AdminDashboard = () => {
         return <Loader message="Analyzing financial metrics..." />;
     }
 
-    const hasData = totalStats.totalAllocated > 0 || totalStats.totalProjects > 0 || (recentRequests || []).length > 0;
+    const hasData = (stats?.totalAllocated || 0) > 0;
     if (!hasData && !loading && selectedCentre === 'ALL' && selectedFY === '2024-25') {
         return <EmptyState 
             message="No Dashboard Data" 
