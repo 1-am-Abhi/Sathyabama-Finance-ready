@@ -25,13 +25,13 @@ export const updateFundSourceAmount = async (data) => {
 // Get all departments
 export const getDepartments = async () => {
     const response = await api.get('/finance/departments');
-    return response.data;
+    return response.data?.data || response.data || [];
 };
 
 // Get department funding details
 export const getDepartmentFunding = async (departmentId) => {
     const response = await api.get(`/finance/departments/${departmentId}/funding`);
-    return response.data;
+    return response.data?.data || response.data || [];
 };
 
 // Update department funding
@@ -43,20 +43,20 @@ export const updateDepartmentFunding = async (data) => {
 // Get funding history for a department
 export const getFundingHistory = async (departmentId) => {
     const response = await api.get(`/finance/departments/${departmentId}/funding-history`);
-    return response.data;
+    return response.data?.data || response.data || [];
 };
 
 // Get all projects with optional filters
 export const getProjects = async (filters = {}) => {
     const params = new URLSearchParams(filters);
     const response = await api.get(`/finance/projects?${params}`);
-    return response.data;
+    return response.data?.data || response.data || [];
 };
 
 // Get project details
 export const getProjectDetails = async (projectId) => {
     const response = await api.get(`/finance/projects/${projectId}`);
-    return response.data;
+    return response.data?.data || response.data;
 };
 
 // Update project status

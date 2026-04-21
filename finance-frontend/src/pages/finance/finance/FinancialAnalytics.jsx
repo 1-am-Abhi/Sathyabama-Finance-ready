@@ -48,7 +48,7 @@ const FinancialAnalytics = ({ data }) => {
             return (
                 <div className="bg-white dark:bg-slate-800 p-4 border dark:border-slate-700 rounded shadow-lg">
                     <p className="font-bold mb-2 dark:text-white">{label}</p>
-                    {payload.map((entry, index) => (
+                    {payload && Array.isArray(payload) && payload.map((entry, index) => (
                         <p key={index} style={{ color: entry.color }}>
                             {entry.name}: ₹{entry.value.toLocaleString()}
                         </p>
@@ -116,7 +116,7 @@ const FinancialAnalytics = ({ data }) => {
                                     fill="#8884d8"
                                     dataKey="value"
                                 >
-                                    {pieChartData.map((entry, index) => (
+                                    {(Array.isArray(pieChartData) ? pieChartData : []).map((entry, index) => (
                                         <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                                     ))}
                                 </Pie>

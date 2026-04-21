@@ -175,7 +175,7 @@ const FinanceManagerDashboard = () => {
                                 <option value="">
                                     {isLoadingDepartments ? 'Loading research centers...' : 'Select a research center'}
                                 </option>
-                                {departmentsData?.map((dept) => (
+                                {(Array.isArray(departmentsData) ? departmentsData : []).map((dept) => (
                                     <option key={dept.id} value={dept.id}>
                                         {dept.name}
                                     </option>
