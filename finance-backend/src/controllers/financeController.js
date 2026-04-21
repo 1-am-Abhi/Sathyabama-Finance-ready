@@ -56,19 +56,24 @@ const getFinanceStats = asyncHandler(async (req, res) => {
 });
 
 const getFundSourcesOverview = asyncHandler(async (req, res) => {
-    const sources = await Project.findAll({
-        attributes: [
-            'fundingSource',
-            [fn('COUNT', col('id')), 'count'],
-            [fn('SUM', col('sanctionedBudget')), 'totalBudget']
-        ],
-        group: ['fundingSource'],
-        raw: true
-    });
+    let sources = [];
+    try {
+        sources = await Project.findAll({
+            attributes: [
+                'fundingSource',
+                [fn('COUNT', col('_id')), 'count'],
+                [fn('SUM', col('sanctionedBudget')), 'totalBudget']
+            ],
+            group: ['fundingSource'],
+            raw: true
+        });
+    } catch (err) {
+        logger.error('[getFundSourcesOverview] DB Error: ' + err.message);
+    }
 
     res.json({
         success: true,
-        data: (sources || []).map(s => ({
+        data: (Array.isArray(sources) ? sources : []).map(s => ({
             fundingSource: s.fundingSource,
             count: Number(s.count) || 0,
             totalBudget: Number(s.totalBudget) || 0
@@ -77,19 +82,24 @@ const getFundSourcesOverview = asyncHandler(async (req, res) => {
 });
 
 const getDepartmentFinance = asyncHandler(async (req, res) => {
-    const departments = await Project.findAll({
-        attributes: [
-            'department',
-            [fn('COUNT', col('id')), 'count'],
-            [fn('SUM', col('sanctionedBudget')), 'totalBudget']
-        ],
-        group: ['department'],
-        raw: true
-    });
+    let departments = [];
+    try {
+        departments = await Project.findAll({
+            attributes: [
+                'department',
+                [fn('COUNT', col('_id')), 'count'],
+                [fn('SUM', col('sanctionedBudget')), 'totalBudget']
+            ],
+            group: ['department'],
+            raw: true
+        });
+    } catch (err) {
+        logger.error('[getDepartmentFinance] DB Error: ' + err.message);
+    }
 
     res.json({
         success: true,
-        data: (departments || []).map(d => ({
+        data: (Array.isArray(departments) ? departments : []).map(d => ({
             department: d.department,
             count: Number(d.count) || 0,
             totalBudget: Number(d.totalBudget) || 0
@@ -98,20 +108,25 @@ const getDepartmentFinance = asyncHandler(async (req, res) => {
 });
 
 const getDisbursalHistory = asyncHandler(async (req, res) => {
-    const history = await Disbursement.findAll({
-        attributes: [
-            [fn('date_trunc', 'month', col('createdAt')), 'month'],
-            [fn('SUM', col('amount')), 'total']
-        ],
-        group: [literal("date_trunc('month', \"createdAt\")")],
-        order: [[literal("date_trunc('month', \"createdAt\")"), 'DESC']],
-        limit: 12,
-        raw: true
-    });
+    let history = [];
+    try {
+        history = await Disbursement.findAll({
+            attributes: [
+                [fn('date_trunc', 'month', col('createdAt')), 'month'],
+                [fn('SUM', col('amount')), 'total']
+            ],
+            group: [literal("date_trunc('month', \"createdAt\")")],
+            order: [[literal("date_trunc('month', \"createdAt\")"), 'DESC']],
+            limit: 12,
+            raw: true
+        });
+    } catch (err) {
+        logger.error('[getDisbursalHistory] DB Error: ' + err.message);
+    }
 
     res.json({
         success: true,
-        data: (history || []).map(h => ({
+        data: (Array.isArray(history) ? history : []).map(h => ({
             month: h.month,
             total: Number(h.total) || 0
         }))
@@ -119,27 +134,31 @@ const getDisbursalHistory = asyncHandler(async (req, res) => {
 });
 
 const getReportsData = asyncHandler(async (req, res) => {
-    const [
-        projectCounts,
-        fundingSummary,
-        disbursalMeta
-    ] = await Promise.all([
-        Project.count({ group: ['status'] }),
-        Project.findAll({
-            attributes: [
-                'fundingSource',
-                [Project.sequelize.fn('SUM', Project.sequelize.col('sanctionedBudget')), 'total']
-            ],
-            group: ['fundingSource']
-        }),
-        Disbursement.sum('amount')
-    ]);
+    let projectCounts = 0;
+    let fundingSummary = [];
+    let disbursalMeta = 0;
+    
+    try {
+        [projectCounts, fundingSummary, disbursalMeta] = await Promise.all([
+            Project.count({ group: ['status'] }),
+            Project.findAll({
+                attributes: [
+                    'fundingSource',
+                    [Project.sequelize.fn('SUM', Project.sequelize.col('sanctionedBudget')), 'total']
+                ],
+                group: ['fundingSource']
+            }),
+            Disbursement.sum('amount')
+        ]);
+    } catch (err) {
+        logger.error('[getReportsData] DB Error: ' + err.message);
+    }
 
     res.json({
         success: true,
         data: {
             projects: projectCounts || {},
-            funding: fundingSummary || [],
+            funding: Array.isArray(fundingSummary) ? fundingSummary : [],
             totalDisbursed: disbursalMeta || 0,
             generatedAt: new Date().toISOString()
         }

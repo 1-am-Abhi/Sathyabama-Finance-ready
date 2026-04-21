@@ -63,7 +63,9 @@ const DisbursementQueue = () => {
         }
     };
 
-    const filteredRequests = requests.filter(req => {
+    const safeRequests = Array.isArray(requests) ? requests : [];
+    
+    const filteredRequests = safeRequests.filter(req => {
         const search = searchTerm.toLowerCase();
         const title = req.Project?.title?.toLowerCase() || '';
         const pi = req.Project?.piName?.toLowerCase() || '';
@@ -71,7 +73,7 @@ const DisbursementQueue = () => {
         return title.includes(search) || pi.includes(search) || id.includes(search);
     });
 
-    const totalPendingAmount = requests.reduce((sum, req) => sum + (req.amount || 0), 0);
+    const totalPendingAmount = safeRequests.reduce((sum, req) => sum + (req.amount || 0), 0);
 
     return (
         <div className="p-6 space-y-6">

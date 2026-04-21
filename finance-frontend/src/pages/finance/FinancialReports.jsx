@@ -215,7 +215,7 @@ const FinancialReports = () => {
                                                 </tr>
                                             </thead>
                                             <tbody>
-                                                {reportsData.outflows.map((item) => (
+                                                {(Array.isArray(reportsData.outflows) ? reportsData.outflows : []).map((item) => (
                                                     <tr key={item.id || item._id} className="hover:bg-slate-50 dark:hover:bg-slate-800/10 transition-colors border-b border-slate-50/50 dark:border-slate-800/30">
                                                         <td className="px-4 py-4 text-sm font-medium text-slate-500">
                                                             {new Date(item.disbursedAt || item.createdAt).toLocaleDateString()}
@@ -277,7 +277,7 @@ const FinancialReports = () => {
                                                 </tr>
                                             </thead>
                                             <tbody>
-                                                {reportsData.inflows.map((item) => (
+                                                {(Array.isArray(reportsData.inflows) ? reportsData.inflows : []).map((item) => (
                                                     <tr key={item.id || item._id} className="hover:bg-slate-50 dark:hover:bg-slate-800/10 transition-colors border-b border-slate-50/50 dark:border-slate-800/30">
                                                         <td className="px-4 py-4 text-sm font-medium text-slate-500">
                                                             {new Date(item.verifiedAt || item.createdAt).toLocaleDateString()}

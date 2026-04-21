@@ -129,7 +129,7 @@ const FinanceDashboard = () => {
                                 </CardHeader>
                                 <CardContent className="p-6">
                                     <div className="space-y-4">
-                                        {(fundFlowProjects || []).map((project) => (
+                                        {(Array.isArray(fundFlowProjects) ? fundFlowProjects : []).map((project) => (
                                             <div key={project.id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
                                                 <div className="flex items-start justify-between mb-2">
                                                     <div className="flex-1">
@@ -176,7 +176,7 @@ const FinanceDashboard = () => {
                                         <span>Financial Year 2024-25</span>
                                     </div>
                                     <div className="space-y-6">
-                                        {(pfmsTransactions || []).map((transaction, index) => (
+                                        {(Array.isArray(pfmsTransactions) ? pfmsTransactions : []).map((transaction, index) => (
                                             <div key={index} className="border border-gray-200 rounded-lg p-4">
                                                 <div className="flex items-start justify-between mb-3">
                                                     <div>
@@ -252,7 +252,7 @@ const FinanceDashboard = () => {
                                 </CardHeader>
                                 <CardContent className="p-4">
                                     <div className="space-y-3">
-                                        {(internshipPayments || []).map((payment) => (
+                                        {(Array.isArray(internshipPayments) ? internshipPayments : []).map((payment) => (
                                             <div key={payment.id} className="border border-gray-200 rounded-lg p-3">
                                                 <div className="flex items-start justify-between mb-2">
                                                     <div className="flex-1">

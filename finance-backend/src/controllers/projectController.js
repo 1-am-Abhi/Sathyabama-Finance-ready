@@ -125,7 +125,7 @@ const getProjects = asyncHandler(async (req, res) => {
 
     return res.status(200).json({
         success: true,
-        data: projects || [],
+        data: Array.isArray(projects) ? projects : [],
         meta: {
             count: projects?.length || 0
         }

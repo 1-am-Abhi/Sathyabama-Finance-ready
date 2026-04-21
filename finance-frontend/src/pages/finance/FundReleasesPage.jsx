@@ -104,7 +104,7 @@ const FundReleasesPage = () => {
                                         disabled={isLoadingDepartments}
                                     >
                                         <option value="">All Research Centers</option>
-                                        {departmentsData?.map((dept) => (
+                                        {(Array.isArray(departmentsData) ? departmentsData : []).map((dept) => (
                                             <option key={dept.id} value={dept.id}>
                                                 {dept.name}
                                             </option>
@@ -192,7 +192,7 @@ const FundReleasesPage = () => {
                                             </TableRow>
                                         </TableHeader>
                                         <TableBody>
-                                            {projectsData.map((project) => (
+                                            {(Array.isArray(projectsData) ? projectsData : []).map((project) => (
                                                 <TableRow key={project.id} className="hover:bg-gray-50">
                                                     <TableCell className="font-medium max-w-xs">
                                                         <div className="truncate" title={project.projectTitle}>
