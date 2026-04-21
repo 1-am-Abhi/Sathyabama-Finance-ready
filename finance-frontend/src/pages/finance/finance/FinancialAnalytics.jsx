@@ -15,29 +15,31 @@ import {
 } from 'recharts';
 
 const FinancialAnalytics = ({ data }) => {
-    // Transform data for charts from the canonical fund-source overview.
+    const getSource = (name) => (Array.isArray(data) ? data : []).find(d => d.name === name) || { totalAllocated: 0, used: 0 };
+
+    // Transform data for charts from the canonical fund-source overview array.
     const barChartData = [
         {
             name: "Director's Innovation Fund",
-            allocated: data?.institutionalFunds?.totalAllocated || 0,
-            used: data?.institutionalFunds?.totalUsed || 0,
+            allocated: getSource('INSTITUTIONAL').totalAllocated,
+            used: getSource('INSTITUTIONAL').used,
         },
         {
             name: 'PFMS Funds',
-            allocated: data?.pfmsFunds?.totalAllocated || 0,
-            used: data?.pfmsFunds?.totalUsed || 0,
+            allocated: getSource('PFMS').totalAllocated,
+            used: getSource('PFMS').used,
         },
         {
             name: "Other's Fund",
-            allocated: data?.othersFunds?.totalAllocated || 0,
-            used: data?.othersFunds?.totalUsed || 0,
+            allocated: getSource('OTHERS').totalAllocated,
+            used: getSource('OTHERS').used,
         }
     ];
 
     const pieChartData = [
-        { name: "Director's Innovation Fund", value: data?.institutionalFunds?.totalAllocated || 0 },
-        { name: 'PFMS Funds', value: data?.pfmsFunds?.totalAllocated || 0 },
-        { name: "Other's Fund", value: data?.othersFunds?.totalAllocated || 0 }
+        { name: "Director's Innovation Fund", value: getSource('INSTITUTIONAL').totalAllocated },
+        { name: 'PFMS Funds', value: getSource('PFMS').totalAllocated },
+        { name: "Other's Fund", value: getSource('OTHERS').totalAllocated }
     ].filter(d => d.value > 0); // hide slices with 0 allocation
 
     const COLORS = ['#3b82f6', '#8b5cf6', '#10b981']; // Blue, Purple, Emerald

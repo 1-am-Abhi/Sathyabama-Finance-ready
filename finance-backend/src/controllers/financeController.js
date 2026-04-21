@@ -62,7 +62,8 @@ const getFundSourcesOverview = asyncHandler(async (req, res) => {
             attributes: [
                 'fundingSource',
                 [fn('COUNT', col('_id')), 'count'],
-                [fn('SUM', col('sanctionedBudget')), 'totalBudget']
+                [fn('SUM', col('sanctionedBudget')), 'totalAllocated'],
+                [fn('SUM', col('utilizedBudget')), 'used']
             ],
             group: ['fundingSource'],
             raw: true
@@ -71,13 +72,25 @@ const getFundSourcesOverview = asyncHandler(async (req, res) => {
         logger.error('[getFundSourcesOverview] DB Error: ' + err.message);
     }
 
+    const defaultSources = [
+        { name: 'INSTITUTIONAL', totalAllocated: 0, used: 0 },
+        { name: 'PFMS', totalAllocated: 0, used: 0 },
+        { name: 'OTHERS', totalAllocated: 0, used: 0 }
+    ];
+
+    const resultData = defaultSources.map(ds => {
+        const found = (Array.isArray(sources) ? sources : []).find(s => s.fundingSource === ds.name);
+        if (found) {
+            ds.totalAllocated = Number(found.totalAllocated) || 0;
+            ds.used = Number(found.used) || 0;
+            ds.count = Number(found.count) || 0;
+        }
+        return ds;
+    });
+
     res.json({
         success: true,
-        data: (Array.isArray(sources) ? sources : []).map(s => ({
-            fundingSource: s.fundingSource,
-            count: Number(s.count) || 0,
-            totalBudget: Number(s.totalBudget) || 0
-        }))
+        data: resultData
     });
 });
 

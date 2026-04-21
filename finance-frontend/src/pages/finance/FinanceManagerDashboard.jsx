@@ -45,6 +45,10 @@ const FinanceManagerDashboard = () => {
         setSelectedDepartmentId(e.target.value);
     };
 
+    const getFundSource = (name) => {
+        return (Array.isArray(fundSourcesData) ? fundSourcesData : []).find(f => f.name === name) || { totalAllocated: 0, used: 0, count: 0 };
+    };
+
     const handleEditFundSource = (type, title, currentAmount) => {
         setSelectedFundSource({
             type,
@@ -96,13 +100,13 @@ const FinanceManagerDashboard = () => {
                                 ) : (
                                     <FundSourceCard
                                         title="Director's Innovation Fund"
-                                        data={fundSourcesData?.institutionalFunds}
+                                        data={getFundSource('INSTITUTIONAL')}
                                         icon={Building2}
                                         colorClass="bg-blue-50 text-blue-700"
                                         onEdit={() => handleEditFundSource(
                                             'INSTITUTIONAL',
                                             "Director's Innovation Fund",
-                                            fundSourcesData?.institutionalFunds?.totalAllocated
+                                            getFundSource('INSTITUTIONAL').totalAllocated
                                         )}
                                     />
                                 )}
@@ -113,13 +117,13 @@ const FinanceManagerDashboard = () => {
                                 ) : (
                                     <FundSourceCard
                                         title="PFMS Funds"
-                                        data={fundSourcesData?.pfmsFunds}
+                                        data={getFundSource('PFMS')}
                                         icon={Landmark}
                                         colorClass="bg-purple-50 text-purple-700"
                                         onEdit={() => handleEditFundSource(
                                             'PFMS',
                                             'PFMS Funds',
-                                            fundSourcesData?.pfmsFunds?.totalAllocated
+                                            getFundSource('PFMS').totalAllocated
                                         )}
                                     />
                                 )}
@@ -130,13 +134,13 @@ const FinanceManagerDashboard = () => {
                                 ) : (
                                     <FundSourceCard
                                         title="Other's Fund"
-                                        data={fundSourcesData?.othersFunds}
+                                        data={getFundSource('OTHERS')}
                                         icon={CircleDollarSign}
                                         colorClass="bg-emerald-50 text-emerald-700"
                                         onEdit={() => handleEditFundSource(
                                             'OTHERS',
                                             "Other's Fund (External / Others)",
-                                            fundSourcesData?.othersFunds?.totalAllocated
+                                            getFundSource('OTHERS').totalAllocated
                                         )}
                                     />
                                 )}
