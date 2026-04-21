@@ -182,7 +182,6 @@ const AdminDashboard = () => {
         return base;
     }, [centresStats, dynamicCentres]);
 
-    const fyOptions = ['2023-24', '2024-25', '2025-26'];
 
     const months = [
         'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
