@@ -123,7 +123,7 @@ const DisbursalHistory = () => {
                                 ) : filteredHistory.length === 0 ? (
                                     <tr><td colSpan="5" className="px-6 py-12 text-center text-slate-400 italic">No disbursal records found matching your search.</td></tr>
                                 ) : (
-                                    filteredHistory.map((item) => (
+                                    (Array.isArray(filteredHistory) ? filteredHistory : []).map((item) => (
                                         <tr key={item._id || item.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors group">
                                             <td className="px-6 py-4">
                                                 <div className="flex flex-col">

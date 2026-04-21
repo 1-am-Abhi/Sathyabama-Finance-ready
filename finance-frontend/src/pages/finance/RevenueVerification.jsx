@@ -161,7 +161,7 @@ const RevenueVerification = () => {
                                 ) : filteredRecords.length === 0 ? (
                                     <tr><td colSpan="5" className="text-center py-8">No records awaiting verification.</td></tr>
                                 ) : (
-                                    filteredRecords.map((record) => (
+                                    (Array.isArray(filteredRecords) ? filteredRecords : []).map((record) => (
                                         <tr key={record.id} className="border-b border-slate-50 dark:border-slate-800/50 hover:bg-slate-50/50 dark:hover:bg-slate-800/50 transition-colors">
                                             <td className="px-4 py-4">
                                                 <div className="space-y-1">

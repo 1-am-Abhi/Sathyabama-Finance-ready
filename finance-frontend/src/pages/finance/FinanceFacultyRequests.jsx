@@ -66,7 +66,7 @@ const FinanceFacultyRequests = () => {
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-100">
-                                {requests.map((req) => (
+                                {(Array.isArray(requests) ? requests : []).map((req) => (
                                     <tr key={req.id} className="hover:bg-gray-50 transition-colors">
                                         <td className="p-4 font-medium text-gray-900">{req.requestType || 'N/A'}</td>
                                         <td className="p-4 text-gray-900 font-bold">₹{(req.approvedAmount || req.requestedAmount || 0).toLocaleString('en-IN')}</td>

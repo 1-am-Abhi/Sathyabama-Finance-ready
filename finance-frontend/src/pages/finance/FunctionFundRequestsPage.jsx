@@ -177,7 +177,7 @@ const FunctionFundRequestsPage = () => {
                                                 </TableCell>
                                             </TableRow>
                                         ) : filteredRequests.length > 0 ? (
-                                            filteredRequests.map((request) => (
+                                            (Array.isArray(filteredRequests) ? filteredRequests : []).map((request) => (
                                                 <TableRow key={request.id} className="hover:bg-gray-50 dark:hover:bg-slate-700/50 dark:border-slate-700">
                                                     <TableCell>
                                                         <div>

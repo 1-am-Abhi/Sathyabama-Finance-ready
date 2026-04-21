@@ -132,7 +132,7 @@ const ManagePFMS = () => {
                                                 required
                                             >
                                                 <option value="">Select Project</option>
-                                                {projects.map(project => (
+                                                {(Array.isArray(projects) ? projects : []).map(project => (
                                                     <option key={project.id} value={project.id}>
                                                         {project.projectTitle}
                                                     </option>
@@ -303,7 +303,7 @@ const ManagePFMS = () => {
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                    {pfmsEntries.map((entry) => (
+                                    {(Array.isArray(pfmsEntries) ? pfmsEntries : []).map((entry) => (
                                         <TableRow key={entry.id}>
                                             <TableCell className="font-medium">{entry.projectTitle}</TableCell>
                                             <TableCell>{entry.pfmsProjectId}</TableCell>

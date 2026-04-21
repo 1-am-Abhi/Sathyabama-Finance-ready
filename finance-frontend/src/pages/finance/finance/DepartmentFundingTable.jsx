@@ -84,7 +84,7 @@ const DepartmentFundingTable = ({ data, isLoading }) => {
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
-                                {data.map((item, index) => (
+                                {(Array.isArray(data) ? data : []).map((item, index) => (
                                     <TableRow key={index} className="hover:bg-gray-50 dark:hover:bg-slate-700/50 dark:border-slate-700">
                                         {(() => {
                                             const normalizedSource = normalizeFundSource(item.fundSource);
@@ -143,7 +143,7 @@ const DepartmentFundingTable = ({ data, isLoading }) => {
                                     <p className="text-sm text-gray-600 dark:text-slate-400">Total Allocated</p>
                                     <p className="text-xl font-bold text-gray-900 dark:text-white mt-1">
                                         {formatCurrencyCompact(
-                                            data.reduce((sum, item) => sum + item.totalAllocated, 0)
+                                            (Array.isArray(data) ? data : []).reduce((sum, item) => sum + item.totalAllocated, 0)
                                         )}
                                     </p>
                                 </div>
@@ -151,7 +151,7 @@ const DepartmentFundingTable = ({ data, isLoading }) => {
                                     <p className="text-sm text-gray-600 dark:text-slate-400">Total Released</p>
                                     <p className="text-xl font-bold text-orange-600 dark:text-orange-400 mt-1">
                                         {formatCurrencyCompact(
-                                            data.reduce((sum, item) => sum + item.amountReleased, 0)
+                                            (Array.isArray(data) ? data : []).reduce((sum, item) => sum + item.amountReleased, 0)
                                         )}
                                     </p>
                                 </div>
@@ -159,7 +159,7 @@ const DepartmentFundingTable = ({ data, isLoading }) => {
                                     <p className="text-sm text-gray-600 dark:text-slate-400">Total Remaining</p>
                                     <p className="text-xl font-bold text-green-600 dark:text-green-400 mt-1">
                                         {formatCurrencyCompact(
-                                            data.reduce((sum, item) => sum + item.remainingBalance, 0)
+                                            (Array.isArray(data) ? data : []).reduce((sum, item) => sum + item.remainingBalance, 0)
                                         )}
                                     </p>
                                 </div>

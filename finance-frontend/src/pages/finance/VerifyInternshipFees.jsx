@@ -280,7 +280,7 @@ const VerifyInternshipFees = () => {
                                                 </TableRow>
                                             </TableHeader>
                                             <TableBody>
-                                                {internships.map((internship) => {
+                                                {(Array.isArray(internships) ? internships : []).map((internship) => {
                                                     const id = getId(internship);
                                                     const isPending = internship.paymentStatus === 'PENDING';
                                                     return (

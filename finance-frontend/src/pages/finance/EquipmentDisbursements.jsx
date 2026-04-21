@@ -132,7 +132,7 @@ const EquipmentDisbursements = () => {
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                    {queue.map((req) => (
+                                    {(Array.isArray(queue) ? queue : []).map((req) => (
                                         <TableRow key={req._id || req.id} className="dark:border-slate-800">
                                             <TableCell>
                                                 <p className="font-semibold">{req.facultyName}</p>
