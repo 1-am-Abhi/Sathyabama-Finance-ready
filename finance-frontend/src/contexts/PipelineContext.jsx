@@ -132,6 +132,17 @@ export const PipelineProvider = ({ children }) => {
         }
     });
 
+    const disburseFundMutation = useMutation({
+        mutationFn: async ({ requestId, payload }) => {
+            const response = await apiClient.post(`/fund-requests/${requestId}/disburse`, payload);
+            return response.data.data;
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries(['fund-requests']);
+            queryClient.invalidateQueries(['projects']);
+        }
+    });
+
     const deleteProjectMutation = useMutation({
         mutationFn: async (projectId) => {
             const response = await apiClient.delete(`/projects/${projectId}`);
@@ -150,6 +161,7 @@ export const PipelineProvider = ({ children }) => {
         approveRequest: approveRequestMutation.mutateAsync,
         rejectRequest: rejectRequestMutation.mutateAsync,
         advanceStage: advanceStageMutation.mutateAsync,
+        disburseFund: disburseFundMutation.mutateAsync,
         updateProject: updateProjectMutation.mutateAsync,
         updateFundRequest: updateFundRequestMutation.mutateAsync,
         deleteProject: deleteProjectMutation.mutateAsync,
@@ -157,6 +169,7 @@ export const PipelineProvider = ({ children }) => {
         isApproving: approveRequestMutation.isPending,
         isRejecting: rejectRequestMutation.isPending,
         isAdvancing: advanceStageMutation.isPending,
+        isDisbursing: disburseFundMutation.isPending,
         isUpdatingProject: updateProjectMutation.isPending,
         isUpdatingFundRequest: updateFundRequestMutation.isPending,
         isDeletingProject: deleteProjectMutation.isPending

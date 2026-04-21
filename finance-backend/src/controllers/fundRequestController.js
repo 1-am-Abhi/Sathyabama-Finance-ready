@@ -392,6 +392,9 @@ const disburseFund = asyncHandler(async (req, res) => {
         bankName: req.body.bankName || null,
         disbursementDate: req.body.disbursementDate || new Date(),
         remarks: req.body.remarks || null,
+        mode: req.body.mode || 'FULL',
+        installmentNo: req.body.installmentNo || request.installmentNumber,
+        isInstallment: req.body.isInstallment || req.body.mode === 'INSTALLMENT'
     };
 
     const { request: updatedRequest, disbursement } = await executeDisbursementPipeline(
@@ -431,8 +434,10 @@ const disburseFund = asyncHandler(async (req, res) => {
     });
 
     if (global.io) {
+        console.log(`[Socket.io] Broadcasting finance:update for ${updatedRequest.projectTitle}`);
         global.io.emit('finance:update', { 
-            type: 'DISBURSEMENT', 
+            type: 'DISBURSEMENT',
+            subType: payload.mode,
             projectTitle: updatedRequest.projectTitle, 
             amount: Number(updatedRequest.requestedAmount),
             updatedBy: req.user?.name 

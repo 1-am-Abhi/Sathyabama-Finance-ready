@@ -17,7 +17,7 @@ import AIResultModal from '../../components/shared/AIResultModal';
 import { summarizeRequest } from '../../services/aiService';
 
 const ApproveFundRequests = () => {
-    const { fundRequests, approveRequest, rejectRequest, advanceStage, isLoading } = usePipeline();
+    const { fundRequests, approveRequest, rejectRequest, advanceStage, disburseFund, isLoading } = usePipeline();
     const { setLayout } = useLayout();
     const { addNotification } = useNotifications();
     const navigate = useNavigate();
@@ -31,6 +31,11 @@ const ApproveFundRequests = () => {
     const [approvalNotes, setApprovalNotes] = useState('');
     const [rejectionModal, setRejectionModal] = useState({ isOpen: false, requestId: null, remarks: '' });
     const [revokeModal, setRevokeModal] = useState({ isOpen: false, request: null, remarks: '' });
+    
+    // Installment System State
+    const [disbursementMode, setDisbursementMode] = useState('FULL');
+    const [installmentHistory, setInstallmentHistory] = useState([]);
+    const [isFetchingHistory, setIsFetchingHistory] = useState(false);
 
 
     React.useEffect(() => {
@@ -121,21 +126,55 @@ const ApproveFundRequests = () => {
     const handleDisburseCheque = async (requestId) => {
         try {
             const req = fundRequests.find(r => (r._id || r.id) === requestId) || selectedRequest;
-            await advanceStage({ requestId, nextStage: 'AMOUNT_DISBURSED', remarks: 'Amount disbursed by Finance Officer' });
-            setSelectedRequest(prev => prev ? ({ ...prev, currentStage: 'AMOUNT_DISBURSED', chequeStatus: 'Disbursed' }) : null);
             
-            // Notify faculty that funds are disbursed
+            await disburseFund({ 
+                requestId, 
+                payload: { 
+                    mode: disbursementMode,
+                    installmentNo: req?.installmentNumber || 1,
+                    remarks: `Cheque disbursed by Finance Officer (${disbursementMode})`
+                } 
+            });
+
+            setSelectedRequest(prev => prev ? ({ ...prev, status: 'DISBURSED', currentStage: 'AMOUNT_DISBURSED', chequeStatus: 'Disbursed' }) : null);
+            
             addNotification({
                 role: 'FACULTY',
                 type: 'success',
-                message: `Funds disbursed for "${req?.projectTitle || 'your project'}"! Amount: ₹${req?.requestedAmount?.toLocaleString() || '0'}. Please proceed with utilization.`,
+                message: `Funds disbursed for "${req?.projectTitle || 'your project'}"! Mode: ${disbursementMode}. Amount: ₹${req?.requestedAmount?.toLocaleString() || '0'}.`,
                 actionUrl: '/faculty/request-funds',
                 targetUserId: req?.userId
             });
+
+            // Refresh history
+            if (selectedRequest?.projectId) fetchInstallmentHistory(selectedRequest.projectId);
         } catch (error) {
             console.error('Disbursement failed:', error);
+            const msg = error.response?.data?.message || 'Disbursement failed. Balance check failed?';
+            addNotification({ type: 'error', message: msg });
         }
     };
+
+    const fetchInstallmentHistory = async (projectId) => {
+        if (!projectId) return;
+        setIsFetchingHistory(true);
+        try {
+            const res = await (window.apiClient || axios).get(`/api/fund-requests/project/${projectId}/installments`);
+            setInstallmentHistory(res.data?.data?.installments || []);
+        } catch (err) {
+            console.error("Failed to fetch history:", err);
+        } finally {
+            setIsFetchingHistory(false);
+        }
+    };
+
+    React.useEffect(() => {
+        if (selectedRequest?.projectId) {
+            fetchInstallmentHistory(selectedRequest.projectId);
+        } else {
+            setInstallmentHistory([]);
+        }
+    }, [selectedRequest]);
 
     if (isLoading) return <div className="p-8 text-center">Loading Pipeline Data...</div>;
 
@@ -466,10 +505,30 @@ const ApproveFundRequests = () => {
 
                                 {selectedRequest.status === 'APPROVED' && (
                                     <div className="bg-gray-50 dark:bg-slate-800/50 p-4 rounded-lg border border-gray-100 dark:border-slate-800">
-                                        <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3 flex items-center">
-                                            <Wallet className="w-4 h-4 mr-2" />
-                                            Cheque Processing
-                                        </h4>
+                                        <div className="flex items-center justify-between mb-4">
+                                            <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 flex items-center">
+                                                <Wallet className="w-4 h-4 mr-2" />
+                                                Cheque Processing
+                                            </h4>
+                                            
+                                            {selectedRequest.chequeStatus === 'Approved' && (
+                                                <div className="flex bg-gray-200 dark:bg-slate-700 p-1 rounded-lg">
+                                                    <button 
+                                                        onClick={() => setDisbursementMode('FULL')}
+                                                        className={`px-3 py-1 text-[10px] font-bold rounded-md transition-all ${disbursementMode === 'FULL' ? 'bg-white dark:bg-slate-900 shadow-sm text-maroon-600' : 'text-gray-500'}`}
+                                                    >
+                                                        FULL
+                                                    </button>
+                                                    <button 
+                                                        onClick={() => setDisbursementMode('INSTALLMENT')}
+                                                        className={`px-3 py-1 text-[10px] font-bold rounded-md transition-all ${disbursementMode === 'INSTALLMENT' ? 'bg-white dark:bg-slate-900 shadow-sm text-maroon-600' : 'text-gray-500'}`}
+                                                    >
+                                                        INSTALLMENT
+                                                    </button>
+                                                </div>
+                                            )}
+                                        </div>
+
                                         <div className="flex items-center gap-2">
                                             {/* Status Steps */}
                                             <div className={`flex-1 h-2 rounded-full ${selectedRequest.chequeStatus !== null ? 'bg-green-500' : 'bg-gray-200'}`}></div>
@@ -491,7 +550,7 @@ const ApproveFundRequests = () => {
                                             )}
                                             {selectedRequest.chequeStatus === 'Approved' && (
                                                 <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white" onClick={() => handleDisburseCheque(selectedRequest._id || selectedRequest.id)}>
-                                                    Mark Disbursed
+                                                    Confirm {disbursementMode} Payment
                                                     <CheckCircle className="w-3 h-3 ml-2" />
                                                 </Button>
                                             )}
@@ -502,6 +561,33 @@ const ApproveFundRequests = () => {
                                                 </div>
                                             )}
                                         </div>
+                                    </div>
+                                )}
+
+                                {/* Installment History Section */}
+                                {(installmentHistory.length > 0 || isFetchingHistory) && (
+                                    <div className="mt-4 border-t dark:border-slate-800 pt-4">
+                                        <h4 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">Installment History</h4>
+                                        {isFetchingHistory ? (
+                                            <div className="text-xs text-center p-4">Loading history...</div>
+                                        ) : (
+                                            <div className="space-y-2">
+                                                {installmentHistory.map((inst, idx) => (
+                                                    <div key={idx} className="flex items-center justify-between p-2 bg-gray-50 dark:bg-slate-800/30 rounded-lg text-xs">
+                                                        <div className="flex items-center gap-2">
+                                                            <Badge variant="outline" className="text-[10px] h-5">Inst #{inst.installmentNumber || idx + 1}</Badge>
+                                                            <span className="font-medium dark:text-gray-300">{formatCurrency(inst.requestedAmount)}</span>
+                                                        </div>
+                                                        <div className="flex items-center gap-2">
+                                                            <span className="text-gray-400">{new Date(inst.createdAt).toLocaleDateString()}</span>
+                                                            <Badge variant={inst.status === 'DISBURSED' ? 'success' : 'secondary'} className="text-[9px] h-4">
+                                                                {inst.status}
+                                                            </Badge>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
                                     </div>
                                 )}
 

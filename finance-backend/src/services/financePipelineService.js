@@ -224,16 +224,77 @@ const approveFundRequestPipeline = async (request, actor, remarks, options = {})
 };
 
 const executeDisbursementPipeline = async (request, payload, actor) => {
+    const amount = toNumber(request.requestedAmount || request.amount);
+    const disbursementDate = payload.disbursementDate || new Date();
+    const bankReference = payload.transactionId || request.transactionId || null;
+
+    // 1. HARD BLOCK: Double Disbursement Protection
+    if (bankReference) {
+        const existingByRef = await Disbursement.findOne({ where: { bankReference } });
+        if (existingByRef) {
+            console.error(`[HARD BLOCK] Duplicate UTR detected: ${bankReference}`);
+            throw new Error('Duplicate disbursement detected (UTR already exists)');
+        }
+    }
+
+    // Fuzzy Duplicate Check (Project + Amount + Day)
+    const dayStart = new Date(disbursementDate);
+    dayStart.setHours(0, 0, 0, 0);
+    const dayEnd = new Date(disbursementDate);
+    dayEnd.setHours(23, 59, 59, 999);
+
+    const fuzzyDuplicate = await Disbursement.findOne({
+        where: {
+            projectId: request.projectId,
+            amount: amount,
+            disbursedAt: { [Op.between]: [dayStart, dayEnd] }
+        }
+    });
+
+    if (fuzzyDuplicate) {
+        console.warn(`[HARD BLOCK] Fuzzy Duplicate detected: Project ${request.projectId} already received ₹${amount} on this date.`);
+        throw new Error('Duplicate disbursement detected: Same project, amount, and date.');
+    }
+
+    // 2. OVERSPENDING HARD BLOCK (Pre-transaction check)
+    const project = await Project.findByPk(request.projectId);
+    if (!project) throw new Error('Project not found for this fund request');
+
+    const totalReleased = toNumber(project.releasedBudget);
+    const sanctionedBudget = toNumber(project.sanctionedBudget);
+
+    if (totalReleased + amount > sanctionedBudget) {
+        console.error(`[HARD BLOCK] Overspending: Sanctioned ₹${sanctionedBudget}, Attempting total ₹${totalReleased + amount}`);
+        throw new Error('Disbursement exceeds remaining budget');
+    }
+
     return sequelize.transaction(async (transaction) => {
-        const amount = toNumber(request.requestedAmount || request.amount);
+        // 3. FINAL INTEGRITY CHECK (Inside transaction to avoid races)
+        const currentSum = await Disbursement.sum('amount', {
+            where: { projectId: request.projectId },
+            transaction
+        }) || 0;
+
+        if (toNumber(currentSum) + amount > sanctionedBudget) {
+            throw new Error('Disbursement exceeds remaining budget (Concurrent transaction detected)');
+        }
+
+        // Handle installment meta if provided
+        const isInstallment = payload.mode === 'INSTALLMENT' || payload.isInstallment === true;
+        const instNo = payload.installmentNo || request.installmentNumber || 1;
+        
+        let financeRemarks = payload.remarks || request.financeRemarks || '';
+        if (isInstallment) {
+            financeRemarks = `[Installment #${instNo}] ${financeRemarks}`.trim();
+        }
 
         await request.update({
             status: 'DISBURSED',
             currentStage: 'AMOUNT_DISBURSED',
-            transactionId: payload.transactionId || request.transactionId,
+            transactionId: bankReference,
             bankName: payload.bankName || request.bankName,
-            disbursementDate: payload.disbursementDate || new Date(),
-            financeRemarks: payload.remarks || request.financeRemarks,
+            disbursementDate,
+            financeRemarks,
             financeProcessedAt: new Date(),
             financeProcessedBy: actor?.id || actor?._id || null,
         }, { transaction });
@@ -261,11 +322,17 @@ const executeDisbursementPipeline = async (request, payload, actor) => {
         }
 
         if (request.projectId) {
-            const project = await Project.findByPk(request.projectId, { transaction });
-            if (project) {
-                await project.update({
-                    releasedBudget: toNumber(project.releasedBudget) + amount,
-                    utilizedBudget: toNumber(project.utilizedBudget),
+            // Update project releasedBudget using fresh transaction sum
+            const p = await Project.findByPk(request.projectId, { transaction });
+            if (p) {
+                const freshSum = (await Disbursement.sum('amount', {
+                    where: { projectId: request.projectId },
+                    transaction
+                })) || 0;
+
+                await p.update({
+                    releasedBudget: toNumber(freshSum),
+                    utilizedBudget: toNumber(p.utilizedBudget),
                 }, { transaction });
             }
         }

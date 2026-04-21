@@ -17,23 +17,28 @@ const {
 const ALLOCATED_STATUSES = ['APPROVED', 'PENDING_DISBURSAL', 'DISBURSED'];
 const ACTIVE_PROJECT_STATUSES = ['ACTIVE', 'APPROVED'];
 
-const toNumber = (value) => {
-    const numeric = Number(value);
-    return Number.isFinite(numeric) ? numeric : 0;
+const getCurrentFY = () => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = now.getMonth(); // 0-based: Jan=0, Feb=1, Mar=2, Apr=3
+    
+    // FY 2024-25 starts April 1, 2024.
+    // If month is Jan/Feb/Mar (0,1,2), it belongs to previous year's FY.
+    return month >= 3 
+        ? `${year}-${(year + 1).toString().slice(-2)}`
+        : `${year - 1}-${year.toString().slice(-2)}`;
 };
 
-const normalizeName = (value) => String(value || '').trim().toLowerCase();
-
-const getRecordId = (record) => record?._id || record?.id || null;
-
 const getFYDateRange = (financialYear) => {
-    if (!financialYear || !financialYear.includes('-')) return null;
-    const [startYear, endYear] = financialYear.split('-');
-    // 2024-25 -> 2024-04-01 to 2025-03-31
-    return {
-        start: new Date(`${startYear}-04-01T00:00:00.000Z`),
-        end: new Date(`20${endYear}-03-31T23:59:59.999Z`)
-    };
+    const fy = financialYear || getCurrentFY();
+    const [startYearStr, endYearStrShort] = fy.split('-');
+    const startYear = parseInt(startYearStr);
+    
+    // April 1st 00:00:00 to March 31st 23:59:59
+    const start = new Date(startYear, 3, 1, 0, 0, 0, 0); 
+    const end = new Date(startYear + 1, 2, 31, 23, 59, 59, 999);
+    
+    return { start, end };
 };
 
 const getFundingTotals = async (dateRange = null) => {
@@ -413,101 +418,121 @@ const getSharedPipelineData = async () => {
 const buildCentreBreakdown = ({ centres, projects, fundRequests, disbursements }) => {
     const context = buildCentreRegistry(centres);
 
+    // 1. Map Projects to Centres to assist Disbursement mapping
+    const projectToCentreId = new Map();
     projects.forEach((project) => {
         const centre = ensureCentreEntry(resolveCentreIdentity(project, context), context);
         centre.totalProjects += 1;
+        projectToCentreId.set(project.id || project._id, centre.key);
 
         if (ACTIVE_PROJECT_STATUSES.includes(project.status)) {
             centre.activeProjects += 1;
         }
     });
 
+    // 2. Aggregate Budget from FundRequests (SSOT for centre-wise allocation)
     fundRequests.forEach((request) => {
         if (!ALLOCATED_STATUSES.includes(request.status)) {
             return;
         }
 
         const centre = ensureCentreEntry(resolveCentreIdentity(request, context), context);
-        centre.totalBudget += toNumber(request.requestedAmount);
+        centre.totalBudget = Number(centre.totalBudget || 0) + toNumber(request.requestedAmount);
     });
 
+    // 3. Aggregate Used from Disbursements (JOIN logic via Project centreId)
     disbursements.forEach((entry) => {
-        const centre = ensureCentreEntry(resolveCentreIdentity(entry, context), context);
-        centre.disbursed += toNumber(entry.amount);
+        const identity = resolveCentreIdentity(entry, context) || { key: 'unassigned', name: 'UNASSIGNED' };
+        const centre = ensureCentreEntry(identity, context);
+        centre.disbursed = Number(centre.disbursed || 0) + toNumber(entry.amount);
     });
 
     return [...context.registry.values()]
         .map((centre) => ({
             ...centre,
-            totalBudget: toNumber(centre.totalBudget),
-            disbursed: toNumber(centre.disbursed),
+            totalBudget: Number(centre.totalBudget || 0),
+            disbursed: Number(centre.disbursed || 0),
         }))
         .sort((a, b) => a.name.localeCompare(b.name));
 };
 
 const getAdminDashboardData = async (financialYear = null) => {
-    const dateRange = getFYDateRange(financialYear);
+    const fy = financialYear || getCurrentFY();
+    const dateRange = getFYDateRange(fy);
     
     const sharedRaw = await getSharedPipelineData();
     
-    const shared = !dateRange ? sharedRaw : {
+    // Filter ALL data by FY once to ensure strict consistency
+    const shared = {
         ...sharedRaw,
-        fundRequests: sharedRaw.fundRequests.filter(r => {
+        fundRequests: (sharedRaw.fundRequests || []).filter(r => {
             const date = new Date(r.createdAt);
             return date >= dateRange.start && date <= dateRange.end;
         }),
-        disbursements: sharedRaw.disbursements.filter(d => {
+        disbursements: (sharedRaw.disbursements || []).filter(d => {
             const date = new Date(d.disbursedAt || d.createdAt);
             return date >= dateRange.start && date <= dateRange.end;
         }),
-        projects: sharedRaw.projects
+        projects: (sharedRaw.projects || [])
     };
 
-    const [fundingTotals, fundSources, monthlyData] = await Promise.all([
-        getFundingTotals(dateRange),
+    // Calculate totals from the EXACT SAME dataset used for breakdowns
+    const globalUsed = shared.disbursements.reduce((sum, d) => sum + toNumber(d.amount), 0);
+    
+    const [totalAllocated, fundSources, monthlyData] = await Promise.all([
+        FundSource.sum('totalAllocated') || 0,
         getFundSourceOverview(shared),
         getMonthlyAnalytics(dateRange)
     ]);
 
-    const { totalAllocated, used, remaining } = fundingTotals;
+    const globalAllocated = Number(totalAllocated || 0);
+    const globalRemaining = Math.max(0, globalAllocated - globalUsed);
     const projectCount = shared.projects.length;
 
-    console.log("DB (Admin Dashboard Source):", { totalAllocated, used, remaining });
+    const centresBreakdown = buildCentreBreakdown(shared).map(({ key, ...centre }) => ({
+        ...centre,
+        totalBudget: Number(centre.totalBudget || 0),
+        disbursed: Number(centre.disbursed || 0)
+    }));
 
-    const result = {
+    // FINAL VALIDATION: global.used === SUM(centres.used)
+    const sumCentresUsed = centresBreakdown.reduce((sum, c) => sum + c.disbursed, 0);
+    if (Math.abs(globalUsed - sumCentresUsed) > 0.01) {
+        console.error(`[MATHEMATICAL INCONSISTENCY] Global: ${globalUsed}, Centres Sum: ${sumCentresUsed}`);
+    }
+
+    return {
         success: true,
         data: {
-            totalAllocated,
-            used,
-            remaining,
-            totalBudget: totalAllocated,
-            projectCount,
-            totalProjects: projectCount,
-            activeProjects: shared.projects.filter(p => ACTIVE_PROJECT_STATUSES.includes(p.status)).length,
-            pendingApprovals: shared.projects.filter(p => p.status === 'PENDING').length,
-            totalFaculty: shared.totalFaculty || 0,
-            centres: buildCentreBreakdown(shared).map(({ key, ...centre }) => centre),
-            monthlyData,
+            totalAllocated: Number(globalAllocated),
+            used: Number(globalUsed),
+            remaining: Number(globalRemaining),
+            totalBudget: Number(globalAllocated),
+            projectCount: Number(projectCount),
+            totalProjects: Number(projectCount),
+            activeProjects: Number(shared.projects.filter(p => ACTIVE_PROJECT_STATUSES.includes(p.status)).length),
+            pendingApprovals: Number(shared.projects.filter(p => p.status === 'PENDING').length),
+            totalFaculty: Number(shared.totalFaculty || 0),
+            centres: centresBreakdown,
+            monthlyData: (monthlyData || []).map(m => ({ ...m, amount: Number(m.amount || 0) })),
             pfmsStats: {
-                allotted: fundSources.pfmsFunds.totalAllocated,
-                consumed: fundSources.pfmsFunds.totalUsed,
-                balance: fundSources.pfmsFunds.remainingBalance,
+                allotted: Number(fundSources.pfmsFunds.totalAllocated || 0),
+                consumed: Number(fundSources.pfmsFunds.totalUsed || 0),
+                balance: Number(fundSources.pfmsFunds.remainingBalance || 0),
             },
             institutionalStats: {
-                allotted: fundSources.institutionalFunds.totalAllocated,
-                consumed: fundSources.institutionalFunds.totalUsed,
-                balance: fundSources.institutionalFunds.remainingBalance,
+                allotted: Number(fundSources.institutionalFunds.totalAllocated || 0),
+                consumed: Number(fundSources.institutionalFunds.totalUsed || 0),
+                balance: Number(fundSources.institutionalFunds.remainingBalance || 0),
             },
             othersStats: {
-                allotted: fundSources.othersFunds.totalAllocated,
-                consumed: fundSources.othersFunds.totalUsed,
-                balance: fundSources.othersFunds.remainingBalance,
+                allotted: Number(fundSources.othersFunds.totalAllocated || 0),
+                consumed: Number(fundSources.othersFunds.totalUsed || 0),
+                balance: Number(fundSources.othersFunds.remainingBalance || 0),
             },
-            forecast: await getForecastingAnalytics(shared, totalAllocated)
+            forecast: await getForecastingAnalytics(shared, globalAllocated)
         }
     };
-
-    return result;
 };
 
 

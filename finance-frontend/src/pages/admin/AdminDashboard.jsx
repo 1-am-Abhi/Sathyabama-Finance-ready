@@ -30,9 +30,9 @@ import EmptyState from '../../components/shared/EmptyState';
 
 
 const getCurrentFY = () => {
-    const now = new Date();
-    const year = now.getFullYear();
-    const month = now.getMonth();
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = today.getMonth(); // 0-based: Apr is 3
 
     return month >= 3
         ? `${year}-${(year + 1).toString().slice(-2)}`
@@ -58,27 +58,24 @@ const AdminDashboard = () => {
     const navigate = useNavigate();
     const { user } = useAuth();
     const userId = user?.id || user?._id;
-    const [activeMetric] = useState('projects'); // 'projects' | 'budget' | 'disbursed'
     const [selectedCentre, setSelectedCentre] = useState('ALL');
-    const [selectedMonth, setSelectedMonth] = useState('ALL');
     const [selectedDate, setSelectedDate] = useState(null);
     const [selectedFY, setSelectedFY] = useState(getCurrentFY());
     const isEditable = selectedFY === getCurrentFY();
     const fyOptions = React.useMemo(() => generateFYOptions(5), []);
-    const [activeIndex, setActiveIndex] = useState(-1);
     const [detailModalOpen, setDetailModalOpen] = useState(false);
     const [selectedCentreDetail, setSelectedCentreDetail] = useState(null);
-    const [aiModal, setAiModal] = useState({ open: false, loading: false, result: null });
     const [isAddCentreOpen, setIsAddCentreOpen] = useState(false);
+    const [aiModal, setAiModal] = useState({ open: false, loading: false, result: null });
+    const [forecast, setForecast] = useState(null);
+    const [isDark] = useState(false);
 
 
     const [stats, setStats] = useState(null);
-    const [forecast, setForecast] = useState(null);
     const [centresStats, setCentresStats] = useState([]);
-    const [recentRequests, setRecentRequests] = useState([]);
     const [loading, setLoading] = useState(true);
     const [socketConnected, setSocketConnected] = useState(false);
-    const { centres: dynamicCentres, refreshCentres } = useCentres();
+    const { centres: dynamicCentres } = useCentres();
     const refreshTimerRef = React.useRef(null);
 
     const fetchDashboardData = async (force = false) => {
@@ -87,23 +84,19 @@ const AdminDashboard = () => {
                 const cached = dashboardCache[selectedFY];
                 setStats(cached.stats);
                 setCentresStats(cached.centres);
-                setForecast(cached.forecast);
                 setLoading(false);
                 return;
             }
 
             if (!stats) setLoading(true);
-            const [statsRes, requestsRes] = await Promise.all([
+            const [statsRes] = await Promise.all([
                 apiClient.get('/projects/stats', {
                     params: { financialYear: selectedFY }
-                }),
-                apiClient.get('/fund-requests')
+                })
             ]);
 
             if (statsRes?.data?.success) {
                 const fetchedData = statsRes.data.data || {};
-                console.log("API response:", fetchedData);
-
                 dashboardCache[selectedFY] = {
                     stats: fetchedData,
                     centres: fetchedData.centres || []
@@ -112,12 +105,6 @@ const AdminDashboard = () => {
                 setStats(fetchedData);
                 setCentresStats(fetchedData.centres || []);
             }
-
-            if (requestsRes?.data?.success) {
-                const requests = requestsRes.data.data || [];
-                setRecentRequests(requests.slice(0, 5));
-            }
-
         } catch (error) {
             console.error("Error fetching admin data:", error);
         } finally {
@@ -128,7 +115,6 @@ const AdminDashboard = () => {
     React.useEffect(() => {
         fetchDashboardData();
 
-        // ── Real-time Sync ───────────────────────────────────────────────────
         const socketUrl = (process.env.REACT_APP_API_URL || 'https://finance-api-x1ig.onrender.com').replace('/api', '');
         const token = localStorage.getItem('token');
         
@@ -137,100 +123,47 @@ const AdminDashboard = () => {
             transports: ['websocket', 'polling']
         });
 
-        socket.on('connect', () => {
-            console.log('✅ Dashboard Socket Connected');
-            setSocketConnected(true);
-        });
+        socket.on('connect', () => setSocketConnected(true));
+        socket.on('disconnect', () => setSocketConnected(false));
 
-        socket.on('disconnect', () => {
-            setSocketConnected(false);
-        });
-
-        socket.on('finance:update', (event) => {
-            console.log('🔄 Financial data updated:', event);
-            
-            // Notification with specific details
-            if (event.type === 'DISBURSEMENT') {
-                toast.info(`New Disbursement: ₹${event.amount.toLocaleString()} for ${event.projectTitle}`);
-            } else if (event.type === 'FUND_SOURCE') {
-                toast.info(`Fund Limit Updated: ${event.sourceType} increased to ₹${event.amount.toLocaleString()}`);
-            }
-
-            // Debounced refresh
+        socket.on('finance:update', () => {
             if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);
-            refreshTimerRef.current = setTimeout(() => {
-                fetchDashboardData();
-            }, 1000);
+            refreshTimerRef.current = setTimeout(() => fetchDashboardData(), 1000);
         });
 
         return () => {
+            socket.off('finance:update');
             socket.disconnect();
             if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);
         };
     }, [selectedFY]);
 
     const centres = React.useMemo(() => {
-        // FIX: Always start from the full official list so all centres appear
-        // even if they have no projects/budget yet in the DB
         const base = [...dynamicCentres];
-        // Merge any DB-only centres that are not already in the official list
         (centresStats || []).forEach(c => {
             if (c.name && !base.includes(c.name)) base.push(c.name);
         });
         return base;
     }, [centresStats, dynamicCentres]);
 
-
-    const months = [
-        'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-        'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
-    ];
-
     const totalStats = React.useMemo(() => {
-        if (!stats) return {
-            totalProjects: 0,
-            activeProjects: 0,
-            pendingApprovals: 0,
-            totalBudget: 0,
-            totalAllocated: 0,
-            used: 0,
-            remaining: 0,
-            totalFaculty: 0
-        };
+        if (!stats) return { totalProjects: 0, activeProjects: 0, pendingApprovals: 0, totalBudget: 0, totalAllocated: 0, used: 0, remaining: 0, totalFaculty: 0, totalDisbursed: 0 };
         return {
-            totalProjects: stats.totalProjects || 0,
-            activeProjects: stats.activeProjects || 0,
-            pendingApprovals: stats.pendingApprovals || 0,
-            totalBudget: stats.totalBudget || 0,
-            totalAllocated: stats.totalAllocated || 0,
-            used: stats.used || 0,
-            remaining: stats.remaining || 0,
-            totalFaculty: stats.totalFaculty || 0
+            totalProjects: stats.totalProjects ?? 0,
+            activeProjects: stats.activeProjects ?? 0,
+            pendingApprovals: stats.pendingApprovals ?? 0,
+            totalBudget: stats.totalBudget ?? 0,
+            totalAllocated: stats.totalAllocated ?? 0,
+            used: stats.used ?? 0,
+            remaining: stats.remaining ?? 0,
+            totalFaculty: stats.totalFaculty ?? 0,
+            totalDisbursed: stats.totalDisbursed ?? 0
         };
     }, [stats]);
 
-    const pfmsChartData = React.useMemo(() => [
-        { name: 'Consumed', value: stats?.pfmsStats?.consumed || 0, color: '#6366f1' },
-        { name: 'Balance', value: Math.max(0, (stats?.pfmsStats?.allotted || 0) - (stats?.pfmsStats?.consumed || 0)), color: '#22c55e' }
-    ], [stats]);
-
-    const institutionalChartData = React.useMemo(() => [
-        { name: 'Utilized', value: stats?.institutionalStats?.consumed || 0, color: '#f59e0b' },
-        { name: 'Balance', value: Math.max(0, (stats?.institutionalStats?.allotted || 0) - (stats?.institutionalStats?.consumed || 0)), color: '#0ea5e9' }
-    ], [stats]);
-
-    const othersChartData = React.useMemo(() => [
-        { name: 'Consumed', value: stats?.othersStats?.consumed || 0, color: '#10b981' },
-        { name: 'Balance', value: Math.max(0, (stats?.othersStats?.allotted || 0) - (stats?.othersStats?.consumed || 0)), color: '#a78bfa' }
-    ], [stats]);
-
-    // Mapping API data to UI structure — fuzzy match backend centre names to the official list
     const centreData = React.useMemo(() => {
-        const normalize = (s) => (s || '').trim().toLowerCase()
-            .replace(/^centre\s+(for|of\s+excellence\s+for)\s+/i, '');
-
+        const normalize = (s) => (s || '').trim().toLowerCase().replace(/^centre\s+(for|of\s+excellence\s+for)\s+/i, '');
         return centres.map(name => {
-            // Try exact match first, then fuzzy (core name match)
             const centreStat = (centresStats || []).find(c => {
                 const n1 = normalize(c.name);
                 const n2 = normalize(name);
@@ -238,391 +171,80 @@ const AdminDashboard = () => {
             });
             return {
                 centre: name,
-                totalProjects: centreStat?.totalProjects || 0,
-                activeProjects: centreStat?.activeProjects || 0,
-                completedProjects: 0,
-                pendingApproval: 0,
-                totalBudget: centreStat?.totalBudget || 0,
-                disbursed: centreStat?.disbursed || 0,
-                faculty: 0
+                totalProjects: centreStat?.totalProjects ?? 0,
+                activeProjects: centreStat?.activeProjects ?? 0,
+                totalBudget: centreStat?.totalBudget ?? 0,
+                disbursed: centreStat?.disbursed ?? 0
             };
         });
     }, [centres, centresStats]);
 
     const filteredData = React.useMemo(() =>
-        selectedCentre === 'ALL'
-            ? centreData
-            : centreData.filter(c => c.centre === selectedCentre)
+        selectedCentre === 'ALL' ? centreData : centreData.filter(c => c.centre === selectedCentre)
         , [centreData, selectedCentre]);
 
-    // Chart Data
     const barChartData = React.useMemo(() =>
         selectedCentre === 'ALL'
             ? centreData.map(c => ({
                 name: c.centre.split(' ').map(w => w[0]).join(''),
-                fullName: c.centre,
-                projects: c.totalProjects,
-                budget: c.totalBudget / 1000000,
-                disbursed: c.disbursed / 1000000
+                budget: (c.totalBudget ?? 0) / 1000000,
+                disbursed: (c.disbursed ?? 0) / 1000000
             }))
             : [
-                { name: 'Research', val: filteredData[0]?.totalProjects || 0, budget: (filteredData[0]?.totalBudget || 0) / 1000000, disbursed: (filteredData[0]?.disbursed || 0) / 1000000 },
-                { name: 'Training', val: Math.floor((filteredData[0]?.totalProjects || 0) * 0.4), budget: (filteredData[0]?.totalBudget || 0) * 0.3 / 1000000, disbursed: (filteredData[0]?.disbursed || 0) * 0.3 / 1000000 },
-                { name: 'Publications', val: Math.floor((filteredData[0]?.totalProjects || 0) * 0.6), budget: (filteredData[0]?.totalBudget || 0) * 0.2 / 1000000, disbursed: (filteredData[0]?.disbursed || 0) * 0.2 / 1000000 },
+                { name: 'Research', budget: (filteredData[0]?.totalBudget ?? 0) / 1000000, disbursed: (filteredData[0]?.disbursed ?? 0) / 1000000 },
             ]
         , [centreData, filteredData, selectedCentre]);
 
-    const pieData = React.useMemo(() => {
-        const data = selectedCentre === 'ALL'
-            ? centreData.map(c => ({
-                name: c.centre,
-                value: Number(c.totalProjects) || 0
-            }))
-            : [
-                { name: 'Government Funded', value: Math.max(1, Math.round((filteredData[0]?.totalProjects || 0) * 0.65)) },
-                { name: 'Institutional', value: Math.max(0, Math.round((filteredData[0]?.totalProjects || 0) * 0.25)) },
-                { name: 'Industry Sponsored', value: Math.max(0, Math.round((filteredData[0]?.totalProjects || 0) * 0.10)) },
-            ];
-        return data.filter(item => item.value > 0);
-    }, [filteredData, selectedCentre, centreData]);
-
-    const totalProjectsOverall = React.useMemo(() =>
-        centreData.reduce((sum, c) => sum + (Number(c.totalProjects) || 0), 0)
-        , [centreData]);
-
-    const trendData = React.useMemo(() => {
-        if (selectedDate) {
-            return [
-                { month: '9 AM', projects: 2, budget: 1 },
-                { month: '11 AM', projects: 5, budget: 2 },
-                { month: '1 PM', projects: 3, budget: 1.5 },
-                { month: '3 PM', projects: 6, budget: 4 },
-                { month: '5 PM', projects: 4, budget: 3 },
-            ];
-        }
-        const baseMultiplier = selectedCentre === 'ALL' ? 1 : 0.4;
-        const growth = selectedFY === '2025-26' ? 1.5 : (selectedFY === '2023-24' ? 0.8 : 1);
-        return months.map((m, i) => ({
-            month: m,
-            projects: Math.floor((10 + i * 2) * baseMultiplier * growth),
-            budget: Math.floor((15 + i * 3) * baseMultiplier * growth)
-        }));
-    }, [selectedCentre, selectedDate, selectedFY, months]);
-
-    const COLORS = [
-        '#fb7185', '#fbbf24', '#34d399', '#818cf8', '#f472b6', '#a78bfa', '#22d3ee', '#fb923c',
-        '#6366f1', '#10b981', '#f59e0b', '#ec4899', '#8b5cf6', '#06b6d4'
+    const chartConfig = { grid: '#E2E8F0', text: '#64748B', tooltip: '#FFFFFF', tooltipBorder: '#E2E8F0' };
+    const quickActions = [
+        { title: 'New Project', description: 'Initiate research', icon: Plus, color: 'bg-maroon-50', iconBg: 'bg-maroon-100', action: () => navigate('/admin/projects/new') },
+        { title: 'Fund Request', description: 'Process grants', icon: FileText, color: 'bg-indigo-50', iconBg: 'bg-indigo-100', action: () => navigate('/admin/fund-requests') },
+        { title: 'Settlements', description: 'Verify expenses', icon: Banknote, color: 'bg-emerald-50', iconBg: 'bg-emerald-100', action: () => navigate('/admin/settlements') },
+        { title: 'Analytics', description: 'View reports', icon: BarChart3, color: 'bg-amber-50', iconBg: 'bg-amber-100', action: () => navigate('/admin/reports') }
     ];
-
-    const isDark = document.documentElement.classList.contains('dark');
-    const chartConfig = {
-        grid: isDark ? '#1e293b' : '#e2e8f0',
-        text: isDark ? '#94a3b8' : '#64748b',
-        tooltip: isDark ? '#0f172a' : '#ffffff',
-        tooltipBorder: isDark ? '#1e293b' : '#e2e8f0'
-    };
-
-    const recentActivities = [
-        { id: 1, type: 'fund', message: 'Fund request approved for Smart Grid - EEE', time: '5 hours ago', icon: Banknote, color: 'green' },
-        { id: 2, type: 'approval', message: 'Robotics project approved - Mechanical', time: '1 day ago', icon: CheckCircle, color: 'purple' },
-    ];
-
-    const onPieEnter = (_, index) => {
-        setActiveIndex(index);
-    };
+    const recentRequests = stats?.recentRequests ?? [];
+    const refreshCentres = () => fetchDashboardData(true);
 
     React.useEffect(() => {
-        setLayout(
-            "Admin Dashboard",
-            selectedDate
-                ? `Showing data for ${new Date(selectedDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}`
-                : "Research & Finance Management Overview"
-        );
-    }, [selectedDate, setLayout]);
-
-    const renderActiveShape = (props) => {
-        const {
-            cx, cy, innerRadius, outerRadius, startAngle, endAngle,
-            fill
-        } = props;
-        return (
-            <g>
-                <Sector cx={cx} cy={cy} innerRadius={innerRadius} outerRadius={outerRadius} startAngle={startAngle} endAngle={endAngle} fill={fill} />
-                <Sector cx={cx} cy={cy} startAngle={startAngle} endAngle={endAngle} innerRadius={outerRadius + 6} outerRadius={outerRadius + 10} fill={fill} />
-            </g>
-        );
-    };
-
-    const quickActions = [
-        {
-            title: 'Projects',
-            description: `${totalStats.pendingApprovals} projects pending`,
-            icon: CheckCircle,
-            color: 'bg-amber-50 text-amber-600',
-            iconBg: 'bg-amber-100',
-            action: () => navigate('/admin/approve-projects')
-        },
-        {
-            title: 'Assign Faculty',
-            description: 'Assign faculty to projects',
-            icon: UserPlus,
-            color: 'bg-maroon-50 text-maroon-600',
-            iconBg: 'bg-maroon-100',
-            action: () => navigate('/admin/assign-faculty')
-        },
-        {
-            title: 'Fund Requests',
-            description: 'Review funding requests',
-            icon: Banknote,
-            color: 'bg-green-50 text-green-600',
-            iconBg: 'bg-green-100',
-            action: () => navigate('/admin/fund-requests')
-        },
-        {
-            title: 'View Reports',
-            description: 'Analytics and insights',
-            icon: BarChart3,
-            color: 'bg-amber-50 text-amber-600',
-            iconBg: 'bg-amber-100',
-            action: () => navigate('/admin/reports')
-        },
-        {
-            title: 'Add Centre',
-            description: 'Register new research centre',
-            icon: Building2,
-            color: 'bg-indigo-50 text-indigo-600',
-            iconBg: 'bg-indigo-100',
-            action: () => setIsAddCentreOpen(true)
-        },
-    ];
-
-    const getIconColor = (color) => {
-        const colors = {
-            maroon: 'bg-maroon-100 text-maroon-600',
-            green: 'bg-green-100 text-green-600',
-            purple: 'bg-purple-100 text-purple-600'
-        };
-        return colors[color] || 'bg-gray-100 text-gray-600';
-    };
+        setLayout("Admin Dashboard", "Research & Finance Management Overview");
+    }, [setLayout]);
 
     if (!userId) return null;
+    if (loading) return <Loader message="Analyzing financial metrics..." />;
 
-    if (loading) {
-        return <Loader message="Analyzing financial metrics..." />;
-    }
-
-    const hasData = (stats?.totalAllocated || 0) > 0;
-    if (!hasData && !loading && selectedCentre === 'ALL' && selectedFY === '2024-25') {
-        return <EmptyState 
-            message="No Dashboard Data" 
-            description="All financial tables are currently empty. Seed the database or create projects to see analytics." 
-        />;
-    }
+    const hasData = (stats?.totalAllocated ?? 0) > 0 || (stats?.used ?? 0) > 0;
+    const monthlyData = stats?.monthlyData ?? [];
+    const centreList = stats?.centres ?? [];
 
     return (
         <div className="flex-1 overflow-y-auto overflow-x-hidden p-6 bg-gray-50 dark:bg-slate-950">
-            {/* Risk Alert Banner */}
-            {totalStats.totalAllocated > 0 && (totalStats.totalDisbursed / totalStats.totalAllocated) > 0.8 && (
-                <div className="mb-6 p-4 bg-maroon-50 border border-maroon-200 rounded-xl flex items-center gap-4 animate-pulse">
-                    <div className="p-2 bg-maroon-100 rounded-lg text-maroon-600">
-                        <AlertTriangle className="w-6 h-6" />
-                    </div>
-                    <div>
-                        <h3 className="text-sm font-bold text-maroon-900 uppercase italic tracking-tighter">High Fund Utilization Warning</h3>
-                        <p className="text-xs text-maroon-700 font-medium italic">Current expenditure is {((totalStats.totalDisbursed / totalStats.totalAllocated) * 100).toFixed(1)}% of total allocated budget. Immediate review required.</p>
-                    </div>
-                </div>
-            )}
-
-            {/* Socket Status Indicator */}
             <div className="mb-4 flex items-center gap-2">
-                <div className={`w-2 h-2 rounded-full ${socketConnected ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]' : 'bg-red-500'}`} />
+                <div className={`w-2 h-2 rounded-full ${socketConnected ? 'bg-green-500' : 'bg-red-500'}`} />
                 <span className="text-[10px] font-black italic uppercase tracking-widest text-slate-400">
                     {socketConnected ? 'Live Connection Active' : 'Real-time Sync Offline'}
                 </span>
             </div>
 
-            {/* Funds Overview Section - canonical fund sources only */}
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 mb-8">
-                {/* PFMS / Government Funds */}
-                <Card className="border-0 shadow-md bg-white dark:bg-slate-900 overflow-hidden relative">
-                    <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-50 dark:bg-indigo-900/10 rounded-full -mr-10 -mt-10 blur-2xl"></div>
-                    <CardHeader className="p-4 pb-2 border-b border-gray-100 dark:border-slate-800 z-10 relative">
-                        <div className="flex items-center justify-between">
-                            <div className="flex items-center space-x-2">
-                                <div className="p-1.5 bg-indigo-100 dark:bg-indigo-900/30 rounded-lg text-indigo-600 dark:text-indigo-400">
-                                    <Building2 className="w-4 h-4" />
-                                </div>
-                                <div>
-                                    <CardTitle className="text-sm font-bold text-gray-800 dark:text-white">PFMS Funds</CardTitle>
-                                </div>
-                            </div>
-                        </div>
-                    </CardHeader>
-                    <CardContent className="p-4 z-10 relative">
-                        <div className="space-y-3">
-                            <div className="bg-gray-50 dark:bg-slate-800/50 p-2 rounded-lg border border-gray-100 dark:border-slate-800 flex justify-between items-center">
-                                <p className="text-[10px] text-gray-500">Sanctioned</p>
-                                <p className="text-sm font-bold text-gray-800 dark:text-white">₹{((stats?.pfmsStats?.allotted || 0) / 10000000).toFixed(2)} Cr</p>
-                            </div>
-                            <div>
-                                <div className="flex justify-between text-[10px] mb-1">
-                                    <span className="text-gray-600 dark:text-gray-400">Spent / Bal</span>
-                                    <span className="font-semibold text-gray-900 dark:text-white">₹{((stats?.pfmsStats?.consumed || 0) / 100000).toFixed(1)}L / ₹{((stats?.pfmsStats?.balance || 0) / 100000).toFixed(1)}L</span>
-                                </div>
-                                <div className="w-full bg-gray-200 dark:bg-slate-700 rounded-full h-1.5">
-                                    <div className="bg-indigo-500 h-1.5 rounded-full" style={{ width: `${(stats?.pfmsStats?.allotted || 0) > 0 ? Math.min(100, ((stats?.pfmsStats?.consumed || 0) / stats?.pfmsStats?.allotted) * 100) : 0}%` }}></div>
-                                </div>
-                            </div>
-                        </div>
-                    </CardContent>
-                </Card>
-
-                {/* Director's Innovation Fund */}
-                <Card className="border-0 shadow-md bg-white dark:bg-slate-900 overflow-hidden relative">
-                    <div className="absolute top-0 right-0 w-32 h-32 bg-amber-50 dark:bg-amber-900/10 rounded-full -mr-10 -mt-10 blur-2xl"></div>
-                    <CardHeader className="p-4 pb-2 border-b border-gray-100 dark:border-slate-800 z-10 relative">
-                        <div className="flex items-center justify-between">
-                            <div className="flex items-center space-x-2">
-                                <div className="p-1.5 bg-amber-100 dark:bg-amber-900/30 rounded-lg text-amber-600 dark:text-amber-400">
-                                    <Activity className="w-4 h-4" />
-                                </div>
-                                <div>
-                                    <CardTitle className="text-sm font-bold text-gray-800 dark:text-white">Director's Innovation Fund</CardTitle>
-                                </div>
-                            </div>
-                        </div>
-                    </CardHeader>
-                    <CardContent className="p-4 z-10 relative">
-                        <div className="space-y-3">
-                            <div className="bg-gray-50 dark:bg-slate-800/50 p-2 rounded-lg border border-gray-100 dark:border-slate-800 flex justify-between items-center">
-                                <p className="text-[10px] text-gray-500">Allocated</p>
-                                <p className="text-sm font-bold text-amber-600 dark:text-amber-400">₹{((stats?.institutionalStats?.allotted || 0) / 10000000).toFixed(2)} Cr</p>
-                            </div>
-                            <div>
-                                <div className="flex justify-between text-[10px] mb-1">
-                                    <span className="text-gray-600 dark:text-gray-400">Spent / Bal</span>
-                                    <span className="font-semibold text-gray-900 dark:text-white">₹{((stats?.institutionalStats?.consumed || 0) / 100000).toFixed(1)}L / ₹{((stats?.institutionalStats?.balance || 0) / 100000).toFixed(1)}L</span>
-                                </div>
-                                <div className="w-full bg-gray-200 dark:bg-slate-700 rounded-full h-1.5">
-                                    <div className="bg-amber-500 h-1.5 rounded-full" style={{ width: `${(stats?.institutionalStats?.allotted || 0) > 0 ? Math.min(100, ((stats?.institutionalStats?.consumed || 0) / stats?.institutionalStats?.allotted) * 100) : 0}%` }}></div>
-                                </div>
-                            </div>
-                        </div>
-                    </CardContent>
-                </Card>
-
-                {/* Others Fund */}
-                <Card className="border-0 shadow-md bg-white dark:bg-slate-900 overflow-hidden relative">
-                    <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-50 dark:bg-emerald-900/10 rounded-full -mr-10 -mt-10 blur-2xl"></div>
-                    <CardHeader className="p-4 pb-2 border-b border-gray-100 dark:border-slate-800 z-10 relative">
-                        <div className="flex items-center justify-between">
-                            <div className="flex items-center space-x-2">
-                                <div className="p-1.5 bg-emerald-100 dark:bg-emerald-900/30 rounded-lg text-emerald-600 dark:text-emerald-400">
-                                    <CircleDollarSign className="w-4 h-4" />
-                                </div>
-                                <div>
-                                    <CardTitle className="text-sm font-bold text-gray-800 dark:text-white">Other's Fund</CardTitle>
-                                </div>
-                            </div>
-                        </div>
-                    </CardHeader>
-                    <CardContent className="p-4 z-10 relative">
-                        <div className="space-y-3">
-                            <div className="bg-gray-50 dark:bg-slate-800/50 p-2 rounded-lg border border-gray-100 dark:border-slate-800 flex justify-between items-center">
-                                <p className="text-[10px] text-gray-500">External</p>
-                                <p className="text-sm font-bold text-emerald-600 dark:text-emerald-400">₹{((stats?.othersStats?.allotted || 0) / 10000000).toFixed(2)} Cr</p>
-                            </div>
-                            <div>
-                                <div className="flex justify-between text-[10px] mb-1">
-                                    <span className="text-gray-600 dark:text-gray-400">Spent / Bal</span>
-                                    <span className="font-semibold text-gray-900 dark:text-white">₹{((stats?.othersStats?.consumed || 0) / 100000).toFixed(1)}L / ₹{((stats?.othersStats?.balance || 0) / 100000).toFixed(1)}L</span>
-                                </div>
-                                <div className="w-full bg-gray-200 dark:bg-slate-700 rounded-full h-1.5">
-                                    <div className="bg-emerald-500 h-1.5 rounded-full" style={{ width: `${(stats?.othersStats?.allotted || 0) > 0 ? Math.min(100, ((stats?.othersStats?.consumed || 0) / stats?.othersStats?.allotted) * 100) : 0}%` }}></div>
-                                </div>
-                            </div>
-                        </div>
-                    </CardContent>
-                </Card>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+                <button onClick={() => navigate('/admin/projects')} className="p-4 bg-white dark:bg-slate-900 border border-gray-100 dark:border-slate-800 rounded-xl shadow-sm hover:shadow-md transition-all flex items-center space-x-3 group">
+                    <div className="p-2 bg-maroon-50 dark:bg-maroon-900/20 rounded-lg text-maroon-600 group-hover:scale-110 transition-transform"><Plus className="w-5 h-5" /></div>
+                    <div className="text-left"><p className="text-sm font-bold text-gray-800 dark:text-white">Active Projects</p><p className="text-[10px] text-gray-500">Manage all research</p></div>
+                </button>
+                <button onClick={() => navigate('/admin/fund-requests')} className="p-4 bg-white dark:bg-slate-900 border border-gray-100 dark:border-slate-800 rounded-xl shadow-sm hover:shadow-md transition-all flex items-center space-x-3 group">
+                    <div className="p-2 bg-indigo-50 dark:bg-indigo-900/20 rounded-lg text-indigo-600 group-hover:scale-110 transition-transform"><FileText className="w-5 h-5" /></div>
+                    <div className="text-left"><p className="text-sm font-bold text-gray-800 dark:text-white">Pending Requests</p><p className="text-[10px] text-gray-500">Review and approve</p></div>
+                </button>
+                <button onClick={() => navigate('/admin/settlements')} className="p-4 bg-white dark:bg-slate-900 border border-gray-100 dark:border-slate-800 rounded-xl shadow-sm hover:shadow-md transition-all flex items-center space-x-3 group">
+                    <div className="p-2 bg-emerald-50 dark:bg-emerald-900/20 rounded-lg text-emerald-600 group-hover:scale-110 transition-transform"><TrendingUp className="w-5 h-5" /></div>
+                    <div className="text-left"><p className="text-sm font-bold text-gray-800 dark:text-white">Settlements</p><p className="text-[10px] text-gray-500">Track utilization</p></div>
+                </button>
+                <button onClick={() => navigate('/admin/reports')} className="p-4 bg-white dark:bg-slate-900 border border-gray-100 dark:border-slate-800 rounded-xl shadow-sm hover:shadow-md transition-all flex items-center space-x-3 group">
+                    <div className="p-2 bg-amber-50 dark:bg-amber-900/20 rounded-lg text-amber-600 group-hover:scale-110 transition-transform"><Activity className="w-5 h-5" /></div>
+                    <div className="text-left"><p className="text-sm font-bold text-gray-800 dark:text-white">Full Analytics</p><p className="text-[10px] text-gray-500">Export PDF/Excel</p></div>
+                </button>
             </div>
 
-            {/* Stats Cards — 2 on mobile, 2 on sm, 4 on lg */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6 mb-8 items-stretch">
-                <Card className="h-full border-0 bg-maroon-900 text-white transition-all duration-300 hover:shadow-lg relative overflow-hidden">
-                    <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16 blur-2xl"></div>
-                    <CardContent className="p-4 sm:p-6 h-full flex flex-col justify-between relative z-10">
-                        <div className="flex items-start justify-between">
-                            <div>
-                                <p className="text-xs sm:text-sm font-medium opacity-80 uppercase tracking-wider">Total Allocated</p>
-                                <p className="text-2xl sm:text-3xl font-bold mt-2">{formatCurrency(totalStats.totalAllocated)}</p>
-                            </div>
-                            <div className="w-10 h-10 sm:w-12 sm:h-12 bg-white/20 rounded-lg flex items-center justify-center flex-shrink-0"><Wallet className="w-5 h-5 sm:w-6 sm:h-6" /></div>
-                        </div>
-                        <p className="text-xs mt-3 opacity-70">Approved across all sources</p>
-                    </CardContent>
-                </Card>
-
-                <Card className="h-full border-0 bg-indigo-600 text-white transition-all duration-300 hover:shadow-lg relative overflow-hidden">
-                    <div className="absolute bottom-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mb-16 blur-2xl"></div>
-                    <CardContent className="p-4 sm:p-6 h-full flex flex-col justify-between relative z-10">
-                        <div className="flex items-start justify-between">
-                            <div>
-                                <p className="text-xs sm:text-sm font-medium opacity-80 uppercase tracking-wider">Total Disbursed</p>
-                                <p className="text-2xl sm:text-3xl font-bold mt-2">{formatCurrency(totalStats.used)}</p>
-                            </div>
-                            <div className="w-10 h-10 sm:w-12 sm:h-12 bg-white/20 rounded-lg flex items-center justify-center flex-shrink-0"><Banknote className="w-5 h-5 sm:w-6 sm:h-6" /></div>
-                        </div>
-                        <div className="flex items-center justify-between mt-3">
-                            <p className="text-xs opacity-70">Utilization: {totalStats.totalAllocated > 0 ? ((totalStats.used / totalStats.totalAllocated) * 100).toFixed(0) : 0}%</p>
-                        </div>
-                    </CardContent>
-                </Card>
-
-                <Card className="h-full border-0 bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400 transition-all duration-300 hover:shadow-lg">
-                    <CardContent className="p-4 sm:p-6 h-full flex flex-col justify-between">
-                        <div className="flex items-start justify-between">
-                            <div className="min-w-0 flex-1">
-                                <p className="text-[10px] sm:text-xs font-bold uppercase tracking-wider opacity-70">Allocated Budget</p>
-                                <p className="text-xl sm:text-3xl font-bold mt-2 truncate">{formatCurrency(totalStats.totalBudget)}</p>
-                                <p className="text-[10px] mt-1 opacity-60 hidden sm:block">Across {totalStats.totalProjects} Projects</p>
-                            </div>
-                            <div className="w-10 h-10 sm:w-12 sm:h-12 bg-green-100 dark:bg-green-800/30 rounded-lg flex items-center justify-center flex-shrink-0 ml-2"><Banknote className="w-5 h-5 sm:w-6 sm:h-6" /></div>
-                        </div>
-                        <p className="text-xs mt-3 opacity-70">Approved funding</p>
-                    </CardContent>
-                </Card>
-
-                <Card className="h-full border-0 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 transition-all duration-300 hover:shadow-lg">
-                    <CardContent className="p-4 sm:p-6 h-full flex flex-col justify-between">
-                        <div className="flex items-start justify-between">
-                            <div className="min-w-0 flex-1">
-                                <p className="text-[10px] sm:text-xs font-bold uppercase tracking-wider opacity-70">Disbursed Funds</p>
-                                <p className="text-xl sm:text-3xl font-bold mt-2 truncate">{formatCurrency(totalStats.used)}</p>
-                                <p className="text-[10px] mt-1 opacity-60 hidden sm:block">Verified Disbursements</p>
-                            </div>
-                            <div className="w-10 h-10 sm:w-12 sm:h-12 bg-indigo-100 dark:bg-indigo-800/30 rounded-lg flex items-center justify-center flex-shrink-0 ml-2"><TrendingUp className="w-5 h-5 sm:w-6 sm:h-6" /></div>
-                        </div>
-                        <p className="text-xs mt-3 opacity-70">Utilization: {totalStats.totalAllocated > 0 ? ((totalStats.used / totalStats.totalAllocated) * 100).toFixed(0) : 0}%</p>
-                    </CardContent>
-                </Card>
-
-                <Card className="h-full border-0 bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 transition-all duration-300 hover:shadow-lg">
-                    <CardContent className="p-4 sm:p-6 h-full flex flex-col justify-between">
-                        <div className="flex items-start justify-between">
-                            <div>
-                                <p className="text-xs sm:text-sm font-medium opacity-80">Faculty Members</p>
-                                <p className="text-2xl sm:text-3xl font-bold mt-2">{totalStats.totalFaculty}</p>
-                            </div>
-                            <div className="w-10 h-10 sm:w-12 sm:h-12 bg-amber-100 dark:bg-amber-800/30 rounded-lg flex items-center justify-center flex-shrink-0"><UserPlus className="w-5 h-5 sm:w-6 sm:h-6" /></div>
-                        </div>
-                        <p className="text-xs mt-3 opacity-70">Across institutional centres</p>
-                    </CardContent>
-                </Card>
-            </div>
-
-            {/* Monthly Trend Chart */}
-            {stats?.monthlyData && Array.isArray(stats.monthlyData) && stats.monthlyData.length > 0 && (
+            {monthlyData.length > 0 && (
                 <Card className="border-0 shadow-md mb-8 bg-white dark:bg-slate-900 overflow-hidden">
                     <CardHeader className="border-b border-gray-100 dark:border-slate-800 p-4 sm:p-6 flex flex-row items-center justify-between">
                         <div>
@@ -633,7 +255,7 @@ const AdminDashboard = () => {
                     </CardHeader>
                     <CardContent className="p-4 sm:p-6 h-[300px]">
                         <ResponsiveContainer width="100%" height="100%">
-                            <BarChart data={stats.monthlyData}>
+                            <BarChart data={monthlyData}>
                                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" />
                                 <XAxis dataKey="month" axisLine={false} tickLine={false} fontSize={10} tick={{ fill: '#64748B' }} />
                                 <YAxis axisLine={false} tickLine={false} fontSize={10} tick={{ fill: '#64748B' }} tickFormatter={(val) => `₹${(val / 100000).toFixed(0)}L`} />
@@ -649,7 +271,6 @@ const AdminDashboard = () => {
                 </Card>
             )}
 
-            {/* Quick Actions — 2 cols on mobile, 4 on lg */}
             <Card className="border-0 shadow-sm mb-8 dark:bg-slate-900">
                 <CardHeader className="border-b bg-gray-50 dark:bg-slate-800/50 dark:border-slate-800 px-4 sm:px-6 py-3 sm:py-4">
                     <CardTitle className="text-base sm:text-lg font-semibold dark:text-white">Quick Actions</CardTitle>
@@ -680,7 +301,6 @@ const AdminDashboard = () => {
                 </CardContent>
             </Card>
 
-            {/* Filters — stacks on mobile, row on md+ */}
             <div className="mb-6 mt-8 flex flex-col sm:flex-row items-stretch sm:items-center justify-between bg-white dark:bg-slate-900 p-3 sm:p-4 rounded-xl border border-gray-100 dark:border-slate-800 shadow-sm gap-3">
                 <div className="flex flex-wrap items-center gap-2">
                     <div className="flex items-center gap-2 bg-gray-50 dark:bg-slate-800 px-3 py-2 rounded-lg border border-gray-200 dark:border-slate-700">
@@ -736,7 +356,6 @@ const AdminDashboard = () => {
                 </div>
             </div>
 
-            {/* Research Centre Insights — horizontal scroll on mobile */}
             <Card className="border-0 shadow-sm mb-8 dark:bg-slate-900">
                 <CardHeader className="border-b bg-gray-50 dark:bg-slate-800/50 dark:border-slate-800 px-4 sm:px-6">
                     <CardTitle className="text-base sm:text-lg font-semibold dark:text-white">Research Centre Insights</CardTitle>
@@ -781,7 +400,6 @@ const AdminDashboard = () => {
                 </CardContent>
             </Card>
 
-            {/* Comparison Charts — stack on mobile/tablet */}
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 mb-8 items-stretch">
                 <Card className="border-0 shadow-sm dark:bg-slate-900 flex flex-col">
                     <CardHeader className="border-b bg-gray-50 dark:bg-slate-800/50 dark:border-slate-800 flex-shrink-0 px-4 sm:px-6 flex flex-row items-center justify-between">
@@ -853,7 +471,6 @@ const AdminDashboard = () => {
                 </Card>
             </div>
 
-            {/* Administrative Audit Trail — horizontal scroll on mobile */}
             <Card className="border-0 shadow-sm mt-8 mb-8 dark:bg-slate-900">
                 <CardHeader className="border-b bg-gray-50 dark:bg-slate-800/50 dark:border-slate-800 flex flex-row items-center justify-between px-4 sm:px-6">
                     <div>
@@ -909,9 +526,7 @@ const AdminDashboard = () => {
                 </CardContent>
             </Card>
 
-            {/* AI Insights and Forecasting */}
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 mb-8">
-                {/* AI Insights */}
                 <Card className="border-0 shadow-lg bg-slate-900 overflow-hidden relative group">
                     <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl -mr-32 -mt-32"></div>
                     <CardHeader className="border-b border-white/5 bg-white/5 flex flex-row items-center justify-between">
@@ -931,7 +546,6 @@ const AdminDashboard = () => {
                     </CardContent>
                 </Card>
 
-                {/* Financial Forecasting Card */}
                 <Card className="border-0 shadow-lg bg-white dark:bg-slate-900 overflow-hidden relative border-l-4 border-l-indigo-500">
                     <CardHeader className="border-b bg-gray-50/50 dark:bg-slate-800/50 dark:border-slate-800 flex flex-row items-center justify-between">
                         <div>
@@ -953,23 +567,46 @@ const AdminDashboard = () => {
                                     <Clock className="w-3 h-3" />
                                     <p className="text-[9px] uppercase font-black italic tracking-wider">Avg Daily Spend</p>
                                 </div>
-                                <p className="text-lg font-black italic text-slate-900 dark:text-white">{formatCurrency(forecast?.avgDailySpend || 0)}</p>
+                                <p className="text-lg font-black italic text-slate-900 dark:text-white">{formatCurrency(forecast?.avgDailySpend ?? 0)}</p>
                             </div>
                             <div className="p-4 bg-gray-50 dark:bg-slate-800 rounded-xl border border-gray-100 dark:border-slate-700">
                                 <div className="flex items-center gap-2 mb-2 text-slate-500">
                                     <TrendingUp className="w-3 h-3" />
                                     <p className="text-[9px] uppercase font-black italic tracking-wider">Projected (30 Days)</p>
                                 </div>
-                                <p className="text-lg font-black italic text-indigo-600 dark:text-indigo-400">{formatCurrency(forecast?.projectedUsage30Days || 0)}</p>
+                                <p className="text-lg font-black italic text-indigo-600 dark:text-indigo-400">{formatCurrency(forecast?.projectedUsage30Days ?? 0)}</p>
                             </div>
                         </div>
                         
                         <div className="mt-4 p-4 bg-indigo-50/50 dark:bg-indigo-900/10 rounded-xl border border-indigo-100/50 dark:border-indigo-900/20 flex items-center justify-between">
+                            <div className="space-y-4">
+                                {(centreList).slice(0, 5).map((centre, idx) => (
+                                    <div key={idx} className="group">
+                                        <div className="flex items-center justify-between mb-2">
+                                            <div className="flex items-center gap-2">
+                                                <div className="w-2 h-2 rounded-full bg-maroon-600"></div>
+                                                <span className="text-sm font-medium text-gray-700 dark:text-gray-300 truncate max-w-[150px]">
+                                                    {centre.name}
+                                                </span>
+                                            </div>
+                                            <span className="text-xs font-bold text-gray-900 dark:text-white">
+                                                {formatCurrency(centre.disbursed ?? 0)}
+                                            </span>
+                                        </div>
+                                        <div className="relative h-1.5 w-full bg-gray-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                                            <div 
+                                                className="absolute top-0 left-0 h-full bg-maroon-600 rounded-full transition-all duration-1000"
+                                                style={{ width: `${Math.min(100, ((centre.disbursed ?? 0) / (stats.used || 1)) * 100)}%` }}
+                                            ></div>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
                             <div className="flex items-center gap-2">
                                 <Info className="w-4 h-4 text-indigo-500" />
                                 <span className="text-[10px] font-bold italic text-indigo-700 dark:text-indigo-300 uppercase tracking-tight">Forecast Confidence</span>
                             </div>
-                            <Badge variant="outline" className="border-indigo-300 text-indigo-600 dark:text-indigo-400 font-black italic uppercase text-[9px] tracking-widest">{forecast?.confidence || 'LOW'} CONFIDENCE</Badge>
+                            <Badge variant="outline" className="border-indigo-300 text-indigo-600 dark:text-indigo-400 font-black italic uppercase text-[9px] tracking-widest">{forecast?.confidence ?? 'LOW'} CONFIDENCE</Badge>
                         </div>
                     </CardContent>
                 </Card>
