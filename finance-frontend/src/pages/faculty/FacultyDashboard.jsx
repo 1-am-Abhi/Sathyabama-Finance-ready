@@ -18,6 +18,11 @@ import { predictFundingSuccess, predictResearchTrends, analyzePersonalResearchMe
 import { formatCurrency } from '../../utils/format';
 import apiClient from '../../api/client';
 
+const safeNumber = (val) => {
+    const num = Number(val);
+    return isFinite(num) ? num : 0;
+};
+
 const FacultyDashboard = () => {
     const { setLayout } = useLayout();
     const navigate = useNavigate();
@@ -109,17 +114,25 @@ const FacultyDashboard = () => {
         (p.status || '').toUpperCase() === 'PUBLISHED'
     ).length;
     
-    const totalProjectFunding = projects.reduce((sum, p) => sum + parseFloat(p.sanctionedBudget || 0), 0);
-    const totalEventFunding = events.filter(e => e.status === 'APPROVED').reduce((sum, e) => sum + parseFloat(e.approvedAmount || 0), 0);
+    const totalProjectFunding = projects.reduce((sum, p) => sum + safeNumber(p.sanctionedBudget || p.budget), 0);
+    const totalEventFunding = events.filter(e => e.status === 'APPROVED').reduce((sum, e) => sum + safeNumber(e.approvedAmount), 0);
+    const totalEquipmentFunding = equipmentRequests.filter(e => ['Approved', 'DISBURSED'].includes(e.status)).reduce((sum, e) => sum + safeNumber(e.approvedAmount), 0);
+    
     const totalFunding = totalProjectFunding + totalEventFunding + totalEquipmentFunding;
     const formattedFunding = formatCurrency(totalFunding);
-    const formattedRevenue = formatCurrency(revenueSummary.total || 0);
+    const formattedRevenue = formatCurrency(revenueSummary?.total || 0);
+
+    console.log("Faculty Dashboard Stats Persistence:", { 
+        projects: projects.length, 
+        totalFunding, 
+        statsData 
+    });
 
     const stats = [
-        { title: 'Active Projects', value: loading ? '…' : String(statsData?.activeProjects || 0), icon: FileText, color: 'text-rose-400', bg: 'bg-rose-500/10', border: 'border-rose-500/20', subtitle: 'Ongoing research' },
-        { title: 'Amount Disbursed', value: loading ? '…' : formatCurrency(statsData?.facultyDisbursed || statsData?.totalDisbursed || 0), icon: TrendingUp, color: 'text-amber-400', bg: 'bg-amber-500/10', border: 'border-amber-500/20', subtitle: 'Released to projects' },
-        { title: 'Total Allocated', value: loading ? '…' : formatCurrency(statsData?.facultyApprovedFunds || statsData?.totalAllocated || 0), icon: Banknote, color: 'text-emerald-400', bg: 'bg-emerald-500/10', border: 'border-emerald-500/20', subtitle: 'Approved grants' },
-        { title: 'Publications', value: String(publications), icon: Award, color: 'text-violet-400', bg: 'bg-violet-500/10', border: 'border-violet-500/20', subtitle: 'Research output' }
+        { title: 'Active Projects', value: loading ? '…' : String(statsData?.activeProjects ?? 0), icon: FileText, color: 'text-rose-400', bg: 'bg-rose-500/10', border: 'border-rose-500/20', subtitle: 'Ongoing research' },
+        { title: 'Amount Disbursed', value: loading ? '…' : formatCurrency(statsData?.facultyDisbursed ?? statsData?.totalDisbursed ?? 0), icon: TrendingUp, color: 'text-amber-400', bg: 'bg-amber-500/10', border: 'border-amber-500/20', subtitle: 'Released to projects' },
+        { title: 'Total Allocated', value: loading ? '…' : formatCurrency(statsData?.facultyApprovedFunds ?? statsData?.totalAllocated ?? 0), icon: Banknote, color: 'text-emerald-400', bg: 'bg-emerald-500/10', border: 'border-emerald-500/20', subtitle: 'Approved grants' },
+        { title: 'Publications', value: String(publications ?? 0), icon: Award, color: 'text-violet-400', bg: 'bg-violet-500/10', border: 'border-violet-500/20', subtitle: 'Research output' }
     ];
 
     // Build funding trend from real projects (by creation month)

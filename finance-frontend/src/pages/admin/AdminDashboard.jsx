@@ -28,6 +28,11 @@ import AddCentreModal from '../../components/shared/AddCentreModal';
 import Loader from '../../components/shared/Loader';
 import EmptyState from '../../components/shared/EmptyState';
 
+const safeNumber = (val) => {
+    const num = Number(val);
+    return isFinite(num) ? num : 0;
+};
+
 
 const getCurrentFY = () => {
     const today = new Date();
@@ -187,15 +192,15 @@ const AdminDashboard = () => {
     const totalStats = React.useMemo(() => {
         if (!stats) return { totalProjects: 0, activeProjects: 0, pendingApprovals: 0, totalBudget: 0, totalAllocated: 0, used: 0, remaining: 0, totalFaculty: 0, totalDisbursed: 0 };
         return {
-            totalProjects: stats.totalProjects ?? 0,
-            activeProjects: stats.activeProjects ?? 0,
-            pendingApprovals: stats.pendingApprovals ?? 0,
-            totalBudget: stats.totalBudget ?? 0,
-            totalAllocated: stats.totalAllocated ?? 0,
-            used: stats.used ?? 0,
-            remaining: stats.remaining ?? 0,
-            totalFaculty: stats.totalFaculty ?? 0,
-            totalDisbursed: stats.totalDisbursed ?? 0
+            totalProjects: safeNumber(stats.totalProjects),
+            activeProjects: safeNumber(stats.activeProjects),
+            pendingApprovals: safeNumber(stats.pendingApprovals),
+            totalBudget: safeNumber(stats.totalBudget),
+            totalAllocated: safeNumber(stats.totalAllocated),
+            used: safeNumber(stats.used),
+            remaining: safeNumber(stats.remaining),
+            totalFaculty: safeNumber(stats.totalFaculty),
+            totalDisbursed: safeNumber(stats.totalDisbursed)
         };
     }, [stats]);
 
@@ -279,7 +284,7 @@ const AdminDashboard = () => {
                             </CardHeader>
                             <CardContent className="p-4">
                                 <p className="text-2xl font-black italic tracking-tighter text-gray-800 dark:text-white">
-                                    ₹{(Number(fund.totalAllocated || 0) / 10000000).toFixed(2)} Cr
+                                    ₹{(safeNumber(fund.totalAllocated) / 10000000).toFixed(2)} Cr
                                 </p>
                                 <p className="text-[9px] font-bold uppercase text-slate-400 mt-1 italic">Total Allocated Allocation</p>
                             </CardContent>
