@@ -5,7 +5,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '.
 import { Badge } from '../../components/ui/badge';
 import { Button } from '../../components/ui/button';
 import {
-    Banknote, CheckCircle, TrendingUp,
+    Banknote, CheckCircle, TrendingUp, Plus, FileText, Landmark,
     UserPlus, BarChart3, Filter, Wallet, Building2, Activity, CircleDollarSign,
     Sparkles, AlertTriangle, Info, Clock
 } from 'lucide-react';

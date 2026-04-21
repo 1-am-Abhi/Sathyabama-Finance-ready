@@ -24,6 +24,8 @@ const toNumber = (value) => {
     return Number.isFinite(numeric) ? numeric : 0;
 };
 
+const normalizeName = (name) => (name || '').trim().toLowerCase().replace(/^centre\s+(for|of\s+excellence\s+for)\s+/i, '');
+
 const getCurrentFY = () => {
     const now = new Date();
     const year = now.getFullYear();

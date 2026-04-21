@@ -1,4 +1,13 @@
-const xss = require('xss');
+/**
+ * Native sanitization to avoid external dependency issues (xss package missing in package.json)
+ */
+const simpleSanitize = (str) => {
+    if (!str) return '';
+    return String(str)
+        .replace(/<[^>]*>?/gm, '') // Remove HTML tags
+        .replace(/[&<>"']/g, '')   // Remove sensitive characters
+        .trim();
+};
 
 /**
  * Security Middleware: Financial Input Sanitizer & Validator
@@ -30,8 +39,8 @@ const sanitizeFinancialInput = (req, res, next) => {
     }
 
     // 2. Sanitize Strings (Against XSS/Injection)
-    if (remarks) req.body.remarks = xss(String(remarks)).trim();
-    if (purpose) req.body.purpose = xss(String(purpose)).trim();
+    if (remarks) req.body.remarks = simpleSanitize(remarks);
+    if (purpose) req.body.purpose = simpleSanitize(purpose);
 
     next();
 };
