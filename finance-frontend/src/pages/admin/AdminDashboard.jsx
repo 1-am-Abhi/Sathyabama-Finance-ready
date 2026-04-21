@@ -64,11 +64,11 @@ const AdminDashboard = () => {
             ]);
 
             if (statsRes?.data?.success) {
-                const fetchedStats = statsRes.data.data || statsRes.data.stats;
-                const fetchedCentres = statsRes.data.meta?.centres || statsRes.data.centres || [];
-                const fetchedForecast = statsRes.data.forecast || null;
+                const fetchedData = statsRes.data.data || {};
+                const fetchedCentres = fetchedData.centres || [];
+                const fetchedForecast = fetchedData.forecast || null;
                 
-                setStats(fetchedStats);
+                setStats(fetchedData);
                 setCentresStats(fetchedCentres);
                 setForecast(fetchedForecast);
             }
@@ -368,7 +368,7 @@ const AdminDashboard = () => {
         return <Loader message="Analyzing financial metrics..." />;
     }
 
-    const hasData = totalStats.totalProjects > 0 || (recentRequests || []).length > 0;
+    const hasData = totalStats.totalAllocated > 0 || totalStats.totalProjects > 0 || (recentRequests || []).length > 0;
     if (!hasData && !loading && selectedCentre === 'ALL' && selectedFY === '2024-25') {
         return <EmptyState 
             message="No Dashboard Data" 

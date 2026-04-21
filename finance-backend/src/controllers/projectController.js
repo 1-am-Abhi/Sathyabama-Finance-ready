@@ -72,10 +72,12 @@ const getAdminStats = asyncHandler(async (req, res) => {
 
     return res.status(200).json({
         success: true,
-        data: stats || {},
-        meta: {
-            centres: adminData?.centres || [],
-            cached: false
+        data: {
+            ...stats,
+            totalAllocated: stats.totalAllocated,
+            used: stats.totalUsed,
+            remaining: stats.remaining,
+            centres: adminData?.centres || []
         }
     });
 });

@@ -402,16 +402,16 @@ const getAdminDashboardData = async () => {
         0
     );
 
-    return {
+    const result = {
         stats: {
             totalProjects,
             activeProjects,
             pendingApprovals,
-            totalAllocated: totalAllocatedFromProjects,
-            totalUsed: fundingTotals.totalUsed,
-            totalDisbursed: fundingTotals.totalDisbursed,
-            remaining: Math.max(0, totalAllocatedFromProjects - fundingTotals.totalUsed),
-            approvedFunds,
+            totalAllocated: Number(fundingTotals.totalAllocated) || 0,
+            totalUsed: Number(fundingTotals.totalUsed) || 0,
+            totalDisbursed: Number(fundingTotals.totalDisbursed) || 0,
+            remaining: Math.max(0, Number(fundingTotals.totalAllocated) - Number(fundingTotals.totalUsed)),
+            approvedFunds: Number(approvedFunds) || 0,
             totalFaculty: shared.totalFaculty,
             pfmsStats: {
                 allotted: fundSources.pfmsFunds.totalAllocated,
@@ -429,10 +429,15 @@ const getAdminDashboardData = async () => {
                 balance: fundSources.othersFunds.remainingBalance,
             },
         },
-        forecast: await getForecastingAnalytics(shared, totalAllocatedFromProjects),
+        forecast: await getForecastingAnalytics(shared, fundingTotals.totalAllocated),
         centres: buildCentreBreakdown(shared).map(({ key, ...centre }) => centre),
         shared,
     };
+
+    console.log("DEBUG totalAllocated:", result.stats.totalAllocated);
+    console.log("DEBUG used:", result.stats.totalUsed);
+
+    return result;
 };
 
 const matchesFaculty = (record, facultyId, facultyName) => {
