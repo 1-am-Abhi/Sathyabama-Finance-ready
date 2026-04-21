@@ -17,6 +17,13 @@ const {
 const ALLOCATED_STATUSES = ['APPROVED', 'PENDING_DISBURSAL', 'DISBURSED'];
 const ACTIVE_PROJECT_STATUSES = ['ACTIVE', 'APPROVED'];
 
+const getRecordId = (record) => record?._id || record?.id || null;
+
+const toNumber = (value) => {
+    const numeric = Number(value);
+    return Number.isFinite(numeric) ? numeric : 0;
+};
+
 const getCurrentFY = () => {
     const now = new Date();
     const year = now.getFullYear();

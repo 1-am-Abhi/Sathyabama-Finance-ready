@@ -68,6 +68,8 @@ const AdminDashboard = () => {
     const [isAddCentreOpen, setIsAddCentreOpen] = useState(false);
     const [aiModal, setAiModal] = useState({ open: false, loading: false, result: null });
     const [forecast, setForecast] = useState(null);
+    const [insights, setInsights] = useState([]);
+    const [isSocketConnected, setIsSocketConnected] = useState(true);
     const [isDark] = useState(false);
 
 
@@ -115,6 +117,28 @@ const AdminDashboard = () => {
     React.useEffect(() => {
         fetchDashboardData();
 
+        const fetchInsights = async () => {
+            try {
+                const [insightsRes, forecastRes] = await Promise.all([
+                    apiClient.get('/analytics/insights'),
+                    apiClient.get('/analytics/forecast-base?days=30')
+                ]);
+                
+                if (insightsRes.data?.success) {
+                    setInsights(insightsRes.data.data.insights || []);
+                    setForecast({
+                        avgDailySpend: insightsRes.data.data.avgDailySpend,
+                        projectedUsage30Days: insightsRes.data.data.avgDailySpend * 30,
+                        confidence: insightsRes.data.data.avgDailySpend > 0 ? 'HIGH' : 'LOW',
+                        risk: (insightsRes.data.data.avgDailySpend * 30) > (totalStats.totalAllocated / 12) ? 'HIGH' : 'LOW'
+                    });
+                }
+            } catch (err) {
+                console.warn("Failed to fetch analytics:", err);
+            }
+        };
+        fetchInsights();
+
         const socketUrl = (process.env.REACT_APP_API_URL || 'https://finance-api-x1ig.onrender.com').replace('/api', '');
         const token = localStorage.getItem('token');
         
@@ -123,15 +147,26 @@ const AdminDashboard = () => {
             transports: ['websocket', 'polling']
         });
 
-        socket.on('connect', () => setSocketConnected(true));
-        socket.on('disconnect', () => setSocketConnected(false));
+        socket.on('connect', () => {
+            setSocketConnected(true);
+            setIsSocketConnected(true);
+        });
+        socket.on('disconnect', () => {
+            setSocketConnected(false);
+            setIsSocketConnected(false);
+        });
 
         socket.on('finance:update', () => {
             if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);
-            refreshTimerRef.current = setTimeout(() => fetchDashboardData(), 1000);
+            refreshTimerRef.current = setTimeout(() => {
+                fetchDashboardData();
+                fetchInsights();
+            }, 1000);
         });
 
         return () => {
+            socket.off('connect');
+            socket.off('disconnect');
             socket.off('finance:update');
             socket.disconnect();
             if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);
@@ -218,6 +253,12 @@ const AdminDashboard = () => {
 
     return (
         <div className="flex-1 overflow-y-auto overflow-x-hidden p-6 bg-gray-50 dark:bg-slate-950">
+            {!isSocketConnected && (
+                <div className="mb-4 bg-amber-500 text-white text-[10px] font-bold text-center py-2 uppercase tracking-widest animate-pulse rounded-lg flex items-center justify-center gap-2">
+                    <AlertTriangle className="w-3 h-3" />
+                    Connection Lost - Reconnecting to Sathyabama Finance Engine...
+                </div>
+            )}
             <div className="mb-4 flex items-center gap-2">
                 <div className={`w-2 h-2 rounded-full ${socketConnected ? 'bg-green-500' : 'bg-red-500'}`} />
                 <span className="text-[10px] font-black italic uppercase tracking-widest text-slate-400">
@@ -532,17 +573,24 @@ const AdminDashboard = () => {
                     <CardHeader className="border-b border-white/5 bg-white/5 flex flex-row items-center justify-between">
                         <div>
                             <CardTitle className="text-lg font-black italic tracking-tighter uppercase text-white flex items-center gap-2">
-                                <Sparkles className="w-5 h-5 text-indigo-400" /> Administrative AI Insights
+                                <Sparkles className="w-5 h-5 text-indigo-400" /> AI Financial Insights
                             </CardTitle>
                         </div>
-                        <Button onClick={async () => { setAiModal({ open: true, loading: true, result: null }); const r = await generateResearchInsights(centreData); setAiModal({ open: true, loading: false, result: r }); }} className="bg-indigo-500 hover:bg-indigo-600 text-white font-black italic uppercase tracking-tighter text-xs px-6 rounded-xl">GENERATE REPORT</Button>
                     </CardHeader>
-                    <CardContent className="p-8">
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                            <div className="bg-white/5 p-4 rounded-xl border border-white/5"><p className="text-[10px] uppercase tracking-widest text-slate-500 font-bold">Predicted Approval</p><p className="text-2xl font-black italic text-emerald-400">92.4%</p></div>
-                            <div className="bg-white/5 p-4 rounded-xl border border-white/5"><p className="text-[10px] uppercase tracking-widest text-slate-500 font-bold">Resource Optimization</p><p className="text-2xl font-black italic text-indigo-400 uppercase tracking-tighter">High Efficiency</p></div>
-                            <div className="bg-white/5 p-4 rounded-xl border border-white/5"><p className="text-[10px] uppercase tracking-widest text-slate-500 font-bold">Growth Forecast</p><p className="text-2xl font-black italic text-amber-400 tracking-tighter">+15.8%</p></div>
-                        </div>
+                    <CardContent className="p-6 space-y-4">
+                        {insights.length > 0 ? (
+                            insights.map((insight, i) => (
+                                <div key={i} className="flex items-start gap-3 p-3 bg-white/5 rounded-xl border border-white/5 group hover:bg-white/10 transition-all">
+                                    <div className="w-2 h-2 rounded-full bg-indigo-500 mt-1.5 flex-shrink-0 animate-pulse"></div>
+                                    <p className="text-xs text-slate-300 leading-relaxed italic">{insight}</p>
+                                </div>
+                            ))
+                        ) : (
+                            <div className="flex flex-col items-center justify-center py-8 text-slate-500">
+                                <Landmark className="w-12 h-12 mb-3 opacity-20" />
+                                <p className="text-[10px] font-bold uppercase tracking-widest">Generating Pattern Analysis...</p>
+                            </div>
+                        )}
                     </CardContent>
                 </Card>
 

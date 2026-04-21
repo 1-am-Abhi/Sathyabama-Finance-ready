@@ -3,6 +3,7 @@ const router = express.Router();
 const fundRequestController = require('../controllers/fundRequestController');
 const { protect, authorize } = require('../middleware/authMiddleware');
 const { validate, fundRequestSchema } = require('../utils/validation');
+const { sanitizeFinancialInput } = require('../middleware/inputSanitizer');
 
 // All routes require authentication
 router.use(protect);
@@ -24,6 +25,7 @@ router.get('/:id', fundRequestController.getFundRequest);
 router.post(
     '/',
     authorize('FACULTY'),
+    sanitizeFinancialInput,
     validate(fundRequestSchema),
     fundRequestController.createFundRequest
 );
@@ -47,10 +49,10 @@ router.patch('/:id/reject',   authorize('ADMIN'), fundRequestController.rejectFu
  *          creates Disbursement record + Ledger OUTFLOW entry.
  * Notifies: Faculty
  */
-router.patch('/:id/disburse', authorize('FINANCE_OFFICER'), fundRequestController.disburseFund);
+router.patch('/:id/disburse', authorize('FINANCE_OFFICER'), sanitizeFinancialInput, fundRequestController.disburseFund);
 
 // ── Granular pipeline advancement (Finance / Faculty) ─────────────────────────
 // Retained for backward-compat with the stage-based pipeline UI
-router.post('/:id/advance', fundRequestController.advanceStage);
+router.post('/:id/advance', sanitizeFinancialInput, fundRequestController.advanceStage);
 
 module.exports = router;

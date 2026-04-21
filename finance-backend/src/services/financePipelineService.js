@@ -1,6 +1,9 @@
 const { Op } = require('sequelize');
 const models = require('../models');
 const NotificationService = require('./notificationService');
+const { logDisbursementAudit } = require('./auditService');
+const { verifyFinancialParity } = require('./watchdogService');
+const { detectAnomalies } = require('./analyticsService');
 
 const {
     sequelize,
@@ -352,6 +355,31 @@ const executeDisbursementPipeline = async (request, payload, actor) => {
             entryDate: payload.disbursementDate || new Date(),
             createdByUserId: actor?.id || actor?._id || null,
         }, { transaction });
+
+        // Detection of Financial Anomalies (Heuristic-based)
+        const anomalyCheck = await detectAnomalies({ projectId: request.projectId, amount });
+
+        // Record Detailed Audit Log
+        await logDisbursementAudit({
+            projectId: request.projectId,
+            amount,
+            previousTotalUsed: toNumber(currentSum),
+            newTotalUsed: toNumber(currentSum) + amount,
+            remainingBudget: sanctionedBudget - (toNumber(currentSum) + amount),
+            isInstallment: !!(payload.mode === 'INSTALLMENT' || payload.isInstallment),
+            userId: actor?.id || actor?._id,
+            entityId: getRecordId(request),
+            metadata: {
+                transactionId: bankReference,
+                projectTitle: request.projectTitle,
+                financeRemarks: financeRemarks,
+                anomaly: anomalyCheck.anomaly,
+                anomalyReason: anomalyCheck.reason
+            }
+        });
+
+        // Trigger Parity Watchdog (Async to avoid blocking response)
+        verifyFinancialParity('DISBURSEMENT_PIPELINE').catch(err => console.error('Watchdog failed:', err));
 
         return { request, disbursement };
     });

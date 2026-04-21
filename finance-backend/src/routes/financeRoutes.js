@@ -5,6 +5,7 @@ const financeController = require('../controllers/financeController');
 const projectController = require('../controllers/projectController');
 const internshipController = require('../controllers/internshipController');
 const fundRequestController = require('../controllers/fundRequestController');
+const { sanitizeFinancialInput } = require('../middleware/inputSanitizer');
 
 // All finance routes require authentication
 router.use(protect);
@@ -13,12 +14,12 @@ router.use(protect);
 router.get('/stats', financeController.getFinanceStats);
 router.get('/dashboard', financeController.getFinanceStats);
 router.get('/fund-sources/overview', financeController.getFundSourcesOverview);
-router.put('/funds/update', authorize('FINANCE_OFFICER', 'ADMIN'), financeController.updateFundSourceAmount);
+router.put('/funds/update', authorize('FINANCE_OFFICER', 'ADMIN'), sanitizeFinancialInput, financeController.updateFundSourceAmount);
 
 // ── Departments ───────────────────────────────────────────────────────────────
 router.get('/departments', financeController.getDepartmentFinance);
 router.get('/departments/:id/funding', financeController.getDepartmentFundingDetails);
-router.post('/funding/update', authorize('FINANCE_OFFICER', 'ADMIN'), financeController.updateDepartmentFunding);
+router.post('/funding/update', authorize('FINANCE_OFFICER', 'ADMIN'), sanitizeFinancialInput, financeController.updateDepartmentFunding);
 router.get('/departments/:id/funding-history', async (req, res) => {
     // Return disbursement history filtered by department
     try {
