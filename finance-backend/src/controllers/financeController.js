@@ -211,6 +211,15 @@ const updateFundSourceAmount = asyncHandler(async (req, res) => {
 
         logger.info(`[updateFundSourceAmount] ${sourceType} updated to ${numericAmount} by ${req.user?.name}. Remarks: ${remarks || 'N/A'}`);
 
+        if (global.io) {
+            global.io.emit('finance:update', { 
+                type: 'FUND_SOURCE', 
+                sourceType, 
+                amount: numericAmount,
+                updatedBy: req.user?.name 
+            });
+        }
+
         res.json({ success: true, data: fundSource });
     } catch (err) {
         logger.error('[updateFundSourceAmount] ' + err.message);
@@ -311,6 +320,16 @@ const updateDepartmentFunding = asyncHandler(async (req, res) => {
                 ? Number(project.sanctionedBudget || 0) / totalCurrentBudget
                 : 1 / projects.length;
             await project.update({ sanctionedBudget: Number(amount) * ratio });
+        }
+
+        if (global.io) {
+            global.io.emit('finance:update', { 
+                type: 'DEPARTMENT_FUNDING', 
+                departmentId, 
+                fundSource, 
+                amount,
+                updatedBy: req.user?.name 
+            });
         }
 
         res.json({ success: true, message: 'Funding updated successfully' });

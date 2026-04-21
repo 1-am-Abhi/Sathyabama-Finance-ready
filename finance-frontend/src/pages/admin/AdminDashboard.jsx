@@ -7,8 +7,10 @@ import { Button } from '../../components/ui/button';
 import {
     Banknote, CheckCircle, TrendingUp,
     UserPlus, BarChart3, Filter, Wallet, Building2, Activity, CircleDollarSign,
-    Sparkles
+    Sparkles, AlertTriangle, Info, Clock
 } from 'lucide-react';
+import { io } from 'socket.io-client';
+import { toast } from 'sonner';
 import { useAuth } from '../../contexts/AuthContext';
 import { useLayout } from '../../contexts/LayoutContext';
 import DateFilter from '../../components/shared/DateFilter';
@@ -16,7 +18,7 @@ import AIResultModal from '../../components/shared/AIResultModal';
 import { generateResearchInsights } from '../../services/aiService';
 import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
-    PieChart, Pie, Cell, Sector
+    PieChart, Pie, Cell, Sector, RadialBarChart, RadialBar
 } from 'recharts';
 import { useCentres } from '../../constants/researchCentres';
 import ResearchCentreDetail from './ResearchCentreDetail';
@@ -45,10 +47,13 @@ const AdminDashboard = () => {
 
 
     const [stats, setStats] = useState(null);
+    const [forecast, setForecast] = useState(null);
     const [centresStats, setCentresStats] = useState([]);
     const [recentRequests, setRecentRequests] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [socketConnected, setSocketConnected] = useState(false);
     const { centres: dynamicCentres, refreshCentres } = useCentres();
+    const refreshTimerRef = React.useRef(null);
 
     const fetchDashboardData = async () => {
         try {
@@ -61,8 +66,11 @@ const AdminDashboard = () => {
             if (statsRes?.data?.success) {
                 const fetchedStats = statsRes.data.data || statsRes.data.stats;
                 const fetchedCentres = statsRes.data.meta?.centres || statsRes.data.centres || [];
+                const fetchedForecast = statsRes.data.forecast || null;
+                
                 setStats(fetchedStats);
                 setCentresStats(fetchedCentres);
+                setForecast(fetchedForecast);
             }
             if (requestsRes?.data?.success) {
                 const requests = requestsRes.data.data || [];
@@ -79,22 +87,44 @@ const AdminDashboard = () => {
     React.useEffect(() => {
         fetchDashboardData();
 
-        const handleFundingSync = () => {
-            fetchDashboardData();
-        };
+        // ── Real-time Sync ───────────────────────────────────────────────────
+        const socketUrl = (process.env.REACT_APP_API_URL || 'https://finance-api-x1ig.onrender.com').replace('/api', '');
+        const token = localStorage.getItem('token');
+        
+        const socket = io(socketUrl, {
+            auth: { token },
+            transports: ['websocket', 'polling']
+        });
 
-        const handleStorage = (event) => {
-            if (event.key === 'fundSourcesUpdatedAt') {
-                fetchDashboardData();
+        socket.on('connect', () => {
+            console.log('✅ Dashboard Socket Connected');
+            setSocketConnected(true);
+        });
+
+        socket.on('disconnect', () => {
+            setSocketConnected(false);
+        });
+
+        socket.on('finance:update', (event) => {
+            console.log('🔄 Financial data updated:', event);
+            
+            // Notification with specific details
+            if (event.type === 'DISBURSEMENT') {
+                toast.info(`New Disbursement: ₹${event.amount.toLocaleString()} for ${event.projectTitle}`);
+            } else if (event.type === 'FUND_SOURCE') {
+                toast.info(`Fund Limit Updated: ${event.sourceType} increased to ₹${event.amount.toLocaleString()}`);
             }
-        };
 
-        window.addEventListener('fund-sources-updated', handleFundingSync);
-        window.addEventListener('storage', handleStorage);
+            // Debounced refresh
+            if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);
+            refreshTimerRef.current = setTimeout(() => {
+                fetchDashboardData();
+            }, 1000);
+        });
 
         return () => {
-            window.removeEventListener('fund-sources-updated', handleFundingSync);
-            window.removeEventListener('storage', handleStorage);
+            socket.disconnect();
+            if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);
         };
     }, []);
 
@@ -348,6 +378,26 @@ const AdminDashboard = () => {
 
     return (
         <div className="flex-1 overflow-y-auto overflow-x-hidden p-6 bg-gray-50 dark:bg-slate-950">
+            {/* Risk Alert Banner */}
+            {totalStats.totalAllocated > 0 && (totalStats.totalDisbursed / totalStats.totalAllocated) > 0.8 && (
+                <div className="mb-6 p-4 bg-maroon-50 border border-maroon-200 rounded-xl flex items-center gap-4 animate-pulse">
+                    <div className="p-2 bg-maroon-100 rounded-lg text-maroon-600">
+                        <AlertTriangle className="w-6 h-6" />
+                    </div>
+                    <div>
+                        <h3 className="text-sm font-bold text-maroon-900 uppercase italic tracking-tighter">High Fund Utilization Warning</h3>
+                        <p className="text-xs text-maroon-700 font-medium italic">Current expenditure is {((totalStats.totalDisbursed / totalStats.totalAllocated) * 100).toFixed(1)}% of total allocated budget. Immediate review required.</p>
+                    </div>
+                </div>
+            )}
+
+            {/* Socket Status Indicator */}
+            <div className="mb-4 flex items-center gap-2">
+                <div className={`w-2 h-2 rounded-full ${socketConnected ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]' : 'bg-red-500'}`} />
+                <span className="text-[10px] font-black italic uppercase tracking-widest text-slate-400">
+                    {socketConnected ? 'Live Connection Active' : 'Real-time Sync Offline'}
+                </span>
+            </div>
 
             {/* Funds Overview Section - canonical fund sources only */}
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 mb-8">
@@ -632,22 +682,25 @@ const AdminDashboard = () => {
             {/* Comparison Charts — stack on mobile/tablet */}
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 mb-8 items-stretch">
                 <Card className="border-0 shadow-sm dark:bg-slate-900 flex flex-col">
-                    <CardHeader className="border-b bg-gray-50 dark:bg-slate-800/50 dark:border-slate-800 flex-shrink-0 px-4 sm:px-6">
-                        <CardTitle className="text-base sm:text-lg font-semibold">{activeMetric === 'projects' ? 'Project Distribution' : 'Budget vs Disbursed'}</CardTitle>
+                    <CardHeader className="border-b bg-gray-50 dark:bg-slate-800/50 dark:border-slate-800 flex-shrink-0 px-4 sm:px-6 flex flex-row items-center justify-between">
+                        <CardTitle className="text-base sm:text-lg font-semibold">Budget vs Disbursed Comparison</CardTitle>
+                        <Badge variant="outline" className="text-[10px] font-bold uppercase tracking-widest">Global Overview</Badge>
                     </CardHeader>
                     <CardContent className="p-3 sm:p-6 flex-1 flex flex-col justify-center">
-                        <div className="h-[240px] sm:h-[300px] w-full">
-                            <ResponsiveContainer width="100%" height={300}>
-
-                                <BarChart data={barChartData}>
-                                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                                    <XAxis dataKey="name" fontSize={10} />
-                                    <YAxis fontSize={10} width={40} />
-                                    <Tooltip formatter={(value) => formatCurrency(value)} />
-                                    <Legend />
-                                    {activeMetric === 'projects' && <Bar dataKey={selectedCentre === 'ALL' ? "projects" : "val"} fill="rgba(136, 19, 55, 0.8)" name="Projects" />}
-                                    {activeMetric !== 'projects' && <Bar dataKey="budget" fill="rgba(22, 163, 74, 0.8)" name="Budget" />}
-                                    {activeMetric !== 'projects' && <Bar dataKey="disbursed" fill="rgba(99, 102, 241, 0.8)" name="Disbursed" />}
+                        <div className="h-[300px] w-full">
+                            <ResponsiveContainer width="100%" height="100%">
+                                <BarChart data={barChartData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={chartConfig.grid} />
+                                    <XAxis dataKey="name" fontSize={10} tick={{ fill: chartConfig.text }} axisLine={false} tickLine={false} />
+                                    <YAxis fontSize={10} width={40} tick={{ fill: chartConfig.text }} axisLine={false} tickLine={false} tickFormatter={(value) => `₹${value}M`} />
+                                    <Tooltip 
+                                        cursor={{ fill: 'transparent' }}
+                                        contentStyle={{ backgroundColor: chartConfig.tooltip, border: `1px solid ${chartConfig.tooltipBorder}`, borderRadius: '8px', fontSize: '12px' }}
+                                        formatter={(value) => [formatCurrency(value * 1000000), 'Value']}
+                                    />
+                                    <Legend iconType="circle" />
+                                    <Bar dataKey="budget" fill="#6366f1" radius={[4, 4, 0, 0]} name="Allocated Budget" barSize={12} />
+                                    <Bar dataKey="disbursed" fill="#10b981" radius={[4, 4, 0, 0]} name="Total Disbursed" barSize={12} />
                                 </BarChart>
                             </ResponsiveContainer>
                         </div>
@@ -656,33 +709,42 @@ const AdminDashboard = () => {
 
                 <Card className="border-0 shadow-sm dark:bg-slate-900 flex flex-col">
                     <CardHeader className="border-b bg-gray-50 dark:bg-slate-800/50 dark:border-slate-800 flex-shrink-0 px-4 sm:px-6">
-                        <CardTitle className="text-base sm:text-lg font-semibold">Centre Project Share</CardTitle>
+                        <CardTitle className="text-base sm:text-lg font-semibold">Fund Utilization Percentage</CardTitle>
                     </CardHeader>
-                    <CardContent className="p-3 sm:p-6 flex-1 flex flex-col justify-center">
-                        <div className="flex flex-col sm:flex-row items-center justify-center gap-4 sm:gap-6">
-                            <div className="h-[220px] sm:h-[280px] w-full sm:w-3/5">
-                                <ResponsiveContainer width="100%" height={300}>
-
-                                    <PieChart>
-                                        <Pie activeIndex={activeIndex} activeShape={renderActiveShape} data={pieData} cx="50%" cy="50%" innerRadius={55} outerRadius={75} dataKey="value" onMouseEnter={onPieEnter} onMouseLeave={() => setActiveIndex(-1)}>
-                                            {pieData.map((entry, index) => <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />)}
-                                        </Pie>
-                                        <Tooltip />
-                                    </PieChart>
-                                </ResponsiveContainer>
+                    <CardContent className="p-3 sm:p-6 flex-1 flex flex-col justify-center items-center">
+                        <div className="h-[280px] w-full relative">
+                            <ResponsiveContainer width="100%" height="100%">
+                                <RadialBarChart 
+                                    cx="50%" 
+                                    cy="50%" 
+                                    innerRadius="60%" 
+                                    outerRadius="100%" 
+                                    barSize={20} 
+                                    data={[
+                                        { name: 'Utilization', value: totalStats.totalAllocated > 0 ? (totalStats.totalDisbursed / totalStats.totalAllocated) * 100 : 0, fill: (totalStats.totalDisbursed / totalStats.totalAllocated) > 0.8 ? '#e11d48' : '#6366f1' }
+                                    ]}
+                                    startAngle={180}
+                                    endAngle={0}
+                                >
+                                    <RadialBar background dataKey="value" cornerRadius={10} />
+                                    <Tooltip />
+                                </RadialBarChart>
+                            </ResponsiveContainer>
+                            <div className="absolute inset-0 flex flex-col items-center justify-center pt-10">
+                                <span className="text-4xl font-black italic text-slate-800 dark:text-white">
+                                    {totalStats.totalAllocated > 0 ? ((totalStats.totalDisbursed / totalStats.totalAllocated) * 100).toFixed(0) : 0}%
+                                </span>
+                                <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mt-1">Total Utilized</span>
                             </div>
-                            <div className="w-full sm:w-2/5 overflow-y-auto max-h-[200px] sm:max-h-[260px] sm:border-l dark:border-slate-800 sm:pl-4">
-                                <div className="space-y-1">
-                                    {pieData.map((entry, index) => (
-                                        <div key={index} className="flex items-center justify-between py-1.5 text-xs border-b last:border-0 border-gray-100 dark:border-slate-800/50">
-                                            <div className="flex items-center gap-2 truncate pr-2">
-                                                <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: COLORS[index % COLORS.length] }} />
-                                                <span className="truncate opacity-80">{entry.name}</span>
-                                            </div>
-                                            <span className="font-bold ml-2">{entry.value}</span>
-                                        </div>
-                                    ))}
-                                </div>
+                        </div>
+                        <div className="w-full max-w-xs mt-4 grid grid-cols-2 gap-4">
+                            <div className="text-center">
+                                <p className="text-[10px] font-bold uppercase text-slate-400 mb-1">Allocated</p>
+                                <p className="text-sm font-black text-slate-700 dark:text-slate-200">{formatCurrency(totalStats.totalAllocated)}</p>
+                            </div>
+                            <div className="text-center">
+                                <p className="text-[10px] font-bold uppercase text-slate-400 mb-1">Spent</p>
+                                <p className="text-sm font-black text-slate-700 dark:text-slate-200">{formatCurrency(totalStats.totalDisbursed)}</p>
                             </div>
                         </div>
                     </CardContent>
@@ -745,25 +807,71 @@ const AdminDashboard = () => {
                 </CardContent>
             </Card>
 
-            {/* AI Insights Placeholder (Re-adding the premium UI) */}
-            <Card className="border-0 shadow-lg mb-8 bg-slate-900 overflow-hidden relative group">
-                <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl -mr-32 -mt-32"></div>
-                <CardHeader className="border-b border-white/5 bg-white/5 flex flex-row items-center justify-between">
-                    <div>
-                        <CardTitle className="text-lg font-black italic tracking-tighter uppercase text-white flex items-center gap-2">
-                            <Sparkles className="w-5 h-5 text-indigo-400" /> Administrative AI Insights
-                        </CardTitle>
-                    </div>
-                    <Button onClick={async () => { setAiModal({ open: true, loading: true, result: null }); const r = await generateResearchInsights(centreData); setAiModal({ open: true, loading: false, result: r }); }} className="bg-indigo-500 hover:bg-indigo-600 text-white font-black italic uppercase tracking-tighter text-xs px-6 rounded-xl">GENERATE REPORT</Button>
-                </CardHeader>
-                <CardContent className="p-8">
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                        <div className="bg-white/5 p-4 rounded-xl border border-white/5"><p className="text-[10px] uppercase tracking-widest text-slate-500">Predicted Approval</p><p className="text-2xl font-black italic text-emerald-400">92.4%</p></div>
-                        <div className="bg-white/5 p-4 rounded-xl border border-white/5"><p className="text-[10px] uppercase tracking-widest text-slate-500">Resource Optimization</p><p className="text-2xl font-black italic text-indigo-400 uppercase">High Efficiency</p></div>
-                        <div className="bg-white/5 p-4 rounded-xl border border-white/5"><p className="text-[10px] uppercase tracking-widest text-slate-500">Forecast</p><p className="text-2xl font-black italic text-amber-400">+15.8%</p></div>
-                    </div>
-                </CardContent>
-            </Card>
+            {/* AI Insights and Forecasting */}
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 mb-8">
+                {/* AI Insights */}
+                <Card className="border-0 shadow-lg bg-slate-900 overflow-hidden relative group">
+                    <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl -mr-32 -mt-32"></div>
+                    <CardHeader className="border-b border-white/5 bg-white/5 flex flex-row items-center justify-between">
+                        <div>
+                            <CardTitle className="text-lg font-black italic tracking-tighter uppercase text-white flex items-center gap-2">
+                                <Sparkles className="w-5 h-5 text-indigo-400" /> Administrative AI Insights
+                            </CardTitle>
+                        </div>
+                        <Button onClick={async () => { setAiModal({ open: true, loading: true, result: null }); const r = await generateResearchInsights(centreData); setAiModal({ open: true, loading: false, result: r }); }} className="bg-indigo-500 hover:bg-indigo-600 text-white font-black italic uppercase tracking-tighter text-xs px-6 rounded-xl">GENERATE REPORT</Button>
+                    </CardHeader>
+                    <CardContent className="p-8">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                            <div className="bg-white/5 p-4 rounded-xl border border-white/5"><p className="text-[10px] uppercase tracking-widest text-slate-500 font-bold">Predicted Approval</p><p className="text-2xl font-black italic text-emerald-400">92.4%</p></div>
+                            <div className="bg-white/5 p-4 rounded-xl border border-white/5"><p className="text-[10px] uppercase tracking-widest text-slate-500 font-bold">Resource Optimization</p><p className="text-2xl font-black italic text-indigo-400 uppercase tracking-tighter">High Efficiency</p></div>
+                            <div className="bg-white/5 p-4 rounded-xl border border-white/5"><p className="text-[10px] uppercase tracking-widest text-slate-500 font-bold">Growth Forecast</p><p className="text-2xl font-black italic text-amber-400 tracking-tighter">+15.8%</p></div>
+                        </div>
+                    </CardContent>
+                </Card>
+
+                {/* Financial Forecasting Card */}
+                <Card className="border-0 shadow-lg bg-white dark:bg-slate-900 overflow-hidden relative border-l-4 border-l-indigo-500">
+                    <CardHeader className="border-b bg-gray-50/50 dark:bg-slate-800/50 dark:border-slate-800 flex flex-row items-center justify-between">
+                        <div>
+                            <CardTitle className="text-lg font-black italic tracking-tighter uppercase text-slate-900 dark:text-white flex items-center gap-2">
+                                <TrendingUp className="w-5 h-5 text-indigo-500" /> Spending Forecast
+                            </CardTitle>
+                            <CardDescription className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Based on last 30 days disbursement velocity</CardDescription>
+                        </div>
+                        {forecast && (
+                            <Badge className={`${forecast.risk === 'HIGH' ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600'} font-black italic uppercase tracking-tighter`}>
+                                {forecast.risk} RISK
+                            </Badge>
+                        )}
+                    </CardHeader>
+                    <CardContent className="p-6">
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="p-4 bg-gray-50 dark:bg-slate-800 rounded-xl border border-gray-100 dark:border-slate-700">
+                                <div className="flex items-center gap-2 mb-2 text-slate-500">
+                                    <Clock className="w-3 h-3" />
+                                    <p className="text-[9px] uppercase font-black italic tracking-wider">Avg Daily Spend</p>
+                                </div>
+                                <p className="text-lg font-black italic text-slate-900 dark:text-white">{formatCurrency(forecast?.avgDailySpend || 0)}</p>
+                            </div>
+                            <div className="p-4 bg-gray-50 dark:bg-slate-800 rounded-xl border border-gray-100 dark:border-slate-700">
+                                <div className="flex items-center gap-2 mb-2 text-slate-500">
+                                    <TrendingUp className="w-3 h-3" />
+                                    <p className="text-[9px] uppercase font-black italic tracking-wider">Projected (30 Days)</p>
+                                </div>
+                                <p className="text-lg font-black italic text-indigo-600 dark:text-indigo-400">{formatCurrency(forecast?.projectedUsage30Days || 0)}</p>
+                            </div>
+                        </div>
+                        
+                        <div className="mt-4 p-4 bg-indigo-50/50 dark:bg-indigo-900/10 rounded-xl border border-indigo-100/50 dark:border-indigo-900/20 flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                                <Info className="w-4 h-4 text-indigo-500" />
+                                <span className="text-[10px] font-bold italic text-indigo-700 dark:text-indigo-300 uppercase tracking-tight">Forecast Confidence</span>
+                            </div>
+                            <Badge variant="outline" className="border-indigo-300 text-indigo-600 dark:text-indigo-400 font-black italic uppercase text-[9px] tracking-widest">{forecast?.confidence || 'LOW'} CONFIDENCE</Badge>
+                        </div>
+                    </CardContent>
+                </Card>
+            </div>
 
             <ResearchCentreDetail isOpen={detailModalOpen} onClose={() => setDetailModalOpen(false)} centreName={selectedCentreDetail} isDark={isDark} />
             <AIResultModal open={aiModal.open} loading={aiModal.loading} result={aiModal.result} onClose={() => setAiModal({ ...aiModal, open: false })} />

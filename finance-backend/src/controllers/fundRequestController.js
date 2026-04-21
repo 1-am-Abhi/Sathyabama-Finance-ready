@@ -430,6 +430,15 @@ const disburseFund = asyncHandler(async (req, res) => {
         metadata: { transactionId: payload.transactionId, amount: Number(updatedRequest.requestedAmount) }
     });
 
+    if (global.io) {
+        global.io.emit('finance:update', { 
+            type: 'DISBURSEMENT', 
+            projectTitle: updatedRequest.projectTitle, 
+            amount: Number(updatedRequest.requestedAmount),
+            updatedBy: req.user?.name 
+        });
+    }
+
     return res.status(200).json({
         success: true,
         data: updatedRequest || {},

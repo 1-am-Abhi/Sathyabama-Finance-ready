@@ -429,6 +429,7 @@ const getAdminDashboardData = async () => {
                 balance: fundSources.othersFunds.remainingBalance,
             },
         },
+        forecast: await getForecastingAnalytics(shared, totalAllocatedFromProjects),
         centres: buildCentreBreakdown(shared).map(({ key, ...centre }) => centre),
         shared,
     };
@@ -582,6 +583,44 @@ const getDepartmentFundingRows = async (centreIdentifier) => {
     ].filter((row) => row.totalAllocated > 0 || row.amountReleased > 0);
 };
 
+const getForecastingAnalytics = async (shared, totalAllocated) => {
+    const now = new Date();
+    const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+
+    const recentDisbursements = (shared.disbursements || []).filter(d => 
+        new Date(d.disbursedAt || d.createdAt) >= thirtyDaysAgo
+    );
+
+    const totalSpend30d = recentDisbursements.reduce((sum, d) => sum + toNumber(d.amount), 0);
+    const dataPoints = recentDisbursements.length;
+
+    // actualDays: range between first and last disbursement in window, min 1, max 30
+    let actualDays = 30;
+    if (dataPoints > 1) {
+        const dates = recentDisbursements.map(d => new Date(d.disbursedAt || d.createdAt).getTime());
+        const span = (Math.max(...dates) - Math.min(...dates)) / (24 * 60 * 60 * 1000);
+        actualDays = Math.max(1, Math.min(30, Math.ceil(span)));
+    }
+
+    const avgDailySpend = totalSpend30d / Math.max(1, actualDays);
+    const projectedUsage30Days = avgDailySpend * 30;
+    
+    const used = (shared.disbursements || []).reduce((sum, d) => sum + toNumber(d.amount), 0);
+    const remaining = Math.max(0, totalAllocated - used);
+    
+    const risk = projectedUsage30Days > remaining ? 'HIGH' : 'SAFE';
+    const confidence = dataPoints > 15 ? 'HIGH' : (dataPoints > 5 ? 'MEDIUM' : 'LOW');
+
+    return {
+        avgDailySpend: toNumber(avgDailySpend),
+        projectedUsage30Days: toNumber(projectedUsage30Days),
+        risk,
+        confidence,
+        dataPoints,
+        totalSpend30d: toNumber(totalSpend30d)
+    };
+};
+
 module.exports = {
     ALLOCATED_STATUSES,
     ACTIVE_PROJECT_STATUSES,
@@ -596,4 +635,5 @@ module.exports = {
     getDepartmentFundingRows,
     getSharedPipelineData,
     getFundingTotals,
+    getForecastingAnalytics,
 };
