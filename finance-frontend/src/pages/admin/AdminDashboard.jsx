@@ -32,13 +32,25 @@ import EmptyState from '../../components/shared/EmptyState';
 const getCurrentFY = () => {
     const now = new Date();
     const year = now.getFullYear();
-    const month = now.getMonth(); // 0-indexed, 3 is April
-    if (month < 3) {
-        return `${year - 1}-${year.toString().slice(-2)}`;
-    }
-    return `${year}-${(year + 1).toString().slice(-2)}`;
+    const month = now.getMonth() + 1;
+    return month >= 4
+        ? `${year}-${(year + 1).toString().slice(-2)}`
+        : `${year - 1}-${year.toString().slice(-2)}`;
 };
 
+const generateFYOptions = (pastYears = 5) => {
+    const currentFY = getCurrentFY();
+    const [currentStartYear] = currentFY.split('-').map(Number);
+    const options = [];
+    for (let i = pastYears; i >= 0; i--) {
+        const startYear = currentStartYear - i;
+        const endYearShort = (startYear + 1).toString().slice(-2);
+        options.push(`${startYear}-${endYearShort}`);
+    }
+    return options;
+};
+
+const dashboardCache = {};
 
 const AdminDashboard = () => {
     const { setLayout } = useLayout();
@@ -50,6 +62,8 @@ const AdminDashboard = () => {
     const [selectedMonth, setSelectedMonth] = useState('ALL');
     const [selectedDate, setSelectedDate] = useState(null);
     const [selectedFY, setSelectedFY] = useState(getCurrentFY());
+    const isEditable = selectedFY === getCurrentFY();
+    const fyOptions = React.useMemo(() => generateFYOptions(5), []);
     const [activeIndex, setActiveIndex] = useState(-1);
     const [detailModalOpen, setDetailModalOpen] = useState(false);
     const [selectedCentreDetail, setSelectedCentreDetail] = useState(null);
@@ -66,8 +80,17 @@ const AdminDashboard = () => {
     const { centres: dynamicCentres, refreshCentres } = useCentres();
     const refreshTimerRef = React.useRef(null);
 
-    const fetchDashboardData = async () => {
+    const fetchDashboardData = async (force = false) => {
         try {
+            if (!force && dashboardCache[selectedFY]) {
+                const cached = dashboardCache[selectedFY];
+                setStats(cached.stats);
+                setCentresStats(cached.centres);
+                setForecast(cached.forecast);
+                setLoading(false);
+                return;
+            }
+
             if (!stats) setLoading(true);
             const [statsRes, requestsRes] = await Promise.all([
                 apiClient.get('/projects/stats', {
@@ -81,10 +104,17 @@ const AdminDashboard = () => {
                 const fetchedCentres = fetchedData.centres || [];
                 const fetchedForecast = fetchedData.forecast || null;
                 
+                dashboardCache[selectedFY] = {
+                    stats: fetchedData,
+                    centres: fetchedCentres,
+                    forecast: fetchedForecast
+                };
+
                 setStats(fetchedData);
                 setCentresStats(fetchedCentres);
                 setForecast(fetchedForecast);
             }
+
             if (requestsRes?.data?.success) {
                 const requests = requestsRes.data.data || [];
                 setRecentRequests(requests.slice(0, 5));
@@ -539,11 +569,18 @@ const AdminDashboard = () => {
                         <div className="flex items-start justify-between">
                             <div>
                                 <p className="text-xs sm:text-sm font-medium opacity-80 uppercase tracking-wider">Total Disbursed</p>
-                                <p className="text-2xl sm:text-3xl font-bold mt-2">{formatCurrency(totalStats.totalDisbursed)}</p>
+                                <p className="text-2xl sm:text-3xl font-bold mt-2">{formatCurrency(stats?.totalDisbursed || 0)}</p>
                             </div>
                             <div className="w-10 h-10 sm:w-12 sm:h-12 bg-white/20 rounded-lg flex items-center justify-center flex-shrink-0"><Banknote className="w-5 h-5 sm:w-6 sm:h-6" /></div>
                         </div>
-                        <p className="text-xs mt-3 opacity-70">Utilization: {totalStats.totalAllocated > 0 ? ((totalStats.totalDisbursed / totalStats.totalAllocated) * 100).toFixed(0) : 0}%</p>
+                        <div className="flex items-center justify-between mt-3">
+                            <p className="text-xs opacity-70">Utilization: {stats?.totalAllocated > 0 ? (((stats?.totalDisbursed || 0) / stats.totalAllocated) * 100).toFixed(0) : 0}%</p>
+                            {stats?.growth !== undefined && (
+                                <Badge className={`${stats.growth >= 0 ? 'bg-emerald-400' : 'bg-rose-400'} text-[10px] border-0 text-white`}>
+                                    {stats.growth >= 0 ? '+' : ''}{stats.growth.toFixed(1)}% YoY
+                                </Badge>
+                            )}
+                        </div>
                     </CardContent>
                 </Card>
 
@@ -589,6 +626,37 @@ const AdminDashboard = () => {
                 </Card>
             </div>
 
+            {/* Monthly Trend Chart */}
+            {stats?.monthlyData && stats.monthlyData.length > 0 && (
+                <Card className="border-0 shadow-md mb-8 bg-white dark:bg-slate-900 overflow-hidden">
+                    <CardHeader className="border-b border-gray-100 dark:border-slate-800 p-4 sm:p-6 flex flex-row items-center justify-between">
+                        <div>
+                            <CardTitle className="text-lg font-bold text-gray-800 dark:text-white">Financial Performance Trajectory</CardTitle>
+                            <CardDescription className="text-xs">Monthly disbursement trends for FY {selectedFY}</CardDescription>
+                        </div>
+                        <TrendingUp className="w-5 h-5 text-indigo-500" />
+                    </CardHeader>
+                    <CardContent className="p-4 sm:p-6 h-[300px]">
+                        <ResponsiveContainer width="100%" height="100%">
+                            <BarChart data={stats.monthlyData.map(d => ({
+                                ...d,
+                                month: new Date(d.month).toLocaleDateString('en-GB', { month: 'short' })
+                            }))}>
+                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" />
+                                <XAxis dataKey="month" axisLine={false} tickLine={false} fontSize={10} tick={{ fill: '#64748B' }} />
+                                <YAxis axisLine={false} tickLine={false} fontSize={10} tick={{ fill: '#64748B' }} tickFormatter={(val) => `₹${(val / 100000).toFixed(0)}L`} />
+                                <Tooltip 
+                                    cursor={{ fill: 'rgba(99, 102, 241, 0.05)' }}
+                                    contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }}
+                                    formatter={(val) => [formatCurrency(val), 'Disbursed']}
+                                />
+                                <Bar dataKey="total" fill="#6366F1" radius={[4, 4, 0, 0]} barSize={32} />
+                            </BarChart>
+                        </ResponsiveContainer>
+                    </CardContent>
+                </Card>
+            )}
+
             {/* Quick Actions — 2 cols on mobile, 4 on lg */}
             <Card className="border-0 shadow-sm mb-8 dark:bg-slate-900">
                 <CardHeader className="border-b bg-gray-50 dark:bg-slate-800/50 dark:border-slate-800 px-4 sm:px-6 py-3 sm:py-4">
@@ -599,8 +667,18 @@ const AdminDashboard = () => {
                         {quickActions.map((action, index) => {
                             const Icon = action.icon;
                             return (
-                                <button key={index} onClick={action.action} className={`p-4 sm:p-6 rounded-lg ${action.color} dark:bg-opacity-10 dark:border-slate-800 hover:shadow-md transition-all text-left border border-gray-200`}>
-                                    <div className="flex items-start justify-between mb-2 sm:mb-3"><div className={`w-10 h-10 sm:w-12 sm:h-12 ${action.iconBg} dark:bg-opacity-20 rounded-lg flex items-center justify-center`}><Icon className="w-5 h-5 sm:w-6 sm:h-6" /></div></div>
+                                <button 
+                                    key={index} 
+                                    onClick={isEditable ? action.action : () => toast.error(`Actions are locked for past financial year ${selectedFY}`)} 
+                                    disabled={!isEditable}
+                                    className={`p-4 sm:p-6 rounded-lg ${action.color} dark:bg-opacity-10 dark:border-slate-800 transition-all text-left border border-gray-200 ${!isEditable ? 'opacity-50 grayscale cursor-not-allowed' : 'hover:shadow-md'}`}
+                                >
+                                    <div className="flex items-start justify-between mb-2 sm:mb-3">
+                                        <div className={`w-10 h-10 sm:w-12 sm:h-12 ${action.iconBg} dark:bg-opacity-20 rounded-lg flex items-center justify-center`}>
+                                            <Icon className="w-5 h-5 sm:w-6 sm:h-6" />
+                                        </div>
+                                        {!isEditable && <Clock className="w-4 h-4 text-gray-400" />}
+                                    </div>
                                     <h3 className="font-bold text-sm sm:text-base mb-1 dark:text-white">{action.title}</h3>
                                     <p className="text-xs sm:text-sm opacity-80 dark:text-gray-400 hidden sm:block">{action.description}</p>
                                 </button>
@@ -638,6 +716,25 @@ const AdminDashboard = () => {
                         <span className="text-xs font-bold uppercase tracking-wider hidden sm:inline">Refresh</span>
                     </button>
                     <div className="flex-1 min-w-[160px]"><DateFilter selectedDate={selectedDate} onChange={(date) => setSelectedDate(date)} placeholder="Filter by Date" /></div>
+                    
+                    <div className="flex items-center gap-1">
+                        <Button 
+                            variant="outline" 
+                            size="sm" 
+                            onClick={() => window.open(`${apiClient.defaults.baseURL}/reports/export?fy=${selectedFY}&type=pdf`, '_blank')}
+                            className="h-9 text-[10px] sm:text-xs font-bold uppercase tracking-wider border-gray-200 dark:border-slate-700"
+                        >
+                            PDF
+                        </Button>
+                        <Button 
+                            variant="outline" 
+                            size="sm" 
+                            onClick={() => window.open(`${apiClient.defaults.baseURL}/reports/export?fy=${selectedFY}&type=excel`, '_blank')}
+                            className="h-9 text-[10px] sm:text-xs font-bold uppercase tracking-wider border-gray-200 dark:border-slate-700"
+                        >
+                            Excel
+                        </Button>
+                    </div>
                     {selectedDate && <Badge variant="outline" className="border-blue-200 text-blue-600 bg-blue-50 dark:bg-blue-900/20 dark:text-blue-400 dark:border-blue-900 animate-pulse whitespace-nowrap">Daily View</Badge>}
                     {(selectedDate || selectedFY !== '2026-27' || selectedCentre !== 'ALL') && (
                         <button onClick={() => { setSelectedDate(null); setSelectedFY('2024-25'); setSelectedCentre('ALL'); }} className="text-xs font-medium text-gray-400 hover:text-maroon-600 dark:hover:text-maroon-400 transition-colors flex items-center whitespace-nowrap">

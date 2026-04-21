@@ -63,6 +63,51 @@ const getFundingTotals = async (dateRange = null) => {
     };
 };
 
+const getMonthlyAnalytics = async (dateRange) => {
+    if (!dateRange) return [];
+    try {
+        const data = await Disbursement.findAll({
+            attributes: [
+                [models.Sequelize.fn('DATE_TRUNC', 'month', models.Sequelize.col('createdAt')), 'month'],
+                [models.Sequelize.fn('SUM', models.Sequelize.col('amount')), 'total']
+            ],
+            where: {
+                createdAt: { [Op.between]: [dateRange.start, dateRange.end] }
+            },
+            group: ['month'],
+            order: [['month', 'ASC']]
+        });
+        return data.map(d => ({
+            month: d.get('month'),
+            total: toNumber(d.get('total'))
+        }));
+    } catch (err) {
+        console.error("Monthly analytics error:", err);
+        return [];
+    }
+};
+
+const getYoYGrowth = async (financialYear, currentUsed) => {
+    try {
+        const [startPart] = financialYear.split('-');
+        const startYearInt = parseInt(startPart);
+        const prevFY = `${startYearInt - 1}-${startYearInt.toString().slice(-2)}`;
+        const prevRange = getFYDateRange(prevFY);
+        
+        if (!prevRange) return 0;
+        
+        const prevUsed = Number(await Disbursement.sum('amount', {
+            where: {
+                createdAt: { [Op.between]: [prevRange.start, prevRange.end] }
+            }
+        })) || 0;
+        
+        return prevUsed > 0 ? ((currentUsed - prevUsed) / prevUsed) * 100 : 0;
+    } catch (err) {
+        return 0;
+    }
+};
+
 const buildCentreInclude = () => ({
     model: Centre,
     as: 'researchCentre',
@@ -441,6 +486,8 @@ const getAdminDashboardData = async (financialYear = null) => {
             remaining: Math.max(0, (Number(fundingTotals.totalAllocated) || 0) - (Number(fundingTotals.totalUsed) || 0)),
             approvedFunds: Number(approvedFunds) || 0,
             totalFaculty: shared.totalFaculty,
+            monthlyData,
+            growth,
             pfmsStats: {
                 allotted: fundSources.pfmsFunds.totalAllocated,
                 consumed: fundSources.pfmsFunds.totalUsed,
@@ -468,6 +515,7 @@ const getAdminDashboardData = async (financialYear = null) => {
 
     return result;
 };
+
 
 const matchesFaculty = (record, facultyId, facultyName) => {
     const recordFacultyId = record?.facultyId || record?.userId || record?.FundRequest?.facultyId || record?.FundRequest?.userId || record?.Project?.facultyId || record?.Project?.userId;
@@ -670,4 +718,6 @@ module.exports = {
     getSharedPipelineData,
     getFundingTotals,
     getForecastingAnalytics,
+    getMonthlyAnalytics,
+    getYoYGrowth,
 };
