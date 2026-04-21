@@ -111,12 +111,7 @@ const FacultyDashboard = () => {
     
     const totalProjectFunding = projects.reduce((sum, p) => sum + parseFloat(p.sanctionedBudget || 0), 0);
     const totalEventFunding = events.filter(e => e.status === 'APPROVED').reduce((sum, e) => sum + parseFloat(e.approvedAmount || 0), 0);
-    const totalFundReqFunding = fundRequests
-        .filter(r => ['APPROVED', 'PENDING_DISBURSAL', 'DISBURSED'].includes((r.status || '').toUpperCase()))
-        .reduce((sum, r) => sum + parseFloat(r.requestedAmount || 0), 0);
-    const totalEquipmentFunding = equipmentRequests.filter(e => ['Approved', 'DISBURSED'].includes(e.status)).reduce((sum, e) => sum + parseFloat(e.approvedAmount || 0), 0);
-    
-    const totalFunding = totalProjectFunding + totalEventFunding + totalFundReqFunding + totalEquipmentFunding;
+    const totalFunding = totalProjectFunding + totalEventFunding + totalEquipmentFunding;
     const formattedFunding = formatCurrency(totalFunding);
     const formattedRevenue = formatCurrency(revenueSummary.total || 0);
 
@@ -149,16 +144,7 @@ const FacultyDashboard = () => {
             if (amt > 0) trendData[mIdx].titles.push(`Event: ${e.eventTitle}`);
         }
     });
-    // Also include fund requests that have been approved
-    (fundRequests || []).forEach(r => {
-        const d = r.createdAt ? new Date(r.createdAt) : null;
-        if (d && ['APPROVED', 'PENDING_DISBURSAL', 'DISBURSED'].includes((r.status || '').toUpperCase())) {
-            const mIdx = d.getMonth();
-            const amt = parseFloat(r.requestedAmount || 0) / 100000;
-            trendData[mIdx].amount += amt;
-            if (amt > 0) trendData[mIdx].titles.push(`Fund Req: ${r.purpose || r.projectTitle}`);
-        }
-    });
+    // fundRequests loop removed to prevent double-counting as they are installments of projects
     // Include equipment requests (sanctioned/disbursed)
     (equipmentRequests || []).forEach(e => {
         const d = e.createdAt ? new Date(e.createdAt) : null;

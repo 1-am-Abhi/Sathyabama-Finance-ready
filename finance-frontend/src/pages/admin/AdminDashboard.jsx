@@ -74,6 +74,7 @@ const AdminDashboard = () => {
 
 
     const [stats, setStats] = useState(null);
+    const [fundSources, setFundSources] = useState([]);
     const [centresStats, setCentresStats] = useState([]);
     const [loading, setLoading] = useState(true);
     const [socketConnected, setSocketConnected] = useState(false);
@@ -101,11 +102,13 @@ const AdminDashboard = () => {
                 const fetchedData = statsRes.data.data || {};
                 dashboardCache[selectedFY] = {
                     stats: fetchedData,
-                    centres: fetchedData.centres || []
+                    centres: fetchedData.centres || [],
+                    fundSources: fetchedData.fundSources || []
                 };
 
                 setStats(fetchedData);
                 setCentresStats(fetchedData.centres || []);
+                setFundSources(fetchedData.fundSources || []);
             }
         } catch (error) {
             console.error("Error fetching admin data:", error);
@@ -265,6 +268,26 @@ const AdminDashboard = () => {
                     {socketConnected ? 'Live Connection Active' : 'Real-time Sync Offline'}
                 </span>
             </div>
+
+            {fundSources.length > 0 && (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                    {fundSources.map(fund => (
+                        <Card key={fund.id} className="border-0 shadow-lg bg-white dark:bg-slate-900 overflow-hidden relative group">
+                            <CardHeader className="p-4 border-b border-gray-100 dark:border-slate-800 flex flex-row items-center justify-between">
+                                <CardTitle className="text-[10px] font-black uppercase tracking-widest text-slate-500">{fund.name}</CardTitle>
+                                <Wallet className="w-4 h-4 text-indigo-500" />
+                            </CardHeader>
+                            <CardContent className="p-4">
+                                <p className="text-2xl font-black italic tracking-tighter text-gray-800 dark:text-white">
+                                    ₹{(Number(fund.totalAllocated || 0) / 10000000).toFixed(2)} Cr
+                                </p>
+                                <p className="text-[9px] font-bold uppercase text-slate-400 mt-1 italic">Total Allocated Allocation</p>
+                            </CardContent>
+                            <div className="absolute bottom-0 left-0 h-1 bg-indigo-500 w-full transform scale-x-0 group-hover:scale-x-100 transition-transform origin-left"></div>
+                        </Card>
+                    ))}
+                </div>
+            )}
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
                 <button onClick={() => navigate('/admin/projects')} className="p-4 bg-white dark:bg-slate-900 border border-gray-100 dark:border-slate-800 rounded-xl shadow-sm hover:shadow-md transition-all flex items-center space-x-3 group">

@@ -539,6 +539,13 @@ const getAdminDashboardData = async (financialYear = null) => {
                 consumed: Number(fundSources.othersFunds.totalUsed || 0),
                 balance: Number(fundSources.othersFunds.remainingBalance || 0),
             },
+            fundSources: (await FundSource.findAll({
+                attributes: ['_id', 'sourceType', 'totalAllocated']
+            })).map(fs => ({
+                id: fs._id || fs.id,
+                name: fs.sourceType,
+                totalAllocated: Number(fs.totalAllocated || 0)
+            })),
             forecast: await getForecastingAnalytics(shared, globalAllocated)
         }
     };
@@ -748,4 +755,5 @@ module.exports = {
     getForecastingAnalytics,
     getMonthlyAnalytics,
     getYoYGrowth,
+    toNumber,
 };
