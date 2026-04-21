@@ -26,12 +26,30 @@ const normalizeName = (value) => String(value || '').trim().toLowerCase();
 
 const getRecordId = (record) => record?._id || record?.id || null;
 
-const getFundingTotals = async () => {
+const getFYDateRange = (financialYear) => {
+    if (!financialYear || !financialYear.includes('-')) return null;
+    const [startYear, endYear] = financialYear.split('-');
+    // 2024-25 -> 2024-04-01 to 2025-03-31
+    return {
+        start: new Date(`${startYear}-04-01T00:00:00.000Z`),
+        end: new Date(`20${endYear}-03-31T23:59:59.999Z`)
+    };
+};
+
+const getFundingTotals = async (dateRange = null) => {
     await ensureCanonicalFundSources();
+
+    const disbursementFilter = dateRange ? {
+        where: {
+            createdAt: {
+                [Op.between]: [dateRange.start, dateRange.end]
+            }
+        }
+    } : {};
 
     const [allocated, used] = await Promise.all([
         FundSource.sum('totalAllocated'),
-        Disbursement.sum('amount'),
+        Disbursement.sum('amount', disbursementFilter),
     ]);
 
     const totalAllocated = toNumber(allocated);
@@ -375,12 +393,28 @@ const buildCentreBreakdown = ({ centres, projects, fundRequests, disbursements }
         .sort((a, b) => a.name.localeCompare(b.name));
 };
 
-const getAdminDashboardData = async () => {
+const getAdminDashboardData = async (financialYear = null) => {
+    const dateRange = getFYDateRange(financialYear);
+    
     // Single shared fetch to nourish all dependent metrics
-    const shared = await getSharedPipelineData();
+    const sharedRaw = await getSharedPipelineData();
+    
+    // Apply FY filtering to shared data if provided
+    const shared = !dateRange ? sharedRaw : {
+        ...sharedRaw,
+        fundRequests: sharedRaw.fundRequests.filter(r => {
+            const date = new Date(r.createdAt);
+            return date >= dateRange.start && date <= dateRange.end;
+        }),
+        disbursements: sharedRaw.disbursements.filter(d => {
+            const date = new Date(d.disbursedAt || d.createdAt);
+            return date >= dateRange.start && date <= dateRange.end;
+        }),
+        projects: sharedRaw.projects // Projects are usually global
+    };
 
     const [fundingTotals, fundSources] = await Promise.all([
-        getFundingTotals(),
+        getFundingTotals(dateRange),
         getFundSourceOverview(shared),
     ]);
 

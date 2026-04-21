@@ -49,7 +49,8 @@ const getAdminStats = asyncHandler(async (req, res) => {
         });
     }
 
-    const adminData = await getAdminDashboardData();
+    const { financialYear } = req.query;
+    const adminData = await getAdminDashboardData(financialYear);
     const [totalRevenue, consultancyRevenue, internshipRevenue, eventsRevenue] = await Promise.all([
         Revenue.sum('verifiedAmount', { where: { status: 'VERIFIED' } }) || 0,
         Revenue.sum('verifiedAmount', { where: { status: 'VERIFIED', revenueSource: 'Consultancy' } }) || 0,

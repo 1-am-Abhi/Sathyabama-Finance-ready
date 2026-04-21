@@ -29,6 +29,17 @@ import Loader from '../../components/shared/Loader';
 import EmptyState from '../../components/shared/EmptyState';
 
 
+const getCurrentFY = () => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = now.getMonth(); // 0-indexed, 3 is April
+    if (month < 3) {
+        return `${year - 1}-${year.toString().slice(-2)}`;
+    }
+    return `${year}-${(year + 1).toString().slice(-2)}`;
+};
+
+
 const AdminDashboard = () => {
     const { setLayout } = useLayout();
     const navigate = useNavigate();
@@ -38,7 +49,7 @@ const AdminDashboard = () => {
     const [selectedCentre, setSelectedCentre] = useState('ALL');
     const [selectedMonth, setSelectedMonth] = useState('ALL');
     const [selectedDate, setSelectedDate] = useState(null);
-    const [selectedFY, setSelectedFY] = useState('2024-25');
+    const [selectedFY, setSelectedFY] = useState(getCurrentFY());
     const [activeIndex, setActiveIndex] = useState(-1);
     const [detailModalOpen, setDetailModalOpen] = useState(false);
     const [selectedCentreDetail, setSelectedCentreDetail] = useState(null);
@@ -59,7 +70,9 @@ const AdminDashboard = () => {
         try {
             if (!stats) setLoading(true);
             const [statsRes, requestsRes] = await Promise.all([
-                apiClient.get('/projects/stats'),
+                apiClient.get('/projects/stats', {
+                    params: { financialYear: selectedFY }
+                }),
                 apiClient.get('/fund-requests')
             ]);
 
@@ -126,7 +139,7 @@ const AdminDashboard = () => {
             socket.disconnect();
             if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);
         };
-    }, []);
+    }, [selectedFY]);
 
     const centres = React.useMemo(() => {
         // FIX: Always start from the full official list so all centres appear
