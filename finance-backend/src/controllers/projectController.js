@@ -35,58 +35,21 @@ const resolveCentreAssignment = async (centreInput, centreIdInput) => {
 };
 
 const getAdminStats = asyncHandler(async (req, res) => {
-    const cacheKey = 'admin:dashboard:stats';
-    const cachedData = await cache.get(cacheKey);
-    
-    if (cachedData) {
-        return res.status(200).json({
-            success: true,
-            data: cachedData.stats || {},
-            meta: {
-                centres: cachedData.centres || [],
-                cached: true
-            }
-        });
-    }
-
     const { financialYear } = req.query;
     const adminData = await getAdminDashboardData(financialYear);
-    const [totalRevenue, consultancyRevenue, internshipRevenue, eventsRevenue] = await Promise.all([
-        Revenue.sum('verifiedAmount', { where: { status: 'VERIFIED' } }) || 0,
-        Revenue.sum('verifiedAmount', { where: { status: 'VERIFIED', revenueSource: 'Consultancy' } }) || 0,
-        Revenue.sum('verifiedAmount', { where: { status: 'VERIFIED', revenueSource: 'Internships' } }) || 0,
-        Revenue.sum('verifiedAmount', { where: { status: 'VERIFIED', revenueSource: 'Events' } }) || 0,
-    ]);
-
-    const stats = {
-        ...(adminData?.stats || {}),
-        revenueStats: {
-            total: totalRevenue || 0,
-            consultancy: consultancyRevenue || 0,
-            internships: internshipRevenue || 0,
-            events: eventsRevenue || 0,
-        },
-    };
-
-    const response = { stats, centres: adminData?.centres || [] };
-    await cache.set(cacheKey, response, 60); // Cache for 60 seconds
+    
+    // Log API response construction
+    console.log("API response construction - used:", adminData.data.used);
 
     return res.status(200).json({
         success: true,
         data: {
-            ...adminData.stats,
-            monthlyData: adminData.stats.monthlyData,
-            growth: adminData.stats.growth,
-            totalAllocated: Number(adminData.stats.totalAllocated) || 0,
-            used: Number(adminData.stats.totalUsed) || 0,
-            remaining: Number(adminData.stats.remaining) || 0,
-            centres: adminData?.centres || [],
-            revenue: {
-                total: totalRevenue,
-                consultancy: consultancyRevenue,
-                internship: internshipRevenue,
-                events: eventsRevenue
-            }
+            totalAllocated: Number(adminData.data.totalAllocated),
+            used: Number(adminData.data.used),
+            remaining: Number(adminData.data.remaining),
+            projectCount: adminData.data.projectCount,
+            centres: adminData.data.centres,
+            monthlyData: adminData.data.monthlyData
         }
     });
 });

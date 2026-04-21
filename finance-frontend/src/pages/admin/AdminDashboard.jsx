@@ -32,8 +32,9 @@ import EmptyState from '../../components/shared/EmptyState';
 const getCurrentFY = () => {
     const now = new Date();
     const year = now.getFullYear();
-    const month = now.getMonth() + 1;
-    return month >= 4
+    const month = now.getMonth();
+
+    return month >= 3
         ? `${year}-${(year + 1).toString().slice(-2)}`
         : `${year - 1}-${year.toString().slice(-2)}`;
 };
@@ -101,18 +102,15 @@ const AdminDashboard = () => {
 
             if (statsRes?.data?.success) {
                 const fetchedData = statsRes.data.data || {};
-                const fetchedCentres = fetchedData.centres || [];
-                const fetchedForecast = fetchedData.forecast || null;
-                
+                console.log("API response:", fetchedData);
+
                 dashboardCache[selectedFY] = {
                     stats: fetchedData,
-                    centres: fetchedCentres,
-                    forecast: fetchedForecast
+                    centres: fetchedData.centres || []
                 };
 
                 setStats(fetchedData);
-                setCentresStats(fetchedCentres);
-                setForecast(fetchedForecast);
+                setCentresStats(fetchedData.centres || []);
             }
 
             if (requestsRes?.data?.success) {
@@ -189,22 +187,20 @@ const AdminDashboard = () => {
     ];
 
     const totalStats = React.useMemo(() => {
+        console.log("STATS:", stats);
         if (!stats) return {
             totalProjects: 0,
-            activeProjects: 0,
-            pendingApprovals: 0,
-            totalBudget: 0,
-            totalDisbursed: 0,
+            totalAllocated: 0,
+            used: 0,
+            remaining: 0,
             totalFaculty: 0
         };
         return {
-            totalProjects: stats.totalProjects,
-            activeProjects: stats.activeProjects,
-            pendingApprovals: stats.pendingApprovals,
-            totalAllocated: stats.totalAllocated,
-            totalBudget: stats.totalAllocated,
-            totalDisbursed: stats.totalDisbursed,
-            totalFaculty: stats.totalFaculty
+            totalProjects: stats.projectCount || 0,
+            totalAllocated: stats.totalAllocated || 0,
+            used: stats.used || 0,
+            remaining: stats.remaining || 0,
+            totalFaculty: stats.totalFaculty || 0
         };
     }, [stats]);
 
@@ -568,17 +564,12 @@ const AdminDashboard = () => {
                         <div className="flex items-start justify-between">
                             <div>
                                 <p className="text-xs sm:text-sm font-medium opacity-80 uppercase tracking-wider">Total Disbursed</p>
-                                <p className="text-2xl sm:text-3xl font-bold mt-2">{formatCurrency(stats?.totalDisbursed || 0)}</p>
+                                <p className="text-2xl sm:text-3xl font-bold mt-2">{formatCurrency(totalStats.used)}</p>
                             </div>
                             <div className="w-10 h-10 sm:w-12 sm:h-12 bg-white/20 rounded-lg flex items-center justify-center flex-shrink-0"><Banknote className="w-5 h-5 sm:w-6 sm:h-6" /></div>
                         </div>
                         <div className="flex items-center justify-between mt-3">
-                            <p className="text-xs opacity-70">Utilization: {stats?.totalAllocated > 0 ? (((stats?.totalDisbursed || 0) / stats.totalAllocated) * 100).toFixed(0) : 0}%</p>
-                            {stats?.growth !== undefined && (
-                                <Badge className={`${stats.growth >= 0 ? 'bg-emerald-400' : 'bg-rose-400'} text-[10px] border-0 text-white`}>
-                                    {stats.growth >= 0 ? '+' : ''}{stats.growth.toFixed(1)}% YoY
-                                </Badge>
-                            )}
+                            <p className="text-xs opacity-70">Utilization: {totalStats.totalAllocated > 0 ? ((totalStats.used / totalStats.totalAllocated) * 100).toFixed(0) : 0}%</p>
                         </div>
                     </CardContent>
                 </Card>
@@ -602,12 +593,12 @@ const AdminDashboard = () => {
                         <div className="flex items-start justify-between">
                             <div className="min-w-0 flex-1">
                                 <p className="text-[10px] sm:text-xs font-bold uppercase tracking-wider opacity-70">Disbursed Funds</p>
-                                <p className="text-xl sm:text-3xl font-bold mt-2 truncate">{formatCurrency(totalStats.totalDisbursed)}</p>
+                                <p className="text-xl sm:text-3xl font-bold mt-2 truncate">{formatCurrency(totalStats.used)}</p>
                                 <p className="text-[10px] mt-1 opacity-60 hidden sm:block">Verified Disbursements</p>
                             </div>
                             <div className="w-10 h-10 sm:w-12 sm:h-12 bg-indigo-100 dark:bg-indigo-800/30 rounded-lg flex items-center justify-center flex-shrink-0 ml-2"><TrendingUp className="w-5 h-5 sm:w-6 sm:h-6" /></div>
                         </div>
-                        <p className="text-xs mt-3 opacity-70">Utilization: {totalStats.totalBudget > 0 ? ((totalStats.totalDisbursed / totalStats.totalBudget) * 100).toFixed(0) : 0}%</p>
+                        <p className="text-xs mt-3 opacity-70">Utilization: {totalStats.totalAllocated > 0 ? ((totalStats.used / totalStats.totalAllocated) * 100).toFixed(0) : 0}%</p>
                     </CardContent>
                 </Card>
 
@@ -626,7 +617,7 @@ const AdminDashboard = () => {
             </div>
 
             {/* Monthly Trend Chart */}
-            {stats?.monthlyData && stats.monthlyData.length > 0 && (
+            {stats?.monthlyData && Array.isArray(stats.monthlyData) && stats.monthlyData.length > 0 && (
                 <Card className="border-0 shadow-md mb-8 bg-white dark:bg-slate-900 overflow-hidden">
                     <CardHeader className="border-b border-gray-100 dark:border-slate-800 p-4 sm:p-6 flex flex-row items-center justify-between">
                         <div>
@@ -637,10 +628,7 @@ const AdminDashboard = () => {
                     </CardHeader>
                     <CardContent className="p-4 sm:p-6 h-[300px]">
                         <ResponsiveContainer width="100%" height="100%">
-                            <BarChart data={stats.monthlyData.map(d => ({
-                                ...d,
-                                month: new Date(d.month).toLocaleDateString('en-GB', { month: 'short' })
-                            }))}>
+                            <BarChart data={stats.monthlyData}>
                                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" />
                                 <XAxis dataKey="month" axisLine={false} tickLine={false} fontSize={10} tick={{ fill: '#64748B' }} />
                                 <YAxis axisLine={false} tickLine={false} fontSize={10} tick={{ fill: '#64748B' }} tickFormatter={(val) => `₹${(val / 100000).toFixed(0)}L`} />
@@ -649,7 +637,7 @@ const AdminDashboard = () => {
                                     contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }}
                                     formatter={(val) => [formatCurrency(val), 'Disbursed']}
                                 />
-                                <Bar dataKey="total" fill="#6366F1" radius={[4, 4, 0, 0]} barSize={32} />
+                                <Bar dataKey="amount" fill="#6366F1" radius={[4, 4, 0, 0]} barSize={32} />
                             </BarChart>
                         </ResponsiveContainer>
                     </CardContent>
@@ -662,7 +650,7 @@ const AdminDashboard = () => {
                     <CardTitle className="text-base sm:text-lg font-semibold dark:text-white">Quick Actions</CardTitle>
                 </CardHeader>
                 <CardContent className="p-3 sm:p-6">
-                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+                    <div className="grid grid-cols-4 gap-4">
                         {quickActions.map((action, index) => {
                             const Icon = action.icon;
                             return (
@@ -735,8 +723,8 @@ const AdminDashboard = () => {
                         </Button>
                     </div>
                     {selectedDate && <Badge variant="outline" className="border-blue-200 text-blue-600 bg-blue-50 dark:bg-blue-900/20 dark:text-blue-400 dark:border-blue-900 animate-pulse whitespace-nowrap">Daily View</Badge>}
-                    {(selectedDate || selectedFY !== '2026-27' || selectedCentre !== 'ALL') && (
-                        <button onClick={() => { setSelectedDate(null); setSelectedFY('2024-25'); setSelectedCentre('ALL'); }} className="text-xs font-medium text-gray-400 hover:text-maroon-600 dark:hover:text-maroon-400 transition-colors flex items-center whitespace-nowrap">
+                    {(selectedDate || selectedFY !== getCurrentFY() || selectedCentre !== 'ALL') && (
+                        <button onClick={() => { setSelectedDate(null); setSelectedFY(getCurrentFY()); setSelectedCentre('ALL'); }} className="text-xs font-medium text-gray-400 hover:text-maroon-600 dark:hover:text-maroon-400 transition-colors flex items-center whitespace-nowrap">
                             <Filter className="w-3 h-3 mr-1" /> Reset
                         </button>
                     )}

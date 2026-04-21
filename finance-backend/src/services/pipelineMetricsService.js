@@ -47,39 +47,46 @@ const getFundingTotals = async (dateRange = null) => {
         }
     } : {};
 
-    const [allocated, used] = await Promise.all([
+    const [allocated, usedAmount] = await Promise.all([
         FundSource.sum('totalAllocated'),
         Disbursement.sum('amount', disbursementFilter),
     ]);
 
     const totalAllocated = toNumber(allocated);
-    const totalUsed = toNumber(used);
+    const used = toNumber(usedAmount);
+    const remaining = totalAllocated - used;
+
+    console.log("FINAL TOTALS:", { totalAllocated, used, remaining });
 
     return {
         totalAllocated,
-        totalUsed,
-        totalDisbursed: totalUsed,
-        remaining: Math.max(0, totalAllocated - totalUsed),
+        used,
+        remaining
     };
 };
 
 const getMonthlyAnalytics = async (dateRange) => {
-    if (!dateRange) return [];
     try {
-        const data = await Disbursement.findAll({
+        const query = {
             attributes: [
                 [models.Sequelize.fn('DATE_TRUNC', 'month', models.Sequelize.col('createdAt')), 'month'],
                 [models.Sequelize.fn('SUM', models.Sequelize.col('amount')), 'total']
             ],
-            where: {
-                createdAt: { [Op.between]: [dateRange.start, dateRange.end] }
-            },
             group: ['month'],
-            order: [['month', 'ASC']]
-        });
+            order: [[models.Sequelize.fn('DATE_TRUNC', 'month', models.Sequelize.col('createdAt')), 'ASC']]
+        };
+        
+        if (dateRange) {
+            query.where = {
+                createdAt: { [Op.between]: [dateRange.start, dateRange.end] }
+            };
+        }
+
+        const data = await Disbursement.findAll(query);
+
         return data.map(d => ({
-            month: d.get('month'),
-            total: toNumber(d.get('total'))
+            month: new Date(d.get('month')).toLocaleString('default', { month: 'short' }),
+            amount: toNumber(d.get('total'))
         }));
     } catch (err) {
         console.error("Monthly analytics error:", err);
@@ -441,10 +448,8 @@ const buildCentreBreakdown = ({ centres, projects, fundRequests, disbursements }
 const getAdminDashboardData = async (financialYear = null) => {
     const dateRange = getFYDateRange(financialYear);
     
-    // Single shared fetch to nourish all dependent metrics
     const sharedRaw = await getSharedPipelineData();
     
-    // Apply FY filtering to shared data if provided
     const shared = !dateRange ? sharedRaw : {
         ...sharedRaw,
         fundRequests: sharedRaw.fundRequests.filter(r => {
@@ -455,63 +460,56 @@ const getAdminDashboardData = async (financialYear = null) => {
             const date = new Date(d.disbursedAt || d.createdAt);
             return date >= dateRange.start && date <= dateRange.end;
         }),
-        projects: sharedRaw.projects // Projects are usually global
+        projects: sharedRaw.projects
     };
 
-    const [fundingTotals, fundSources] = await Promise.all([
+    const [fundingTotals, fundSources, monthlyData] = await Promise.all([
         getFundingTotals(dateRange),
         getFundSourceOverview(shared),
+        getMonthlyAnalytics(dateRange)
     ]);
 
-    const totalProjects = shared.projects.length;
-    const activeProjects = shared.projects.filter((project) => ACTIVE_PROJECT_STATUSES.includes(project.status)).length;
-    const pendingApprovals = shared.projects.filter((project) => project.status === 'PENDING').length;
-    const approvedFunds = shared.fundRequests
-        .filter((request) => ALLOCATED_STATUSES.includes(request.status))
-        .reduce((sum, request) => sum + toNumber(request.requestedAmount), 0);
+    const { totalAllocated, used, remaining } = fundingTotals;
+    const projectCount = shared.projects.length;
 
-    const totalAllocatedFromProjects = shared.projects.reduce(
-        (sum, p) => sum + Number(p.sanctionedBudget || 0),
-        0
-    );
+    console.log("DB (Admin Dashboard Source):", { totalAllocated, used, remaining });
 
     const result = {
-        stats: {
-            totalProjects,
-            activeProjects,
-            pendingApprovals,
-            totalAllocated: Number(fundingTotals.totalAllocated) || 0,
-            totalUsed: Number(fundingTotals.totalUsed) || 0,
-            totalDisbursed: Number(fundingTotals.totalDisbursed) || 0,
-            remaining: Math.max(0, (Number(fundingTotals.totalAllocated) || 0) - (Number(fundingTotals.totalUsed) || 0)),
-            approvedFunds: Number(approvedFunds) || 0,
-            totalFaculty: shared.totalFaculty,
+        success: true,
+        data: {
+            totalAllocated,
+            used,
+            remaining,
+            projectCount,
+            centres: buildCentreBreakdown(shared).map(({ key, ...centre }) => centre),
             monthlyData,
-            growth,
-            pfmsStats: {
-                allotted: fundSources.pfmsFunds.totalAllocated,
-                consumed: fundSources.pfmsFunds.totalUsed,
-                balance: fundSources.pfmsFunds.remainingBalance,
+            stats: {
+                totalProjects: projectCount,
+                activeProjects: shared.projects.filter(p => ACTIVE_PROJECT_STATUSES.includes(p.status)).length,
+                pendingApprovals: shared.projects.filter(p => p.status === 'PENDING').length,
+                totalAllocated,
+                used,
+                remaining,
+                totalFaculty: shared.totalFaculty,
+                pfmsStats: {
+                    allotted: fundSources.pfmsFunds.totalAllocated,
+                    consumed: fundSources.pfmsFunds.totalUsed,
+                    balance: fundSources.pfmsFunds.remainingBalance,
+                },
+                institutionalStats: {
+                    allotted: fundSources.institutionalFunds.totalAllocated,
+                    consumed: fundSources.institutionalFunds.totalUsed,
+                    balance: fundSources.institutionalFunds.remainingBalance,
+                },
+                othersStats: {
+                    allotted: fundSources.othersFunds.totalAllocated,
+                    consumed: fundSources.othersFunds.totalUsed,
+                    balance: fundSources.othersFunds.remainingBalance,
+                },
             },
-            institutionalStats: {
-                allotted: fundSources.institutionalFunds.totalAllocated,
-                consumed: fundSources.institutionalFunds.totalUsed,
-                balance: fundSources.institutionalFunds.remainingBalance,
-            },
-            othersStats: {
-                allotted: fundSources.othersFunds.totalAllocated,
-                consumed: fundSources.othersFunds.totalUsed,
-                balance: fundSources.othersFunds.remainingBalance,
-            },
-        },
-        forecast: await getForecastingAnalytics(shared, fundingTotals.totalAllocated),
-        centres: buildCentreBreakdown(shared).map(({ key, ...centre }) => centre),
-        shared,
+            forecast: await getForecastingAnalytics(shared, totalAllocated)
+        }
     };
-
-    console.log("DEBUG DB NAME:", process.env.DB_NAME);
-    console.log("ADMIN DEBUG → totalAllocated:", result.stats.totalAllocated);
-    console.log("ADMIN DEBUG → used:", result.stats.totalUsed);
 
     return result;
 };
