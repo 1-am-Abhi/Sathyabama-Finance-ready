@@ -480,32 +480,28 @@ const getAdminDashboardData = async (financialYear = null) => {
             totalAllocated,
             used,
             remaining,
+            totalBudget: totalAllocated,
             projectCount,
+            totalProjects: projectCount,
+            activeProjects: shared.projects.filter(p => ACTIVE_PROJECT_STATUSES.includes(p.status)).length,
+            pendingApprovals: shared.projects.filter(p => p.status === 'PENDING').length,
+            totalFaculty: shared.totalFaculty || 0,
             centres: buildCentreBreakdown(shared).map(({ key, ...centre }) => centre),
             monthlyData,
-            stats: {
-                totalProjects: projectCount,
-                activeProjects: shared.projects.filter(p => ACTIVE_PROJECT_STATUSES.includes(p.status)).length,
-                pendingApprovals: shared.projects.filter(p => p.status === 'PENDING').length,
-                totalAllocated,
-                used,
-                remaining,
-                totalFaculty: shared.totalFaculty,
-                pfmsStats: {
-                    allotted: fundSources.pfmsFunds.totalAllocated,
-                    consumed: fundSources.pfmsFunds.totalUsed,
-                    balance: fundSources.pfmsFunds.remainingBalance,
-                },
-                institutionalStats: {
-                    allotted: fundSources.institutionalFunds.totalAllocated,
-                    consumed: fundSources.institutionalFunds.totalUsed,
-                    balance: fundSources.institutionalFunds.remainingBalance,
-                },
-                othersStats: {
-                    allotted: fundSources.othersFunds.totalAllocated,
-                    consumed: fundSources.othersFunds.totalUsed,
-                    balance: fundSources.othersFunds.remainingBalance,
-                },
+            pfmsStats: {
+                allotted: fundSources.pfmsFunds.totalAllocated,
+                consumed: fundSources.pfmsFunds.totalUsed,
+                balance: fundSources.pfmsFunds.remainingBalance,
+            },
+            institutionalStats: {
+                allotted: fundSources.institutionalFunds.totalAllocated,
+                consumed: fundSources.institutionalFunds.totalUsed,
+                balance: fundSources.institutionalFunds.remainingBalance,
+            },
+            othersStats: {
+                allotted: fundSources.othersFunds.totalAllocated,
+                consumed: fundSources.othersFunds.totalUsed,
+                balance: fundSources.othersFunds.remainingBalance,
             },
             forecast: await getForecastingAnalytics(shared, totalAllocated)
         }

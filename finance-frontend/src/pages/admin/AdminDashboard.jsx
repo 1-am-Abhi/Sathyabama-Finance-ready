@@ -187,16 +187,21 @@ const AdminDashboard = () => {
     ];
 
     const totalStats = React.useMemo(() => {
-        console.log("STATS:", stats);
         if (!stats) return {
             totalProjects: 0,
+            activeProjects: 0,
+            pendingApprovals: 0,
+            totalBudget: 0,
             totalAllocated: 0,
             used: 0,
             remaining: 0,
             totalFaculty: 0
         };
         return {
-            totalProjects: stats.projectCount || 0,
+            totalProjects: stats.totalProjects || 0,
+            activeProjects: stats.activeProjects || 0,
+            pendingApprovals: stats.pendingApprovals || 0,
+            totalBudget: stats.totalBudget || 0,
             totalAllocated: stats.totalAllocated || 0,
             used: stats.used || 0,
             remaining: stats.remaining || 0,

@@ -44,12 +44,10 @@ const getAdminStats = asyncHandler(async (req, res) => {
     return res.status(200).json({
         success: true,
         data: {
+            ...adminData.data,
             totalAllocated: Number(adminData.data.totalAllocated),
             used: Number(adminData.data.used),
-            remaining: Number(adminData.data.remaining),
-            projectCount: adminData.data.projectCount,
-            centres: adminData.data.centres,
-            monthlyData: adminData.data.monthlyData
+            remaining: Number(adminData.data.remaining)
         }
     });
 });
