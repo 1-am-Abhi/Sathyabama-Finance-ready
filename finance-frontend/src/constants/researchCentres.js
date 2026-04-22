@@ -14,13 +14,17 @@ export const useCentres = () => {
 
             const response = await apiClient.get('/research-centers');
 
-            console.log("CENTRE API:", response.data);
+            const rawData = response?.data;
+            console.log("CENTRE API:", rawData);
 
             const centresData =
-                response?.data?.data?.centres ||
-                response?.data?.centres ||
-                response?.data?.data ||
+                rawData?.data?.centres ||
+                rawData?.data ||
+                rawData?.centres ||
+                rawData ||
                 [];
+
+            console.log("FINAL CENTRES:", centresData);
 
             // Ensure we fallback to STATIC_CENTRES if API returns empty
             const finalCentres = Array.isArray(centresData) && centresData.length > 0 
