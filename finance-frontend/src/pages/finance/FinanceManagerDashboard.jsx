@@ -22,9 +22,21 @@ const FinanceManagerDashboard = () => {
         fetch(`/api/research-centers`)
             .then(res => res.json())
             .then(data => {
-                setCentres(data?.data || data || []);
+                console.log("API RESPONSE:", data);
+
+                const centresData =
+                    data?.data?.centres ||
+                    data?.centres ||
+                    data?.data ||
+                    data ||
+                    [];
+
+                setCentres(Array.isArray(centresData) ? centresData : []);
             })
-            .catch(() => setCentres([]));
+            .catch((err) => {
+                console.error("CENTRE FETCH ERROR:", err);
+                setCentres([]);
+            });
     }, []);
     const [fundSourceModalOpen, setFundSourceModalOpen] = useState(false);
     const [selectedFundSource, setSelectedFundSource] = useState(null);
