@@ -380,20 +380,20 @@ const AdminDashboard = () => {
                     <CardContent className="p-4 sm:p-6 flex flex-col justify-center">
                         <div className="w-full">
                             <ResponsiveContainer width="100%" height={300}>
-                            <BarChart data={monthlyData}>
-                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" />
-                                <XAxis dataKey="month" axisLine={false} tickLine={false} fontSize={10} tick={{ fill: '#64748B' }} />
-                                <YAxis axisLine={false} tickLine={false} fontSize={10} tick={{ fill: '#64748B' }} tickFormatter={(val) => `₹${(val / 100000).toFixed(0)}L`} />
-                                <Tooltip
-                                    cursor={{ fill: 'rgba(99, 102, 241, 0.05)' }}
-                                    contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }}
-                                    formatter={(val) => [formatCurrency(val), 'Disbursed']}
-                                />
-                                <Bar dataKey="amount" fill="#6366F1" radius={[4, 4, 0, 0]} barSize={32} />
-                            </BarChart>
-                        </ResponsiveContainer>
-                    </div>
-                </CardContent>
+                                <BarChart data={monthlyData}>
+                                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" />
+                                    <XAxis dataKey="month" axisLine={false} tickLine={false} fontSize={10} tick={{ fill: '#64748B' }} />
+                                    <YAxis axisLine={false} tickLine={false} fontSize={10} tick={{ fill: '#64748B' }} tickFormatter={(val) => `₹${(val / 100000).toFixed(0)}L`} />
+                                    <Tooltip
+                                        cursor={{ fill: 'rgba(99, 102, 241, 0.05)' }}
+                                        contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }}
+                                        formatter={(val) => [formatCurrency(val), 'Disbursed']}
+                                    />
+                                    <Bar dataKey="amount" fill="#6366F1" radius={[4, 4, 0, 0]} barSize={32} />
+                                </BarChart>
+                            </ResponsiveContainer>
+                        </div>
+                    </CardContent>
                 </Card>
             )}
 
@@ -402,7 +402,7 @@ const AdminDashboard = () => {
                     <CardTitle className="text-base sm:text-lg font-semibold dark:text-white">Quick Actions</CardTitle>
                 </CardHeader>
                 <CardContent className="p-3 sm:p-6">
-                    <div className="grid grid-cols-4 gap-4">
+                    <div className="flex gap-4 overflow-x-auto">
                         {(quickActions ?? []).map((action, index) => {
                             const Icon = action.icon;
                             return (
@@ -410,7 +410,7 @@ const AdminDashboard = () => {
                                     key={index}
                                     onClick={isEditable ? action.action : () => toast.error(`Actions are locked for past financial year ${selectedFY}`)}
                                     disabled={!isEditable}
-                                    className={`p-4 sm:p-6 rounded-lg ${action.color} dark:bg-opacity-10 dark:border-slate-800 transition-all text-left border border-gray-200 ${!isEditable ? 'opacity-50 grayscale cursor-not-allowed' : 'hover:shadow-md'}`}
+                                    className={`min-w-[220px] flex-shrink-0 p-4 sm:p-6 rounded-lg ${action.color} dark:bg-opacity-10 dark:border-slate-800 transition-all text-left border border-gray-200 ${!isEditable ? 'opacity-50 grayscale cursor-not-allowed' : 'hover:shadow-md'}`}
                                 >
                                     <div className="flex items-start justify-between mb-2 sm:mb-3">
                                         <div className={`w-10 h-10 sm:w-12 sm:h-12 ${action.iconBg} dark:bg-opacity-20 rounded-lg flex items-center justify-center`}>
@@ -419,7 +419,9 @@ const AdminDashboard = () => {
                                         {!isEditable && <Clock className="w-4 h-4 text-gray-400" />}
                                     </div>
                                     <h3 className="font-bold text-sm sm:text-base mb-1 dark:text-white">{action.title}</h3>
-                                    <p className="text-xs sm:text-sm opacity-80 dark:text-gray-400 hidden sm:block">{action.description}</p>
+                                    <p className="text-xs sm:text-sm opacity-80 dark:text-gray-400 hidden sm:block">
+                                        {action.description}
+                                    </p>
                                 </button>
                             );
                         })}
@@ -437,9 +439,9 @@ const AdminDashboard = () => {
                     </div>
                     <div className="flex items-center gap-2 bg-gray-50 dark:bg-slate-800 px-3 py-2 rounded-lg border border-gray-200 dark:border-slate-700">
                         <span className="text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 whitespace-nowrap">Centre</span>
-                        <select 
-                            className="bg-transparent text-xs sm:text-sm font-bold text-gray-700 dark:text-gray-200 outline-none cursor-pointer max-w-[120px] sm:max-w-[180px]" 
-                            value={selectedCentre} 
+                        <select
+                            className="bg-transparent text-xs sm:text-sm font-bold text-gray-700 dark:text-gray-200 outline-none cursor-pointer max-w-[120px] sm:max-w-[180px]"
+                            value={selectedCentre}
                             onChange={(e) => setSelectedCentre(e.target.value)}
                         >
                             <option value="ALL" className="dark:bg-slate-800">All Centres</option>
@@ -450,7 +452,7 @@ const AdminDashboard = () => {
                                     </option>
                                 ))
                             ) : (
-                                <option disabled className="dark:bg-slate-800">No Centres Found</option>
+                                <option disabled className="dark:bg-slate-800">No centres available</option>
                             )}
                         </select>
                     </div>

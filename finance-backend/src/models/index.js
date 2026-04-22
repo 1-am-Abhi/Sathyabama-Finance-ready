@@ -48,17 +48,14 @@ const {
 } = models;
 
 // Research centre ownership
-ResearchCenter.hasMany(User, { foreignKey: 'centreId', as: 'faculty' });
-User.belongsTo(ResearchCenter, { foreignKey: 'centreId', as: 'researchCentre' });
-User.belongsTo(ResearchCenter, { foreignKey: 'centreId', as: 'researchCenter' });
+ResearchCenter.hasMany(User, { foreignKey: 'researchCenterId', as: 'faculty' });
+User.belongsTo(ResearchCenter, { foreignKey: 'researchCenterId', as: 'researchCenter' });
 
-ResearchCenter.hasMany(Project, { foreignKey: 'centreId', as: 'projects' });
-Project.belongsTo(ResearchCenter, { foreignKey: 'centreId', as: 'researchCentre' });
-Project.belongsTo(ResearchCenter, { foreignKey: 'centreId', as: 'researchCenter' });
+ResearchCenter.hasMany(Project, { foreignKey: 'researchCenterId', as: 'projects' });
+Project.belongsTo(ResearchCenter, { foreignKey: 'researchCenterId', as: 'researchCenter' });
 
-ResearchCenter.hasMany(FundRequest, { foreignKey: 'centreId', as: 'fundRequests' });
-FundRequest.belongsTo(ResearchCenter, { foreignKey: 'centreId', as: 'researchCentre' });
-FundRequest.belongsTo(ResearchCenter, { foreignKey: 'centreId', as: 'researchCenter' });
+ResearchCenter.hasMany(FundRequest, { foreignKey: 'researchCenterId', as: 'fundRequests' });
+FundRequest.belongsTo(ResearchCenter, { foreignKey: 'researchCenterId', as: 'researchCenter' });
 
 // Project ownership and team membership
 Project.belongsTo(User, { foreignKey: 'facultyId', as: 'facultyOwner' });

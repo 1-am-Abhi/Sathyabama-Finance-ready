@@ -39,6 +39,10 @@ const Project = sequelize.define('Project', {
         type: DataTypes.UUID,
         allowNull: true
     },
+    researchCenterId: {
+        type: DataTypes.UUID,
+        allowNull: true
+    },
     sanctionedBudget: {
         type: DataTypes.FLOAT,
         allowNull: false
