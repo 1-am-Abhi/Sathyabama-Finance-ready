@@ -137,12 +137,15 @@ const getYoYGrowth = async (financialYear, currentUsed) => {
     }
 };
 
-const buildCentreInclude = () => ({
-    model: Centre,
-    as: 'researchCentre',
-    attributes: ['_id', 'name'],
-    required: false,
-});
+const buildCentreInclude = () => {
+    if (!models.Centre) return null;
+    return {
+        model: Centre,
+        as: 'researchCentre',
+        attributes: ['_id', 'name'],
+        required: false,
+    };
+};
 
 const buildProjectInclude = () => ({
     model: Project,
@@ -150,7 +153,7 @@ const buildProjectInclude = () => ({
     attributes: ['_id', 'title', 'pi', 'department', 'centre', 'centreId', 'fundingSource'],
     where: { status: { [Op.in]: VALID_PROJECT_STATUSES } },
     required: true,
-    include: [buildCentreInclude()],
+    include: [buildCentreInclude()].filter(Boolean),
 });
 
 const normalizeProject = (project) => {

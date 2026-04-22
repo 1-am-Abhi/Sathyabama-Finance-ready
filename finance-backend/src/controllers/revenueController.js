@@ -113,7 +113,7 @@ const getAllRevenueForVerification = asyncHandler(async (req, res) => {
             model: User, 
             as: 'User',
             attributes: ['name', 'department'],
-            include: [{ model: require('../models/Centre'), as: 'researchCentre', attributes: ['name'] }]
+            include: [{ model: require('../models/Centre'), as: 'researchCentre', attributes: ['name'], required: false }]
         }],
         order: [['createdAt', 'DESC']]
     });

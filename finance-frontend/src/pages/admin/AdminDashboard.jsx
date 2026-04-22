@@ -324,8 +324,9 @@ const AdminDashboard = () => {
                         </div>
                         <TrendingUp className="w-5 h-5 text-indigo-500" />
                     </CardHeader>
-                    <CardContent className="p-4 sm:p-6 h-[300px]">
-                        <ResponsiveContainer width="100%" height="100%">
+                    <CardContent className="p-4 sm:p-6 flex flex-col justify-center">
+                        <div className="w-full">
+                            <ResponsiveContainer width="100%" height={300}>
                             <BarChart data={monthlyData}>
                                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" />
                                 <XAxis dataKey="month" axisLine={false} tickLine={false} fontSize={10} tick={{ fill: '#64748B' }} />

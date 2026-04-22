@@ -73,7 +73,12 @@ const getProjects = asyncHandler(async (req, res) => {
                 as: 'members',
                 include: [{ model: User, as: 'user', attributes: ['_id', 'name', 'email', 'centre', 'department'] }]
             },
-            { model: require('../models/Centre'), as: 'researchCentre', attributes: ['name'] }
+            { 
+                model: require('../models/Centre'), 
+                as: 'researchCentre', 
+                attributes: ['name'],
+                required: false 
+            }
         ],
         order: [['createdAt', 'DESC']]
     };
@@ -112,7 +117,12 @@ const getProject = asyncHandler(async (req, res) => {
                 as: 'members',
                 include: [{ model: User, as: 'user', attributes: ['_id', 'name', 'email', 'department', 'centre'] }]
             },
-            { model: Centre, as: 'researchCentre', attributes: ['name'] }
+            { 
+                model: Centre, 
+                as: 'researchCentre', 
+                attributes: ['name'],
+                required: false 
+            }
         ]
     });
 

@@ -25,27 +25,29 @@ const { VALID_PROJECT_STATUSES } = require('../constants/financeConstants');
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 const resolveCentreAssignment = async (project, user) => {
-    if (project?.centreId) {
+    const hasCentreModel = !!Centre;
+
+    if (project?.centreId && hasCentreModel) {
         return {
             centreId: project.centreId,
             centre: project.researchCentre?.name || project.centre || user?.centre || 'Research Centre',
         };
     }
-    if (user?.centreId) {
+    if (user?.centreId && hasCentreModel) {
         const centre = await Centre.findByPk(user.centreId);
         if (centre) return { centreId: centre._id || centre.id, centre: centre.name };
     }
-    if (project?.centre) {
+    if (project?.centre && hasCentreModel) {
         const centre = await Centre.findOne({ where: { name: project.centre } });
         if (centre) return { centreId: centre._id || centre.id, centre: centre.name };
         return { centreId: null, centre: project.centre };
     }
-    if (user?.centre) {
+    if (user?.centre && hasCentreModel) {
         const centre = await Centre.findOne({ where: { name: user.centre } });
         if (centre) return { centreId: centre._id || centre.id, centre: centre.name };
         return { centreId: null, centre: user.centre };
     }
-    return { centreId: null, centre: 'Research Centre' };
+    return { centreId: null, centre: project?.centre || user?.centre || 'Research Centre' };
 };
 
 const computeRemaining = (project) => {
