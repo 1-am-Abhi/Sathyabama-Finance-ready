@@ -251,7 +251,7 @@ const AdminDashboard = () => {
     const chartConfig = { grid: '#E2E8F0', text: '#64748B', tooltip: '#FFFFFF', tooltipBorder: '#E2E8F0' };
     const quickActions = [
         { title: 'Manage Faculty / Projects', description: 'View and edit staff', icon: Users, color: 'bg-maroon-50', iconBg: 'bg-maroon-100', action: () => navigate('/admin/assign-faculty') },
-        { title: 'Projects', description: 'Oversight & status', icon: Target, color: 'bg-indigo-50', iconBg: 'bg-indigo-100', action: () => navigate('/admin/projects') },
+        { title: 'Projects', description: 'Oversight & status', icon: Target, color: 'bg-indigo-50', iconBg: 'bg-indigo-100', action: () => navigate('/admin/approve-projects') },
         { title: 'Fund Requests', description: 'Process approvals', icon: FileText, color: 'bg-emerald-50', iconBg: 'bg-emerald-100', action: () => navigate('/admin/fund-requests') },
         { title: 'Reports', description: 'Audit & analytics', icon: Landmark, color: 'bg-amber-50', iconBg: 'bg-amber-100', action: () => navigate('/admin/reports') }
     ];
