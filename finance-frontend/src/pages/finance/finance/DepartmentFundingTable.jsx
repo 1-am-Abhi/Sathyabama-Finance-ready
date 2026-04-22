@@ -98,7 +98,9 @@ const DepartmentFundingTable = ({ data, isLoading }) => {
                                     return (
                                         <TableRow key={index} className="hover:bg-gray-50 dark:hover:bg-slate-700/50 dark:border-slate-700">
                                             <TableCell className="font-medium dark:text-slate-200">
-                                                {item.departmentName || item.name || "Unknown Center"}
+                                                {typeof item.departmentName === 'object' 
+                                                    ? (item.departmentName?.name || "Object Data") 
+                                                    : (item.departmentName || item.name || "Unknown Center")}
                                             </TableCell>
                                             <TableCell>
                                                 <Badge

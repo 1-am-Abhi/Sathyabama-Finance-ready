@@ -17,12 +17,17 @@ export const useCentres = () => {
             const rawData = response?.data;
             console.log("CENTRE API:", rawData);
 
-            const centresData =
+            let centresData =
                 rawData?.data?.centres ||
                 rawData?.data ||
                 rawData?.centres ||
                 rawData ||
                 [];
+
+            // If API returns a single object instead of an array, wrap it
+            if (centresData && typeof centresData === 'object' && !Array.isArray(centresData)) {
+                centresData = [centresData];
+            }
 
             console.log("FINAL CENTRES:", centresData);
 

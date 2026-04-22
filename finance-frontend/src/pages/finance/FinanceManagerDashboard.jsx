@@ -180,11 +180,17 @@ const FinanceManagerDashboard = () => {
                         <option value="">
                             Select a research center
                         </option>
-                        {(centres ?? []).map((dept) => (
-                            <option key={dept._id} value={dept._id}>
-                                {dept.name}
-                            </option>
-                        ))}
+                        {(centres ?? []).map((dept, idx) => {
+                            // Guard against Error #31: Ensure we render strings, not objects
+                            const id = dept?._id || (typeof dept === 'string' ? dept : `dept-${idx}`);
+                            const label = dept?.name || (typeof dept === 'string' ? dept : 'Unknown Center');
+                            
+                            return (
+                                <option key={id} value={id}>
+                                    {label}
+                                </option>
+                            );
+                        })}
                     </select>
                 </div>
 

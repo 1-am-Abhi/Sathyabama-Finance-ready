@@ -50,11 +50,14 @@ const FinancialAnalytics = ({ data }) => {
             return (
                 <div className="bg-white dark:bg-slate-800 p-4 border dark:border-slate-700 rounded shadow-lg">
                     <p className="font-bold mb-2 dark:text-white">{label}</p>
-                    {payload && Array.isArray(payload) && payload.map((entry, index) => (
-                        <p key={index} style={{ color: entry.color }}>
-                            {entry.name}: ₹{entry.value.toLocaleString()}
-                        </p>
-                    ))}
+                    {payload && Array.isArray(payload) && payload.map((entry, index) => {
+                        const val = typeof entry.value === 'object' ? 0 : (entry.value || 0);
+                        return (
+                            <p key={index} style={{ color: entry.color }}>
+                                {entry.name}: ₹{Number(val).toLocaleString()}
+                            </p>
+                        );
+                    })}
                 </div>
             );
         }
