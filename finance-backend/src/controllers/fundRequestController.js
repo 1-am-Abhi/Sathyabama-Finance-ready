@@ -20,6 +20,7 @@ const {
     executeDisbursementPipeline,
 } = require('../services/financePipelineService');
 const { normalizeFundSource } = require('../services/fundSourceCatalogService');
+const { VALID_PROJECT_STATUSES } = require('../constants/financeConstants');
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -58,7 +59,7 @@ const nextInstallmentNumber = async (projectId) => {
     const count = await FundRequest.count({
         where: {
             projectId,
-            status: { [Op.notIn]: ['REJECTED', 'DELETED'] },
+            status: { [Op.ne]: 'REJECTED' },
         },
     });
     return count + 1;
@@ -107,7 +108,7 @@ const getFundRequests = asyncHandler(async (req, res) => {
             projectInc.required = true;
             projectInc.where = { 
                 ...(projectInc.where || {}),
-                status: { [require('sequelize').Op.notIn]: ['DELETED'] }
+                status: { [Op.in]: VALID_PROJECT_STATUSES }
             };
             options.include.push(projectInc);
         }

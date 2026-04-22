@@ -21,6 +21,12 @@ const {
     normalizeFundSource,
 } = require('./fundSourceCatalogService');
 
+const {
+    VALID_PROJECT_STATUSES,
+    isValidProjectStatus,
+    getSqlStatusList
+} = require('../constants/financeConstants');
+
 const EVENT_SOURCE_LABEL = 'College Funded';
 
 const toNumber = (value) => {
@@ -221,7 +227,7 @@ const getFundSourceAllocationState = async (source, transaction) => {
         SELECT COALESCE(SUM(d."amount"), 0) AS "totalUsed"
         FROM "Projects" p
         LEFT JOIN "Disbursements" d ON p."id" = d."projectId"
-        WHERE p."fundingSource" = :source AND COALESCE(p."status", '') != 'DELETED'
+        WHERE p."fundingSource" = :source AND p."status" IN (${getSqlStatusList()})
     `, {
         replacements: { source: normalizeSource(source) },
         transaction,
@@ -278,8 +284,8 @@ const executeDisbursementPipeline = async (request, payload, actor) => {
             lock: transaction.LOCK.UPDATE
         });
 
-        if (!project || (project.status || '') === 'DELETED') {
-            throw new Error('Target project is either deleted or no longer available for disbursement');
+        if (!project || !isValidProjectStatus(project.status)) {
+            throw new Error(`Target project status [${project.status || 'UNKNOWN'}] is invalid for disbursement`);
         }
 
         // 3. SEQUENTIAL INSTALLMENT CALCULATION

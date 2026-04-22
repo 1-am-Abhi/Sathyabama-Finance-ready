@@ -1,5 +1,6 @@
 const { Op } = require('sequelize');
 const models = require('../models');
+const { VALID_PROJECT_STATUSES } = require('../constants/financeConstants');
 
 const Centre = models.Centre;
 const Project = models.Project;
@@ -15,7 +16,7 @@ const {
 } = require('./fundSourceCatalogService');
 
 const ALLOCATED_STATUSES = ['APPROVED', 'PENDING_DISBURSAL', 'DISBURSED'];
-const ACTIVE_PROJECT_STATUSES = ['ACTIVE', 'APPROVED'];
+const ACTIVE_PROJECT_STATUSES = VALID_PROJECT_STATUSES;
 const FUND_SOURCE_LABELS = {
     PFMS: 'PFMS Funds',
     INSTITUTIONAL: "Director's Innovation Fund",
@@ -147,7 +148,7 @@ const buildProjectInclude = () => ({
     model: Project,
     as: 'Project',
     attributes: ['id', 'title', 'pi', 'department', 'centre', 'centreId', 'fundingSource'],
-    where: { status: { [require('sequelize').Op.notIn]: ['DELETED'] } },
+    where: { status: { [require('sequelize').Op.in]: VALID_PROJECT_STATUSES } },
     required: true,
     include: [buildCentreInclude()],
 });
