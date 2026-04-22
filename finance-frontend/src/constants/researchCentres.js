@@ -11,15 +11,21 @@ export const useCentres = () => {
     const loadCentres = async () => {
         try {
             setLoading(true);
-            const response = await apiClient.get('/research-centers');
-            const apiCentres = (response?.data?.data ?? [])
-                .map((centre) => centre?.name || centre)
-                .filter(Boolean);
 
-            setCentres(apiCentres.length > 0 ? apiCentres : STATIC_CENTRES);
+            const response = await apiClient.get('/research-centers');
+
+            console.log("CENTRE API:", response.data);
+
+            const centresData =
+                response?.data?.data?.centres ||
+                response?.data?.centres ||
+                response?.data?.data ||
+                [];
+
+            setCentres(Array.isArray(centresData) ? centresData : []);
         } catch (error) {
             console.error(error);
-            setCentres(STATIC_CENTRES);
+            setCentres([]);
         } finally {
             setLoading(false);
         }
