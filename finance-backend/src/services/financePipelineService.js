@@ -223,13 +223,19 @@ const getFundSourceAllocationState = async (source, transaction) => {
         transaction,
     });
 
-    const [rows] = await sequelize.query(`
+    const query = `
         SELECT COALESCE(SUM(d."amount"), 0) AS "totalUsed"
         FROM "Projects" p
-        LEFT JOIN "Disbursements" d ON p."id" = d."projectId"
+        LEFT JOIN "Disbursements" d ON p."_id" = d."projectId"
         WHERE p."fundingSource" = :source AND p."status" IN (${getSqlStatusList()})
-    `, {
-        replacements: { source: normalizeSource(source) },
+    `;
+    const replacements = { source: normalizeSource(source) };
+
+    console.log(`[getFundSourceAllocationState] Executing Raw SQL:`, query);
+    console.log(`[getFundSourceAllocationState] Replacements:`, replacements);
+
+    const [rows] = await sequelize.query(query, {
+        replacements,
         transaction,
     });
 

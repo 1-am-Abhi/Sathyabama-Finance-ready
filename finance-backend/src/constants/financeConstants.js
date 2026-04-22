@@ -21,7 +21,7 @@ const isValidProjectStatus = (status) => VALID_PROJECT_STATUSES.includes(status)
  */
 const getSqlStatusList = () => {
     // Only use local constants to ensure SQL safety
-    return VALID_PROJECT_STATUSES.map(s => `'${s}'`).join(', ');
+    return VALID_PROJECT_STATUSES.map(s => `'${s}'`).join(',');
 };
 
 module.exports = {

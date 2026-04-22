@@ -147,8 +147,8 @@ const buildCentreInclude = () => ({
 const buildProjectInclude = () => ({
     model: Project,
     as: 'Project',
-    attributes: ['id', 'title', 'pi', 'department', 'centre', 'centreId', 'fundingSource'],
-    where: { status: { [require('sequelize').Op.in]: VALID_PROJECT_STATUSES } },
+    attributes: ['_id', 'title', 'pi', 'department', 'centre', 'centreId', 'fundingSource'],
+    where: { status: { [Op.in]: VALID_PROJECT_STATUSES } },
     required: true,
     include: [buildCentreInclude()],
 });
@@ -161,7 +161,9 @@ const normalizeProject = (project) => {
     const raw = project.toJSON ? project.toJSON() : project;
     return {
         ...raw,
-        id: getRecordId(raw),
+        _id: raw._id || raw.id,
+        id: raw._id || raw.id,
+        title: raw.title || 'Untitled Project',
         centreName: raw.researchCentre?.name || raw.centre || null,
     };
 };
