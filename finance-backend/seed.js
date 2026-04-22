@@ -9,6 +9,7 @@ const seedData = async () => {
         // Disable constraints and truncate all involved tables safely
         await sequelize.query('TRUNCATE TABLE "Users" CASCADE;');
         await sequelize.query('TRUNCATE TABLE "Centres" CASCADE;');
+        await sequelize.query('TRUNCATE TABLE "ResearchCenters" CASCADE;');
         await sequelize.query('TRUNCATE TABLE "Projects" CASCADE;');
         await sequelize.query('TRUNCATE TABLE "FundRequests" CASCADE;');
         await sequelize.query('TRUNCATE TABLE "Disbursements" CASCADE;');
