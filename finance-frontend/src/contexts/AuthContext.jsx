@@ -16,6 +16,17 @@ export const AuthProvider = ({ children }) => {
     // Use a ref for the timeout so we can clear it without re-running effects
     const inactivityTimerRef = useRef(null);
 
+    // Normalize user data to prevent rendering objects in JSX (React Error #31)
+    const normalizeUser = useCallback((u) => {
+        if (!u) return null;
+        return {
+            ...u,
+            name: typeof u.name === 'object' ? (u.name.name || u.name.displayName || u.name.label || String(u.name)) : String(u.name || ''),
+            role: typeof u.role === 'object' ? (u.role.name || u.role.code || u.role.id || String(u.role)) : String(u.role || ''),
+            department: typeof u.department === 'object' ? (u.department.name || u.department.displayName || u.department.label || String(u.department)) : String(u.department || '')
+        };
+    }, []);
+
     // ── Logout ──────────────────────────────────────────────────────────────
     // useCallback so its identity is stable and doesn't cause effect re-runs
     const logout = useCallback((reason = null) => {
@@ -107,13 +118,15 @@ export const AuthProvider = ({ children }) => {
         try {
             const response = await apiClient.post('/auth/login', { email, password, role });
             const { user: userData, token: userToken } = response.data;
+            const normalizedUser = normalizeUser(userData);
 
             localStorage.setItem('token', userToken);
-            localStorage.setItem('user', JSON.stringify(userData));
+            localStorage.setItem('user', JSON.stringify(normalizedUser));
             localStorage.setItem(LAST_ACTIVITY_KEY, String(Date.now()));
+            apiClient.defaults.headers.common['Authorization'] = `Bearer ${userToken}`;
 
             setToken(userToken);
-            setUser(userData);
+            setUser(normalizedUser);
 
             return { success: true };
         } catch (error) {
@@ -126,7 +139,8 @@ export const AuthProvider = ({ children }) => {
     };
 
     const updateUser = (userData) => {
-        const updatedUser = { ...user, ...userData };
+        const normalizedUpdate = normalizeUser(userData);
+        const updatedUser = { ...user, ...normalizedUpdate };
         setUser(updatedUser);
         localStorage.setItem('user', JSON.stringify(updatedUser));
         return { success: true };

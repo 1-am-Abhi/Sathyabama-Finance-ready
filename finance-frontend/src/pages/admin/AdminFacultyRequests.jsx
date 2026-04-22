@@ -70,7 +70,7 @@ const AdminFacultyRequests = () => {
                                 {requests.map((req) => (
                                     <tr key={req.id} className="hover:bg-gray-50 transition-colors">
                                         <td className="p-4 font-medium text-gray-900">{req.requestType || 'N/A'}</td>
-                                        <td className="p-4 text-gray-600">{req.user?.name || 'Unknown Faculty'}</td>
+                                        <td className="p-4 text-gray-600">{String(req.user?.name || 'Unknown Faculty')}</td>
                                         <td className="p-4 text-gray-900 font-semibold">₹{(req.requestedAmount || req.approvedAmount || 0).toLocaleString('en-IN')}</td>
                                         <td className="p-4">
                                             <span className="bg-yellow-100 text-yellow-800 text-xs font-semibold px-2.5 py-0.5 rounded-full">

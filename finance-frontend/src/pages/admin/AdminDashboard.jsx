@@ -267,14 +267,18 @@ const AdminDashboard = () => {
     }, [stats]);
 
     const centreData = React.useMemo(() => {
-        return (centresStats || []).map(c => ({
-            _id: c._id || c.name || c.centre,
-            centre: c.name || c.centre || 'Unknown Centre',
-            totalProjects: safeNumber(c.totalProjects),
-            activeProjects: safeNumber(c.activeProjects),
-            totalBudget: safeNumber(c.totalBudget),
-            disbursed: safeNumber(c.disbursed)
-        }));
+        return (centresStats || []).map(c => {
+            const nameStr = String(c.name || c.centre || (typeof c === 'string' ? c : 'Unknown Centre'));
+            return {
+                _id: c._id || c.name || c.centre || Math.random().toString(),
+                centre: nameStr,
+                name: nameStr,
+                totalProjects: Number(c.totalProjects || c.projects || 0),
+                activeProjects: Number(c.activeProjects || 0),
+                totalBudget: Number(c.totalBudget || c.allocated || 0),
+                disbursed: Number(c.disbursed || c.released || 0)
+            };
+        });
     }, [centresStats]);
 
     const filteredData = React.useMemo(

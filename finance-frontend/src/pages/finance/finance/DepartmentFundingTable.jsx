@@ -98,7 +98,7 @@ const DepartmentFundingTable = ({ data, isLoading }) => {
                                     return (
                                         <TableRow key={index} className="hover:bg-gray-50 dark:hover:bg-slate-700/50 dark:border-slate-700">
                                             <TableCell className="font-medium dark:text-slate-200">
-                                                {item.departmentName?.name || item.departmentName || item.name || "Unknown"}
+                                                {String(item.departmentName?.name || item.departmentName || item.name || "Unknown")}
                                             </TableCell>
                                             <TableCell>
                                                 <Badge

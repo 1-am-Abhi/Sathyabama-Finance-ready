@@ -9,6 +9,8 @@ const SOCKET_URL = (process.env.REACT_APP_API_URL || 'https://finance-api-x1ig.o
 
 const normalizeNotification = (notification) => ({
     ...notification,
+    message: typeof notification?.message === 'object' ? (notification.message.text || notification.message.content || String(notification.message)) : String(notification.message || ''),
+    title: typeof notification?.title === 'object' ? (notification.title.text || notification.title.content || String(notification.title)) : String(notification.title || ''),
     actionUrl:
         notification?.actionUrl ||
         (typeof notification?.relatedId === 'string' && notification.relatedId.startsWith('/')
