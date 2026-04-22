@@ -283,7 +283,7 @@ const AdminDashboard = () => {
 
             {fundSources.length > 0 && (
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                    {fundSources.map(fund => (
+                    {(fundSources ?? []).map(fund => (
                         <Card key={fund.name} className="border-0 shadow-lg bg-white dark:bg-slate-900 overflow-hidden relative group">
                             <CardHeader className="p-4 border-b border-gray-100 dark:border-slate-800 flex flex-row items-center justify-between">
                                 <CardTitle className="text-[10px] font-black uppercase tracking-widest text-slate-500">
@@ -339,7 +339,8 @@ const AdminDashboard = () => {
                                 <Bar dataKey="amount" fill="#6366F1" radius={[4, 4, 0, 0]} barSize={32} />
                             </BarChart>
                         </ResponsiveContainer>
-                    </CardContent>
+                    </div>
+                </CardContent>
                 </Card>
             )}
 
@@ -349,7 +350,7 @@ const AdminDashboard = () => {
                 </CardHeader>
                 <CardContent className="p-3 sm:p-6">
                     <div className="grid grid-cols-4 gap-4">
-                        {quickActions.map((action, index) => {
+                        {(quickActions ?? []).map((action, index) => {
                             const Icon = action.icon;
                             return (
                                 <button
@@ -457,7 +458,7 @@ const AdminDashboard = () => {
                             </TableRow></TableHeader>
                             <TableBody>
                                 {hasData && filteredData.length > 0 ? (
-                                    filteredData.map((centre, index) => (
+                                    (filteredData ?? []).map((centre, index) => (
                                         <TableRow
                                             key={index}
                                             className="hover:bg-gray-50/50 dark:hover:bg-slate-800/30 cursor-pointer transition-colors dark:border-slate-800"
@@ -635,7 +636,7 @@ const AdminDashboard = () => {
                     </CardHeader>
                     <CardContent className="p-6 space-y-4">
                         {insights.length > 0 ? (
-                            insights.map((insight, i) => (
+                            (insights ?? []).map((insight, i) => (
                                 <div key={i} className="flex items-start gap-3 p-3 bg-white/5 rounded-xl border border-white/5 group hover:bg-white/10 transition-all">
                                     <div className="w-2 h-2 rounded-full bg-indigo-500 mt-1.5 flex-shrink-0 animate-pulse"></div>
                                     <p className="text-xs text-slate-300 leading-relaxed italic">{insight}</p>
@@ -684,7 +685,7 @@ const AdminDashboard = () => {
 
                         <div className="mt-4 p-4 bg-indigo-50/50 dark:bg-indigo-900/10 rounded-xl border border-indigo-100/50 dark:border-indigo-900/20 flex items-center justify-between">
                             <div className="space-y-4">
-                                {(centreList).slice(0, 5).map((centre, idx) => (
+                                {(centreList ?? []).slice(0, 5).map((centre, idx) => (
                                     <div key={idx} className="group">
                                         <div className="flex items-center justify-between mb-2">
                                             <div className="flex items-center gap-2">
