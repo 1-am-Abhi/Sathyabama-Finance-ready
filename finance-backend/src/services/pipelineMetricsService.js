@@ -186,7 +186,20 @@ const buildProjectInclude = (options = {}) => {
     const projectInclude = {
         model: Project,
         as: 'Project',
-        attributes: ['_id', 'title', 'pi', 'department', 'centre', 'centreId', 'fundingSource'],
+        attributes: [
+            '_id',
+            'title',
+            'pi',
+            'department',
+            'centre',
+            'centreId',
+            'researchCenterId',
+            'fundingSource',
+            'status',
+            'sanctionedBudget',
+            'releasedBudget',
+            'utilizedBudget',
+        ],
         required,
         include,
     };
@@ -645,6 +658,7 @@ const buildCentreBreakdown = ({ centres, projects, fundRequests, disbursements }
     return [...context.registry.values()]
         .map((centre) => ({
             ...centre,
+            _id: centre.id || null,
             totalBudget: Number(centre.totalBudget || 0),
             disbursed: Number(centre.disbursed || 0),
         }))

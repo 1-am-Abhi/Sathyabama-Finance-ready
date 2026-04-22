@@ -16,6 +16,13 @@ import InstallmentStepper from '../../components/faculty/InstallmentStepper';
 import FundRequestModal from '../../components/faculty/FundRequestModal';
 import InitialFundRequestModal from '../../components/faculty/InitialFundRequestModal';
 
+const HIGH_VALUE_THRESHOLD = 100000;
+
+const safeNumber = (value) => {
+    const numeric = Number(value || 0);
+    return Number.isFinite(numeric) ? numeric : 0;
+};
+
 const FacultyRequestFunds = () => {
     const { setLayout } = useLayout();
     const { addNotification } = useNotifications();
@@ -34,23 +41,26 @@ const FacultyRequestFunds = () => {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [billUploadUrl, setBillUploadUrl] = useState('');
 
-    useEffect(() => {
-        if (projects?.length > 0 && !selectedProjectId) {
-            setSelectedProjectId(projects[0]._id);
-        }
-    }, [projects, selectedProjectId]);
+    const projectList = Array.isArray(projects) ? projects : [];
+    const requestHistory = Array.isArray(fundRequests) ? fundRequests : [];
 
-    const selectedProject = projects?.find(p => p._id === selectedProjectId);
+    useEffect(() => {
+        if (projectList.length > 0 && !selectedProjectId) {
+            setSelectedProjectId(projectList[0]._id || projectList[0].id);
+        }
+    }, [projectList, selectedProjectId]);
+
+    const selectedProject = projectList.find((project) => (project._id || project.id) === selectedProjectId);
     const isPI = selectedProject && (selectedProject.piId === user?._id || selectedProject.userId === user?._id);
     const allocatedStatuses = ['APPROVED', 'PENDING_DISBURSAL', 'DISBURSED'];
     const releasedStages = ['CHEQUE_RELEASED', 'AMOUNT_DISBURSED'];
     
     // Dynamic installment logic based on actual released budget
-    const sanctionedAmount = selectedProject?.sanctionedBudget || 0;
-    const releasedAmount = selectedProject?.releasedBudget || 0;
+    const sanctionedAmount = safeNumber(selectedProject?.sanctionedBudget);
+    const releasedAmount = safeNumber(selectedProject?.releasedBudget);
 
     // Check if there's any ongoing/pending fund request for this project
-    const activeRequest = (fundRequests || []).find(r => 
+    const activeRequest = requestHistory.find(r => 
         (r.projectId === selectedProjectId || r.projectRef === selectedProjectId) && 
         !['DISBURSED', 'REJECTED'].includes((r.status || '').toUpperCase())
     );
@@ -72,9 +82,11 @@ const FacultyRequestFunds = () => {
 
     const nextInstallment = installments.find(i => i.status === 'UPCOMING' || i.status === 'PENDING');
     const remainingAmount = sanctionedAmount - releasedAmount;
+    const releasedShare = sanctionedAmount > 0 ? Math.round((releasedAmount / sanctionedAmount) * 100) : 0;
+    const remainingShare = sanctionedAmount > 0 ? Math.round((Math.max(remainingAmount, 0) / sanctionedAmount) * 100) : 0;
 
     const handleExportExcel = () => {
-        const dataToExport = (fundRequests || []).map(item => ({
+        const dataToExport = requestHistory.map(item => ({
             'Request ID': item._id || item.id,
             'Date': new Date(item.createdAt).toLocaleDateString(),
             'Project': item.projectTitle,
@@ -121,7 +133,19 @@ const FacultyRequestFunds = () => {
         }
     };
 
-    if (isLoading) return <div className="p-8 text-center text-maroon-600 font-bold">Loading Data...</div>;
+    if (isLoading) {
+        return (
+            <div className="p-6 space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    {[0, 1, 2].map((card) => (
+                        <div key={card} className="animate-pulse h-20 bg-gray-200 dark:bg-gray-700 rounded"></div>
+                    ))}
+                </div>
+                <div className="animate-pulse h-20 bg-gray-200 dark:bg-gray-700 rounded"></div>
+                <div className="animate-pulse h-20 bg-gray-200 dark:bg-gray-700 rounded"></div>
+            </div>
+        );
+    }
 
     return (
         <div className="p-6 space-y-10">
@@ -133,6 +157,7 @@ const FacultyRequestFunds = () => {
                             <div>
                                 <p className="text-xs font-bold uppercase tracking-wider opacity-70">Total Sanctioned</p>
                                 <p className="text-3xl font-bold mt-2">{formatCurrency(sanctionedAmount)}</p>
+                                <span className="text-green-500 dark:text-green-400 text-xs font-semibold">▲ Active sanctioned budget</span>
                             </div>
                             <div className="w-12 h-12 bg-blue-100/50 dark:bg-blue-800/20 rounded-xl flex items-center justify-center">
                                 <Banknote className="w-6 h-6" />
@@ -147,6 +172,7 @@ const FacultyRequestFunds = () => {
                             <div>
                                 <p className="text-xs font-bold uppercase tracking-wider opacity-70">Released Amount</p>
                                 <p className="text-3xl font-bold mt-2">{formatCurrency(releasedAmount)}</p>
+                                <span className="text-green-500 dark:text-green-400 text-xs font-semibold">▲ {releasedShare}% released</span>
                             </div>
                             <div className="w-12 h-12 bg-emerald-100/50 dark:bg-emerald-800/20 rounded-xl flex items-center justify-center">
                                 <CheckCircle className="w-6 h-6" />
@@ -161,6 +187,7 @@ const FacultyRequestFunds = () => {
                             <div>
                                 <p className="text-xs font-bold uppercase tracking-wider opacity-70">Remaining Balance</p>
                                 <p className="text-3xl font-bold mt-2">{formatCurrency(remainingAmount)}</p>
+                                <span className="text-green-500 dark:text-green-400 text-xs font-semibold">▲ {remainingShare}% available</span>
                             </div>
                             <div className="w-12 h-12 bg-amber-100/50 dark:bg-amber-800/20 rounded-xl flex items-center justify-center">
                                 <Wallet className="w-6 h-6" />
@@ -177,32 +204,47 @@ const FacultyRequestFunds = () => {
                         <CardTitle className="text-sm font-black uppercase tracking-widest text-gray-500 italic">Active Projects</CardTitle>
                     </CardHeader>
                     <div className="divide-y divide-gray-100 dark:divide-slate-800">
-                        {projects?.map((project) => (
-                            <button
-                                key={project._id}
-                                onClick={() => setSelectedProjectId(project._id)}
-                                className={`w-full text-left p-6 transition-all hover:bg-gray-50 dark:hover:bg-slate-800/50 ${
-                                    selectedProjectId === project._id ? 'bg-maroon-50/50 border-r-4 border-maroon-600' : ''
-                                }`}
-                            >
-                                <p className={`text-sm font-bold italic tracking-tighter uppercase ${selectedProjectId === project._id ? 'text-maroon-700' : 'text-slate-600 dark:text-gray-300'}`}>
-                                    {project.title}
-                                </p>
-                                <div className="flex items-center gap-2 mt-2">
-                                    <Badge variant="outline" className="text-[9px] font-black italic px-2 py-0 border-gray-200">
-                                        #{project._id.substring(0, 6)}
-                                    </Badge>
-                                    <span className="text-[10px] font-bold text-gray-400">
-                                        REM: {formatCurrency((project.sanctionedBudget || 0) - (project.releasedBudget || 0))}
-                                    </span>
+                        {projectList.length === 0 ? (
+                            <div className="p-8">
+                                <div className="text-center py-10 opacity-80">
+                                    <div className="text-4xl mb-2">📊</div>
+                                    <p className="text-lg font-medium">No Data Yet</p>
+                                    <p className="text-sm text-gray-400">
+                                        Select a research center or create a project to view funding insights
+                                    </p>
                                 </div>
-                            </button>
-                        ))}
+                            </div>
+                        ) : (
+                            projectList.map((project) => {
+                                const projectId = project._id || project.id;
+                                return (
+                                    <button
+                                        key={projectId}
+                                        onClick={() => setSelectedProjectId(projectId)}
+                                        className={`w-full text-left p-6 transition-all hover:bg-gray-50 dark:hover:bg-slate-800/50 ${
+                                            selectedProjectId === projectId ? 'bg-maroon-50/50 border-r-4 border-maroon-600' : ''
+                                        }`}
+                                    >
+                                        <p className={`text-sm font-bold italic tracking-tighter uppercase ${selectedProjectId === projectId ? 'text-maroon-700' : 'text-slate-600 dark:text-gray-300'}`}>
+                                            {project.title}
+                                        </p>
+                                        <div className="flex items-center gap-2 mt-2">
+                                            <Badge variant="outline" className="text-[9px] font-black italic px-2 py-0 border-gray-200">
+                                                #{String(projectId).substring(0, 6)}
+                                            </Badge>
+                                            <span className="text-[10px] font-bold text-gray-400">
+                                                REM: {formatCurrency(safeNumber(project.sanctionedBudget) - safeNumber(project.releasedBudget))}
+                                            </span>
+                                        </div>
+                                    </button>
+                                );
+                            })
+                        )}
                     </div>
                     <div className="p-6 bg-gray-50 dark:bg-slate-800/30">
                         <Button 
                             onClick={() => { setRequestMode('INITIAL'); setIsModalOpen(true); }}
-                            className="w-full bg-slate-900 text-white rounded-xl py-6 font-black text-xs uppercase tracking-widest italic shadow-lg shadow-slate-900/20"
+                            className="w-full bg-gradient-to-r from-pink-500 to-red-500 hover:scale-105 transition text-white rounded-xl py-6 font-black text-xs uppercase tracking-widest italic shadow-lg shadow-slate-900/20"
                         >
                             <PlusCircle className="w-4 h-4 mr-2" /> New Grant Request
                         </Button>
@@ -254,7 +296,7 @@ const FacultyRequestFunds = () => {
                                             onClick={() => { setRequestMode('RELEASE'); setIsModalOpen(true); }}
                                             className={`h-16 px-12 rounded-2xl font-black text-xs uppercase tracking-widest italic transition-all flex items-center gap-3 ${
                                                 isPI && nextInstallment.status !== 'PENDING'
-                                                ? 'bg-maroon-600 text-white shadow-xl shadow-maroon-600/20 hover:scale-105' 
+                                                ? 'bg-gradient-to-r from-pink-500 to-red-500 text-white shadow-xl shadow-maroon-600/20 hover:scale-105'
                                                 : 'bg-gray-100 text-gray-400 cursor-not-allowed border border-gray-200 shadow-none'
                                             }`}
                                         >
@@ -276,9 +318,14 @@ const FacultyRequestFunds = () => {
                     <Card className="border-0 shadow-sm dark:bg-slate-900 overflow-hidden">
                         <CardHeader className="bg-gray-50 dark:bg-slate-800/50 p-6 border-b dark:border-slate-800 flex flex-row items-center justify-between">
                             <CardTitle className="text-sm font-black uppercase tracking-widest text-gray-500 italic">Disbursement History</CardTitle>
-                            <Button onClick={handleExportExcel} variant="ghost" size="sm" className="text-gray-400 hover:text-maroon-600 font-black text-[10px] uppercase tracking-widest italic">
-                                Export Excel
-                            </Button>
+                            <div className="flex items-center gap-2">
+                                <Button onClick={() => window.print()} variant="ghost" size="sm" className="text-gray-400 hover:text-maroon-600 font-black text-[10px] uppercase tracking-widest italic">
+                                    Export PDF
+                                </Button>
+                                <Button onClick={handleExportExcel} variant="ghost" size="sm" className="text-gray-400 hover:text-maroon-600 font-black text-[10px] uppercase tracking-widest italic">
+                                    Export Excel
+                                </Button>
+                            </div>
                         </CardHeader>
                         <div className="overflow-x-auto">
                             <table className="w-full text-left border-collapse">
@@ -291,30 +338,58 @@ const FacultyRequestFunds = () => {
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-gray-50 dark:divide-slate-800">
-                                     {(fundRequests || []).map((req) => (
-                                         <tr key={req._id || req.id} onClick={() => { setSelectedRequest(req); setShowDetailsModal(true); }} className="hover:bg-gray-50 dark:hover:bg-slate-800/50 cursor-pointer group">
-                                             <td className="px-8 py-6">
-                                                 <p className="text-[10px] font-black text-slate-400 italic">#{req._id.substring(req._id.length - 6)}</p>
-                                                 <p className="text-[11px] font-black text-slate-800 dark:text-white uppercase italic mt-0.5">{new Date(req.createdAt).toLocaleDateString()}</p>
-                                             </td>
-                                             <td className="px-8 py-6">
-                                                 <p className="text-[11px] font-black text-slate-600 dark:text-gray-300 italic uppercase">{req.projectTitle}</p>
-                                                 <p className="text-[9px] font-bold text-gray-400 tracking-tighter mt-1">{req.purpose}</p>
-                                             </td>
-                                             <td className="px-8 py-6">
-                                                 <p className="text-sm font-black text-maroon-600 italic">{formatCurrency(req.requestedAmount)}</p>
-                                             </td>
-                                             <td className="px-8 py-6 text-right">
-                                                 <Badge className={`border-0 text-[10px] font-black italic px-3 py-1 rounded-full ${
-                                                     ['FUND_APPROVED', 'BILLS_UPLOADED', 'CHEQUE_RELEASED', 'AMOUNT_DISBURSED', 'APPROVED'].includes(req.status) ? 'bg-emerald-50 text-emerald-600' : 
-                                                     req.status === 'REJECTED' ? 'bg-red-50 text-red-600' :
-                                                     'bg-blue-50 text-blue-600'
-                                                 }`}>
-                                                     {req.currentStage || req.status}
-                                                 </Badge>
-                                             </td>
-                                         </tr>
-                                     ))}
+                                    {requestHistory.length === 0 ? (
+                                        <tr>
+                                            <td colSpan="4" className="px-8 py-10">
+                                                <div className="text-center py-10 opacity-80">
+                                                    <div className="text-4xl mb-2">📊</div>
+                                                    <p className="text-lg font-medium">No Data Yet</p>
+                                                    <p className="text-sm text-gray-400">
+                                                        Select a research center or create a project to view funding insights
+                                                    </p>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    ) : (
+                                        requestHistory.map((req) => {
+                                            const requestId = req._id || req.id || '';
+                                            const isHighValue = safeNumber(req.requestedAmount) >= HIGH_VALUE_THRESHOLD;
+                                            return (
+                                                <tr key={requestId} onClick={() => { setSelectedRequest(req); setShowDetailsModal(true); }} className="hover:bg-gray-50 dark:hover:bg-slate-800/50 cursor-pointer group">
+                                                    <td className="px-8 py-6">
+                                                        <p className="text-[10px] font-black text-slate-400 italic">#{String(requestId).slice(-6)}</p>
+                                                        <p className="text-[11px] font-black text-slate-800 dark:text-white uppercase italic mt-0.5">{new Date(req.createdAt).toLocaleDateString()}</p>
+                                                    </td>
+                                                    <td className="px-8 py-6">
+                                                        <p className="text-[11px] font-black text-slate-600 dark:text-gray-300 italic uppercase">{req.projectTitle}</p>
+                                                        <p className="text-[9px] font-bold text-gray-400 tracking-tighter mt-1">{req.purpose}</p>
+                                                        <div className="flex flex-wrap gap-2 mt-3">
+                                                            <span className="bg-blue-500 text-white px-2 py-1 rounded text-xs">
+                                                                Installment #{req.installmentNumber || 1}
+                                                            </span>
+                                                            {isHighValue && (
+                                                                <span className="bg-red-500 px-2 py-1 text-xs rounded text-white">
+                                                                    HIGH VALUE
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-8 py-6">
+                                                        <p className="text-sm font-black text-maroon-600 italic">{formatCurrency(req.requestedAmount)}</p>
+                                                    </td>
+                                                    <td className="px-8 py-6 text-right">
+                                                        <Badge className={`border-0 text-[10px] font-black italic px-3 py-1 rounded-full ${
+                                                            ['FUND_APPROVED', 'BILLS_UPLOADED', 'CHEQUE_RELEASED', 'AMOUNT_DISBURSED', 'APPROVED'].includes(req.status) ? 'bg-emerald-50 text-emerald-600' : 
+                                                            req.status === 'REJECTED' ? 'bg-red-50 text-red-600' :
+                                                            'bg-blue-50 text-blue-600'
+                                                        }`}>
+                                                            {req.currentStage || req.status}
+                                                        </Badge>
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })
+                                    )}
                                  </tbody>
                             </table>
                         </div>
@@ -477,7 +552,7 @@ ${data.sufficiencyExplanation ? `Final Status: ${data.sufficiencyExplanation}` :
                                     <Button 
                                         onClick={handleUploadBills} 
                                         disabled={!billUploadUrl.trim() || isSubmitting}
-                                        className="bg-maroon-600 hover:bg-maroon-700 text-white font-bold px-6 py-3 rounded-lg"
+                                        className="bg-gradient-to-r from-pink-500 to-red-500 hover:scale-105 transition text-white font-bold px-6 py-3 rounded-lg"
                                     >
                                         <Upload className="w-4 h-4 mr-2" />
                                         Submit Bills

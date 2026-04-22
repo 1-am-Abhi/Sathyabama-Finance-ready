@@ -108,6 +108,27 @@ const AdminDashboard = () => {
     const [loading, setLoading] = useState(true);
     const [socketConnected, setSocketConnected] = useState(false);
     const refreshTimerRef = React.useRef(null);
+    const fetchFallbackCentres = React.useCallback(async () => {
+        try {
+            const token = localStorage.getItem('token');
+            const response = await fetch('/api/research-centers', {
+                headers: token
+                    ? { Authorization: `Bearer ${token}` }
+                    : undefined,
+                credentials: 'include',
+            });
+
+            if (!response.ok) {
+                return [];
+            }
+
+            const payload = await response.json();
+            return Array.isArray(payload?.data) ? payload.data : [];
+        } catch (error) {
+            console.error('Error fetching fallback centres:', error);
+            return [];
+        }
+    }, []);
 
     const fetchDashboardData = async (force = false) => {
         try {
@@ -129,19 +150,32 @@ const AdminDashboard = () => {
                 EMPTY_ADMIN_DASHBOARD
             );
 
-            dashboardCache[selectedFY] = {
-                stats: fetchedData,
-                centres: fetchedData?.centres ?? [],
-                fundSources: fetchedData?.fundSources ?? []
+            const statsCentres = Array.isArray(fetchedData?.centres) ? fetchedData.centres : [];
+            const fallbackCentres = statsCentres.length === 0 ? await fetchFallbackCentres() : [];
+            const normalizedData = {
+                ...EMPTY_ADMIN_DASHBOARD,
+                ...(fetchedData || {}),
+                centres: statsCentres.length > 0 ? statsCentres : fallbackCentres,
             };
 
-            setStats(fetchedData);
-            setCentresStats(fetchedData?.centres ?? []);
-            setFundSources(fetchedData?.fundSources ?? []);
+            dashboardCache[selectedFY] = {
+                stats: normalizedData,
+                centres: normalizedData.centres,
+                fundSources: normalizedData.fundSources ?? []
+            };
+
+            setStats(normalizedData);
+            setCentresStats(normalizedData.centres);
+            setFundSources(normalizedData.fundSources ?? []);
         } catch (error) {
             console.error("Error fetching admin data:", error);
-            setStats(EMPTY_ADMIN_DASHBOARD);
-            setCentresStats([]);
+            const fallbackCentres = await fetchFallbackCentres();
+            const fallbackData = {
+                ...EMPTY_ADMIN_DASHBOARD,
+                centres: fallbackCentres,
+            };
+            setStats(fallbackData);
+            setCentresStats(fallbackCentres);
             setFundSources([]);
         } finally {
             setLoading(false);
@@ -206,21 +240,16 @@ const AdminDashboard = () => {
             socket.off('finance:update');
             socket.disconnect();
         };
-    }, []);
+    }, [fetchFallbackCentres]);
 
-    const centresList = React.useMemo(() => {
-        return (centresStats || []).map(c => ({
-            label: c.name || c.centre || 'Unknown Centre',
-            value: c._id || c.id || c.name || c.centre
-        }));
-    }, [centresStats]);
+    const centresList = React.useMemo(
+        () => (Array.isArray(stats?.centres) ? stats.centres : []),
+        [stats]
+    );
 
-    // Auto-select first centre if none selected
     React.useEffect(() => {
-        if ((selectedCentre === 'ALL' || !selectedCentre) && centresList.length > 0) {
-            setSelectedCentre(centresList[0].value);
-        }
-    }, [centresList, selectedCentre]);
+        console.log("CENTRES:", centresList);
+    }, [centresList]);
 
     const totalStats = React.useMemo(() => {
         if (!stats) return { totalProjects: 0, activeProjects: 0, pendingApprovals: 0, totalBudget: 0, totalAllocated: 0, used: 0, remaining: 0, totalFaculty: 0, totalDisbursed: 0 };
@@ -239,6 +268,7 @@ const AdminDashboard = () => {
 
     const centreData = React.useMemo(() => {
         return (centresStats || []).map(c => ({
+            _id: c._id || c.name || c.centre,
             centre: c.name || c.centre || 'Unknown Centre',
             totalProjects: safeNumber(c.totalProjects),
             activeProjects: safeNumber(c.activeProjects),
@@ -247,9 +277,13 @@ const AdminDashboard = () => {
         }));
     }, [centresStats]);
 
-    const filteredData = React.useMemo(() =>
-        selectedCentre === 'ALL' ? centreData : centreData.filter(c => c.centre === selectedCentre)
-        , [centreData, selectedCentre]);
+    const filteredData = React.useMemo(
+        () =>
+            selectedCentre === 'ALL'
+                ? centreData
+                : centreData.filter(c => c._id === selectedCentre || c.centre === selectedCentre),
+        [centreData, selectedCentre]
+    );
 
     const barChartData = React.useMemo(() =>
         selectedCentre === 'ALL'
@@ -411,8 +445,8 @@ const AdminDashboard = () => {
                             <option value="ALL" className="dark:bg-slate-800">All Centres</option>
                             {centresList.length > 0 ? (
                                 centresList.map(c => (
-                                    <option key={c.value} value={c.value} className="dark:bg-slate-800">
-                                        {c.label}
+                                    <option key={c._id} value={c._id} className="dark:bg-slate-800">
+                                        {c.name}
                                     </option>
                                 ))
                             ) : (

@@ -6,6 +6,8 @@ import { Badge } from '../ui/badge';
 import { toast } from 'sonner';
 import { FUND_SOURCE_OPTIONS } from '../../constants/fundSources';
 
+const formatCurrency = (value) => `₹${Number(value || 0).toLocaleString('en-IN')}`;
+
 const FundRequestModal = ({ isOpen, onClose, project, nextInstallment, onSubmit, maxClaimableAmount, isFinalInstallment }) => {
     // maxClaimableAmount is the specific amount allocated for this phase OR the total remaining grant, dependent on business logic. 
     // Assuming for 'Next Installment' it defaults to the planned phase amount but capped by total remaining.
@@ -79,7 +81,7 @@ const FundRequestModal = ({ isOpen, onClose, project, nextInstallment, onSubmit,
         setIsSubmitting(true);
         try {
             await onSubmit({
-                projectId: project.id,
+                projectId: project.id || project._id,
                 installmentNo: nextInstallment.phase,
                 ...formData,
                 files
@@ -95,7 +97,7 @@ const FundRequestModal = ({ isOpen, onClose, project, nextInstallment, onSubmit,
                 fundSource: ''
             });
             setFiles([]);
-            toast.success('Installment request submitted successfully!');
+            toast.success(`Installment #${nextInstallment.phase} request submitted for ${formatCurrency(formData.amount)}`);
             onClose();
         } catch (err) {
             // Parent handles the error toast  
@@ -295,18 +297,15 @@ const FundRequestModal = ({ isOpen, onClose, project, nextInstallment, onSubmit,
 
                     {/* Action */}
                     <div className="pt-4 flex items-center gap-4">
-                        <Button type="button" variant="ghost" onClick={onClose} className="flex-1 h-12 rounded-2xl font-bold text-gray-400 hover:text-gray-900">
+                        <Button type="button" variant="ghost" onClick={onClose} disabled={isSubmitting} className="flex-1 h-12 rounded-2xl font-bold text-gray-400 hover:text-gray-900">
                             Cancel
                         </Button>
                         <Button
                             type="submit"
-                            disabled={isFinalInstallment && !formData.confirmation}
-                            className={`flex-[2] h-12 text-white font-bold rounded-2xl shadow-xl transition-all flex items-center justify-center gap-3 ${isFinalInstallment
-                                ? 'bg-orange-600 hover:bg-orange-700 shadow-orange-100'
-                                : 'bg-indigo-900 hover:bg-black shadow-indigo-100'
-                                } ${isFinalInstallment && !formData.confirmation ? 'opacity-50 cursor-not-allowed' : ''}`}
+                            disabled={isSubmitting || (isFinalInstallment && !formData.confirmation)}
+                            className={`flex-[2] h-12 text-white font-bold rounded-2xl shadow-xl transition-all flex items-center justify-center gap-3 bg-gradient-to-r from-pink-500 to-red-500 hover:scale-105 ${isSubmitting || (isFinalInstallment && !formData.confirmation) ? 'opacity-50 cursor-not-allowed hover:scale-100' : ''}`}
                         >
-                            {isFinalInstallment ? 'Submit Final Request' : 'Submit Request'} <ChevronRight className="w-4 h-4" />
+                            {isSubmitting ? 'Submitting...' : (isFinalInstallment ? 'Submit Final Request' : 'Submit Request')} <ChevronRight className="w-4 h-4" />
                         </Button>
                     </div>
                 </form>

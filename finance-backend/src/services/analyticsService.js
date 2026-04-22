@@ -1,6 +1,9 @@
-const { Disbursement, Project, FundRequest, Centre } = require('../models');
+const { Disbursement, Project, FundRequest, Centre, ResearchCenter } = require('../models');
 const { Op } = require('sequelize');
 const { toNumber } = require('./pipelineMetricsService');
+const { isResearchCenterFailure } = require('../utils/researchCenterSafety');
+
+const ResearchCenterModel = ResearchCenter || Centre;
 
 /**
  * AI-Ready Analytics Service
@@ -70,7 +73,18 @@ const computeHeuristicInsights = async () => {
     const avgDailySpend = toNumber(recentSpending) / 30;
 
     // 2. Fund Exhaustion Estimates by Centre
-    const centres = await Centre.findAll();
+    let centres = [];
+    try {
+        if (ResearchCenterModel) {
+            centres = await ResearchCenterModel.findAll();
+        }
+    } catch (error) {
+        if (!isResearchCenterFailure(error)) {
+            throw error;
+        }
+        console.warn('[AnalyticsService] ResearchCenters unavailable, continuing with empty centre set.');
+        centres = [];
+    }
     const insights = [];
 
     for (const centre of centres) {
@@ -111,6 +125,10 @@ const computeHeuristicInsights = async () => {
         if (Math.abs(increase) > 10) {
             insights.push(`Spending has ${increase > 0 ? 'increased' : 'decreased'} by ${Math.abs(increase).toFixed(1)}% compared to the previous 30-day period.`);
         }
+    }
+
+    if (!centres.length && !insights.length) {
+        insights.push('Research center insights are temporarily unavailable; dashboard analytics are running in fallback mode.');
     }
 
     return {

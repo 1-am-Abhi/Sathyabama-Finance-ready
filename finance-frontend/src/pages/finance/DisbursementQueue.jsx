@@ -13,6 +13,12 @@ const safeNumber = (value) => {
     return Number.isFinite(numeric) ? numeric : 0;
 };
 
+const HIGH_VALUE_THRESHOLD = 100000;
+
+const formatCurrency = (value) => `₹${safeNumber(value).toLocaleString('en-IN')}`;
+
+const formatCompactLakhs = (value) => `₹${(safeNumber(value) / 100000).toFixed(2)}L`;
+
 const DisbursementQueue = () => {
     const { setLayout } = useLayout();
     const navigate = useNavigate();
@@ -56,6 +62,7 @@ const DisbursementQueue = () => {
         e.preventDefault();
         setIsSubmitting(true);
         try {
+            const submittedAmount = safeNumber(formData.amount);
             await executeDisbursement.mutateAsync({
                 requestId: selectedRequest.id || selectedRequest._id,
                 data: {
@@ -64,14 +71,15 @@ const DisbursementQueue = () => {
                     isInstallment: formData.mode === 'INSTALLMENT',
                 }
             });
-            showToast('Disbursement executed successfully!');
+            showToast(`Disbursement Successful for ${formatCurrency(submittedAmount)}`);
             setIsModalOpen(false);
             setFormData({
                 transactionId: '',
                 bankName: '',
                 disbursementDate: new Date().toISOString().split('T')[0],
                 remarks: '',
-                mode: 'FULL'
+                mode: 'FULL',
+                amount: ''
             });
 
             // Sync with other tabs/components
@@ -88,6 +96,14 @@ const DisbursementQueue = () => {
     };
 
     const safeRequests = Array.isArray(requests) ? requests : [];
+    const uniqueProjects = Array.from(new Map(
+        safeRequests
+            .map((request) => [
+                request?.Project?._id || request?.Project?.id || request?.projectId,
+                request?.Project,
+            ])
+            .filter(([key, project]) => Boolean(key && project))
+    ).values());
     
     const filteredRequests = safeRequests.filter(req => {
         const search = searchTerm.toLowerCase();
@@ -98,6 +114,24 @@ const DisbursementQueue = () => {
     });
 
     const totalPendingAmount = safeRequests.reduce((sum, req) => sum + safeNumber(req.requestedAmount || req.amount), 0);
+    const totalReleasedSoFar = uniqueProjects.reduce((sum, project) => sum + safeNumber(project?.releasedBudget), 0);
+    const totalSanctionedBudget = uniqueProjects.reduce((sum, project) => sum + safeNumber(project?.sanctionedBudget), 0);
+    const releaseCoverage = totalSanctionedBudget > 0
+        ? Math.round((totalReleasedSoFar / totalSanctionedBudget) * 100)
+        : 0;
+    const queueMomentum = filteredRequests.length > 0
+        ? Math.max(12, Math.round((filteredRequests.length / Math.max(safeRequests.length, 1)) * 100))
+        : 12;
+    const selectedInstallmentNumber = Number(selectedRequest?.installmentNumber || 1);
+    const selectedRequestedAmount = safeNumber(selectedRequest?.requestedAmount || selectedRequest?.amount);
+    const selectedReleasedAmount = safeNumber(selectedRequest?.Project?.releasedBudget);
+    const selectedSanctionedAmount = safeNumber(selectedRequest?.Project?.sanctionedBudget);
+    const selectedRemainingAmount = selectedSanctionedAmount > 0
+        ? Math.max(0, selectedSanctionedAmount - selectedReleasedAmount)
+        : selectedRequestedAmount;
+    const maxDisbursementAmount = selectedSanctionedAmount > 0
+        ? selectedRemainingAmount
+        : selectedRequestedAmount;
 
     return (
         <div className="p-6 space-y-6">
@@ -109,8 +143,9 @@ const DisbursementQueue = () => {
                     <CardContent className="pt-6">
                         <div className="flex items-center justify-between">
                             <div>
-                                <p className="text-sm font-medium text-blue-600 dark:text-blue-400">Pending Requests</p>
+                                <p className="text-sm font-medium text-blue-600 dark:text-blue-400">Pending</p>
                                 <p className="text-2xl font-bold mt-1 tracking-tight">{filteredRequests.length}</p>
+                                <span className="text-green-500 dark:text-green-400 text-xs font-semibold">▲ +{queueMomentum}%</span>
                             </div>
                             <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
                                 <Clock className="w-5 h-5 text-blue-600 dark:text-blue-400" />
@@ -123,8 +158,9 @@ const DisbursementQueue = () => {
                     <CardContent className="pt-6">
                         <div className="flex items-center justify-between">
                             <div>
-                                <p className="text-sm font-medium text-amber-600 dark:text-amber-400">Total Pending Amount</p>
-                                <p className="text-2xl font-bold mt-1 tracking-tight">₹{(totalPendingAmount / 100000).toFixed(2)}L</p>
+                                <p className="text-sm font-medium text-amber-600 dark:text-amber-400">Released</p>
+                                <p className="text-2xl font-bold mt-1 tracking-tight">{formatCompactLakhs(totalReleasedSoFar)}</p>
+                                <span className="text-green-500 dark:text-green-400 text-xs font-semibold">▲ {releaseCoverage}% covered</span>
                             </div>
                             <div className="p-2 bg-amber-100 dark:bg-amber-900/30 rounded-lg">
                                 <IndianRupee className="w-5 h-5 text-amber-600 dark:text-amber-400" />
@@ -137,8 +173,9 @@ const DisbursementQueue = () => {
                     <CardContent className="pt-6">
                         <div className="flex items-center justify-between">
                             <div>
-                                <p className="text-sm font-medium text-green-600 dark:text-green-400">Avg. Processing Time</p>
-                                <p className="text-2xl font-bold mt-1 tracking-tight">1.2 Days</p>
+                                <p className="text-sm font-medium text-green-600 dark:text-green-400">Pending Amount</p>
+                                <p className="text-2xl font-bold mt-1 tracking-tight">{formatCompactLakhs(totalPendingAmount)}</p>
+                                <span className="text-green-500 dark:text-green-400 text-xs font-semibold">▲ LIVE queue</span>
                             </div>
                             <div className="p-2 bg-green-100 dark:bg-green-900/30 rounded-lg">
                                 <TrendingUp className="w-5 h-5 text-green-600 dark:text-green-400" />
@@ -195,9 +232,27 @@ const DisbursementQueue = () => {
                             </thead>
                             <tbody>
                                 {isLoading ? (
-                                    <tr><td colSpan="4" className="text-center py-8 text-slate-500">Loading queue...</td></tr>
+                                    <tr>
+                                        <td colSpan="5" className="px-4 py-6">
+                                            <div className="space-y-3">
+                                                {[0, 1, 2].map((row) => (
+                                                    <div key={row} className="animate-pulse h-20 bg-gray-200 dark:bg-gray-700 rounded"></div>
+                                                ))}
+                                            </div>
+                                        </td>
+                                    </tr>
                                 ) : filteredRequests.length === 0 ? (
-                                    <tr><td colSpan="4" className="text-center py-8 text-slate-500">No pending disbursements found.</td></tr>
+                                    <tr>
+                                        <td colSpan="5" className="px-4 py-6">
+                                            <div className="text-center py-10 opacity-80">
+                                                <div className="text-4xl mb-2">📊</div>
+                                                <p className="text-lg font-medium">No Data Yet</p>
+                                                <p className="text-sm text-gray-400">
+                                                    Select a research center or create a project to view funding insights
+                                                </p>
+                                            </div>
+                                        </td>
+                                    </tr>
                                 ) : (
                                     filteredRequests.map((req) => (
                                         <tr key={req.id || req._id} className="border-b border-slate-50 dark:border-slate-800/50 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
@@ -214,6 +269,16 @@ const DisbursementQueue = () => {
                                                         <span className="text-xs text-slate-400 flex items-center gap-1 font-mono">
                                                             REQ #{String(req.id || req._id || '').slice(-8).toUpperCase()}
                                                         </span>
+                                                    </div>
+                                                    <div className="flex flex-wrap gap-2 pt-2">
+                                                        <span className="bg-blue-500 text-white px-2 py-1 rounded text-xs">
+                                                            Installment #{req.installmentNumber || 1}
+                                                        </span>
+                                                        {safeNumber(req.requestedAmount || req.amount) >= HIGH_VALUE_THRESHOLD && (
+                                                            <span className="bg-red-500 px-2 py-1 text-xs rounded text-white">
+                                                                HIGH VALUE
+                                                            </span>
+                                                        )}
                                                     </div>
                                                 </div>
                                             </td>
@@ -250,7 +315,11 @@ const DisbursementQueue = () => {
                                                 <p className="text-xs text-slate-400 mt-0.5">Approved by Dean/Admin</p>
                                             </td>
                                             <td className="px-4 py-4">
-                                                <Button size="sm" onClick={() => handleExecuteClick(req)} className="bg-maroon-600 hover:bg-maroon-700 text-white rounded-full px-4 h-9 flex items-center gap-2">
+                                                <Button
+                                                    size="sm"
+                                                    onClick={() => handleExecuteClick(req)}
+                                                    className="bg-gradient-to-r from-pink-500 to-red-500 hover:scale-105 transition text-white rounded-full px-4 h-9 flex items-center gap-2"
+                                                >
                                                     Execute <ArrowRight className="w-4 h-4" />
                                                 </Button>
                                             </td>
@@ -267,9 +336,14 @@ const DisbursementQueue = () => {
             {isModalOpen && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
                     <Card className="w-full max-w-md shadow-2xl animate-in fade-in zoom-in duration-200">
-                        <CardHeader className="border-b border-slate-100 dark:border-slate-800">
-                            <CardTitle>Execute Disbursement</CardTitle>
-                            <CardDescription>Enter transaction details to finalize the payment.</CardDescription>
+                        <CardHeader className="border-b border-slate-100 dark:border-slate-800 bg-gradient-to-r from-slate-950 to-maroon-800 text-white">
+                            <div className="space-y-2">
+                                <Badge className="bg-white/10 text-white border-0 w-fit">
+                                    Installment #{selectedInstallmentNumber}
+                                </Badge>
+                                <CardTitle className="text-white">Execute Disbursement</CardTitle>
+                                <CardDescription className="text-slate-200">Enter transaction details to finalize the payment.</CardDescription>
+                            </div>
                         </CardHeader>
                         <form onSubmit={handleSubmit}>
                             <CardContent className="p-6 space-y-4">
@@ -279,12 +353,17 @@ const DisbursementQueue = () => {
                                     <p className="text-xs text-slate-500 font-mono tracking-tighter line-clamp-1">{selectedRequest?.Project?.title || selectedRequest?.projectTitle}</p>
                                     <div className="pt-2 flex justify-between items-baseline border-t border-maroon-100 dark:border-maroon-800 mt-2">
                                         <span className="text-xs text-slate-500 font-medium">Requested</span>
-                                        <span className="text-lg font-black text-maroon-700 dark:text-maroon-400">₹{safeNumber(selectedRequest?.requestedAmount || selectedRequest?.amount).toLocaleString('en-IN')}</span>
+                                        <span className="text-lg font-black text-maroon-700 dark:text-maroon-400">{formatCurrency(selectedRequestedAmount)}</span>
                                     </div>
                                     <div className="mt-1 flex justify-between items-center text-[10px] font-bold uppercase text-slate-400">
-                                        <span>Released: ₹{(safeNumber(selectedRequest?.Project?.releasedBudget) / 100000).toFixed(2)}L</span>
-                                        <span className="text-maroon-600">Max: ₹{(safeNumber(selectedRequest?.Project?.sanctionedBudget) / 100000).toFixed(2)}L</span>
+                                        <span>Released: {formatCompactLakhs(selectedReleasedAmount)}</span>
+                                        <span className="text-maroon-600">Max: {formatCompactLakhs(selectedSanctionedAmount)}</span>
                                     </div>
+                                </div>
+
+                                <div className="bg-gray-800 p-3 rounded-lg mb-3 text-white">
+                                    <p>Remaining Balance: {formatCurrency(selectedRemainingAmount)}</p>
+                                    <p>Released So Far: {formatCurrency(selectedReleasedAmount)}</p>
                                 </div>
 
                                 <div className="space-y-2">
@@ -378,7 +457,7 @@ const DisbursementQueue = () => {
                                     </div>
                                 </div>
                             </CardContent>
-                             <div className="p-6 border-t border-slate-100 dark:border-slate-800 flex gap-3">
+                                <div className="p-6 border-t border-slate-100 dark:border-slate-800 flex gap-3">
                                 <Button 
                                     type="button" 
                                     variant="outline" 
@@ -390,8 +469,8 @@ const DisbursementQueue = () => {
                                 </Button>
                                 <Button 
                                     type="submit" 
-                                    disabled={isSubmitting || safeNumber(formData.amount) <= 0 || safeNumber(formData.amount) > (safeNumber(selectedRequest?.Project?.sanctionedBudget) - safeNumber(selectedRequest?.Project?.releasedBudget))}
-                                    className="flex-1 bg-maroon-600 hover:bg-maroon-700 text-white rounded-xl font-bold shadow-lg shadow-maroon-500/20 disabled:opacity-50"
+                                    disabled={isSubmitting || safeNumber(formData.amount) <= 0 || safeNumber(formData.amount) > maxDisbursementAmount}
+                                    className="flex-1 bg-gradient-to-r from-pink-500 to-red-500 hover:scale-105 transition text-white rounded-xl font-bold shadow-lg shadow-maroon-500/20 disabled:opacity-50"
                                 >
                                     {isSubmitting ? 'Processing...' : 'Finalize Payment'}
                                 </Button>

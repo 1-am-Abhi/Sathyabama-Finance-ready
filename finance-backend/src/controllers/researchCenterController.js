@@ -1,6 +1,35 @@
 const asyncHandler = require('../utils/asyncHandler');
-const { Centre, Project } = require('../models');
+const { Centre, ResearchCenter, Project } = require('../models');
 const { Sequelize } = require('sequelize');
+const { isResearchCenterFailure } = require('../utils/researchCenterSafety');
+
+const ResearchCenterModel = ResearchCenter || Centre;
+const DEFAULT_RESEARCH_CENTERS = [
+    { name: 'CMNS', code: 'CMNS' },
+    { name: 'AI Lab', code: 'AI' },
+    { name: 'Biotech', code: 'BIO' },
+];
+
+const discoverProjectCentres = async () => {
+    const projectCentres = await Project.findAll({
+        attributes: [
+            [Sequelize.fn('DISTINCT', Sequelize.col('centre')), 'centreName']
+        ],
+        where: {
+            centre: { [Sequelize.Op.not]: null }
+        },
+        raw: true
+    });
+
+    return projectCentres
+        .filter(p => p.centreName && p.centreName.trim() !== '')
+        .map(p => ({
+            _id: `discovery:${p.centreName}`,
+            name: p.centreName,
+            code: null,
+            isDiscovered: true
+        }));
+};
 
 /**
  * @desc    Get all research centres
@@ -8,29 +37,31 @@ const { Sequelize } = require('sequelize');
  * @access  Private
  */
 exports.getResearchCenters = asyncHandler(async (req, res) => {
-    // 1. Fetch official centres from DB
-    let centres = await Centre.findAll({ order: [['name', 'ASC']] });
-    
-    // 2. Fallback/Discovery logic: If DB is empty, derive from Projects
+    let centres = [];
+
+    try {
+        if (ResearchCenterModel) {
+            centres = await ResearchCenterModel.findAll({ order: [['name', 'ASC']] });
+        }
+    } catch (error) {
+        if (!isResearchCenterFailure(error)) {
+            throw error;
+        }
+        console.warn('[ResearchCenterController] ResearchCenters table unavailable, falling back to project discovery.');
+        centres = [];
+    }
+
     if (centres.length === 0) {
         console.log("ResearchCenterController: No centres in database, discovering from Projects...");
-        const projectCentres = await Project.findAll({
-            attributes: [
-                [Sequelize.fn('DISTINCT', Sequelize.col('centre')), 'centreName']
-            ],
-            where: {
-                centre: { [Sequelize.Op.not]: null }
-            },
-            raw: true
-        });
+        centres = await discoverProjectCentres();
+    }
 
-        centres = projectCentres
-            .filter(p => p.centreName && p.centreName.trim() !== '')
-            .map(p => ({
-                _id: `discovery:${p.centreName}`, // Virtual ID prefix
-                name: p.centreName,
-                isDiscovered: true
-            }));
+    if (centres.length === 0) {
+        centres = DEFAULT_RESEARCH_CENTERS.map((centre) => ({
+            _id: `default:${centre.code}`,
+            ...centre,
+            isDefault: true,
+        }));
     }
 
     return res.status(200).json({
@@ -52,12 +83,12 @@ exports.createResearchCenter = asyncHandler(async (req, res) => {
         return res.status(400).json({ success: false, message: 'Centre name is required' });
     }
 
-    const existing = await Centre.findOne({ where: { name: name.trim() } });
+    const existing = await ResearchCenterModel.findOne({ where: { name: name.trim() } });
     if (existing) {
         return res.status(400).json({ success: false, message: 'A research centre with this name already exists' });
     }
 
-    const centre = await Centre.create({ name: name.trim() });
+    const centre = await ResearchCenterModel.create({ name: name.trim() });
 
     return res.status(201).json({
         success: true,
@@ -71,7 +102,7 @@ exports.createResearchCenter = asyncHandler(async (req, res) => {
  * @access  Private/Admin
  */
 exports.deleteResearchCenter = asyncHandler(async (req, res) => {
-    const centre = await Centre.findByPk(req.params.id);
+    const centre = await ResearchCenterModel.findByPk(req.params.id);
 
     if (!centre) {
         return res.status(404).json({ success: false, message: 'Research centre not found' });
