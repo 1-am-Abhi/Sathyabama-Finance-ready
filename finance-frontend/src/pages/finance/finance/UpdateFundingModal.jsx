@@ -13,7 +13,6 @@ import { Button } from '../../../components/ui/button';
 import { useUpdateFunding } from '../../../hooks/useFinance';
 import { Loader2 } from 'lucide-react';
 import { FUND_SOURCE_OPTIONS } from '../../../constants/fundSources';
-import { safeText } from '../../../utils/safeRender';
 
 const UpdateFundingModal = ({ isOpen, onClose, department, onSuccess }) => {
     const [formData, setFormData] = useState({
@@ -76,7 +75,7 @@ const UpdateFundingModal = ({ isOpen, onClose, department, onSuccess }) => {
                 <DialogHeader>
                     <DialogTitle>Update Funding</DialogTitle>
                     <DialogDescription>
-                        {department ? `Update funding for ${safeText(department)}` : 'Update department funding'}
+                        {department ? `Update funding for ${department.name || "Unknown Center"}` : 'Update department funding'}
                     </DialogDescription>
                 </DialogHeader>
 

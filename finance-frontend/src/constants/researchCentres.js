@@ -2,8 +2,6 @@ import { useState, useEffect } from 'react';
 import apiClient from '../api/client';
 import { RESEARCH_CENTRES as STATIC_CENTRES } from '../data/dashboardData';
 
-export const RESEARCH_CENTRES = STATIC_CENTRES;
-
 export const useCentres = () => {
     const [centres, setCentres] = useState(STATIC_CENTRES);
     const [loading, setLoading] = useState(false);
@@ -22,7 +20,7 @@ export const useCentres = () => {
                 rawData ||
                 [];
 
-            // PHASE 7: DATA NORMALIZATION (MANDATORY)
+            // PHASE 4: NORMALIZE DATA ONCE
             const normalizeCentre = (c) => {
                 if (typeof c === 'string') return { _id: c, name: c };
                 return {
@@ -31,21 +29,14 @@ export const useCentres = () => {
                 };
             };
 
-            const normalizedCentres = (Array.isArray(centresData) ? centresData : [centresData])
+            const finalCentres = (Array.isArray(centresData) ? centresData : [centresData])
                 .filter(Boolean)
                 .map(normalizeCentre);
 
-            // Ensure we fallback to STATIC_CENTRES if API returns empty
-            const finalCentres = normalizedCentres.length > 0 
-                ? normalizedCentres 
-                : STATIC_CENTRES.map(normalizeCentre);
-
-            setCentres(finalCentres);
+            setCentres(finalCentres.length > 0 ? finalCentres : STATIC_CENTRES);
         } catch (error) {
             console.error("CENTRE FETCH ERROR:", error);
-            // Fallback for static data normalization too
-            const normalizeCentre = (c) => (typeof c === 'string' ? { _id: c, name: c } : c);
-            setCentres(STATIC_CENTRES.map(normalizeCentre));
+            setCentres(STATIC_CENTRES);
         } finally {
             setLoading(false);
         }

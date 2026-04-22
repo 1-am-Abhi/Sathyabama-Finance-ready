@@ -12,7 +12,6 @@ import { Input } from '../../../components/ui/input';
 import { Button } from '../../../components/ui/button';
 import { Loader2 } from 'lucide-react';
 import { getFundSourceLabel, normalizeFundSource } from '../../../constants/fundSources';
-import { safeText } from '../../../utils/safeRender';
 
 const UpdateFundSourceModal = ({ isOpen, onClose, fundSource, onSubmit, isLoading }) => {
     const [amount, setAmount] = useState('');
@@ -73,9 +72,9 @@ const UpdateFundSourceModal = ({ isOpen, onClose, fundSource, onSubmit, isLoadin
         <Dialog open={isOpen} onOpenChange={onClose}>
             <DialogContent className="sm:max-w-[500px]">
                 <DialogHeader>
-                    <DialogTitle>Update {safeText(fundSource?.title || "Fund Source")}</DialogTitle>
+                    <DialogTitle>Update {fundSource?.title || "Fund Source"}</DialogTitle>
                     <DialogDescription>
-                        Update the total amount received from {safeText(getFundSourceLabel(normalizedFundSource))}
+                        Update the total amount received from {getFundSourceLabel(normalizedFundSource)}
                     </DialogDescription>
                 </DialogHeader>
 

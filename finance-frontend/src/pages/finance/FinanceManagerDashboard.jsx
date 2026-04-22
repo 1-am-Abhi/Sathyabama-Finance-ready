@@ -9,7 +9,6 @@ import { useFundSourcesOverview, useDepartmentFunding, useUpdateFundSource } fro
 import { Building2, Landmark, AlertCircle, CircleDollarSign } from 'lucide-react';
 import { useLayout } from '../../contexts/LayoutContext';
 import { useCentres } from '../../constants/researchCentres';
-import { safeText } from '../../utils/safeRender';
 
 const FinanceManagerDashboard = () => {
     const { setLayout } = useLayout();
@@ -185,7 +184,7 @@ const FinanceManagerDashboard = () => {
                             const id = dept?._id || `dept-${idx}`;
                             return (
                                 <option key={id} value={id}>
-                                    {safeText(dept)}
+                                    {dept.name || "Unknown Center"}
                                 </option>
                             );
                         })}
