@@ -140,7 +140,7 @@ const AdminDashboard = () => {
                     apiClient.get('/analytics/insights'),
                     apiClient.get('/analytics/forecast-base?days=30')
                 ]);
-                
+
                 if (insightsRes.data?.success) {
                     setInsights(insightsRes.data.data?.insights ?? []);
                     const avgDaily = Number(insightsRes.data.data?.avgDailySpend || 0);
@@ -159,7 +159,7 @@ const AdminDashboard = () => {
 
         const socketUrl = (process.env.REACT_APP_API_URL || 'https://finance-api-x1ig.onrender.com').replace(/\/api\/?$/, '');
         const token = localStorage.getItem('token');
-        
+
         const socket = io(socketUrl, {
             auth: { token },
             transports: ['websocket', 'polling']
@@ -250,8 +250,8 @@ const AdminDashboard = () => {
 
     const chartConfig = { grid: '#E2E8F0', text: '#64748B', tooltip: '#FFFFFF', tooltipBorder: '#E2E8F0' };
     const quickActions = [
-        { title: 'Manage Faculty', description: 'View and edit staff', icon: Users, color: 'bg-maroon-50', iconBg: 'bg-maroon-100', action: () => navigate('/admin/faculty') },
-        { title: 'Projects', description: 'Oversight & status', icon: Target, color: 'bg-indigo-50', iconBg: 'bg-indigo-100', action: () => navigate('/admin/projects') },
+        { title: 'Manage Faculty', description: 'View and edit staff', icon: Users, color: 'bg-maroon-50', iconBg: 'bg-maroon-100', action: () => navigate('/admin/assign-faculty') },
+        { title: 'Projects', description: 'Oversight & status', icon: Target, color: 'bg-indigo-50', iconBg: 'bg-indigo-100', action: () => navigate('/admin/approve-projects') },
         { title: 'Fund Requests', description: 'Process approvals', icon: FileText, color: 'bg-emerald-50', iconBg: 'bg-emerald-100', action: () => navigate('/admin/fund-requests') },
         { title: 'Reports', description: 'Audit & analytics', icon: Landmark, color: 'bg-amber-50', iconBg: 'bg-amber-100', action: () => navigate('/admin/reports') }
     ];
@@ -333,7 +333,7 @@ const AdminDashboard = () => {
                                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" />
                                 <XAxis dataKey="month" axisLine={false} tickLine={false} fontSize={10} tick={{ fill: '#64748B' }} />
                                 <YAxis axisLine={false} tickLine={false} fontSize={10} tick={{ fill: '#64748B' }} tickFormatter={(val) => `₹${(val / 100000).toFixed(0)}L`} />
-                                <Tooltip 
+                                <Tooltip
                                     cursor={{ fill: 'rgba(99, 102, 241, 0.05)' }}
                                     contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }}
                                     formatter={(val) => [formatCurrency(val), 'Disbursed']}
@@ -354,9 +354,9 @@ const AdminDashboard = () => {
                         {quickActions.map((action, index) => {
                             const Icon = action.icon;
                             return (
-                                <button 
-                                    key={index} 
-                                    onClick={isEditable ? action.action : () => toast.error(`Actions are locked for past financial year ${selectedFY}`)} 
+                                <button
+                                    key={index}
+                                    onClick={isEditable ? action.action : () => toast.error(`Actions are locked for past financial year ${selectedFY}`)}
                                     disabled={!isEditable}
                                     className={`p-4 sm:p-6 rounded-lg ${action.color} dark:bg-opacity-10 dark:border-slate-800 transition-all text-left border border-gray-200 ${!isEditable ? 'opacity-50 grayscale cursor-not-allowed' : 'hover:shadow-md'}`}
                                 >
@@ -392,8 +392,8 @@ const AdminDashboard = () => {
                     </div>
                 </div>
                 <div className="flex items-center gap-3 flex-wrap">
-                    <button 
-                        onClick={() => fetchDashboardData()} 
+                    <button
+                        onClick={() => fetchDashboardData()}
                         disabled={loading}
                         className="p-2 bg-gray-50 dark:bg-slate-800 hover:bg-gray-100 dark:hover:bg-slate-700 rounded-lg border border-gray-200 dark:border-slate-700 text-gray-500 hover:text-maroon-600 transition-all flex items-center gap-2"
                         title="Refresh Dashboard"
@@ -402,19 +402,19 @@ const AdminDashboard = () => {
                         <span className="text-xs font-bold uppercase tracking-wider hidden sm:inline">Refresh</span>
                     </button>
                     <div className="flex-1 min-w-[160px]"><DateFilter selectedDate={selectedDate} onChange={(date) => setSelectedDate(date)} placeholder="Filter by Date" /></div>
-                    
+
                     <div className="flex items-center gap-1">
-                        <Button 
-                            variant="outline" 
-                            size="sm" 
+                        <Button
+                            variant="outline"
+                            size="sm"
                             onClick={() => window.open(`${apiClient.defaults.baseURL}/reports/export?fy=${selectedFY}&type=pdf`, '_blank')}
                             className="h-9 text-[10px] sm:text-xs font-bold uppercase tracking-wider border-gray-200 dark:border-slate-700"
                         >
                             PDF
                         </Button>
-                        <Button 
-                            variant="outline" 
-                            size="sm" 
+                        <Button
+                            variant="outline"
+                            size="sm"
                             onClick={() => window.open(`${apiClient.defaults.baseURL}/reports/export?fy=${selectedFY}&type=excel`, '_blank')}
                             className="h-9 text-[10px] sm:text-xs font-bold uppercase tracking-wider border-gray-200 dark:border-slate-700"
                         >
@@ -487,7 +487,7 @@ const AdminDashboard = () => {
                                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={chartConfig.grid} />
                                     <XAxis dataKey="name" fontSize={10} tick={{ fill: chartConfig.text }} axisLine={false} tickLine={false} />
                                     <YAxis fontSize={10} width={40} tick={{ fill: chartConfig.text }} axisLine={false} tickLine={false} tickFormatter={(value) => `₹${value}M`} />
-                                    <Tooltip 
+                                    <Tooltip
                                         cursor={{ fill: 'transparent' }}
                                         contentStyle={{ backgroundColor: chartConfig.tooltip, border: `1px solid ${chartConfig.tooltipBorder}`, borderRadius: '8px', fontSize: '12px' }}
                                         formatter={(value) => [formatCurrency(value * 1000000), 'Value']}
@@ -508,12 +508,12 @@ const AdminDashboard = () => {
                     <CardContent className="p-3 sm:p-6 flex-1 flex flex-col justify-center items-center">
                         <div className="h-[280px] w-full relative">
                             <ResponsiveContainer width="100%" height="100%">
-                                <RadialBarChart 
-                                    cx="50%" 
-                                    cy="50%" 
-                                    innerRadius="60%" 
-                                    outerRadius="100%" 
-                                    barSize={20} 
+                                <RadialBarChart
+                                    cx="50%"
+                                    cy="50%"
+                                    innerRadius="60%"
+                                    outerRadius="100%"
+                                    barSize={20}
                                     data={[
                                         {
                                             name: 'Utilization',
@@ -591,9 +591,9 @@ const AdminDashboard = () => {
                                 ) : (
                                     <TableRow>
                                         <TableCell colSpan={4} className="py-12">
-                                            <EmptyState 
-                                                message="Audit Trail Empty" 
-                                                description="No administrative actions or state changes have been logged yet." 
+                                            <EmptyState
+                                                message="Audit Trail Empty"
+                                                description="No administrative actions or state changes have been logged yet."
                                             />
                                         </TableCell>
                                     </TableRow>
@@ -662,7 +662,7 @@ const AdminDashboard = () => {
                                 <p className="text-lg font-black italic text-indigo-600 dark:text-indigo-400">{formatCurrency(forecast?.projectedUsage30Days ?? 0)}</p>
                             </div>
                         </div>
-                        
+
                         <div className="mt-4 p-4 bg-indigo-50/50 dark:bg-indigo-900/10 rounded-xl border border-indigo-100/50 dark:border-indigo-900/20 flex items-center justify-between">
                             <div className="space-y-4">
                                 {(centreList).slice(0, 5).map((centre, idx) => (
@@ -679,7 +679,7 @@ const AdminDashboard = () => {
                                             </span>
                                         </div>
                                         <div className="relative h-1.5 w-full bg-gray-100 dark:bg-slate-800 rounded-full overflow-hidden">
-                                            <div 
+                                            <div
                                                 className="absolute top-0 left-0 h-full bg-maroon-600 rounded-full transition-all duration-1000"
                                                 style={{ width: `${Math.min(100, ((centre.disbursed ?? 0) / (stats.used || 1)) * 100)}%` }}
                                             ></div>
