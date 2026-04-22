@@ -7,7 +7,7 @@ import { Button } from '../../components/ui/button';
 import {
     Banknote, CheckCircle, TrendingUp, Plus, FileText, Landmark,
     UserPlus, BarChart3, Filter, Wallet, Building2, Activity, CircleDollarSign,
-    Sparkles, AlertTriangle, Info, Clock
+    Sparkles, AlertTriangle, Info, Clock, Users, Target
 } from 'lucide-react';
 import { io } from 'socket.io-client';
 import { toast } from 'sonner';

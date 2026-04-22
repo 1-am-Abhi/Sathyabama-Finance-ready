@@ -86,9 +86,6 @@ const DisbursementQueue = () => {
             setIsSubmitting(false);
         }
     };
-            setIsSubmitting(false);
-        }
-    };
 
     const safeRequests = Array.isArray(requests) ? requests : [];
     
