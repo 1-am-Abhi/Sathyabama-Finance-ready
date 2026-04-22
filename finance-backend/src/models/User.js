@@ -40,6 +40,10 @@ const User = sequelize.define('User', {
         type: DataTypes.UUID,
         allowNull: true
     },
+    researchCenterId: {
+        type: DataTypes.UUID,
+        allowNull: true
+    },
     designation: {
         type: DataTypes.STRING,
         allowNull: true
