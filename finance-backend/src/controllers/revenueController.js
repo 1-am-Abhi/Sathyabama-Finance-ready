@@ -3,6 +3,7 @@ const { Revenue, User } = require('../models');
 const { Op } = require('sequelize');
 const { syncRevenueLedger } = require('../services/financePipelineService');
 const NotificationService = require('../services/notificationService');
+const { buildResearchCenterIncludeArray } = require('../utils/researchCenterSafety');
 
 const createRevenueRecord = asyncHandler(async (req, res) => {
     const { year, revenueSource, amountGenerated, details } = req.body;
@@ -113,7 +114,7 @@ const getAllRevenueForVerification = asyncHandler(async (req, res) => {
             model: User, 
             as: 'User',
             attributes: ['name', 'department'],
-            include: [{ model: require('../models/Centre'), as: 'researchCentre', attributes: ['name'], required: false }]
+            include: buildResearchCenterIncludeArray({ attributes: ['name'], required: false })
         }],
         order: [['createdAt', 'DESC']]
     });
@@ -148,7 +149,7 @@ const getAdminRevenueApprovals = asyncHandler(async (req, res) => {
             model: User, 
             as: 'User',
             attributes: ['name', 'department'],
-            include: [{ model: require('../models/Centre'), as: 'researchCentre', attributes: ['name'] }]
+            include: buildResearchCenterIncludeArray({ attributes: ['name'], required: false })
         }],
         order: [['createdAt', 'DESC']]
     });
@@ -193,4 +194,3 @@ module.exports = {
     getAdminRevenueApprovals,
     adminApproveRevenue
 };
-

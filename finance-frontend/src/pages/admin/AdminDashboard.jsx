@@ -27,6 +27,7 @@ import AddCentreModal from '../../components/shared/AddCentreModal';
 import Loader from '../../components/shared/Loader';
 import EmptyState from '../../components/shared/EmptyState';
 import { normalizeFundSource } from '../../constants/fundSources';
+import { safeApiObj } from '../../api/safeApi';
 
 const safeNumber = (val) => {
     const num = Number(val || 0);
@@ -38,6 +39,22 @@ const getAdminFundSourceLabel = (value) => {
     if (normalized === 'INSTITUTIONAL') return 'Director Fund';
     if (normalized === 'OTHERS') return 'Others';
     return 'PFMS';
+};
+
+const EMPTY_ADMIN_DASHBOARD = {
+    totalAllocated: 0,
+    used: 0,
+    remaining: 0,
+    totalBudget: 0,
+    totalProjects: 0,
+    activeProjects: 0,
+    pendingApprovals: 0,
+    totalFaculty: 0,
+    totalDisbursed: 0,
+    centres: [],
+    monthlyData: [],
+    fundSources: [],
+    recentRequests: []
 };
 
 
@@ -104,26 +121,28 @@ const AdminDashboard = () => {
             }
 
             if (!stats) setLoading(true);
-            const [statsRes] = await Promise.all([
-                apiClient.get('/projects/stats', {
-                    params: { financialYear: selectedFY }
-                })
-            ]);
+            const fetchedData = await safeApiObj(
+                () =>
+                    apiClient.get('/projects/stats', {
+                        params: { financialYear: selectedFY }
+                    }),
+                EMPTY_ADMIN_DASHBOARD
+            );
 
-            if (statsRes?.data?.success) {
-                const fetchedData = statsRes.data.data || {};
-                dashboardCache[selectedFY] = {
-                    stats: fetchedData,
-                    centres: fetchedData.centres ?? [],
-                    fundSources: fetchedData.fundSources ?? []
-                };
+            dashboardCache[selectedFY] = {
+                stats: fetchedData,
+                centres: fetchedData?.centres ?? [],
+                fundSources: fetchedData?.fundSources ?? []
+            };
 
-                setStats(fetchedData);
-                setCentresStats(fetchedData.centres ?? []);
-                setFundSources(fetchedData.fundSources ?? []);
-            }
+            setStats(fetchedData);
+            setCentresStats(fetchedData?.centres ?? []);
+            setFundSources(fetchedData?.fundSources ?? []);
         } catch (error) {
             console.error("Error fetching admin data:", error);
+            setStats(EMPTY_ADMIN_DASHBOARD);
+            setCentresStats([]);
+            setFundSources([]);
         } finally {
             setLoading(false);
         }

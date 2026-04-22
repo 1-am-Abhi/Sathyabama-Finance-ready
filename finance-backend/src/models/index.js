@@ -1,10 +1,11 @@
 const { sequelize } = require('../config/db');
 const { Sequelize } = require('sequelize');
+const ResearchCenterModel = require('./ResearchCenter');
 
 const models = {
     AcademicMetric: require('./AcademicMetric'),
     AuditLog: require('./AuditLog'),
-    Centre: require('./ResearchCenter'),
+    Centre: ResearchCenterModel,
     Disbursement: require('./Disbursement'),
     Document: require('./Document'),
     EquipmentRequest: require('./EquipmentRequest'),
@@ -19,6 +20,7 @@ const models = {
     PFMSTransaction: require('./PFMSTransaction'),
     Project: require('./Project'),
     ProjectMember: require('./ProjectMember'),
+    ResearchCenter: ResearchCenterModel,
     Revenue: require('./Revenue'),
     User: require('./User'),
 };
@@ -40,19 +42,23 @@ const {
     PFMSTransaction,
     Project,
     ProjectMember,
+    ResearchCenter,
     Revenue,
     User,
 } = models;
 
 // Research centre ownership
-Centre.hasMany(User, { foreignKey: 'centreId', as: 'faculty' });
-User.belongsTo(Centre, { foreignKey: 'centreId', as: 'researchCentre' });
+ResearchCenter.hasMany(User, { foreignKey: 'centreId', as: 'faculty' });
+User.belongsTo(ResearchCenter, { foreignKey: 'centreId', as: 'researchCentre' });
+User.belongsTo(ResearchCenter, { foreignKey: 'centreId', as: 'researchCenter' });
 
-Centre.hasMany(Project, { foreignKey: 'centreId', as: 'projects' });
-Project.belongsTo(Centre, { foreignKey: 'centreId', as: 'researchCentre' });
+ResearchCenter.hasMany(Project, { foreignKey: 'centreId', as: 'projects' });
+Project.belongsTo(ResearchCenter, { foreignKey: 'centreId', as: 'researchCentre' });
+Project.belongsTo(ResearchCenter, { foreignKey: 'centreId', as: 'researchCenter' });
 
-Centre.hasMany(FundRequest, { foreignKey: 'centreId', as: 'fundRequests' });
-FundRequest.belongsTo(Centre, { foreignKey: 'centreId', as: 'researchCentre' });
+ResearchCenter.hasMany(FundRequest, { foreignKey: 'centreId', as: 'fundRequests' });
+FundRequest.belongsTo(ResearchCenter, { foreignKey: 'centreId', as: 'researchCentre' });
+FundRequest.belongsTo(ResearchCenter, { foreignKey: 'centreId', as: 'researchCenter' });
 
 // Project ownership and team membership
 Project.belongsTo(User, { foreignKey: 'facultyId', as: 'facultyOwner' });

@@ -50,7 +50,7 @@ const ResearchProjectsGraphs = () => {
                             </div>
                         </div>
                         <div className="h-[300px] w-full">
-                            <ResponsiveContainer width="100%" height="100%">
+                            <ResponsiveContainer width="100%" height={300}>
                                 <BarChart data={yearData}>
                                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                                     <XAxis
@@ -87,7 +87,7 @@ const ResearchProjectsGraphs = () => {
                                 <p className="text-3xl font-black text-gray-900 tracking-tighter">28</p>
                                 <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest italic">Grant Stock</p>
                             </div>
-                            <ResponsiveContainer width="100%" height="100%">
+                            <ResponsiveContainer width="100%" height={300}>
                                 <PieChart>
                                     <Pie
                                         data={statusData}

@@ -395,7 +395,7 @@ const ApproveProjects = () => {
                                         onChange={(e) => setSelectedCentre(e.target.value)}
                                     >
                                         <option value="All">All Centres</option>
-                                        {dynamicCentres.map(c => <option key={c} value={c}>{c}</option>)}
+                                        {(dynamicCentres ?? []).map(c => <option key={c} value={c}>{c}</option>)}
                                     </select>
                                 </div>
                                 <div className="w-36 relative">
@@ -590,7 +590,7 @@ const ApproveProjects = () => {
                         </CardHeader>
                         <CardContent className="pt-6">
                             <div className="h-[300px]">
-                                <ResponsiveContainer width="100%" height="100%">
+                                <ResponsiveContainer width="100%" height={300}>
                                     <PieChart>
                                         <Pie
                                             data={[
@@ -637,7 +637,7 @@ const ApproveProjects = () => {
                         </CardHeader>
                         <CardContent className="pt-6">
                             <div className="h-[300px]">
-                                <ResponsiveContainer width="100%" height="100%">
+                                <ResponsiveContainer width="100%" height={300}>
                                     <BarChart data={
                                         AGENCIES.map(agency => ({
                                             agency: agency.length > 15 ? agency.substring(0, 12) + '...' : agency,

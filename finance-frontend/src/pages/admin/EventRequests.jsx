@@ -517,7 +517,7 @@ const EventRequests = () => {
                         </Button>
                         {filterOpen && (
                             <div className="absolute right-0 top-full mt-2 w-56 bg-white dark:bg-slate-800 rounded-md shadow-lg border border-gray-200 dark:border-slate-700 z-50 py-1">
-                                {uniqueResearchCentres.map(centre =>
+                                {(uniqueResearchCentres ?? []).map(centre =>
                                     <div
                                         key={centre}
                                         className={`px-4 py-2 text-sm cursor-pointer hover:bg-gray-100 dark:hover:bg-slate-700 ${centreFilter === centre ? 'font-bold text-blue-600' : 'text-gray-700 dark:text-gray-300'}`}

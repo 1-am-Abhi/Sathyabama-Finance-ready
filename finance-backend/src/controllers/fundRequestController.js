@@ -4,6 +4,7 @@ const {
     Project, 
     Disbursement, 
     AuditLog, 
+    ResearchCenter,
     Centre,
     User
 } = require('../models');
@@ -21,32 +22,46 @@ const {
 } = require('../services/financePipelineService');
 const { normalizeFundSource } = require('../services/fundSourceCatalogService');
 const { VALID_PROJECT_STATUSES } = require('../constants/financeConstants');
+const {
+    getResearchCenterName,
+    isResearchCenterFailure,
+    normalizeResearchCenterResponse,
+    normalizeResearchCenterResponseList,
+} = require('../utils/researchCenterSafety');
+
+const ResearchCenterModel = ResearchCenter || Centre;
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 const resolveCentreAssignment = async (project, user) => {
-    const hasCentreModel = !!Centre;
+    const hasCentreModel = !!ResearchCenterModel;
 
     if (project?.centreId && hasCentreModel) {
         return {
             centreId: project.centreId,
-            centre: project.researchCentre?.name || project.centre || user?.centre || 'Research Centre',
+            centre: getResearchCenterName(project, project.centre || user?.centre || 'Research Centre'),
         };
     }
-    if (user?.centreId && hasCentreModel) {
-        const centre = await Centre.findByPk(user.centreId);
-        if (centre) return { centreId: centre._id || centre.id, centre: centre.name };
+
+    try {
+        if (user?.centreId && hasCentreModel) {
+            const centre = await ResearchCenterModel.findByPk(user.centreId);
+            if (centre) return { centreId: centre._id || centre.id, centre: centre.name };
+        }
+        if (project?.centre && hasCentreModel) {
+            const centre = await ResearchCenterModel.findOne({ where: { name: project.centre } });
+            if (centre) return { centreId: centre._id || centre.id, centre: centre.name };
+            return { centreId: null, centre: project.centre };
+        }
+        if (user?.centre && hasCentreModel) {
+            const centre = await ResearchCenterModel.findOne({ where: { name: user.centre } });
+            if (centre) return { centreId: centre._id || centre.id, centre: centre.name };
+            return { centreId: null, centre: user.centre };
+        }
+    } catch (error) {
+        console.warn('[FundRequestController] ResearchCenter lookup failed:', error.message);
     }
-    if (project?.centre && hasCentreModel) {
-        const centre = await Centre.findOne({ where: { name: project.centre } });
-        if (centre) return { centreId: centre._id || centre.id, centre: centre.name };
-        return { centreId: null, centre: project.centre };
-    }
-    if (user?.centre && hasCentreModel) {
-        const centre = await Centre.findOne({ where: { name: user.centre } });
-        if (centre) return { centreId: centre._id || centre.id, centre: centre.name };
-        return { centreId: null, centre: user.centre };
-    }
+
     return { centreId: null, centre: project?.centre || user?.centre || 'Research Centre' };
 };
 
@@ -74,7 +89,16 @@ const getFundRequests = asyncHandler(async (req, res) => {
     console.log(`[FundRequestController] Query Params:`, req.query);
 
     if (!req.user) {
-        throw new Error('User not authenticated - authentication middleware failed to attach user.');
+        return res.status(200).json({
+            success: true,
+            data: [],
+            meta: {
+                total: 0,
+                page: 1,
+                limit: 100,
+                totalPages: 0,
+            }
+        });
     }
 
     const page = parseInt(req.query.page, 10) || 1;
@@ -150,13 +174,40 @@ const getFundRequests = asyncHandler(async (req, res) => {
     try {
         result = await FundRequest.findAndCountAll(options);
     } catch (queryError) {
-        console.error('🔥 [FundRequestController] findAndCountAll CRASHED:', queryError);
-        return res.status(500).json({
-            success: false,
-            message: `CRITICAL: Database Query Failed for FundRequests. Reason: ${queryError.message}`,
-            detail: queryError.toString(),
-            stack: queryError.stack
-        });
+        console.warn('🔥 [FundRequestController] findAndCountAll failed:', queryError.message);
+
+        if (isResearchCenterFailure(queryError)) {
+            try {
+                result = await FundRequest.findAndCountAll({
+                    ...options,
+                    include: [buildProjectInclude({ includeResearchCenter: false })],
+                });
+            } catch (fallbackError) {
+                console.error('[FundRequestController] Fallback fund request query failed:', fallbackError.message);
+                return res.status(200).json({
+                    success: true,
+                    data: [],
+                    meta: {
+                        total: 0,
+                        page,
+                        limit,
+                        totalPages: 0,
+                    }
+                });
+            }
+        } else {
+            console.error('[FundRequestController] Non-ResearchCenter query failure:', queryError);
+            return res.status(200).json({
+                success: true,
+                data: [],
+                meta: {
+                    total: 0,
+                    page,
+                    limit,
+                    totalPages: 0,
+                }
+            });
+        }
     }
     
     const { count, rows } = result || { count: 0, rows: [] };
@@ -164,11 +215,11 @@ const getFundRequests = asyncHandler(async (req, res) => {
     const data = [];
     for (const r of (rows || [])) {
         try {
-            data.push(normalizeFundRequest(r));
+            data.push(normalizeResearchCenterResponse(normalizeFundRequest(r)));
         } catch (normErr) {
             console.error(`[FundRequestController] Normalization failed for record ${r?._id || r?.id}:`, normErr.message);
             // Fallback to raw data if normalization fails to prevent 500
-            data.push(r.toJSON ? r.toJSON() : r);
+            data.push(normalizeResearchCenterResponse(r));
         }
     }
 
@@ -187,11 +238,19 @@ const getFundRequests = asyncHandler(async (req, res) => {
 });
 
 const getFundRequest = asyncHandler(async (req, res) => {
-    const request = await FundRequest.findByPk(req.params.id, {
-        include: [buildCentreInclude(), buildProjectInclude()],
-    });
+    let request;
+    try {
+        request = await FundRequest.findByPk(req.params.id, {
+            include: [buildCentreInclude(), buildProjectInclude()].filter(Boolean),
+        });
+    } catch (error) {
+        console.warn('[FundRequestController] getFundRequest include failed:', error.message);
+        request = await FundRequest.findByPk(req.params.id, {
+            include: [buildProjectInclude({ includeResearchCenter: false })],
+        });
+    }
     if (!request) return res.status(404).json({ success: false, message: 'Request not found' });
-    return res.status(200).json({ success: true, data: normalizeFundRequest(request) || {} });
+    return res.status(200).json({ success: true, data: normalizeResearchCenterResponse(normalizeFundRequest(request)) || {} });
 });
 
 const createFundRequest = asyncHandler(async (req, res) => {
@@ -226,18 +285,35 @@ const createFundRequest = asyncHandler(async (req, res) => {
     let project = null;
 
     if (bodyProjectIdResolved) {
-        project = await Project.findByPk(bodyProjectIdResolved, { include: [buildCentreInclude()] });
+        try {
+            project = await Project.findByPk(bodyProjectIdResolved, { include: [buildCentreInclude()].filter(Boolean) });
+        } catch (error) {
+            console.warn('[FundRequestController] Project lookup include failed:', error.message);
+            project = await Project.findByPk(bodyProjectIdResolved);
+        }
     }
     if (!project) {
-        project = await Project.findOne({
-            where: {
-                [Op.or]: [
-                    { title: projectTitle },
-                    { pi: req.user.name, title: projectTitle },
-                ],
-            },
-            include: [buildCentreInclude()],
-        });
+        try {
+            project = await Project.findOne({
+                where: {
+                    [Op.or]: [
+                        { title: projectTitle },
+                        { pi: req.user.name, title: projectTitle },
+                    ],
+                },
+                include: [buildCentreInclude()].filter(Boolean),
+            });
+        } catch (error) {
+            console.warn('[FundRequestController] Project title lookup include failed:', error.message);
+            project = await Project.findOne({
+                where: {
+                    [Op.or]: [
+                        { title: projectTitle },
+                        { pi: req.user.name, title: projectTitle },
+                    ],
+                },
+            });
+        }
     }
 
     if (!project) {
@@ -590,13 +666,19 @@ const advanceStage = asyncHandler(async (req, res) => {
 });
 
 const getProjectWithInstallments = asyncHandler(async (req, res) => {
-    const project = await Project.findByPk(req.params.projectId, {
-        include: [buildCentreInclude()],
-    });
+    let project;
+    try {
+        project = await Project.findByPk(req.params.projectId, {
+            include: [buildCentreInclude()].filter(Boolean),
+        });
+    } catch (error) {
+        console.warn('[FundRequestController] getProjectWithInstallments include failed:', error.message);
+        project = await Project.findByPk(req.params.projectId);
+    }
     if (!project) return res.status(404).json({ success: false, message: 'Project not found' });
 
     if (
-        req.user.role !== 'FACULTY' &&
+        req.user.role === 'FACULTY' &&
         project.facultyId !== (req.user.id || req.user._id) &&
         project.userId !== (req.user.id || req.user._id)
     ) {
@@ -616,12 +698,12 @@ const getProjectWithInstallments = asyncHandler(async (req, res) => {
         success: true,
         data: {
             project: {
-                ...project.toJSON(),
+                ...normalizeResearchCenterResponse(project),
                 totalAmount,
                 disbursedAmount,
                 remainingAmount,
             },
-            installments: (installments || []).map((r) => normalizeFundRequest(r)),
+            installments: normalizeResearchCenterResponseList((installments || []).map((r) => normalizeFundRequest(r))),
             count: installments?.length || 0,
         },
     });

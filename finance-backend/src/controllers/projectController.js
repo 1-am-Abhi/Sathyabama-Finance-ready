@@ -4,7 +4,7 @@ const {
     User, 
     ProjectMember, 
     FundRequest: FR, 
-    Revenue,
+    ResearchCenter,
     Centre
 } = require('../models');
 const { Op } = require('sequelize');
@@ -14,42 +14,65 @@ const {
 } = require('../services/pipelineMetricsService');
 const { normalizeFundSource } = require('../services/fundSourceCatalogService');
 const { cache } = require('../services/redisService');
+const {
+    buildResearchCenterIncludeArray,
+    getEmptyAdminStatsData,
+    isResearchCenterFailure,
+    normalizeResearchCenterResponse,
+    normalizeResearchCenterResponseList,
+} = require('../utils/researchCenterSafety');
+
+const ResearchCenterModel = ResearchCenter || Centre;
 
 const resolveCentreAssignment = async (centreInput, centreIdInput) => {
-    if (centreIdInput) {
-        const centre = await Centre.findByPk(centreIdInput);
-        if (centre) {
-            return { centreId: centre._id || centre.id, centre: centre.name };
-        }
+    if (!ResearchCenterModel) {
+        return { centreId: centreIdInput || null, centre: centreInput || null };
     }
 
-    if (centreInput) {
-        const centre = await Centre.findOne({ where: { name: centreInput } });
-        if (centre) {
-            return { centreId: centre._id || centre.id, centre: centre.name };
+    try {
+        if (centreIdInput) {
+            const centre = await ResearchCenterModel.findByPk(centreIdInput);
+            if (centre) {
+                return { centreId: centre._id || centre.id, centre: centre.name };
+            }
         }
-        return { centreId: null, centre: centreInput };
+
+        if (centreInput) {
+            const centre = await ResearchCenterModel.findOne({ where: { name: centreInput } });
+            if (centre) {
+                return { centreId: centre._id || centre.id, centre: centre.name };
+            }
+            return { centreId: null, centre: centreInput };
+        }
+    } catch (error) {
+        console.warn('[ProjectController] ResearchCenter lookup failed:', error.message);
     }
 
-    return { centreId: null, centre: null };
+    return { centreId: centreIdInput || null, centre: centreInput || null };
 };
 
 const getAdminStats = asyncHandler(async (req, res) => {
-    const { financialYear } = req.query;
-    const adminData = await getAdminDashboardData(financialYear);
-    
-    // Log API response construction
-    console.log("API response construction - used:", adminData.data.used);
+    try {
+        const { financialYear } = req.query;
+        const adminData = await getAdminDashboardData(financialYear);
+        const safeData = adminData?.data || getEmptyAdminStatsData();
 
-    return res.status(200).json({
-        success: true,
-        data: {
-            ...adminData.data,
-            totalAllocated: Number(adminData.data.totalAllocated),
-            used: Number(adminData.data.used),
-            remaining: Number(adminData.data.remaining)
-        }
-    });
+        return res.status(200).json({
+            success: true,
+            data: {
+                ...safeData,
+                totalAllocated: Number(safeData.totalAllocated || 0),
+                used: Number(safeData.used || 0),
+                remaining: Number(safeData.remaining || 0)
+            }
+        });
+    } catch (error) {
+        console.error('[ProjectController] getAdminStats failed:', error.message);
+        return res.status(200).json({
+            success: true,
+            data: getEmptyAdminStatsData(),
+        });
+    }
 });
 
 const getFacultyStats = asyncHandler(async (req, res) => {
@@ -66,19 +89,15 @@ const getFacultyStats = asyncHandler(async (req, res) => {
 });
 
 const getProjects = asyncHandler(async (req, res) => {
+    const membersInclude = {
+        model: ProjectMember,
+        as: 'members',
+        include: [{ model: User, as: 'user', attributes: ['_id', 'name', 'email', 'centre', 'department'] }]
+    };
     const includeMembers = {
         include: [
-            {
-                model: ProjectMember,
-                as: 'members',
-                include: [{ model: User, as: 'user', attributes: ['_id', 'name', 'email', 'centre', 'department'] }]
-            },
-            { 
-                model: require('../models/Centre'), 
-                as: 'researchCentre', 
-                attributes: ['name'],
-                required: false 
-            }
+            membersInclude,
+            ...buildResearchCenterIncludeArray({ attributes: ['name'], required: false }),
         ],
         order: [['createdAt', 'DESC']]
     };
@@ -98,33 +117,59 @@ const getProjects = asyncHandler(async (req, res) => {
         };
     }
 
-    const projects = await Project.findAll(includeMembers);
+    let projects = [];
+    try {
+        projects = await Project.findAll(includeMembers);
+    } catch (error) {
+        console.warn('[ProjectController] getProjects include failed:', error.message);
+
+        try {
+            projects = await Project.findAll({
+                ...includeMembers,
+                include: [membersInclude],
+            });
+        } catch (fallbackError) {
+            console.error('[ProjectController] getProjects fallback failed:', fallbackError.message);
+            return res.status(200).json({
+                success: true,
+                data: [],
+                meta: { count: 0 },
+            });
+        }
+    }
+
+    const safeProjects = normalizeResearchCenterResponseList(projects);
 
     return res.status(200).json({
         success: true,
-        data: Array.isArray(projects) ? projects : [],
+        data: safeProjects,
         meta: {
-            count: projects?.length || 0
+            count: safeProjects.length
         }
     });
 });
 
 const getProject = asyncHandler(async (req, res) => {
-    const project = await Project.findByPk(req.params.id, {
-        include: [
-            {
-                model: ProjectMember,
-                as: 'members',
-                include: [{ model: User, as: 'user', attributes: ['_id', 'name', 'email', 'department', 'centre'] }]
-            },
-            { 
-                model: Centre, 
-                as: 'researchCentre', 
-                attributes: ['name'],
-                required: false 
-            }
-        ]
-    });
+    const membersInclude = {
+        model: ProjectMember,
+        as: 'members',
+        include: [{ model: User, as: 'user', attributes: ['_id', 'name', 'email', 'department', 'centre'] }]
+    };
+
+    let project;
+    try {
+        project = await Project.findByPk(req.params.id, {
+            include: [
+                membersInclude,
+                ...buildResearchCenterIncludeArray({ attributes: ['name'], required: false }),
+            ]
+        });
+    } catch (error) {
+        console.warn('[ProjectController] getProject include failed:', error.message);
+        project = await Project.findByPk(req.params.id, {
+            include: [membersInclude]
+        });
+    }
 
     if (!project) {
         return res.status(404).json({ success: false, message: 'Project not found' });
@@ -143,7 +188,7 @@ const getProject = asyncHandler(async (req, res) => {
     return res.status(200).json({
         success: true,
         data: {
-            ...project.toJSON(),
+            ...normalizeResearchCenterResponse(project),
             totalAmount,
             disbursedAmount,
             remainingAmount,
@@ -336,4 +381,3 @@ module.exports = {
     getProjectMembers,
     updateProjectMembers
 };
-

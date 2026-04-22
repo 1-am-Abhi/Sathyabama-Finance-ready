@@ -2,6 +2,7 @@ import React, { createContext, useContext } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import apiClient from '../api/client';
 import { useAuth } from './AuthContext';
+import { safeApi } from '../api/safeApi';
 
 const PipelineContext = createContext();
 
@@ -18,42 +19,22 @@ export const PipelineProvider = ({ children }) => {
     const queryClient = useQueryClient();
 
     // Fetch projects
-    const { data: projects, isLoading: projectsLoading, error: projectsError } = useQuery({
+    const { data: projects, isLoading: projectsLoading } = useQuery({
         queryKey: ['projects'],
         queryFn: async () => {
-            try {
-                const prefix = user?.role === 'FACULTY' ? '/faculty' : '';
-                const response = await apiClient.get(`${prefix}/projects`);
-                return response.data.data || [];
-            } catch (err) {
-                console.warn('[PipelineContext] projects fetch failed:', err.message);
-                return [];
-            }
+            const prefix = user?.role === 'FACULTY' ? '/faculty' : '';
+            return safeApi(() => apiClient.get(`${prefix}/projects`), []);
         },
         enabled: !!user,
         retry: false,
     });
 
     // Fetch fund requests
-    const { data: fundRequests, isLoading: requestsLoading, error: requestsError } = useQuery({
+    const { data: fundRequests, isLoading: requestsLoading } = useQuery({
         queryKey: ['fund-requests'],
         queryFn: async () => {
-            try {
-                const prefix = user?.role === 'FACULTY' ? '/faculty' : '';
-                const response = await apiClient.get(`${prefix}/fund-requests`);
-                return response.data.data;
-            } catch (err) {
-                console.error("🔥 FULL AXIOS ERROR:", err);
-
-                if (err.response) {
-                    console.error("🔥 BACKEND RESPONSE DATA:", err.response.data);
-                    console.error("🔥 STATUS:", err.response.status);
-                } else {
-                    console.error("🔥 NO RESPONSE (network error):", err.message);
-                }
-
-                throw err;
-            }
+            const prefix = user?.role === 'FACULTY' ? '/faculty' : '';
+            return safeApi(() => apiClient.get(`${prefix}/fund-requests`), []);
         },
         enabled: !!user,
         retry: false
@@ -174,15 +155,6 @@ export const PipelineProvider = ({ children }) => {
         isUpdatingFundRequest: updateFundRequestMutation.isPending,
         isDeletingProject: deleteProjectMutation.isPending
     };
-
-    if (requestsError) {
-        return (
-            <div style={{ padding: '20px', backgroundColor: '#ffebee', color: '#c62828', fontFamily: 'monospace', zIndex: 9999, position: 'relative' }}>
-                <h2>🔥 Backend API Error (`/api/fund-requests`)</h2>
-                <pre>{JSON.stringify(requestsError.response?.data || requestsError.message, null, 2)}</pre>
-            </div>
-        );
-    }
 
     return (
         <PipelineContext.Provider value={value}>

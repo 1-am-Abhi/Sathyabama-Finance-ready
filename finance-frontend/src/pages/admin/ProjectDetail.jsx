@@ -243,7 +243,7 @@ const ProjectDetail = ({ isOpen, onClose, project, isDark }) => {
                                 </CardHeader>
                                 <CardContent>
                                     <div className="h-[300px]">
-                                        <ResponsiveContainer width="100%" height="100%">
+                                        <ResponsiveContainer width="100%" height={300}>
                                             <PieChart>
                                                 <Pie
                                                     data={budgetUtilizationData}
@@ -281,7 +281,7 @@ const ProjectDetail = ({ isOpen, onClose, project, isDark }) => {
                                 </CardHeader>
                                 <CardContent>
                                     <div className="h-[300px]">
-                                        <ResponsiveContainer width="100%" height="100%">
+                                        <ResponsiveContainer width="100%" height={300}>
                                             <BarChart data={expenditureData}>
                                                 <CartesianGrid strokeDasharray="3 3" stroke={chartConfig.grid} />
                                                 <XAxis dataKey="category" stroke={chartConfig.text} fontSize={11} />
@@ -310,7 +310,7 @@ const ProjectDetail = ({ isOpen, onClose, project, isDark }) => {
                                 </CardHeader>
                                 <CardContent>
                                     <div className="h-[300px]">
-                                        <ResponsiveContainer width="100%" height="100%">
+                                        <ResponsiveContainer width="100%" height={300}>
                                             <LineChart data={projectDetails.monthlySpend}>
                                                 <CartesianGrid strokeDasharray="3 3" stroke={chartConfig.grid} />
                                                 <XAxis dataKey="month" stroke={chartConfig.text} />

@@ -25,6 +25,7 @@ import { FACULTY_MEMBERS } from '../../constants/facultyMembers';
 import ResearchCentreDetail from './ResearchCentreDetail';
 import * as XLSX from 'xlsx';
 import apiClient from '../../api/client';
+import { safeApi, safeApiObj } from '../../api/safeApi';
 
 const AdminReports = () => {
     const { setLayout } = useLayout();
@@ -86,33 +87,49 @@ const AdminReports = () => {
         const fetchReportData = async () => {
             try {
                 setLoading(true);
-                const [statsRes, requestsRes] = await Promise.all([
-                    apiClient.get('/projects/stats'),
-                    apiClient.get('/fund-requests')
+                const [statsData, requestsData] = await Promise.all([
+                    safeApiObj(() => apiClient.get('/projects/stats'), {
+                        totalProjects: 0,
+                        activeProjects: 0,
+                        pendingApprovals: 0,
+                        totalBudget: 0,
+                        totalAllocated: 0,
+                        totalDisbursed: 0,
+                        used: 0,
+                        totalFaculty: 0,
+                        centres: []
+                    }),
+                    safeApi(() => apiClient.get('/fund-requests'), [])
                 ]);
 
-                if (statsRes.data?.success) {
-                    const s = statsRes.data?.data || {};
-                    setStats({
-                        totalProjects: Number(s.totalProjects || 0),
-                        activeProjects: Number(s.activeProjects || 0),
-                        pendingProjects: Number(s.pendingApprovals || 0),
-                        totalBudget: Number(s.totalAllocated ?? s.totalBudget ?? 0),
-                        totalDisbursed: Number(s.totalDisbursed ?? s.used ?? 0),
-                        totalFaculty: Number(s.totalFaculty || 0),
-                        centres: ((s.centres ?? statsRes.data?.centres) || []).map(c => ({
-                            centre: c.name,
-                            totalProjects: Number(c.totalProjects ?? c.count ?? 0),
-                            totalBudget: Number(c.totalBudget || 0),
-                            disbursed: Number(c.disbursed || 0)
-                        }))
-                    });
-                }
-                if (requestsRes.data?.success) {
-                    setAllRequests(requestsRes.data.data ?? []);
-                }
+                const s = statsData || {};
+                setStats({
+                    totalProjects: Number(s.totalProjects || 0),
+                    activeProjects: Number(s.activeProjects || 0),
+                    pendingProjects: Number(s.pendingApprovals || 0),
+                    totalBudget: Number(s.totalAllocated ?? s.totalBudget ?? 0),
+                    totalDisbursed: Number(s.totalDisbursed ?? s.used ?? 0),
+                    totalFaculty: Number(s.totalFaculty || 0),
+                    centres: ((s.centres ?? []) || []).map(c => ({
+                        centre: c.name || c.centre || 'N/A',
+                        totalProjects: Number(c.totalProjects ?? c.count ?? 0),
+                        totalBudget: Number(c.totalBudget || 0),
+                        disbursed: Number(c.disbursed || 0)
+                    }))
+                });
+                setAllRequests(Array.isArray(requestsData) ? requestsData : []);
             } catch (err) {
                 console.error("Error fetching report data:", err);
+                setStats({
+                    totalProjects: 0,
+                    activeProjects: 0,
+                    pendingProjects: 0,
+                    totalBudget: 0,
+                    totalDisbursed: 0,
+                    totalFaculty: 0,
+                    centres: []
+                });
+                setAllRequests([]);
             } finally {
                 setLoading(false);
             }
@@ -423,7 +440,7 @@ const AdminReports = () => {
                         </CardHeader>
                         <CardContent className="pt-6 pl-0">
                             <div className="h-[300px] w-full">
-                                <ResponsiveContainer width="100%" height="100%">
+                                <ResponsiveContainer width="100%" height={300}>
                                     {selectedReport === 'faculty' ? (
                                         <BarChart data={centrePerformanceData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
                                             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" className="dark:stroke-slate-800" />
@@ -489,7 +506,7 @@ const AdminReports = () => {
                         </CardHeader>
                         <CardContent className="pt-6">
                             <div className="h-[300px] w-full flex justify-center items-center relative">
-                                <ResponsiveContainer width="100%" height="100%">
+                                <ResponsiveContainer width="100%" height={300}>
                                     <PieChart>
                                         <Pie
                                             data={selectedReport === 'faculty' ? facultyActivityData : statusData}
@@ -528,7 +545,7 @@ const AdminReports = () => {
                         </CardHeader>
                         <CardContent className="pt-6 pl-0">
                             <div className="h-[300px] w-full">
-                                <ResponsiveContainer width="100%" height="100%">
+                                <ResponsiveContainer width="100%" height={300}>
                                     <BarChart data={selectedReport === 'faculty' ? facultyMockData : centrePerformanceData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
                                         <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" className="dark:stroke-slate-800" />
                                         <XAxis dataKey={selectedReport === 'faculty' ? "name" : "name"} axisLine={false} tickLine={false} tick={{ fill: '#64748b' }} />

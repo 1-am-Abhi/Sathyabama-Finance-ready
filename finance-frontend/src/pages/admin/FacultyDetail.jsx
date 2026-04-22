@@ -171,7 +171,7 @@ const FacultyDetail = ({ isOpen, onClose, faculty, centreName, isDark }) => {
                             </CardHeader>
                             <CardContent>
                                 <div className="h-[300px]">
-                                    <ResponsiveContainer width="100%" height="100%">
+                                    <ResponsiveContainer width="100%" height={300}>
                                         <PieChart>
                                             <Pie
                                                 data={utilizationData}
@@ -209,7 +209,7 @@ const FacultyDetail = ({ isOpen, onClose, faculty, centreName, isDark }) => {
                             </CardHeader>
                             <CardContent>
                                 <div className="h-[300px]">
-                                    <ResponsiveContainer width="100%" height="100%">
+                                    <ResponsiveContainer width="100%" height={300}>
                                         <BarChart data={projectBudgetData}>
                                             <CartesianGrid strokeDasharray="3 3" stroke={chartConfig.grid} />
                                             <XAxis dataKey="name" stroke={chartConfig.text} fontSize={10} angle={-45} textAnchor="end" height={80} />

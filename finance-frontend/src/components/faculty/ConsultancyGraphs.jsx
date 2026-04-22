@@ -33,7 +33,7 @@ const ConsultancyGraphs = () => {
             </CardHeader>
             <CardContent className="p-8 italic">
                 <div className="h-[400px] w-full">
-                    <ResponsiveContainer width="100%" height="100%">
+                    <ResponsiveContainer width="100%" height={300}>
                         <AreaChart
                             data={data}
                             margin={{ top: 20, right: 30, left: 20, bottom: 20 }}

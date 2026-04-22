@@ -7,8 +7,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/ta
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import ProjectDetail from './ProjectDetail';
 import FacultyDetail from './FacultyDetail';
-import apiClient from '../../api/client';
 import axios from 'axios';
+import { safeAxios } from '../../api/safeApi';
 
 const ResearchCentreDetail = ({ isOpen, onClose, centreName, isDark }) => {
     const [selectedProject, setSelectedProject] = useState(null);
@@ -44,9 +44,9 @@ const ResearchCentreDetail = ({ isOpen, onClose, centreName, isDark }) => {
                 const baseURL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
 
                 const [projectsRes, usersRes, metricsRes] = await Promise.all([
-                    axios.get(`${baseURL}/projects`, { headers }).catch(() => ({ data: { success: true, data: [] } })),
-                    axios.get(`${baseURL}/profile/all`, { headers }).catch(() => ({ data: { success: true, data: [] } })),
-                    axios.get(`${baseURL}/academic-metrics/all`, { headers }).catch(() => ({ data: { success: true, data: [] } }))
+                    safeAxios(() => axios.get(`${baseURL}/projects`, { headers }), { success: true, data: [] }),
+                    safeAxios(() => axios.get(`${baseURL}/profile/all`, { headers }), { success: true, data: [] }),
+                    safeAxios(() => axios.get(`${baseURL}/academic-metrics/all`, { headers }), { success: true, data: [] })
                 ]);
                 
                 if (!isMounted) return;
@@ -62,7 +62,7 @@ const ResearchCentreDetail = ({ isOpen, onClose, centreName, isDark }) => {
                 if (projectsRes.data.success && projectsRes.data.data) {
                     const target = normalizeName(centreName);
                     centreProjects = projectsRes.data.data.filter(p => {
-                        const pCentre = normalizeName(p.centre);
+                        const pCentre = normalizeName(p.researchCenterName || p.researchCenter || p.centre);
                         const pDept = normalizeName(p.department);
                         // Match against both centre AND department fields
                         return pCentre === target || pDept === target ||
@@ -394,7 +394,7 @@ const ResearchCentreDetail = ({ isOpen, onClose, centreName, isDark }) => {
                                     </CardHeader>
                                     <CardContent>
                                         <div className="h-[300px]">
-                                            <ResponsiveContainer width="100%" height="100%">
+                                            <ResponsiveContainer width="100%" height={300}>
                                                 <PieChart>
                                                     <Pie
                                                         data={budgetChartData}
@@ -432,7 +432,7 @@ const ResearchCentreDetail = ({ isOpen, onClose, centreName, isDark }) => {
                                     </CardHeader>
                                     <CardContent>
                                         <div className="h-[300px]">
-                                            <ResponsiveContainer width="100%" height="100%">
+                                            <ResponsiveContainer width="100%" height={300}>
                                                 <BarChart data={projectBudgetData}>
                                                     <CartesianGrid strokeDasharray="3 3" stroke={chartConfig.grid} />
                                                     <XAxis dataKey="name" stroke={chartConfig.text} fontSize={10} angle={-45} textAnchor="end" height={80} />

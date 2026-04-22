@@ -1,8 +1,15 @@
 const { Op } = require('sequelize');
 const models = require('../models');
 const { VALID_PROJECT_STATUSES } = require('../constants/financeConstants');
+const {
+    buildResearchCenterInclude,
+    buildResearchCenterIncludeArray,
+    getResearchCenterName,
+    getResearchCenterModel,
+    isResearchCenterFailure,
+} = require('../utils/researchCenterSafety');
 
-const Centre = models.Centre;
+const Centre = getResearchCenterModel();
 const Project = models.Project;
 const FundRequest = models.FundRequest;
 const Disbursement = models.Disbursement;
@@ -87,6 +94,29 @@ const getFundingTotals = async (dateRange = null) => {
     };
 };
 
+const runWithResearchCenterFallback = async (primaryQuery, fallbackQuery, fallbackValue = []) => {
+    try {
+        return await primaryQuery();
+    } catch (error) {
+        if (!isResearchCenterFailure(error)) {
+            throw error;
+        }
+
+        console.warn('[PipelineMetrics] ResearchCenter include failed, retrying without it:', error.message);
+
+        if (!fallbackQuery) {
+            return fallbackValue;
+        }
+
+        try {
+            return await fallbackQuery();
+        } catch (fallbackError) {
+            console.warn('[PipelineMetrics] ResearchCenter fallback failed:', fallbackError.message);
+            return fallbackValue;
+        }
+    }
+};
+
 const getMonthlyAnalytics = async (dateRange) => {
     try {
         const query = {
@@ -138,23 +168,35 @@ const getYoYGrowth = async (financialYear, currentUsed) => {
 };
 
 const buildCentreInclude = () => {
-    if (!models.Centre) return null;
-    return {
-        model: Centre,
-        as: 'researchCentre',
+    return buildResearchCenterInclude({
+        as: 'researchCenter',
         attributes: ['_id', 'name'],
         required: false,
-    };
+    });
 };
 
-const buildProjectInclude = () => ({
-    model: Project,
-    as: 'Project',
-    attributes: ['_id', 'title', 'pi', 'department', 'centre', 'centreId', 'fundingSource'],
-    where: { status: { [Op.in]: VALID_PROJECT_STATUSES } },
-    required: true,
-    include: [buildCentreInclude()].filter(Boolean),
-});
+const buildProjectInclude = (options = {}) => {
+    const {
+        includeResearchCenter = true,
+        required = true,
+        statusFilter = VALID_PROJECT_STATUSES,
+    } = options;
+
+    const include = includeResearchCenter ? buildResearchCenterIncludeArray() : [];
+    const projectInclude = {
+        model: Project,
+        as: 'Project',
+        attributes: ['_id', 'title', 'pi', 'department', 'centre', 'centreId', 'fundingSource'],
+        required,
+        include,
+    };
+
+    if (statusFilter) {
+        projectInclude.where = { status: { [Op.in]: statusFilter } };
+    }
+
+    return projectInclude;
+};
 
 const normalizeProject = (project) => {
     if (!project) {
@@ -167,7 +209,8 @@ const normalizeProject = (project) => {
         _id: raw._id || raw.id,
         id: raw._id || raw.id,
         title: raw.title || 'Untitled Project',
-        centreName: raw.researchCentre?.name || raw.centre || null,
+        researchCenterName: getResearchCenterName(raw, 'N/A'),
+        centreName: getResearchCenterName(raw, raw.centre || null),
     };
 };
 
@@ -185,7 +228,9 @@ const normalizeFundRequest = (request) => {
         Project: project,
         projectTitle: project?.title || raw.projectTitle || null,
         faculty: project?.pi || raw.faculty || null,
+        researchCenterName: getResearchCenterName(raw, project?.researchCenterName || 'N/A'),
         centreName:
+            raw.researchCenter?.name ||
             raw.researchCentre?.name ||
             project?.centreName ||
             raw.centre ||
@@ -281,11 +326,15 @@ const resolveCentreIdentity = (record, context) => {
     }
 
     const candidates = [
+        record.researchCenter,
         record.researchCentre,
+        record.Project?.researchCenter,
         record.Project?.researchCentre,
+        record.FundRequest?.researchCenter,
         record.FundRequest?.researchCentre,
+        record.Project?.Project?.researchCenter,
         record.Project?.Project?.researchCentre,
-    ].filter(Boolean);
+    ].filter((candidate) => candidate && typeof candidate === 'object');
 
     for (const candidate of candidates) {
         const key = candidate._id || candidate.id || candidate.name;
@@ -299,9 +348,13 @@ const resolveCentreIdentity = (record, context) => {
     }
 
     const centreIds = [
+        record.researchCenterId,
         record.centreId,
+        record.Project?.researchCenterId,
         record.Project?.centreId,
+        record.FundRequest?.researchCenterId,
         record.FundRequest?.centreId,
+        record.FundRequest?.Project?.researchCenterId,
         record.FundRequest?.Project?.centreId,
     ].filter(Boolean);
 
@@ -315,10 +368,13 @@ const resolveCentreIdentity = (record, context) => {
     const centreNames = [
         record.centre,
         record.centreName,
+        record.researchCenterName,
         record.Project?.centre,
         record.Project?.centreName,
+        record.Project?.researchCenterName,
         record.FundRequest?.centre,
         record.FundRequest?.centreName,
+        record.FundRequest?.researchCenterName,
         record.FundRequest?.Project?.centre,
     ].filter(Boolean);
 
@@ -407,42 +463,30 @@ const getSharedPipelineData = async () => {
     await ensureCanonicalFundSources();
 
     const [centres, projects, fundRequests, disbursements, totalFaculty] = await Promise.all([
-        Centre.findAll({ order: [['name', 'ASC']] }),
-        Project.findAll({
-            attributes: ['_id', 'status', 'centreId', 'centre', 'fundingSource', 'facultyId', 'userId', 'pi'],
-            include: [buildCentreInclude()],
-            order: [['createdAt', 'DESC']],
-        }),
-        FundRequest.findAll({
-            attributes: [
-                '_id',
-                'projectId',
-                'projectTitle',
-                'faculty',
-                'facultyId',
-                'userId',
-                'requestedAmount',
-                'installmentNumber',
-                'status',
-                'currentStage',
-                'chequeStatus',
-                'department',
-                'centre',
-                'centreId',
-                'source',
-                'auditTrail',
-                'createdAt',
-                'updatedAt',
-            ],
-            include: [buildCentreInclude(), buildProjectInclude()],
-            order: [['createdAt', 'DESC']],
-        }),
-        Disbursement.findAll({
-            attributes: ['_id', 'fundRequestId', 'projectId', 'amount', 'disbursedAt', 'bankReference', 'remarks', 'createdAt', 'updatedAt'],
-            include: [
-                {
-                    model: FundRequest,
-                    as: 'FundRequest',
+        Centre
+            ? runWithResearchCenterFallback(
+                () => Centre.findAll({ order: [['name', 'ASC']] }),
+                async () => [],
+                []
+            )
+            : Promise.resolve([]),
+        runWithResearchCenterFallback(
+            () =>
+                Project.findAll({
+                    attributes: ['_id', 'status', 'centreId', 'centre', 'fundingSource', 'facultyId', 'userId', 'pi'],
+                    include: buildResearchCenterIncludeArray(),
+                    order: [['createdAt', 'DESC']],
+                }),
+            () =>
+                Project.findAll({
+                    attributes: ['_id', 'status', 'centreId', 'centre', 'fundingSource', 'facultyId', 'userId', 'pi'],
+                    order: [['createdAt', 'DESC']],
+                }),
+            []
+        ),
+        runWithResearchCenterFallback(
+            () =>
+                FundRequest.findAll({
                     attributes: [
                         '_id',
                         'projectId',
@@ -451,20 +495,109 @@ const getSharedPipelineData = async () => {
                         'facultyId',
                         'userId',
                         'requestedAmount',
+                        'installmentNumber',
                         'status',
                         'currentStage',
+                        'chequeStatus',
                         'department',
                         'centre',
                         'centreId',
                         'source',
+                        'auditTrail',
+                        'createdAt',
+                        'updatedAt',
                     ],
-                    include: [buildCentreInclude(), buildProjectInclude()],
-                    required: false,
-                },
-                buildProjectInclude(),
-            ],
-            order: [['disbursedAt', 'DESC']],
-        }),
+                    include: [buildCentreInclude(), buildProjectInclude()].filter(Boolean),
+                    order: [['createdAt', 'DESC']],
+                }),
+            () =>
+                FundRequest.findAll({
+                    attributes: [
+                        '_id',
+                        'projectId',
+                        'projectTitle',
+                        'faculty',
+                        'facultyId',
+                        'userId',
+                        'requestedAmount',
+                        'installmentNumber',
+                        'status',
+                        'currentStage',
+                        'chequeStatus',
+                        'department',
+                        'centre',
+                        'centreId',
+                        'source',
+                        'auditTrail',
+                        'createdAt',
+                        'updatedAt',
+                    ],
+                    include: [buildProjectInclude({ includeResearchCenter: false })],
+                    order: [['createdAt', 'DESC']],
+                }),
+            []
+        ),
+        runWithResearchCenterFallback(
+            () =>
+                Disbursement.findAll({
+                    attributes: ['_id', 'fundRequestId', 'projectId', 'amount', 'disbursedAt', 'bankReference', 'remarks', 'createdAt', 'updatedAt'],
+                    include: [
+                        {
+                            model: FundRequest,
+                            as: 'FundRequest',
+                            attributes: [
+                                '_id',
+                                'projectId',
+                                'projectTitle',
+                                'faculty',
+                                'facultyId',
+                                'userId',
+                                'requestedAmount',
+                                'status',
+                                'currentStage',
+                                'department',
+                                'centre',
+                                'centreId',
+                                'source',
+                            ],
+                            include: [buildCentreInclude(), buildProjectInclude()].filter(Boolean),
+                            required: false,
+                        },
+                        buildProjectInclude(),
+                    ].filter(Boolean),
+                    order: [['disbursedAt', 'DESC']],
+                }),
+            () =>
+                Disbursement.findAll({
+                    attributes: ['_id', 'fundRequestId', 'projectId', 'amount', 'disbursedAt', 'bankReference', 'remarks', 'createdAt', 'updatedAt'],
+                    include: [
+                        {
+                            model: FundRequest,
+                            as: 'FundRequest',
+                            attributes: [
+                                '_id',
+                                'projectId',
+                                'projectTitle',
+                                'faculty',
+                                'facultyId',
+                                'userId',
+                                'requestedAmount',
+                                'status',
+                                'currentStage',
+                                'department',
+                                'centre',
+                                'centreId',
+                                'source',
+                            ],
+                            include: [buildProjectInclude({ includeResearchCenter: false })],
+                            required: false,
+                        },
+                        buildProjectInclude({ includeResearchCenter: false }),
+                    ].filter(Boolean),
+                    order: [['disbursedAt', 'DESC']],
+                }),
+            []
+        ),
         User.count({ where: { role: 'FACULTY' } }),
     ]);
 
@@ -694,7 +827,10 @@ const getFundSourceOverview = async (existingShared = null) => {
 const getDepartmentFundingRows = async (centreIdentifier) => {
     const { centres, shared } = await (async () => {
         const adminData = await getAdminDashboardData();
-        return { centres: adminData.centres, shared: adminData.shared };
+        return {
+            centres: adminData?.data?.centres || [],
+            shared: await getSharedPipelineData(),
+        };
     })();
 
     const requestedKey = normalizeName(centreIdentifier);

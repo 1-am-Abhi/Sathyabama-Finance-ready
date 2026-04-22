@@ -257,7 +257,7 @@ const AcademicWorkModal = ({ isOpen, onClose, onSubmit, initialData = null, mode
                                         required={formData.mainType === 'PROJECT'}
                                     >
                                         <option value="">Select Research Centre</option>
-                                        {dynamicCentres.map(centre => (
+                                        {(dynamicCentres ?? []).map(centre => (
                                             <option key={centre} value={centre}>{centre}</option>
                                         ))}
                                     </select>
