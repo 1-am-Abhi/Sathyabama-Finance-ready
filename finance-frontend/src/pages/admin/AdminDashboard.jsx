@@ -130,6 +130,20 @@ const AdminDashboard = () => {
         }
     }, []);
 
+    const normalizeCentre = (c) => {
+        if (!c) return { _id: Math.random().toString(), name: 'Unknown', centre: 'Unknown' };
+        // If the center object itself has a 'name' property that is an object, extract the string
+        const id = c._id || c.id || (typeof c.name === 'object' ? c.name._id : null) || (typeof c.centre === 'object' ? c.centre._id : null) || Math.random().toString();
+        const name = typeof c.name === 'object' ? (c.name.name || c.name.label || String(c.name)) : String(c.name || c.centre || (typeof c === 'string' ? c : 'Unknown'));
+        return {
+            ...c,
+            _id: String(id),
+            id: String(id),
+            name: name,
+            centre: name
+        };
+    };
+
     const fetchDashboardData = async (force = false) => {
         try {
             if (!force && dashboardCache[selectedFY]) {
@@ -150,8 +164,9 @@ const AdminDashboard = () => {
                 EMPTY_ADMIN_DASHBOARD
             );
 
-            const statsCentres = Array.isArray(fetchedData?.centres) ? fetchedData.centres : [];
-            const fallbackCentres = statsCentres.length === 0 ? await fetchFallbackCentres() : [];
+            const statsCentres = (Array.isArray(fetchedData?.centres) ? fetchedData.centres : []).map(normalizeCentre);
+            const fallbackCentres = statsCentres.length === 0 ? (await fetchFallbackCentres()).map(normalizeCentre) : [];
+            
             const normalizedData = {
                 ...EMPTY_ADMIN_DASHBOARD,
                 ...(fetchedData || {}),

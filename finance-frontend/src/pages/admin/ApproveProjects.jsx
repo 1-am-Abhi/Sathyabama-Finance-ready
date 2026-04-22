@@ -32,20 +32,26 @@ const ApproveProjects = () => {
     const [selectedCentre, setSelectedCentre] = useState('All');
     const [selectedAgency, setSelectedAgency] = useState('All');
 
+    const normalizeName = (val) => {
+        if (!val) return '';
+        if (typeof val === 'object') return val.name || val.displayName || val.label || String(val);
+        return String(val);
+    };
+
     // Map DB fields to UI expected fields
     const projects = (pipelineProjects || []).map(p => ({
         id: p._id || p.id,
-        title: p.title,
-        faculty: p.pi || p.faculty || 'Unknown',
+        title: normalizeName(p.title),
+        faculty: normalizeName(p.pi || p.faculty || 'Unknown'),
         facultyId: p.facultyId,
         userId: p.userId,
-        centre: p.centre,
+        centre: normalizeName(p.centre),
         budget: p.sanctionedBudget || p.budget || 0,
         submittedDate: p.createdAt ? p.createdAt.substring(0, 10) : (p.submittedDate || new Date().toISOString().substring(0, 10)),
         status: p.status === 'ACTIVE' ? 'APPROVED' : p.status, // Map ACTIVE to APPROVED for UI
-        department: p.department,
-        agency: p.fundingSource || p.agency || 'Unknown',
-        chequeStatus: p.chequeStatus || 'Pending',
+        department: normalizeName(p.department),
+        agency: normalizeName(p.fundingSource || p.agency || 'Unknown'),
+        chequeStatus: normalizeName(p.chequeStatus || 'Pending'),
         proofUploaded: p.proofUploaded,
         proofData: p.proofData,
         proofStatus: p.proofStatus,

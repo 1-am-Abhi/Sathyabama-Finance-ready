@@ -202,7 +202,7 @@ const FundReleasesPage = () => {
                                                             Submitted: {new Date(project.submittedDate).toLocaleDateString()}
                                                         </div>
                                                     </TableCell>
-                                                    <TableCell>{project.departmentName}</TableCell>
+                                                    <TableCell>{String(project.departmentName?.name || project.departmentName || 'N/A')}</TableCell>
                                                     <TableCell>{project.principalInvestigator}</TableCell>
                                                     <TableCell className="text-right">
                                                         {formatCurrency(project.requestedAmount)}

@@ -22,10 +22,15 @@ export const useCentres = () => {
 
             // PHASE 4: NORMALIZE DATA ONCE
             const normalizeCentre = (c) => {
+                if (!c) return { _id: Math.random().toString(), name: "Unknown Center" };
                 if (typeof c === 'string') return { _id: c, name: c };
+                
+                const id = c?._id || c?.id || Math.random().toString(36).substr(2, 9);
+                const name = typeof c?.name === 'object' ? (c.name.name || c.name.label || String(c.name)) : String(c?.name || c?.centre || "Unknown Center");
+                
                 return {
-                    _id: c?._id || c?.id || Math.random().toString(36).substr(2, 9),
-                    name: String(c?.name || c || "Unknown Center")
+                    _id: String(id),
+                    name: name
                 };
             };
 

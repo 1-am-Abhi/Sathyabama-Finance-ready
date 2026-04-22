@@ -103,6 +103,12 @@ const AdminReports = () => {
                 ]);
 
                 const s = statsData || {};
+                const normalizeName = (val) => {
+                    if (!val) return 'N/A';
+                    if (typeof val === 'object') return val.name || val.displayName || val.label || String(val);
+                    return String(val);
+                };
+
                 setStats({
                     totalProjects: Number(s.totalProjects || 0),
                     activeProjects: Number(s.activeProjects || 0),
@@ -111,13 +117,19 @@ const AdminReports = () => {
                     totalDisbursed: Number(s.totalDisbursed ?? s.used ?? 0),
                     totalFaculty: Number(s.totalFaculty || 0),
                     centres: ((s.centres ?? []) || []).map(c => ({
-                        centre: c.name || c.centre || 'N/A',
+                        centre: normalizeName(c.name || c.centre),
                         totalProjects: Number(c.totalProjects ?? c.count ?? 0),
                         totalBudget: Number(c.totalBudget || 0),
                         disbursed: Number(c.disbursed || 0)
                     }))
                 });
-                setAllRequests(Array.isArray(requestsData) ? requestsData : []);
+                
+                const normalizedRequests = (Array.isArray(requestsData) ? requestsData : []).map(req => ({
+                    ...req,
+                    faculty: normalizeName(req.faculty || req.pi || req.principalInvestigator),
+                    projectTitle: normalizeName(req.projectTitle || req.title)
+                }));
+                setAllRequests(normalizedRequests);
             } catch (err) {
                 console.error("Error fetching report data:", err);
                 setStats({

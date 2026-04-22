@@ -58,8 +58,13 @@ export const AuthProvider = ({ children }) => {
                     logout('session_expired');
                 } else {
                     const parsedUser = JSON.parse(storedUser);
+                    const normalizedUser = normalizeUser(parsedUser);
                     setToken(storedToken);
-                    setUser(parsedUser);
+                    setUser(normalizedUser);
+                    // Update localStorage with normalized version if it changed
+                    if (JSON.stringify(parsedUser) !== JSON.stringify(normalizedUser)) {
+                        localStorage.setItem('user', JSON.stringify(normalizedUser));
+                    }
                 }
             } catch (error) {
                 console.error('Failed to restore session:', error);

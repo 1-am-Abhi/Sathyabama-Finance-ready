@@ -143,7 +143,7 @@ const Sidebar = ({ isOpen, onClose }) => {
                             {profilePhoto ? (
                                 <img src={profilePhoto} alt="Profile" className="w-full h-full object-cover" />
                             ) : (
-                                user?.name?.split(' ').map(n => n[0]).join('').toUpperCase()
+                                (user?.name || 'User').split(' ').map(n => n[0]).join('').toUpperCase()
                             )}
                         </div>
                         <div>
