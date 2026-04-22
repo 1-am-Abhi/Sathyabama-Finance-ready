@@ -7,6 +7,7 @@ import { formatCurrencyCompact } from '../../../utils/currency';
 import UpdateFundingModal from './UpdateFundingModal';
 import { Edit, TrendingUp } from 'lucide-react';
 import { getFundSourceLabel, normalizeFundSource } from '../../../constants/fundSources';
+import { safeText } from '../../../utils/safeRender';
 
 const DepartmentFundingTable = ({ data, isLoading }) => {
     const [selectedDepartment, setSelectedDepartment] = useState(null);
@@ -98,9 +99,7 @@ const DepartmentFundingTable = ({ data, isLoading }) => {
                                     return (
                                         <TableRow key={index} className="hover:bg-gray-50 dark:hover:bg-slate-700/50 dark:border-slate-700">
                                             <TableCell className="font-medium dark:text-slate-200">
-                                                {typeof item.departmentName === 'object' 
-                                                    ? (item.departmentName?.name || "Object Data") 
-                                                    : (item.departmentName || item.name || "Unknown Center")}
+                                                {safeText(item.departmentName || item.name)}
                                             </TableCell>
                                             <TableCell>
                                                 <Badge

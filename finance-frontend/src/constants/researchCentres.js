@@ -13,33 +13,39 @@ export const useCentres = () => {
             setLoading(true);
 
             const response = await apiClient.get('/research-centers');
-
             const rawData = response?.data;
-            console.log("CENTRE API:", rawData);
-
-            let centresData =
+            
+            const centresData =
                 rawData?.data?.centres ||
                 rawData?.data ||
                 rawData?.centres ||
                 rawData ||
                 [];
 
-            // If API returns a single object instead of an array, wrap it
-            if (centresData && typeof centresData === 'object' && !Array.isArray(centresData)) {
-                centresData = [centresData];
-            }
+            // PHASE 7: DATA NORMALIZATION (MANDATORY)
+            const normalizeCentre = (c) => {
+                if (typeof c === 'string') return { _id: c, name: c };
+                return {
+                    _id: c?._id || c?.id || Math.random().toString(36).substr(2, 9),
+                    name: String(c?.name || c || "Unknown Center")
+                };
+            };
 
-            console.log("FINAL CENTRES:", centresData);
+            const normalizedCentres = (Array.isArray(centresData) ? centresData : [centresData])
+                .filter(Boolean)
+                .map(normalizeCentre);
 
             // Ensure we fallback to STATIC_CENTRES if API returns empty
-            const finalCentres = Array.isArray(centresData) && centresData.length > 0 
-                ? centresData 
-                : STATIC_CENTRES;
+            const finalCentres = normalizedCentres.length > 0 
+                ? normalizedCentres 
+                : STATIC_CENTRES.map(normalizeCentre);
 
             setCentres(finalCentres);
         } catch (error) {
             console.error("CENTRE FETCH ERROR:", error);
-            setCentres(STATIC_CENTRES);
+            // Fallback for static data normalization too
+            const normalizeCentre = (c) => (typeof c === 'string' ? { _id: c, name: c } : c);
+            setCentres(STATIC_CENTRES.map(normalizeCentre));
         } finally {
             setLoading(false);
         }
