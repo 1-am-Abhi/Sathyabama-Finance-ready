@@ -58,7 +58,7 @@ const nextInstallmentNumber = async (projectId) => {
     const count = await FundRequest.count({
         where: {
             projectId,
-            status: { [Op.notIn]: ['REJECTED'] },
+            status: { [Op.notIn]: ['REJECTED', 'DELETED'] },
         },
     });
     return count + 1;
@@ -102,7 +102,15 @@ const getFundRequests = asyncHandler(async (req, res) => {
         const centreInc = buildCentreInclude();
         if (centreInc) options.include.push(centreInc);
         const projectInc = buildProjectInclude();
-        if (projectInc) options.include.push(projectInc);
+        if (projectInc) {
+            // Enforce inner join and status filter
+            projectInc.required = true;
+            projectInc.where = { 
+                ...(projectInc.where || {}),
+                status: { [require('sequelize').Op.notIn]: ['DELETED'] }
+            };
+            options.include.push(projectInc);
+        }
     } catch (incErr) {
         console.warn('[getFundRequests] Optional includes failed:', incErr.message);
     }

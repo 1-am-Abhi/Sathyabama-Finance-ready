@@ -19,13 +19,15 @@ const DisbursementQueue = () => {
     const { showToast, ToastPortal } = useToast();
     const [searchTerm, setSearchTerm] = useState('');
     const [isModalOpen, setIsModalOpen] = useState(false);
+    const [isSubmitting, setIsSubmitting] = useState(false);
     const [selectedRequest, setSelectedRequest] = useState(null);
     const [formData, setFormData] = useState({
         transactionId: '',
         bankName: '',
         disbursementDate: new Date().toISOString().split('T')[0],
         remarks: '',
-        mode: 'FULL'
+        mode: 'FULL',
+        amount: ''
     });
 
     const [showFilters, setShowFilters] = useState(false);
@@ -45,12 +47,14 @@ const DisbursementQueue = () => {
             disbursementDate: new Date().toISOString().split('T')[0],
             remarks: '',
             mode: Number(request?.installmentNumber || 1) > 1 ? 'INSTALLMENT' : 'FULL',
+            amount: safeNumber(request?.requestedAmount || request?.amount),
         });
         setIsModalOpen(true);
     };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+        setIsSubmitting(true);
         try {
             await executeDisbursement.mutateAsync({
                 requestId: selectedRequest.id || selectedRequest._id,
@@ -78,6 +82,11 @@ const DisbursementQueue = () => {
             navigate('/finance/dashboard');
         } catch (error) {
             showToast(error.response?.data?.message || 'Failed to execute disbursement', 'error');
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+            setIsSubmitting(false);
         }
     };
 
@@ -272,8 +281,12 @@ const DisbursementQueue = () => {
                                     <p className="text-sm font-semibold">{selectedRequest?.Project?.pi || selectedRequest?.Project?.piName || selectedRequest?.faculty}</p>
                                     <p className="text-xs text-slate-500 font-mono tracking-tighter line-clamp-1">{selectedRequest?.Project?.title || selectedRequest?.projectTitle}</p>
                                     <div className="pt-2 flex justify-between items-baseline border-t border-maroon-100 dark:border-maroon-800 mt-2">
-                                        <span className="text-xs text-slate-500 font-medium">Net Amount</span>
+                                        <span className="text-xs text-slate-500 font-medium">Requested</span>
                                         <span className="text-lg font-black text-maroon-700 dark:text-maroon-400">₹{safeNumber(selectedRequest?.requestedAmount || selectedRequest?.amount).toLocaleString('en-IN')}</span>
+                                    </div>
+                                    <div className="mt-1 flex justify-between items-center text-[10px] font-bold uppercase text-slate-400">
+                                        <span>Released: ₹{(safeNumber(selectedRequest?.Project?.releasedBudget) / 100000).toFixed(2)}L</span>
+                                        <span className="text-maroon-600">Max: ₹{(safeNumber(selectedRequest?.Project?.sanctionedBudget) / 100000).toFixed(2)}L</span>
                                     </div>
                                 </div>
 
@@ -283,7 +296,7 @@ const DisbursementQueue = () => {
                                         <button
                                             type="button"
                                             className={`rounded-xl border px-3 py-2 text-xs font-black uppercase tracking-wide transition-all ${formData.mode === 'FULL' ? 'border-maroon-600 bg-maroon-50 text-maroon-700 dark:bg-maroon-900/20' : 'border-slate-200 text-slate-500 dark:border-slate-700 dark:text-slate-300'}`}
-                                            onClick={() => setFormData({ ...formData, mode: 'FULL' })}
+                                            onClick={() => setFormData({ ...formData, mode: 'FULL', amount: safeNumber(selectedRequest?.requestedAmount || selectedRequest?.amount) })}
                                         >
                                             Full
                                         </button>
@@ -296,6 +309,23 @@ const DisbursementQueue = () => {
                                         </button>
                                     </div>
                                 </div>
+
+                                {formData.mode === 'INSTALLMENT' && (
+                                    <div className="space-y-2 animate-in slide-in-from-left-2 duration-200">
+                                        <label className="text-xs font-black uppercase text-slate-500 flex items-center justify-between">
+                                            <span>Installment Amount (₹)</span>
+                                            <span className="text-[10px] text-maroon-500">Partial Payment</span>
+                                        </label>
+                                        <input
+                                            type="number"
+                                            required
+                                            className="w-full p-3 bg-maroon-50/50 dark:bg-maroon-900/10 border border-maroon-200 dark:border-maroon-800 rounded-xl focus:ring-2 focus:ring-maroon-500 outline-none transition-all font-bold text-maroon-700 dark:text-maroon-300"
+                                            placeholder="Enter payout amount"
+                                            value={formData.amount}
+                                            onChange={(e) => setFormData({...formData, amount: e.target.value})}
+                                        />
+                                    </div>
+                                )}
 
                                 <div className="space-y-4 overflow-y-auto max-h-[40vh] pr-1">
                                     <div className="space-y-2">
@@ -351,12 +381,22 @@ const DisbursementQueue = () => {
                                     </div>
                                 </div>
                             </CardContent>
-                            <div className="p-6 border-t border-slate-100 dark:border-slate-800 flex gap-3">
-                                <Button type="button" variant="outline" className="flex-1 rounded-xl" onClick={() => setIsModalOpen(false)}>
+                             <div className="p-6 border-t border-slate-100 dark:border-slate-800 flex gap-3">
+                                <Button 
+                                    type="button" 
+                                    variant="outline" 
+                                    className="flex-1 rounded-xl" 
+                                    onClick={() => setIsModalOpen(false)}
+                                    disabled={isSubmitting}
+                                >
                                     Cancel
                                 </Button>
-                                <Button type="submit" className="flex-1 bg-maroon-600 hover:bg-maroon-700 text-white rounded-xl font-bold shadow-lg shadow-maroon-500/20">
-                                    Finalize Payment
+                                <Button 
+                                    type="submit" 
+                                    disabled={isSubmitting || safeNumber(formData.amount) <= 0 || safeNumber(formData.amount) > (safeNumber(selectedRequest?.Project?.sanctionedBudget) - safeNumber(selectedRequest?.Project?.releasedBudget))}
+                                    className="flex-1 bg-maroon-600 hover:bg-maroon-700 text-white rounded-xl font-bold shadow-lg shadow-maroon-500/20 disabled:opacity-50"
+                                >
+                                    {isSubmitting ? 'Processing...' : 'Finalize Payment'}
                                 </Button>
                             </div>
                         </form>

@@ -19,6 +19,30 @@ const Disbursement = sequelize.define('Disbursement', {
         type: DataTypes.FLOAT,
         allowNull: false
     },
+    installmentNumber: {
+        type: DataTypes.INTEGER,
+        allowNull: false
+    },
+    isInstallment: {
+        type: DataTypes.BOOLEAN,
+        defaultValue: false
+    },
+    approvedBy: {
+        type: DataTypes.UUID,
+        allowNull: true
+    },
+    approvedByName: {
+        type: DataTypes.STRING,
+        allowNull: true
+    },
+    approvedAt: {
+        type: DataTypes.DATE,
+        allowNull: true
+    },
+    isHighValue: {
+        type: DataTypes.BOOLEAN,
+        defaultValue: false
+    },
     disbursedBy: {
         type: DataTypes.UUID, // User ID of the Finance Officer
         allowNull: false
@@ -33,14 +57,24 @@ const Disbursement = sequelize.define('Disbursement', {
     },
     bankReference: {
         type: DataTypes.STRING,
-        allowNull: true
+        allowNull: true,
+        unique: true // Prevent duplicate UTRs
     },
     remarks: {
         type: DataTypes.TEXT,
         allowNull: true
     }
 }, {
-    timestamps: true
+    timestamps: true,
+    indexes: [
+        {
+            unique: true,
+            fields: ['projectId', 'installmentNumber']
+        },
+        {
+            fields: ['projectId']
+        }
+    ]
 });
 
 module.exports = Disbursement;

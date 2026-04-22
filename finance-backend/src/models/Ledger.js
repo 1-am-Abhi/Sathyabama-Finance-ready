@@ -57,6 +57,14 @@ const Ledger = sequelize.define('Ledger', {
         type: DataTypes.UUID,
         allowNull: true,
     },
+    approvedBy: {
+        type: DataTypes.UUID,
+        allowNull: true,
+    },
+    isHighValue: {
+        type: DataTypes.BOOLEAN,
+        defaultValue: false,
+    },
 }, {
     timestamps: true,
 });

@@ -250,10 +250,10 @@ const AdminDashboard = () => {
 
     const chartConfig = { grid: '#E2E8F0', text: '#64748B', tooltip: '#FFFFFF', tooltipBorder: '#E2E8F0' };
     const quickActions = [
-        { title: 'New Project', description: 'Initiate research', icon: Plus, color: 'bg-maroon-50', iconBg: 'bg-maroon-100', action: () => navigate('/admin/projects/new') },
-        { title: 'Fund Request', description: 'Process grants', icon: FileText, color: 'bg-indigo-50', iconBg: 'bg-indigo-100', action: () => navigate('/admin/fund-requests') },
-        { title: 'Settlements', description: 'Verify expenses', icon: Banknote, color: 'bg-emerald-50', iconBg: 'bg-emerald-100', action: () => navigate('/admin/settlements') },
-        { title: 'Analytics', description: 'View reports', icon: BarChart3, color: 'bg-amber-50', iconBg: 'bg-amber-100', action: () => navigate('/admin/reports') }
+        { title: 'Manage Faculty', description: 'View and edit staff', icon: Users, color: 'bg-maroon-50', iconBg: 'bg-maroon-100', action: () => navigate('/admin/faculty') },
+        { title: 'Projects', description: 'Oversight & status', icon: Target, color: 'bg-indigo-50', iconBg: 'bg-indigo-100', action: () => navigate('/admin/projects') },
+        { title: 'Fund Requests', description: 'Process approvals', icon: FileText, color: 'bg-emerald-50', iconBg: 'bg-emerald-100', action: () => navigate('/admin/fund-requests') },
+        { title: 'Reports', description: 'Audit & analytics', icon: Landmark, color: 'bg-amber-50', iconBg: 'bg-amber-100', action: () => navigate('/admin/reports') }
     ];
     const recentRequests = stats?.recentRequests ?? [];
     const refreshCentres = () => fetchDashboardData(true);
@@ -316,24 +316,7 @@ const AdminDashboard = () => {
                 </div>
             )}
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-                <button onClick={() => navigate('/admin/projects')} className="p-4 bg-white dark:bg-slate-900 border border-gray-100 dark:border-slate-800 rounded-xl shadow-sm hover:shadow-md transition-all flex items-center space-x-3 group">
-                    <div className="p-2 bg-maroon-50 dark:bg-maroon-900/20 rounded-lg text-maroon-600 group-hover:scale-110 transition-transform"><Plus className="w-5 h-5" /></div>
-                    <div className="text-left"><p className="text-sm font-bold text-gray-800 dark:text-white">Active Projects</p><p className="text-[10px] text-gray-500">Manage all research</p></div>
-                </button>
-                <button onClick={() => navigate('/admin/fund-requests')} className="p-4 bg-white dark:bg-slate-900 border border-gray-100 dark:border-slate-800 rounded-xl shadow-sm hover:shadow-md transition-all flex items-center space-x-3 group">
-                    <div className="p-2 bg-indigo-50 dark:bg-indigo-900/20 rounded-lg text-indigo-600 group-hover:scale-110 transition-transform"><FileText className="w-5 h-5" /></div>
-                    <div className="text-left"><p className="text-sm font-bold text-gray-800 dark:text-white">Pending Requests</p><p className="text-[10px] text-gray-500">Review and approve</p></div>
-                </button>
-                <button onClick={() => navigate('/admin/settlements')} className="p-4 bg-white dark:bg-slate-900 border border-gray-100 dark:border-slate-800 rounded-xl shadow-sm hover:shadow-md transition-all flex items-center space-x-3 group">
-                    <div className="p-2 bg-emerald-50 dark:bg-emerald-900/20 rounded-lg text-emerald-600 group-hover:scale-110 transition-transform"><TrendingUp className="w-5 h-5" /></div>
-                    <div className="text-left"><p className="text-sm font-bold text-gray-800 dark:text-white">Settlements</p><p className="text-[10px] text-gray-500">Track utilization</p></div>
-                </button>
-                <button onClick={() => navigate('/admin/reports')} className="p-4 bg-white dark:bg-slate-900 border border-gray-100 dark:border-slate-800 rounded-xl shadow-sm hover:shadow-md transition-all flex items-center space-x-3 group">
-                    <div className="p-2 bg-amber-50 dark:bg-amber-900/20 rounded-lg text-amber-600 group-hover:scale-110 transition-transform"><Activity className="w-5 h-5" /></div>
-                    <div className="text-left"><p className="text-sm font-bold text-gray-800 dark:text-white">Full Analytics</p><p className="text-[10px] text-gray-500">Export PDF/Excel</p></div>
-                </button>
-            </div>
+
 
             {monthlyData.length > 0 && (
                 <Card className="border-0 shadow-md mb-8 bg-white dark:bg-slate-900 overflow-hidden">

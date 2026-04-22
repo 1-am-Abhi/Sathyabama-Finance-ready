@@ -146,9 +146,10 @@ const buildCentreInclude = () => ({
 const buildProjectInclude = () => ({
     model: Project,
     as: 'Project',
-    attributes: ['_id', 'title', 'pi', 'department', 'centre', 'centreId', 'fundingSource'],
+    attributes: ['id', 'title', 'pi', 'department', 'centre', 'centreId', 'fundingSource'],
+    where: { status: { [require('sequelize').Op.notIn]: ['DELETED'] } },
+    required: true,
     include: [buildCentreInclude()],
-    required: false,
 });
 
 const normalizeProject = (project) => {
