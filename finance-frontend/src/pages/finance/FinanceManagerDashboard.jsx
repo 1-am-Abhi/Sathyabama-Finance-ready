@@ -19,7 +19,7 @@ const FinanceManagerDashboard = () => {
     }, [setLayout]);
 
     useEffect(() => {
-        fetch(`${process.env.REACT_APP_API_URL}/api/research-centers`)
+        fetch(`/api/research-centers`)
             .then(res => res.json())
             .then(data => {
                 setCentres(data?.data || data || []);
