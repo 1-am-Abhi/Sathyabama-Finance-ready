@@ -8,36 +8,18 @@ import { Label } from '../../components/ui/label';
 import { useFundSourcesOverview, useDepartmentFunding, useUpdateFundSource } from '../../hooks/useFinance';
 import { Building2, Landmark, AlertCircle, CircleDollarSign } from 'lucide-react';
 import { useLayout } from '../../contexts/LayoutContext';
+import { useCentres } from '../../constants/researchCentres';
 
 const FinanceManagerDashboard = () => {
     const { setLayout } = useLayout();
     const [selectedDepartmentId, setSelectedDepartmentId] = useState('');
-    const [centres, setCentres] = useState([]);
+    const { centres } = useCentres();
 
     useEffect(() => {
         setLayout("Finance Dashboard", "Overview of total funding, research center allocations, and financial analytics");
     }, [setLayout]);
 
-    useEffect(() => {
-        fetch(`/api/research-centers`)
-            .then(res => res.json())
-            .then(data => {
-                console.log("API RESPONSE:", data);
 
-                const centresData =
-                    data?.data?.centres ||
-                    data?.centres ||
-                    data?.data ||
-                    data ||
-                    [];
-
-                setCentres(Array.isArray(centresData) ? centresData : []);
-            })
-            .catch((err) => {
-                console.error("CENTRE FETCH ERROR:", err);
-                setCentres([]);
-            });
-    }, []);
     const [fundSourceModalOpen, setFundSourceModalOpen] = useState(false);
     const [selectedFundSource, setSelectedFundSource] = useState(null);
 

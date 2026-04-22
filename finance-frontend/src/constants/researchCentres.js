@@ -22,10 +22,15 @@ export const useCentres = () => {
                 response?.data?.data ||
                 [];
 
-            setCentres(Array.isArray(centresData) ? centresData : []);
+            // Ensure we fallback to STATIC_CENTRES if API returns empty
+            const finalCentres = Array.isArray(centresData) && centresData.length > 0 
+                ? centresData 
+                : STATIC_CENTRES;
+
+            setCentres(finalCentres);
         } catch (error) {
-            console.error(error);
-            setCentres([]);
+            console.error("CENTRE FETCH ERROR:", error);
+            setCentres(STATIC_CENTRES);
         } finally {
             setLoading(false);
         }
