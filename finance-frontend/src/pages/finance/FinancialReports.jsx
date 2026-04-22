@@ -15,9 +15,9 @@ const toNumber = (value) => {
     return Number.isFinite(numeric) ? numeric : 0;
 };
 
-const formatCrores = (value) => (toNumber(value) / 10000000).toFixed(2);
+const formatCrores = (value) => (Number(value || 0) / 10000000).toFixed(2);
 
-const formatAmount = (value) => `₹${toNumber(value).toLocaleString('en-IN')}`;
+const formatAmount = (value) => `₹${Number(value || 0).toLocaleString('en-IN')}`;
 
 const FinancialReports = () => {
     const { setLayout } = useLayout();
@@ -158,7 +158,7 @@ const FinancialReports = () => {
                     <CardContent className="pt-6">
                         <p className="text-[10px] font-black text-white/70 uppercase tracking-widest pl-1">Net Flow</p>
                         <p className="text-2xl font-black mt-1 tracking-tighter text-white">
-                            ₹{formatCrores(reportsData.summary?.netBalance)}Cr
+                            ₹{formatCrores(reportsData?.summary?.netBalance ?? 0)}Cr
                         </p>
                         <div 
                             className="flex items-center gap-1 mt-2 text-xs font-bold text-white/50 underline cursor-pointer hover:text-white"

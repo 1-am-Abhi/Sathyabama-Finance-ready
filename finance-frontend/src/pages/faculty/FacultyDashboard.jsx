@@ -19,7 +19,7 @@ import { formatCurrency } from '../../utils/format';
 import apiClient from '../../api/client';
 
 const safeNumber = (val) => {
-    const num = Number(val);
+    const num = Number(val || 0);
     return isFinite(num) ? num : 0;
 };
 
@@ -63,11 +63,8 @@ const FacultyDashboard = () => {
             if (revRes?.data?.success) {
                 setRevenueSummary(revRes.data.data?.summary || { total: 0 });
             }
-
-
             if (statsRes.data.success) {
-                console.log("Faculty Data Truth:", statsRes.data.stats);
-                setStatsData(statsRes.data.stats);
+                setStatsData(statsRes.data?.data || null);
             }
         } catch (e) {
             console.error(e);
@@ -118,15 +115,9 @@ const FacultyDashboard = () => {
     const totalEventFunding = events.filter(e => e.status === 'APPROVED').reduce((sum, e) => sum + safeNumber(e.approvedAmount), 0);
     const totalEquipmentFunding = equipmentRequests.filter(e => ['Approved', 'DISBURSED'].includes(e.status)).reduce((sum, e) => sum + safeNumber(e.approvedAmount), 0);
     
-    const totalFunding = totalProjectFunding + totalEventFunding + totalEquipmentFunding;
+    const totalFunding = Number(totalProjectFunding || 0) + Number(totalEventFunding || 0) + Number(totalEquipmentFunding || 0);
     const formattedFunding = formatCurrency(totalFunding);
-    const formattedRevenue = formatCurrency(revenueSummary?.total || 0);
-
-    console.log("Faculty Dashboard Stats Persistence:", { 
-        projects: projects.length, 
-        totalFunding, 
-        statsData 
-    });
+    const formattedRevenue = formatCurrency(revenueSummary?.total ?? 0);
 
     const stats = [
         { title: 'Active Projects', value: loading ? '…' : String(statsData?.activeProjects ?? 0), icon: FileText, color: 'text-rose-400', bg: 'bg-rose-500/10', border: 'border-rose-500/20', subtitle: 'Ongoing research' },
@@ -138,11 +129,11 @@ const FacultyDashboard = () => {
     // Build funding trend from real projects (by creation month)
     const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
     const trendData = monthNames.map(m => ({ month: m, amount: 0, titles: [] }));
-    (projects || []).forEach(r => {
+    (projects ?? []).forEach(r => {
         const d = r.createdAt ? new Date(r.createdAt) : null;
         if (d) {
             const mIdx = d.getMonth();
-            const amt = parseFloat(r.sanctionedBudget || r.budget || 0) / 100000;
+            const amt = Number(r.sanctionedBudget || r.budget || 0) / 100000;
             trendData[mIdx].amount += amt;
             if (amt > 0) trendData[mIdx].titles.push(r.title);
         }

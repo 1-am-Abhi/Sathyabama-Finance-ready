@@ -92,24 +92,24 @@ const AdminReports = () => {
                 ]);
 
                 if (statsRes.data?.success) {
-                    const s = statsRes.data.stats;
+                    const s = statsRes.data?.data || {};
                     setStats({
-                        totalProjects: s.totalProjects || 0,
-                        activeProjects: s.activeProjects || 0,
-                        pendingProjects: s.pendingApprovals || 0,
-                        totalBudget: s.totalBudget || 0,
-                        totalDisbursed: s.totalDisbursed || 0,
-                        totalFaculty: s.totalFaculty || 0,
-                        centres: (statsRes.data.centres || []).map(c => ({
+                        totalProjects: Number(s.totalProjects || 0),
+                        activeProjects: Number(s.activeProjects || 0),
+                        pendingProjects: Number(s.pendingApprovals || 0),
+                        totalBudget: Number(s.totalAllocated ?? s.totalBudget ?? 0),
+                        totalDisbursed: Number(s.totalDisbursed ?? s.used ?? 0),
+                        totalFaculty: Number(s.totalFaculty || 0),
+                        centres: ((s.centres ?? statsRes.data?.centres) || []).map(c => ({
                             centre: c.name,
-                            totalProjects: c.count || 0,
-                            totalBudget: 0,
-                            disbursed: 0
+                            totalProjects: Number(c.totalProjects ?? c.count ?? 0),
+                            totalBudget: Number(c.totalBudget || 0),
+                            disbursed: Number(c.disbursed || 0)
                         }))
                     });
                 }
                 if (requestsRes.data?.success) {
-                    setAllRequests(requestsRes.data.data);
+                    setAllRequests(requestsRes.data.data ?? []);
                 }
             } catch (err) {
                 console.error("Error fetching report data:", err);

@@ -60,18 +60,7 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 const AlertService = require('./services/alertService');
 
-// System Status (Public)
-app.get('/api/status', (req, res) => {
-    res.json({
-        success: true,
-        data: AlertService.getSystemStatus(),
-        timestamp: new Date().toISOString()
-    });
-});
-
-// Health Check (Deep)
-app.get('/health', async (req, res) => {
-
+const healthHandler = async (req, res) => {
     const { sequelize } = require('./config/db');
     const { redis } = require('./services/redisService');
     
@@ -85,7 +74,20 @@ app.get('/health', async (req, res) => {
         timestamp: new Date().toISOString(),
         services: { database: dbStatus, redis: redisStatus }
     });
+};
+
+// System Status (Public)
+app.get('/api/status', (req, res) => {
+    res.json({
+        success: true,
+        data: AlertService.getSystemStatus(),
+        timestamp: new Date().toISOString()
+    });
 });
+
+// Health Check (Deep)
+app.get('/health', healthHandler);
+app.get('/api/health', healthHandler);
 
 // Rate Limiting
 const globalLimiter = rateLimit({
@@ -140,4 +142,3 @@ app.use((req, res) => {
 
 
 module.exports = app;
-

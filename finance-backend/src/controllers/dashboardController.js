@@ -1,7 +1,8 @@
 const asyncHandler = require('../utils/asyncHandler');
 const { Project, FundRequest } = require('../models');
-const { fn, col, literal } = require('sequelize');
+const { Op } = require('sequelize');
 const logger = require('../utils/logger');
+const { getFundingTotals } = require('../services/pipelineMetricsService');
 
 const dashboardCache = new Map();
 
@@ -17,30 +18,19 @@ const getGlobalMetrics = asyncHandler(async (req, res) => {
         });
     }
 
-    // ✅ Parallel queries (better than single aggregation)
-    const [projectStats, pendingRequests] = await Promise.all([
-        Project.findAll({
-            attributes: [
-                [fn('SUM', col('sanctionedBudget')), 'totalSanctioned'],
-                [fn('SUM', col('releasedBudget')), 'totalDisbursed'],
-                [
-                    fn(
-                        'SUM',
-                        literal(`CASE WHEN status IS NOT NULL AND status NOT IN ('COMPLETED','CLOSED') THEN 1 ELSE 0 END`)
-                    ),
-                    'activeProjects'
-                ]
-            ],
-            raw: true
+    const [activeProjects, pendingRequests, fundingTotals] = await Promise.all([
+        Project.count({
+            where: {
+                status: {
+                    [Op.notIn]: ['COMPLETED', 'CLOSED']
+                }
+            }
         }),
-        FundRequest.count({ where: { status: 'PENDING' } }) || 0
+        FundRequest.count({ where: { status: 'PENDING' } }) || 0,
+        getFundingTotals(),
     ]);
-
-    const metricsRow = (projectStats && projectStats[0]) || {};
-
-    const totalSanctioned = Number(metricsRow.totalSanctioned) || 0;
-    const totalDisbursed = Number(metricsRow.totalDisbursed) || 0;
-    const activeProjects = Number(metricsRow.activeProjects) || 0;
+    const totalSanctioned = Number(fundingTotals?.totalAllocated || 0);
+    const totalDisbursed = Number(fundingTotals?.used || 0);
     const remainingFunds = Math.max(0, totalSanctioned - totalDisbursed);
 
     const data = {

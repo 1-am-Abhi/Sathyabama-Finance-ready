@@ -2,6 +2,19 @@ const { Op, Sequelize } = require('sequelize');
 const Notification = require('../models/Notification');
 const User = require('../models/User');
 
+const emitNotification = (notification) => {
+    if (!notification?.userId || !global.io) {
+        return;
+    }
+
+    const payload = notification.toJSON ? notification.toJSON() : notification;
+    global.io.to(String(payload.userId)).emit('notification', payload);
+    global.io.to(String(payload.userId)).emit('notifications:update', {
+        userId: String(payload.userId),
+        notificationId: payload._id || payload.id,
+    });
+};
+
 /**
  * Service to handle creation of notifications across the system
  */
@@ -24,6 +37,7 @@ class NotificationService {
                 relatedId,
                 isRead: false
             });
+            emitNotification(notification);
             console.log(`[NotificationService] SUCCESS: Created notification ${notification._id}`);
             return notification;
         } catch (error) {
@@ -77,6 +91,7 @@ class NotificationService {
             }));
 
             const created = await Notification.bulkCreate(notificationEntries);
+            created.forEach((notification) => emitNotification(notification));
             console.log(`[NotificationService] SUCCESS: Bulk created ${created.length} notifications`);
             return created;
         } catch (error) {

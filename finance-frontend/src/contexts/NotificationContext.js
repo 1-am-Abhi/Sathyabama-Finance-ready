@@ -1,8 +1,11 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { io } from 'socket.io-client';
+import { toast } from 'sonner';
 import apiClient from '../api/client';
 import { useAuth } from './AuthContext';
 
 const NotificationContext = createContext(null);
+const SOCKET_URL = (process.env.REACT_APP_API_URL || 'https://finance-api-x1ig.onrender.com').replace(/\/api\/?$/, '');
 
 const normalizeNotification = (notification) => ({
     ...notification,
@@ -25,6 +28,41 @@ const extractNotifications = (payload) => {
     return [];
 };
 
+const getNotificationId = (notification) =>
+    notification?._id ||
+    notification?.id ||
+    [
+        notification?.userId || 'user',
+        notification?.type || 'type',
+        notification?.relatedId || 'related',
+        // Use a 5-second window for composite deduplication
+        Math.floor(new Date(notification?.createdAt || Date.now()).getTime() / 5000)
+    ].join(':');
+
+const mergeNotifications = (current, incoming, { prepend = false } = {}) => {
+    const next = Array.isArray(current) ? [...current] : [];
+    const items = (Array.isArray(incoming) ? incoming : [incoming])
+        .filter(Boolean)
+        .map(normalizeNotification);
+
+    items.forEach((item) => {
+        const index = next.findIndex((existing) => getNotificationId(existing) === getNotificationId(item));
+        if (index >= 0) {
+            next[index] = { ...next[index], ...item };
+            return;
+        }
+
+        if (prepend) {
+            next.unshift(item);
+            return;
+        }
+
+        next.push(item);
+    });
+
+    return next.sort((a, b) => new Date(b?.createdAt || 0) - new Date(a?.createdAt || 0));
+};
+
 export const NotificationProvider = ({ children }) => {
     const { user } = useAuth();
     const [notifications, setNotifications] = useState([]);
@@ -39,7 +77,7 @@ export const NotificationProvider = ({ children }) => {
             setIsLoading(true);
             const userId = user?.id || user?._id;
             const res = await apiClient.get(`/notifications/${userId}`);
-            setNotifications(extractNotifications(res.data).map(normalizeNotification));
+            setNotifications(mergeNotifications([], extractNotifications(res.data)));
         } catch (error) {
             console.error('Failed to fetch notifications:', error);
         } finally {
@@ -55,6 +93,48 @@ export const NotificationProvider = ({ children }) => {
         } else {
             setNotifications([]);
         }
+    }, [user, fetchNotifications]);
+
+    useEffect(() => {
+        if (!user) {
+            return undefined;
+        }
+
+        const socket = io(SOCKET_URL, {
+            transports: ['websocket', 'polling'],
+            auth: {
+                token: localStorage.getItem('token') || ''
+            }
+        });
+
+        socket.on('notification', (payload) => {
+            const notification = normalizeNotification(payload);
+            const nid = getNotificationId(notification);
+            
+            setNotifications((prev) => {
+                const isDuplicate = (prev || []).some(n => getNotificationId(n) === nid);
+                if (isDuplicate) return prev;
+                
+                // Only toast for unique notifications
+                toast.success(notification.message || notification.title || 'New notification received');
+                return mergeNotifications(prev, notification, { prepend: true });
+            });
+        });
+
+        socket.on('notifications:update', () => {
+            fetchNotifications();
+        });
+
+        socket.on('connect_error', (error) => {
+            console.warn('Notification socket connection failed:', error?.message || error);
+        });
+
+        return () => {
+            socket.off('notification');
+            socket.off('notifications:update');
+            socket.off('connect_error');
+            socket.disconnect();
+        };
     }, [user, fetchNotifications]);
 
     const markAsRead = async (id) => {
@@ -108,7 +188,7 @@ export const NotificationProvider = ({ children }) => {
             createdNotification?.role === user?.role;
 
         if (targetsCurrentUser) {
-            setNotifications((prev) => [createdNotification, ...prev]);
+            setNotifications((prev) => mergeNotifications(prev, createdNotification, { prepend: true }));
         } else if (Array.isArray(created)) {
             await fetchNotifications();
         }
@@ -125,7 +205,7 @@ export const NotificationProvider = ({ children }) => {
         return notifications;
     }, [notifications]);
 
-    const unreadCount = notifications.filter(n => !n.isRead && !n.read).length;
+    const unreadCount = (notifications || []).filter(n => !n.isRead && !n.read).length;
 
     return (
         <NotificationContext.Provider value={{

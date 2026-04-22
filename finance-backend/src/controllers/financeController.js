@@ -6,6 +6,7 @@ const {
 const { Op, fn, col, literal } = require('sequelize');
 const logger = require('../utils/logger');
 const { mapToFundSourceKey, ensureCanonicalFundSources } = require('../services/fundSourceCatalogService');
+const { getFundingTotals, getFundSourceOverview } = require('../services/pipelineMetricsService');
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -59,15 +60,18 @@ const getFinanceStats = asyncHandler(async (req, res) => {
             Project.count(),
             Project.count({ where: { status: { [Op.in]: ['ACTIVE', 'APPROVED'] } } }),
             FundRequest.count({ where: { status: 'PENDING' } }),
-            Project.sum('sanctionedBudget'),
-            Disbursement.sum('amount'),
             User.count({ where: { role: 'FACULTY' } }),
             Revenue.sum('verifiedAmount', { where: { status: 'VERIFIED' } }),
             // Finance-activity counts used by FinanceDashboard
-            FundRequest.count({ where: { status: 'PENDING_DISBURSAL' } }),
             FundRequest.count({
                 where: {
-                    status: 'DISBURSED',
+                    status: 'PENDING_DISBURSAL',
+                    currentStage: { [Op.in]: ['FUND_APPROVED', 'BILLS_UPLOADED', null] }
+                }
+            }),
+            FundRequest.count({
+                where: {
+                    status: 'PENDING_DISBURSAL',
                     currentStage: { [Op.in]: ['FUND_RELEASED', 'CHEQUE_RELEASED'] }
                 }
             }),
@@ -76,34 +80,29 @@ const getFinanceStats = asyncHandler(async (req, res) => {
         ]);
     } catch (err) {
         logger.error('[getFinanceStats] DB Error: ' + err.message);
-        results = Array(11).fill(0);
+        results = Array(9).fill(0);
     }
 
     const [
         totalProjects, activeProjects, pendingApprovals,
-        totalAllocated, totalDisbursed, totalFaculty, totalRevenue,
+        totalFaculty, totalRevenue,
         pendingReleases, pendingDisbursements, pendingSettlements, pendingInternships
     ] = (results || []).map(v => v || 0);
 
-    // Read fund source allocations from the FundSource table (real data, not hardcoded)
-    let pfmsStats = { allotted: 0, consumed: 0 };
-    let institutionalStats = { allotted: 0, consumed: 0 };
-    let othersStats = { allotted: 0, consumed: 0 };
-
-    try {
-        const sources = await FundSource.findAll({ raw: true });
-        const disbursedBySource = await getDisbursedBySource();
-
-        sources.forEach(fs => {
-            const name = SOURCE_TYPE_TO_NAME[fs.sourceType];
-            const allotted = Number(fs.totalAllocated) || 0;
-            if (name === 'PFMS') pfmsStats = { allotted, consumed: disbursedBySource.PFMS };
-            if (name === 'INSTITUTIONAL') institutionalStats = { allotted, consumed: disbursedBySource.INSTITUTIONAL };
-            if (name === 'OTHERS') othersStats = { allotted, consumed: disbursedBySource.OTHERS };
-        });
-    } catch (err) {
-        logger.error('[getFinanceStats] FundSource read error: ' + err.message);
-    }
+    const fundingTotals = await getFundingTotals();
+    const sourceOverview = await getFundSourceOverview();
+    const pfmsStats = {
+        allotted: Number(sourceOverview?.pfmsFunds?.totalAllocated || 0),
+        consumed: Number(sourceOverview?.pfmsFunds?.totalUsed || 0),
+    };
+    const institutionalStats = {
+        allotted: Number(sourceOverview?.institutionalFunds?.totalAllocated || 0),
+        consumed: Number(sourceOverview?.institutionalFunds?.totalUsed || 0),
+    };
+    const othersStats = {
+        allotted: Number(sourceOverview?.othersFunds?.totalAllocated || 0),
+        consumed: Number(sourceOverview?.othersFunds?.totalUsed || 0),
+    };
 
     res.json({
         success: true,
@@ -111,8 +110,8 @@ const getFinanceStats = asyncHandler(async (req, res) => {
             totalProjects,
             activeProjects,
             pendingApprovals,
-            totalAllocated,
-            totalDisbursed,
+            totalAllocated: Number(fundingTotals.totalAllocated || 0),
+            totalDisbursed: Number(fundingTotals.used || 0),
             totalFaculty,
             totalRevenue,
             pendingReleases,
@@ -132,52 +131,27 @@ const getFinanceStats = asyncHandler(async (req, res) => {
  * using FundSource table as source of truth + Disbursement for usage.
  */
 const getFundSourcesOverview = asyncHandler(async (req, res) => {
-    // 1. Read allocations from FundSource table (source of truth)
-    let fundSources = [];
-    try {
-        await ensureCanonicalFundSources();
-        fundSources = await FundSource.findAll({ raw: true });
-    } catch (err) {
-        logger.error('[getFundSourcesOverview] FundSource read error: ' + err.message);
-    }
-
-    // 2. Get used amounts from Disbursements joined with FundRequests
-    const disbursedBySource = await getDisbursedBySource();
-
-    // 3. Fallback: get project budget sums if FundSource amounts are 0
-    let projectBudgetBySource = {};
-    try {
-        const projectSums = await Project.findAll({
-            attributes: [
-                'fundingSource',
-                [fn('SUM', col('sanctionedBudget')), 'totalBudget']
-            ],
-            group: ['fundingSource'],
-            raw: true
-        });
-        projectSums.forEach(p => {
-            projectBudgetBySource[p.fundingSource] = Number(p.totalBudget) || 0;
-        });
-    } catch (err) {
-        logger.error('[getFundSourcesOverview] Project sum error: ' + err.message);
-    }
-
-    // 4. Build response — keys exactly match FundSourceCard expectations:
-    //    { name, totalAllocated, totalUsed, remainingBalance }
-    const data = ['INSTITUTIONAL', 'PFMS', 'OTHERS'].map(name => {
-        const sourceType = NAME_TO_SOURCE_TYPE[name];
-        const fsRecord = fundSources.find(fs => fs.sourceType === sourceType);
-        const fundSourceAllocated = fsRecord ? Number(fsRecord.totalAllocated) || 0 : 0;
-
-        // Use FundSource allocation if set (> 0), otherwise fall back to project sums
-        const totalAllocated = fundSourceAllocated > 0
-            ? fundSourceAllocated
-            : (projectBudgetBySource[name] || 0);
-        const totalUsed = disbursedBySource[name] || 0;
-        const remainingBalance = Math.max(0, totalAllocated - totalUsed);
-
-        return { name, totalAllocated, totalUsed, remainingBalance };
-    });
+    const overview = await getFundSourceOverview();
+    const data = [
+        {
+            name: 'INSTITUTIONAL',
+            totalAllocated: Number(overview?.institutionalFunds?.totalAllocated || 0),
+            totalUsed: Number(overview?.institutionalFunds?.totalUsed || 0),
+            remainingBalance: Number(overview?.institutionalFunds?.remainingBalance || 0),
+        },
+        {
+            name: 'PFMS',
+            totalAllocated: Number(overview?.pfmsFunds?.totalAllocated || 0),
+            totalUsed: Number(overview?.pfmsFunds?.totalUsed || 0),
+            remainingBalance: Number(overview?.pfmsFunds?.remainingBalance || 0),
+        },
+        {
+            name: 'OTHERS',
+            totalAllocated: Number(overview?.othersFunds?.totalAllocated || 0),
+            totalUsed: Number(overview?.othersFunds?.totalUsed || 0),
+            remainingBalance: Number(overview?.othersFunds?.remainingBalance || 0),
+        }
+    ];
 
     res.json({ success: true, data });
 });
@@ -347,11 +321,11 @@ const getDisbursalHistory = asyncHandler(async (req, res) => {
     try {
         history = await Disbursement.findAll({
             attributes: [
-                [fn('date_trunc', 'month', col('createdAt')), 'month'],
+                [fn('date_trunc', 'month', col('disbursedAt')), 'month'],
                 [fn('SUM', col('amount')), 'total']
             ],
-            group: [literal("date_trunc('month', \"createdAt\")")],
-            order: [[literal("date_trunc('month', \"createdAt\")"), 'DESC']],
+            group: [literal("date_trunc('month', \"disbursedAt\")")],
+            order: [[literal("date_trunc('month', \"disbursedAt\")"), 'DESC']],
             limit: 12,
             raw: true
         });
@@ -375,18 +349,14 @@ const getReportsData = asyncHandler(async (req, res) => {
     let projectCounts = 0;
     let fundingSummary = [];
     let disbursalMeta = 0;
+    let totalAllocated = 0;
 
     try {
-        [projectCounts, fundingSummary, disbursalMeta] = await Promise.all([
+        [projectCounts, fundingSummary, disbursalMeta, totalAllocated] = await Promise.all([
             Project.count({ group: ['status'] }),
-            Project.findAll({
-                attributes: [
-                    'fundingSource',
-                    [Project.sequelize.fn('SUM', Project.sequelize.col('sanctionedBudget')), 'total']
-                ],
-                group: ['fundingSource']
-            }),
-            Disbursement.sum('amount')
+            getFundSourceOverview(),
+            Disbursement.sum('amount'),
+            FundSource.sum('totalAllocated')
         ]);
     } catch (err) {
         logger.error('[getReportsData] DB Error: ' + err.message);
@@ -396,7 +366,12 @@ const getReportsData = asyncHandler(async (req, res) => {
         success: true,
         data: {
             projects: projectCounts || {},
-            funding: Array.isArray(fundingSummary) ? fundingSummary : [],
+            funding: [
+                { fundingSource: 'INSTITUTIONAL', total: Number(fundingSummary?.institutionalFunds?.totalAllocated || 0) },
+                { fundingSource: 'PFMS', total: Number(fundingSummary?.pfmsFunds?.totalAllocated || 0) },
+                { fundingSource: 'OTHERS', total: Number(fundingSummary?.othersFunds?.totalAllocated || 0) },
+            ],
+            totalAllocated: Number(totalAllocated || 0),
             totalDisbursed: disbursalMeta || 0,
             generatedAt: new Date().toISOString()
         }

@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Bell, Check, Info, AlertTriangle, CheckCircle, ExternalLink, Trash2 } from 'lucide-react';
-import { useNotifications } from '../../hooks/useNotifications';
+import { Bell, Check, Info, AlertTriangle, CheckCircle, ExternalLink } from 'lucide-react';
+import { useNotifications } from '../../contexts/NotificationContext';
 import { formatDistanceToNow } from 'date-fns';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -67,7 +67,7 @@ const NotificationBell = () => {
                             </div>
                             {unreadCount > 0 && (
                                 <button
-                                    onClick={() => markAllAsRead.mutate()}
+                                    onClick={() => markAllAsRead()}
                                     className="text-[10px] font-bold text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 uppercase tracking-tighter flex items-center gap-1 bg-blue-50 dark:bg-blue-900/30 px-2 py-1 rounded-full transition-all"
                                 >
                                     <Check className="w-3 h-3" /> Mark all read
@@ -82,7 +82,7 @@ const NotificationBell = () => {
                                     <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
                                     <p className="text-xs text-gray-400 italic">Syncing notifications...</p>
                                 </div>
-                            ) : notifications.length === 0 ? (
+                            ) : (notifications || []).length === 0 ? (
                                 <div className="p-12 text-center">
                                     <div className="mx-auto w-12 h-12 bg-gray-100 dark:bg-slate-800 rounded-full flex items-center justify-center mb-3 text-gray-400">
                                         <Bell className="w-6 h-6 opacity-20" />
@@ -93,7 +93,7 @@ const NotificationBell = () => {
                                 <div className="divide-y divide-gray-50 dark:divide-slate-800/50">
                                     {(notifications || []).map((notif) => (
                                         <div
-                                            key={notif._id}
+                                            key={notif._id || notif.id || `${notif.title}-${notif.createdAt}`}
                                             className={`p-4 transition-all hover:bg-gray-50 dark:hover:bg-slate-800/50 relative group ${!notif.isRead ? 'bg-blue-50/20 dark:bg-blue-900/10' : ''}`}
                                         >
                                             <div className="flex gap-4">
@@ -106,7 +106,7 @@ const NotificationBell = () => {
                                                             {notif.title}
                                                         </h4>
                                                         <span className="text-[9px] text-gray-400 italic shrink-0 whitespace-nowrap ml-2">
-                                                            {formatDistanceToNow(new Date(notif.createdAt), { addSuffix: true })}
+                                                            {formatDistanceToNow(new Date(notif.createdAt || Date.now()), { addSuffix: true })}
                                                         </span>
                                                     </div>
                                                     <p className={`text-[11px] leading-relaxed mb-2 ${notif.isRead ? 'text-gray-500' : 'text-gray-600 dark:text-gray-300'}`}>
@@ -115,7 +115,7 @@ const NotificationBell = () => {
                                                     <div className="flex items-center gap-3">
                                                         {!notif.isRead && (
                                                             <button
-                                                                onClick={() => markAsRead.mutate(notif._id)}
+                                                                onClick={() => markAsRead(notif._id || notif.id)}
                                                                 className="text-[9px] font-bold text-blue-600 dark:text-blue-400 uppercase tracking-widest hover:underline"
                                                             >
                                                                 Mark read
@@ -139,7 +139,7 @@ const NotificationBell = () => {
                         </div>
 
                         {/* Footer */}
-                        {notifications.length > 0 && (
+                        {(notifications || []).length > 0 && (
                             <div className="p-3 bg-gray-50/50 dark:bg-slate-800/50 border-t border-gray-100 dark:border-slate-800 text-center">
                                 <button className="text-[10px] font-bold text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 uppercase tracking-widest italic">
                                     View older history

@@ -1,8 +1,5 @@
 import React, { useState } from 'react';
-import axios from 'axios';
-import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card';
-import { useNotifications } from '../../contexts/NotificationContext';
 import { Button } from '../../components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
 import { Badge } from '../../components/ui/badge';
@@ -16,12 +13,25 @@ import { useCentres } from '../../constants/researchCentres';
 import { FUND_SOURCE_OPTIONS } from '../../constants/fundSources';
 import AIResultModal from '../../components/shared/AIResultModal';
 import { summarizeRequest } from '../../services/aiService';
+import apiClient from '../../api/client';
+import { toast } from 'sonner';
+
+const safeNumber = (value) => {
+    const numeric = Number(value || 0);
+    return Number.isFinite(numeric) ? numeric : 0;
+};
+
+const isApprovedWorkflowStatus = (status) =>
+    ['APPROVED', 'PENDING_DISBURSAL', 'DISBURSED'].includes(String(status || '').toUpperCase());
+
+const isDisbursedRequest = (request) =>
+    String(request?.status || '').toUpperCase() === 'DISBURSED' ||
+    ['AMOUNT_DISBURSED', 'CHEQUE_RELEASED'].includes(String(request?.currentStage || '').toUpperCase()) ||
+    String(request?.chequeStatus || '').toUpperCase() === 'DISBURSED';
 
 const ApproveFundRequests = () => {
     const { fundRequests, approveRequest, rejectRequest, advanceStage, disburseFund, isLoading } = usePipeline();
     const { setLayout } = useLayout();
-    const { addNotification } = useNotifications();
-    const navigate = useNavigate();
     const { centres: dynamicCentres } = useCentres();
     const [selectedDate, setSelectedDate] = useState(null);
     const [selectedCentre, setSelectedCentre] = useState('All');
@@ -48,29 +58,14 @@ const ApproveFundRequests = () => {
 
     const handleApprove = async (requestId) => {
         try {
-            const req = fundRequests.find(r => (r._id || r.id) === requestId);
             await approveRequest({ requestId, remarks: approvalNotes || 'Approved by Admin' });
-            
-            // 1. Notify the Faculty that their request was approved
-            addNotification({
-                role: 'FACULTY',
-                type: 'success',
-                message: `Your Fund Request${req?.projectTitle ? ` for "${req.projectTitle}"` : ''} has been APPROVED! Please upload payment proofs and bills to proceed with disbursement.`,
-                actionUrl: '/faculty/request-funds',
-                targetUserId: req?.userId
-            });
-            
             setSelectedRequest(null);
             setApprovalNotes('');
-            
-            // Sync with other tabs/components
             window.dispatchEvent(new Event('fund-sources-updated'));
             localStorage.setItem('fundSourcesUpdatedAt', Date.now());
-            
-            // Redirect after successful approval
-            navigate('/finance/dashboard');
         } catch (error) {
             console.error('Approval failed:', error);
+            toast.error(error.response?.data?.message || 'Approval failed');
         }
     };
 
@@ -81,23 +76,13 @@ const ApproveFundRequests = () => {
     const handleConfirmReject = async () => {
         const { requestId, remarks } = rejectionModal;
         try {
-            // Rejection now uses a dedicated endpoint
             await rejectRequest({ requestId, remarks }); 
-            
-            // Notify Faculty
-            addNotification({
-                role: 'FACULTY',
-                type: 'rejection',
-                message: `Your Fund Request was REJECTED. Remarks: ${remarks}`,
-                actionUrl: '/faculty/request-funds',
-                targetUserId: (fundRequests.find(r => r.id === requestId))?.userId || (fundRequests.find(r => r._id === requestId))?.userId
-            });
-            
             setRejectionModal({ isOpen: false, requestId: null, remarks: '' });
             setSelectedRequest(null);
             setApprovalNotes('');
         } catch (error) {
             console.error('Rejection failed:', error);
+            toast.error(error.response?.data?.message || 'Rejection failed');
         }
     };
 
@@ -138,21 +123,14 @@ const ApproveFundRequests = () => {
             });
 
             setSelectedRequest(prev => prev ? ({ ...prev, status: 'DISBURSED', currentStage: 'AMOUNT_DISBURSED', chequeStatus: 'Disbursed' }) : null);
-            
-            addNotification({
-                role: 'FACULTY',
-                type: 'success',
-                message: `Funds disbursed for "${req?.projectTitle || 'your project'}"! Mode: ${disbursementMode}. Amount: ₹${req?.requestedAmount?.toLocaleString() || '0'}.`,
-                actionUrl: '/faculty/request-funds',
-                targetUserId: req?.userId
-            });
+            toast.success(`Disbursement completed for ${req?.projectTitle || 'project'}`);
 
             // Refresh history
             if (selectedRequest?.projectId) fetchInstallmentHistory(selectedRequest.projectId);
         } catch (error) {
             console.error('Disbursement failed:', error);
             const msg = error.response?.data?.message || 'Disbursement failed. Balance check failed?';
-            addNotification({ type: 'error', message: msg });
+            toast.error(msg);
         }
     };
 
@@ -160,10 +138,11 @@ const ApproveFundRequests = () => {
         if (!projectId) return;
         setIsFetchingHistory(true);
         try {
-            const res = await (window.apiClient || axios).get(`/api/fund-requests/project/${projectId}/installments`);
-            setInstallmentHistory(res.data?.data?.installments || []);
+            const res = await apiClient.get(`/fund-requests/project/${projectId}/installments`);
+            setInstallmentHistory(res.data?.data?.installments ?? []);
         } catch (err) {
             console.error("Failed to fetch history:", err);
+            setInstallmentHistory([]);
         } finally {
             setIsFetchingHistory(false);
         }
@@ -179,7 +158,7 @@ const ApproveFundRequests = () => {
 
     if (isLoading) return <div className="p-8 text-center">Loading Pipeline Data...</div>;
 
-    const filteredRequests = (fundRequests || []).filter(r => {
+    const filteredRequests = (fundRequests ?? []).filter(r => {
         const requestDate = r.submittedDate || r.createdAt;
         const matchesDate = !selectedDate || (requestDate && new Date(requestDate).toDateString() === new Date(selectedDate).toDateString());
         const matchesCentre = selectedCentre === 'All' || r.centre === selectedCentre;
@@ -189,17 +168,21 @@ const ApproveFundRequests = () => {
 
     // Stats Calculation
     const approvedAmount = filteredRequests
-        .filter(r => r.status === 'APPROVED')
-        .reduce((sum, r) => sum + r.requestedAmount, 0);
+        .filter(r => isApprovedWorkflowStatus(r.status))
+        .reduce((sum, r) => sum + safeNumber(r.requestedAmount || r.amount), 0);
 
     const pendingChequesCount = filteredRequests
-        .filter(r => r.status === 'APPROVED' && r.currentStage !== 'CHEQUE_RELEASED' && r.currentStage !== 'AMOUNT_DISBURSED')
+        .filter(r =>
+            isApprovedWorkflowStatus(r.status) &&
+            !isDisbursedRequest(r) &&
+            !['CHEQUE_RELEASED', 'AMOUNT_DISBURSED'].includes(String(r.currentStage || '').toUpperCase())
+        )
         .length;
 
     // Disbursed = requests where cheque has been released/amount disbursed
     const disbursedAmount = filteredRequests
-        .filter(r => r.currentStage === 'AMOUNT_DISBURSED' || r.currentStage === 'CHEQUE_RELEASED' || r.chequeStatus === 'Disbursed')
-        .reduce((sum, r) => sum + r.requestedAmount, 0);
+        .filter((r) => isDisbursedRequest(r))
+        .reduce((sum, r) => sum + safeNumber(r.requestedAmount || r.amount), 0);
 
 
     return (
@@ -358,7 +341,7 @@ const ApproveFundRequests = () => {
                                             </Badge>
                                         </TableCell>
                                         <TableCell className="font-bold text-green-600 dark:text-green-400">
-                                            {formatCurrency(request.requestedAmount)}
+                                            {formatCurrency(safeNumber(request.requestedAmount || request.amount))}
                                         </TableCell>
                                         <TableCell className="max-w-xs truncate dark:text-gray-400">{request.purpose}</TableCell>
                                         <TableCell className="dark:text-gray-300">{new Date(request.submittedDate || request.createdAt).toLocaleDateString()}</TableCell>
@@ -366,7 +349,7 @@ const ApproveFundRequests = () => {
                                             <div className="flex flex-col gap-1">
                                                 <Badge
                                                     variant={
-                                                        request.status === 'APPROVED' ? 'success' :
+                                                        isApprovedWorkflowStatus(request.status) ? 'success' :
                                                             request.status === 'REJECTED' ? 'destructive' :
                                                                 'default'
                                                     }
@@ -374,7 +357,7 @@ const ApproveFundRequests = () => {
                                                 >
                                                     {request.status}
                                                 </Badge>
-                                                {request.status === 'APPROVED' && (
+                                                {isApprovedWorkflowStatus(request.status) && (
                                                     <Badge className={`w-fit text-[10px] px-1.5 py-0 ${request.chequeStatus === 'Disbursed' ? 'bg-green-100 text-green-700' :
                                                         request.chequeStatus === 'Approved' ? 'bg-blue-100 text-blue-700' :
                                                             'bg-yellow-100 text-yellow-700'
@@ -425,7 +408,7 @@ const ApproveFundRequests = () => {
                                                         </Button>
                                                     </>
                                                 )}
-                                                {request.status === 'APPROVED' && (
+                                                {isApprovedWorkflowStatus(request.status) && (
                                                     <Button
                                                         variant="outline"
                                                         size="sm"
@@ -459,7 +442,7 @@ const ApproveFundRequests = () => {
                                             <Badge variant="outline" className={`${selectedRequest.source === 'PFMS' ? 'text-blue-600 border-blue-200 bg-blue-50' : 'text-purple-600 border-purple-200 bg-purple-50'}`}>
                                                 {selectedRequest.source}
                                             </Badge>
-                                            {selectedRequest.status === 'APPROVED' && (
+                                            {isApprovedWorkflowStatus(selectedRequest.status) && (
                                                 <Badge className={`text-[10px] px-1.5 py-0 ${selectedRequest.chequeStatus === 'Disbursed' ? 'bg-green-100 text-green-700' :
                                                     selectedRequest.chequeStatus === 'Approved' ? 'bg-blue-100 text-blue-700' :
                                                         'bg-yellow-100 text-yellow-700'
@@ -474,7 +457,7 @@ const ApproveFundRequests = () => {
                                     <div className="text-right">
                                         <p className="text-sm font-semibold text-gray-500 dark:text-gray-400">Amount</p>
                                         <p className="text-2xl font-bold text-green-600 dark:text-green-400">
-                                            {formatCurrency(selectedRequest.requestedAmount)}
+                                            {formatCurrency(safeNumber(selectedRequest.requestedAmount || selectedRequest.amount))}
                                         </p>
                                     </div>
                                 </div>
@@ -498,13 +481,13 @@ const ApproveFundRequests = () => {
                                     </div>
                                     <div>
                                         <p className="text-sm font-semibold text-gray-500 dark:text-gray-400">Request Status</p>
-                                        <Badge className="mt-1" variant={selectedRequest.status === 'APPROVED' ? 'success' : selectedRequest.status === 'REJECTED' ? 'destructive' : 'secondary'}>
+                                        <Badge className="mt-1" variant={isApprovedWorkflowStatus(selectedRequest.status) ? 'success' : selectedRequest.status === 'REJECTED' ? 'destructive' : 'secondary'}>
                                             {selectedRequest.status}
                                         </Badge>
                                     </div>
                                 </div>
 
-                                {selectedRequest.status === 'APPROVED' && (
+                                {isApprovedWorkflowStatus(selectedRequest.status) && (
                                     <div className="bg-gray-50 dark:bg-slate-800/50 p-4 rounded-lg border border-gray-100 dark:border-slate-800">
                                         <div className="flex items-center justify-between mb-4">
                                             <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 flex items-center">
@@ -577,7 +560,7 @@ const ApproveFundRequests = () => {
                                                     <div key={idx} className="flex items-center justify-between p-2 bg-gray-50 dark:bg-slate-800/30 rounded-lg text-xs">
                                                         <div className="flex items-center gap-2">
                                                             <Badge variant="outline" className="text-[10px] h-5">Inst #{inst.installmentNumber || idx + 1}</Badge>
-                                                            <span className="font-medium dark:text-gray-300">{formatCurrency(inst.requestedAmount)}</span>
+                                                            <span className="font-medium dark:text-gray-300">{formatCurrency(safeNumber(inst.requestedAmount || inst.amount))}</span>
                                                         </div>
                                                         <div className="flex items-center gap-2">
                                                             <span className="text-gray-400">{new Date(inst.createdAt).toLocaleDateString()}</span>
@@ -631,7 +614,7 @@ const ApproveFundRequests = () => {
                                             </Button>
                                         </>
                                     )}
-                                    {selectedRequest.status === 'APPROVED' && (
+                                    {isApprovedWorkflowStatus(selectedRequest.status) && (
                                         <Button
                                             variant="outline"
                                             className="text-orange-600 border-orange-200 hover:bg-orange-50 dark:hover:bg-orange-900/20"

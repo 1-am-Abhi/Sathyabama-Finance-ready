@@ -18,6 +18,7 @@ router.get('/', fundRequestController.getFundRequests);
  * Faculty see only their own; Admin/Finance see all.
  */
 router.get('/project/:projectId', fundRequestController.getProjectWithInstallments);
+router.get('/project/:projectId/installments', fundRequestController.getProjectWithInstallments);
 
 router.get('/:id', fundRequestController.getFundRequest);
 
@@ -50,6 +51,7 @@ router.patch('/:id/reject',   authorize('ADMIN'), fundRequestController.rejectFu
  * Notifies: Faculty
  */
 router.patch('/:id/disburse', authorize('FINANCE_OFFICER'), sanitizeFinancialInput, fundRequestController.disburseFund);
+router.post('/:id/disburse', authorize('ADMIN', 'FINANCE_OFFICER'), sanitizeFinancialInput, fundRequestController.disburseFund);
 
 // ── Granular pipeline advancement (Finance / Faculty) ─────────────────────────
 // Retained for backward-compat with the stage-based pipeline UI

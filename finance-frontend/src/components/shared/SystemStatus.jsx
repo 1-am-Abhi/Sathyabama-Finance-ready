@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { Activity, wifi, wifiOff, AlertCircle, Database } from 'lucide-react';
 import apiClient from '../../api/client';
 import { io } from 'socket.io-client';
 
@@ -26,7 +25,7 @@ const SystemStatus = () => {
             }
         };
 
-        const socket = io(process.env.REACT_APP_API_URL || 'https://finance-api-x1ig.onrender.com', {
+        const socket = io((process.env.REACT_APP_API_URL || 'https://finance-api-x1ig.onrender.com').replace(/\/api\/?$/, ''), {
             auth: { token: localStorage.getItem('token') },
             transports: ['websocket', 'polling']
         });

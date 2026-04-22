@@ -134,7 +134,7 @@ export const PipelineProvider = ({ children }) => {
 
     const disburseFundMutation = useMutation({
         mutationFn: async ({ requestId, payload }) => {
-            const response = await apiClient.post(`/fund-requests/${requestId}/disburse`, payload);
+            const response = await apiClient.patch(`/fund-requests/${requestId}/disburse`, payload);
             return response.data.data;
         },
         onSuccess: () => {

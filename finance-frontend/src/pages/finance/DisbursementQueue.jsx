@@ -8,6 +8,11 @@ import { Badge } from '../../components/ui/badge';
 import { IndianRupee, Search, Filter, ArrowRight, Building2, Hash, Users, FileText, Clock, Calendar, Sparkles, TrendingUp } from 'lucide-react';
 import useToast from '../../hooks/useToast';
 
+const safeNumber = (value) => {
+    const numeric = Number(value || 0);
+    return Number.isFinite(numeric) ? numeric : 0;
+};
+
 const DisbursementQueue = () => {
     const { setLayout } = useLayout();
     const navigate = useNavigate();
@@ -19,7 +24,8 @@ const DisbursementQueue = () => {
         transactionId: '',
         bankName: '',
         disbursementDate: new Date().toISOString().split('T')[0],
-        remarks: ''
+        remarks: '',
+        mode: 'FULL'
     });
 
     const [showFilters, setShowFilters] = useState(false);
@@ -33,6 +39,13 @@ const DisbursementQueue = () => {
 
     const handleExecuteClick = (request) => {
         setSelectedRequest(request);
+        setFormData({
+            transactionId: '',
+            bankName: '',
+            disbursementDate: new Date().toISOString().split('T')[0],
+            remarks: '',
+            mode: Number(request?.installmentNumber || 1) > 1 ? 'INSTALLMENT' : 'FULL',
+        });
         setIsModalOpen(true);
     };
 
@@ -40,8 +53,12 @@ const DisbursementQueue = () => {
         e.preventDefault();
         try {
             await executeDisbursement.mutateAsync({
-                requestId: selectedRequest.id,
-                data: formData
+                requestId: selectedRequest.id || selectedRequest._id,
+                data: {
+                    ...formData,
+                    installmentNo: selectedRequest?.installmentNumber || 1,
+                    isInstallment: formData.mode === 'INSTALLMENT',
+                }
             });
             showToast('Disbursement executed successfully!');
             setIsModalOpen(false);
@@ -49,7 +66,8 @@ const DisbursementQueue = () => {
                 transactionId: '',
                 bankName: '',
                 disbursementDate: new Date().toISOString().split('T')[0],
-                remarks: ''
+                remarks: '',
+                mode: 'FULL'
             });
 
             // Sync with other tabs/components
@@ -68,12 +86,12 @@ const DisbursementQueue = () => {
     const filteredRequests = safeRequests.filter(req => {
         const search = searchTerm.toLowerCase();
         const title = req.Project?.title?.toLowerCase() || '';
-        const pi = req.Project?.piName?.toLowerCase() || '';
-        const id = req.id?.toString() || '';
+        const pi = req.Project?.pi?.toLowerCase() || req.Project?.piName?.toLowerCase() || req.faculty?.toLowerCase() || '';
+        const id = (req.id || req._id || '').toString().toLowerCase();
         return title.includes(search) || pi.includes(search) || id.includes(search);
     });
 
-    const totalPendingAmount = safeRequests.reduce((sum, req) => sum + (req.amount || 0), 0);
+    const totalPendingAmount = safeRequests.reduce((sum, req) => sum + safeNumber(req.requestedAmount || req.amount), 0);
 
     return (
         <div className="p-6 space-y-6">
@@ -100,7 +118,7 @@ const DisbursementQueue = () => {
                         <div className="flex items-center justify-between">
                             <div>
                                 <p className="text-sm font-medium text-amber-600 dark:text-amber-400">Total Pending Amount</p>
-                                <p className="text-2xl font-bold mt-1 tracking-tight">₹{(filteredRequests.reduce((s, r) => s + (r.amount || 0), 0) / 100000).toFixed(2)}L</p>
+                                <p className="text-2xl font-bold mt-1 tracking-tight">₹{(totalPendingAmount / 100000).toFixed(2)}L</p>
                             </div>
                             <div className="p-2 bg-amber-100 dark:bg-amber-900/30 rounded-lg">
                                 <IndianRupee className="w-5 h-5 text-amber-600 dark:text-amber-400" />
@@ -176,7 +194,7 @@ const DisbursementQueue = () => {
                                     <tr><td colSpan="4" className="text-center py-8 text-slate-500">No pending disbursements found.</td></tr>
                                 ) : (
                                     filteredRequests.map((req) => (
-                                        <tr key={req.id} className="border-b border-slate-50 dark:border-slate-800/50 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+                                        <tr key={req.id || req._id} className="border-b border-slate-50 dark:border-slate-800/50 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
                                             <td className="px-4 py-4">
                                                 <div className="space-y-1">
                                                     <p className="font-medium text-slate-900 dark:text-white line-clamp-1 italic">
@@ -188,7 +206,7 @@ const DisbursementQueue = () => {
                                                             {req.Project?.pi || req.faculty || '—'}
                                                         </span>
                                                         <span className="text-xs text-slate-400 flex items-center gap-1 font-mono">
-                                                            REQ #{String(req.id).slice(-8).toUpperCase()}
+                                                            REQ #{String(req.id || req._id || '').slice(-8).toUpperCase()}
                                                         </span>
                                                     </div>
                                                 </div>
@@ -214,7 +232,7 @@ const DisbursementQueue = () => {
                                                 </div>
                                             </td>
                                             <td className="px-4 py-4">
-                                                <p className="font-bold text-slate-900 dark:text-white">₹{req.amount?.toLocaleString()}</p>
+                                                <p className="font-bold text-slate-900 dark:text-white">₹{safeNumber(req.requestedAmount || req.amount).toLocaleString('en-IN')}</p>
                                                 {req.documents && req.documents.length > 0 && (
                                                     <div className="mt-1">
                                                         <span className="text-[9px] text-slate-400 font-bold uppercase">{req.documents.length} Bills attached</span>
@@ -255,7 +273,27 @@ const DisbursementQueue = () => {
                                     <p className="text-xs text-slate-500 font-mono tracking-tighter line-clamp-1">{selectedRequest?.Project?.title || selectedRequest?.projectTitle}</p>
                                     <div className="pt-2 flex justify-between items-baseline border-t border-maroon-100 dark:border-maroon-800 mt-2">
                                         <span className="text-xs text-slate-500 font-medium">Net Amount</span>
-                                        <span className="text-lg font-black text-maroon-700 dark:text-maroon-400">₹{(selectedRequest?.requestedAmount || selectedRequest?.amount || 0)?.toLocaleString()}</span>
+                                        <span className="text-lg font-black text-maroon-700 dark:text-maroon-400">₹{safeNumber(selectedRequest?.requestedAmount || selectedRequest?.amount).toLocaleString('en-IN')}</span>
+                                    </div>
+                                </div>
+
+                                <div className="space-y-2">
+                                    <label className="text-xs font-black uppercase text-slate-500">Payment Mode</label>
+                                    <div className="grid grid-cols-2 gap-2">
+                                        <button
+                                            type="button"
+                                            className={`rounded-xl border px-3 py-2 text-xs font-black uppercase tracking-wide transition-all ${formData.mode === 'FULL' ? 'border-maroon-600 bg-maroon-50 text-maroon-700 dark:bg-maroon-900/20' : 'border-slate-200 text-slate-500 dark:border-slate-700 dark:text-slate-300'}`}
+                                            onClick={() => setFormData({ ...formData, mode: 'FULL' })}
+                                        >
+                                            Full
+                                        </button>
+                                        <button
+                                            type="button"
+                                            className={`rounded-xl border px-3 py-2 text-xs font-black uppercase tracking-wide transition-all ${formData.mode === 'INSTALLMENT' ? 'border-maroon-600 bg-maroon-50 text-maroon-700 dark:bg-maroon-900/20' : 'border-slate-200 text-slate-500 dark:border-slate-700 dark:text-slate-300'}`}
+                                            onClick={() => setFormData({ ...formData, mode: 'INSTALLMENT' })}
+                                        >
+                                            Installment
+                                        </button>
                                     </div>
                                 </div>
 

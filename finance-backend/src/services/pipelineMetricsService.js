@@ -16,6 +16,11 @@ const {
 
 const ALLOCATED_STATUSES = ['APPROVED', 'PENDING_DISBURSAL', 'DISBURSED'];
 const ACTIVE_PROJECT_STATUSES = ['ACTIVE', 'APPROVED'];
+const FUND_SOURCE_LABELS = {
+    PFMS: 'PFMS Funds',
+    INSTITUTIONAL: "Director's Innovation Fund",
+    OTHERS: 'Others / External Grants',
+};
 
 const getRecordId = (record) => record?._id || record?.id || null;
 
@@ -55,7 +60,7 @@ const getFundingTotals = async (dateRange = null) => {
 
     const disbursementFilter = dateRange ? {
         where: {
-            createdAt: {
+            disbursedAt: {
                 [Op.between]: [dateRange.start, dateRange.end]
             }
         }
@@ -75,7 +80,9 @@ const getFundingTotals = async (dateRange = null) => {
     return {
         totalAllocated,
         used,
-        remaining
+        remaining,
+        totalDisbursed: used,
+        totalUsed: used,
     };
 };
 
@@ -83,16 +90,16 @@ const getMonthlyAnalytics = async (dateRange) => {
     try {
         const query = {
             attributes: [
-                [models.Sequelize.fn('DATE_TRUNC', 'month', models.Sequelize.col('createdAt')), 'month'],
+                [models.Sequelize.fn('DATE_TRUNC', 'month', models.Sequelize.col('disbursedAt')), 'month'],
                 [models.Sequelize.fn('SUM', models.Sequelize.col('amount')), 'total']
             ],
             group: ['month'],
-            order: [[models.Sequelize.fn('DATE_TRUNC', 'month', models.Sequelize.col('createdAt')), 'ASC']]
+            order: [[models.Sequelize.fn('DATE_TRUNC', 'month', models.Sequelize.col('disbursedAt')), 'ASC']]
         };
         
         if (dateRange) {
             query.where = {
-                createdAt: { [Op.between]: [dateRange.start, dateRange.end] }
+                disbursedAt: { [Op.between]: [dateRange.start, dateRange.end] }
             };
         }
 
@@ -119,7 +126,7 @@ const getYoYGrowth = async (financialYear, currentUsed) => {
         
         const prevUsed = Number(await Disbursement.sum('amount', {
             where: {
-                createdAt: { [Op.between]: [prevRange.start, prevRange.end] }
+                disbursedAt: { [Op.between]: [prevRange.start, prevRange.end] }
             }
         })) || 0;
         
@@ -353,6 +360,42 @@ const buildSourceStats = (fundRequests, disbursements, sourceMatchers) => {
     };
 };
 
+const buildDisbursedBySource = (disbursements = []) =>
+    (disbursements || []).reduce((acc, entry) => {
+        // SSOT: Use Project.fundingSource for disbursement totals
+        const rawSource = entry?.Project?.fundingSource || entry?.FundRequest?.source || 'INSTITUTIONAL';
+        const source = normalizeFundSource(rawSource);
+        acc[source] = (acc[source] || 0) + toNumber(entry.amount);
+        return acc;
+    }, { INSTITUTIONAL: 0, PFMS: 0, OTHERS: 0 });
+
+const buildFundSourceCards = (overview = {}) => ([
+    {
+        id: 'INSTITUTIONAL',
+        name: 'INSTITUTIONAL',
+        displayName: FUND_SOURCE_LABELS.INSTITUTIONAL,
+        totalAllocated: toNumber(overview?.institutionalFunds?.totalAllocated),
+        totalUsed: toNumber(overview?.institutionalFunds?.totalUsed),
+        remainingBalance: toNumber(overview?.institutionalFunds?.remainingBalance),
+    },
+    {
+        id: 'PFMS',
+        name: 'PFMS',
+        displayName: FUND_SOURCE_LABELS.PFMS,
+        totalAllocated: toNumber(overview?.pfmsFunds?.totalAllocated),
+        totalUsed: toNumber(overview?.pfmsFunds?.totalUsed),
+        remainingBalance: toNumber(overview?.pfmsFunds?.remainingBalance),
+    },
+    {
+        id: 'OTHERS',
+        name: 'OTHERS',
+        displayName: FUND_SOURCE_LABELS.OTHERS,
+        totalAllocated: toNumber(overview?.othersFunds?.totalAllocated),
+        totalUsed: toNumber(overview?.othersFunds?.totalUsed),
+        remainingBalance: toNumber(overview?.othersFunds?.remainingBalance),
+    },
+]);
+
 const getSharedPipelineData = async () => {
     await ensureCanonicalFundSources();
 
@@ -372,12 +415,15 @@ const getSharedPipelineData = async () => {
                 'facultyId',
                 'userId',
                 'requestedAmount',
+                'installmentNumber',
                 'status',
                 'currentStage',
+                'chequeStatus',
                 'department',
                 'centre',
                 'centreId',
                 'source',
+                'auditTrail',
                 'createdAt',
                 'updatedAt',
             ],
@@ -470,22 +516,13 @@ const getAdminDashboardData = async (financialYear = null) => {
     const dateRange = getFYDateRange(fy);
     
     const sharedRaw = await getSharedPipelineData();
-    
-    // Filter ALL data by FY once to ensure strict consistency
     const shared = {
         ...sharedRaw,
-        fundRequests: (sharedRaw.fundRequests || []).filter(r => {
-            const date = new Date(r.createdAt);
-            return date >= dateRange.start && date <= dateRange.end;
-        }),
-        disbursements: (sharedRaw.disbursements || []).filter(d => {
-            const date = new Date(d.disbursedAt || d.createdAt);
-            return date >= dateRange.start && date <= dateRange.end;
-        }),
-        projects: (sharedRaw.projects || [])
+        fundRequests: sharedRaw.fundRequests || [],
+        disbursements: sharedRaw.disbursements || [],
+        projects: sharedRaw.projects || [],
     };
 
-    // Calculate totals from the EXACT SAME dataset used for breakdowns
     const globalUsed = shared.disbursements.reduce((sum, d) => sum + toNumber(d.amount), 0);
     
     const [totalAllocated, fundSources, monthlyData] = await Promise.all([
@@ -520,8 +557,9 @@ const getAdminDashboardData = async (financialYear = null) => {
             projectCount: Number(projectCount),
             totalProjects: Number(projectCount),
             activeProjects: Number(shared.projects.filter(p => ACTIVE_PROJECT_STATUSES.includes(p.status)).length),
-            pendingApprovals: Number(shared.projects.filter(p => p.status === 'PENDING').length),
+            pendingApprovals: Number(shared.fundRequests.filter((request) => request.status === 'PENDING').length),
             totalFaculty: Number(shared.totalFaculty || 0),
+            totalDisbursed: Number(globalUsed),
             centres: centresBreakdown,
             monthlyData: (monthlyData || []).map(m => ({ ...m, amount: Number(m.amount || 0) })),
             pfmsStats: {
@@ -539,13 +577,11 @@ const getAdminDashboardData = async (financialYear = null) => {
                 consumed: Number(fundSources.othersFunds.totalUsed || 0),
                 balance: Number(fundSources.othersFunds.remainingBalance || 0),
             },
-            fundSources: (await FundSource.findAll({
-                attributes: ['_id', 'sourceType', 'totalAllocated']
-            })).map(fs => ({
-                id: fs._id || fs.id,
-                name: fs.sourceType,
-                totalAllocated: Number(fs.totalAllocated || 0)
-            })),
+            fundSources: buildFundSourceCards(fundSources),
+            recentRequests: shared.fundRequests
+                .slice()
+                .sort((a, b) => new Date(b.updatedAt || b.createdAt) - new Date(a.updatedAt || a.createdAt))
+                .slice(0, 10),
             forecast: await getForecastingAnalytics(shared, globalAllocated)
         }
     };
@@ -563,10 +599,7 @@ const matchesFaculty = (record, facultyId, facultyName) => {
 };
 
 const getFacultyDashboardData = async (facultyId, facultyName) => {
-    const [shared, fundingTotals] = await Promise.all([
-        getSharedPipelineData(),
-        getFundingTotals(),
-    ]);
+    const shared = await getSharedPipelineData();
 
     const projects = shared.projects.filter((project) =>
         project.facultyId === facultyId ||
@@ -590,10 +623,10 @@ const getFacultyDashboardData = async (facultyId, facultyName) => {
         totalProjects: projects.length,
         activeProjects: projects.filter((project) => ACTIVE_PROJECT_STATUSES.includes(project.status)).length,
         totalAllocated: facultyTotalAllocated,
-        totalUsed: fundingTotals.totalUsed,
-        totalDisbursed: fundingTotals.totalDisbursed,
-        remaining: Math.max(0, facultyTotalAllocated - fundingTotals.totalUsed),
-        balance: Math.max(0, facultyTotalAllocated - fundingTotals.totalUsed),
+        totalUsed: facultyDisbursed,
+        totalDisbursed: facultyDisbursed,
+        remaining: Math.max(0, facultyTotalAllocated - facultyDisbursed),
+        balance: Math.max(0, facultyTotalAllocated - facultyDisbursed),
         facultyApprovedFunds,
         facultyDisbursed,
     };
@@ -620,38 +653,31 @@ const getFundSourceOverview = async (existingShared = null) => {
         return acc;
     }, {});
 
-    const sourceStats = {
-        institutional: buildSourceStats(shared.fundRequests, shared.disbursements, 'INSTITUTIONAL'),
-        pfms: buildSourceStats(shared.fundRequests, shared.disbursements, 'PFMS'),
-        other: buildSourceStats(shared.fundRequests, shared.disbursements, 'OTHERS'),
-    };
-    const pickAllocated = (sourceType, fallback) =>
-        Object.prototype.hasOwnProperty.call(sourceAllocations, sourceType)
-            ? sourceAllocations[sourceType]
-            : fallback;
+    const disbursedBySource = buildDisbursedBySource(shared.disbursements);
+    const pickAllocated = (sourceType) => toNumber(sourceAllocations[sourceType]);
 
     return {
         institutionalFunds: {
-            totalAllocated: pickAllocated('institutionalFunds', sourceStats.institutional.allotted),
-            totalUsed: sourceStats.institutional.consumed,
+            totalAllocated: pickAllocated('institutionalFunds'),
+            totalUsed: toNumber(disbursedBySource.INSTITUTIONAL),
             remainingBalance: Math.max(
                 0,
-                pickAllocated('institutionalFunds', sourceStats.institutional.allotted) - sourceStats.institutional.consumed
+                pickAllocated('institutionalFunds') - toNumber(disbursedBySource.INSTITUTIONAL)
             ),
             projectCount: projectCounts.INSTITUTIONAL || 0,
         },
         pfmsFunds: {
-            totalAllocated: pickAllocated('pfmsFunds', sourceStats.pfms.allotted),
-            totalUsed: sourceStats.pfms.consumed,
-            remainingBalance: Math.max(0, pickAllocated('pfmsFunds', sourceStats.pfms.allotted) - sourceStats.pfms.consumed),
+            totalAllocated: pickAllocated('pfmsFunds'),
+            totalUsed: toNumber(disbursedBySource.PFMS),
+            remainingBalance: Math.max(0, pickAllocated('pfmsFunds') - toNumber(disbursedBySource.PFMS)),
             projectCount: projectCounts.PFMS || 0,
         },
         othersFunds: {
-            totalAllocated: pickAllocated('othersFunds', sourceStats.other.allotted),
-            totalUsed: sourceStats.other.consumed,
+            totalAllocated: pickAllocated('othersFunds'),
+            totalUsed: toNumber(disbursedBySource.OTHERS),
             remainingBalance: Math.max(
                 0,
-                pickAllocated('othersFunds', sourceStats.other.allotted) - sourceStats.other.consumed
+                pickAllocated('othersFunds') - toNumber(disbursedBySource.OTHERS)
             ),
             projectCount: projectCounts.OTHERS || 0,
         },

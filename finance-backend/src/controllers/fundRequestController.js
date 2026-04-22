@@ -75,13 +75,26 @@ const getFundRequests = asyncHandler(async (req, res) => {
     }
 
     const page = parseInt(req.query.page, 10) || 1;
-    const limit = Math.min(parseInt(req.query.limit, 10) || 10, 50);
+    const limit = Math.min(parseInt(req.query.limit, 10) || 100, 500);
+    const statusFilter = req.query.status
+        ? String(req.query.status)
+            .split(',')
+            .map((status) => status.trim())
+            .filter(Boolean)
+        : [];
+    const stageFilter = req.query.currentStage
+        ? String(req.query.currentStage)
+            .split(',')
+            .map((stage) => stage.trim())
+            .filter(Boolean)
+        : [];
     
     const options = {
         order: [['createdAt', 'DESC']],
         limit,
         offset: (page - 1) * limit,
         include: [],
+        where: {},
     };
 
     // Safely build includes
@@ -97,12 +110,29 @@ const getFundRequests = asyncHandler(async (req, res) => {
     if (req.user?.role === 'FACULTY') {
         const userId = req.user?.id || req.user?._id;
         options.where = {
+            ...options.where,
             [Op.or]: [
                 { facultyId: userId },
                 { userId: userId },
                 { faculty: req.user?.name },
             ],
         };
+    }
+
+    if (statusFilter.length === 1) {
+        options.where.status = statusFilter[0];
+    } else if (statusFilter.length > 1) {
+        options.where.status = { [Op.in]: statusFilter };
+    }
+
+    if (stageFilter.length === 1) {
+        options.where.currentStage = stageFilter[0];
+    } else if (stageFilter.length > 1) {
+        options.where.currentStage = { [Op.in]: stageFilter };
+    }
+
+    if (req.query.projectId) {
+        options.where.projectId = req.query.projectId;
     }
 
     let result;
@@ -324,6 +354,14 @@ const approveFundRequest = asyncHandler(async (req, res) => {
         metadata: { remarks: req.body.remarks }
     });
 
+    if (global.io) {
+        global.io.emit('finance:update', {
+            type: 'FUND_REQUEST_APPROVED',
+            projectTitle: request.projectTitle,
+            updatedBy: req.user?.name,
+        });
+    }
+
     return res.status(200).json({ success: true, data: request || {} });
 });
 
@@ -362,6 +400,14 @@ const rejectFundRequest = asyncHandler(async (req, res) => {
         entityId: String(request.id),
         metadata: { remarks: req.body.remarks }
     });
+
+    if (global.io) {
+        global.io.emit('finance:update', {
+            type: 'FUND_REQUEST_REJECTED',
+            projectTitle: request.projectTitle,
+            updatedBy: req.user?.name,
+        });
+    }
 
     return res.status(200).json({ success: true, data: request || {} });
 });
@@ -423,6 +469,20 @@ const disburseFund = asyncHandler(async (req, res) => {
         `Installment #${updatedRequest.installmentNumber || 1} (₹${updatedRequest.requestedAmount?.toLocaleString()}) for '${updatedRequest.projectTitle}' has been disbursed to your account.`,
         'SUCCESS',
         '/faculty/request-funds'
+    );
+    await NotificationService.notifyRole(
+        'ADMIN',
+        'Disbursement Completed',
+        `Finance disbursed installment #${updatedRequest.installmentNumber || 1} for '${updatedRequest.projectTitle}'.`,
+        'INFO',
+        '/admin/fund-requests'
+    );
+    await NotificationService.notifyRole(
+        'FINANCE_OFFICER',
+        'Disbursement Completed',
+        `Installment #${updatedRequest.installmentNumber || 1} for '${updatedRequest.projectTitle}' was marked as ${payload.mode}.`,
+        'INFO',
+        '/finance/disbursal-history'
     );
 
     await AuditLog.create({
@@ -506,6 +566,15 @@ const advanceStage = asyncHandler(async (req, res) => {
         }
     }
 
+    if (global.io) {
+        global.io.emit('finance:update', {
+            type: 'FUND_STAGE',
+            projectTitle: request.projectTitle,
+            nextStage,
+            updatedBy: req.user?.name,
+        });
+    }
+
     return res.status(200).json({ success: true, data: request || {} });
 });
 
@@ -558,4 +627,3 @@ module.exports = {
     advanceStage,
     getProjectWithInstallments
 };
-

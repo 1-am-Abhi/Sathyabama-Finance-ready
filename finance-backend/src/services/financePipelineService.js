@@ -192,15 +192,39 @@ const ensureEventFundRequest = async (event, project, actor, options = {}) => {
     return fundRequest;
 };
 
-const ensureFundSourceSeed = async (source, amount, transaction) => {
+const ensureFundSourceSeed = async (source, transaction) => {
     await ensureCanonicalFundSources();
     const sourceType = mapToFundSourceKey(source);
     const [record] = await FundSource.findOrCreate({
         where: { sourceType },
-        defaults: { totalAllocated: Math.max(toNumber(amount), 0) },
+        defaults: { totalAllocated: 0 },
         transaction,
     });
     return record;
+};
+
+const getFundSourceAllocationState = async (source, transaction) => {
+    await ensureCanonicalFundSources();
+    const sourceType = mapToFundSourceKey(source);
+    const record = await FundSource.findOne({
+        where: { sourceType },
+        transaction,
+    });
+
+    const [rows] = await sequelize.query(`
+        SELECT COALESCE(SUM(d."amount"), 0) AS "totalUsed"
+        FROM "Projects" p
+        LEFT JOIN "Disbursements" d ON p."id" = d."project_id"
+        WHERE p."fundingSource" = :source
+    `, {
+        replacements: { source: normalizeSource(source) },
+        transaction,
+    });
+
+    return {
+        allocated: toNumber(record?.totalAllocated),
+        used: toNumber(rows?.[0]?.totalUsed),
+    };
 };
 
 const approveFundRequestPipeline = async (request, actor, remarks, options = {}) => {
@@ -248,7 +272,7 @@ const executeDisbursementPipeline = async (request, payload, actor) => {
 
     const fuzzyDuplicate = await Disbursement.findOne({
         where: {
-            projectId: request.projectId,
+            fundRequestId: getRecordId(request),
             amount: amount,
             disbursedAt: { [Op.between]: [dayStart, dayEnd] }
         }
@@ -265,10 +289,15 @@ const executeDisbursementPipeline = async (request, payload, actor) => {
 
     const totalReleased = toNumber(project.releasedBudget);
     const sanctionedBudget = toNumber(project.sanctionedBudget);
+    const sourceState = await getFundSourceAllocationState(request.source);
 
     if (totalReleased + amount > sanctionedBudget) {
         console.error(`[HARD BLOCK] Overspending: Sanctioned ₹${sanctionedBudget}, Attempting total ₹${totalReleased + amount}`);
         throw new Error('Disbursement exceeds remaining budget');
+    }
+
+    if (sourceState.used + amount > sourceState.allocated) {
+        throw new Error('Disbursement exceeds available fund source allocation');
     }
 
     return sequelize.transaction(async (transaction) => {
@@ -277,19 +306,24 @@ const executeDisbursementPipeline = async (request, payload, actor) => {
             where: { projectId: request.projectId },
             transaction
         }) || 0;
+        const sourceTotals = await getFundSourceAllocationState(request.source, transaction);
 
         if (toNumber(currentSum) + amount > sanctionedBudget) {
             throw new Error('Disbursement exceeds remaining budget (Concurrent transaction detected)');
+        }
+
+        if (sourceTotals.used + amount > sourceTotals.allocated) {
+            throw new Error('Disbursement exceeds available fund source allocation (Concurrent transaction detected)');
         }
 
         // Handle installment meta if provided
         const isInstallment = payload.mode === 'INSTALLMENT' || payload.isInstallment === true;
         const instNo = payload.installmentNo || request.installmentNumber || 1;
         
-        let financeRemarks = payload.remarks || request.financeRemarks || '';
-        if (isInstallment) {
-            financeRemarks = `[Installment #${instNo}] ${financeRemarks}`.trim();
-        }
+        let financeRemarks = payload.remarks || '';
+        financeRemarks = isInstallment
+            ? `[INSTALLMENT #${instNo}] ${financeRemarks}`.trim()
+            : `[FULL] ${financeRemarks}`.trim();
 
         await request.update({
             status: 'DISBURSED',
@@ -315,7 +349,7 @@ const executeDisbursementPipeline = async (request, payload, actor) => {
             disbursedByName: actor?.name || 'Finance Officer',
             disbursedAt: payload.disbursementDate || new Date(),
             bankReference: payload.transactionId || null,
-            remarks: payload.remarks || null,
+            remarks: financeRemarks || null,
         };
 
         if (disbursement) {
@@ -340,7 +374,7 @@ const executeDisbursementPipeline = async (request, payload, actor) => {
             }
         }
 
-        await ensureFundSourceSeed(request.source, amount, transaction);
+        await ensureFundSourceSeed(request.source, transaction);
 
         await safeCreateLedgerEntry({
             entryType: 'OUTFLOW',

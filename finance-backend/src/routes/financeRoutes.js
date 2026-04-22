@@ -64,7 +64,14 @@ router.get('/projects/:id/history', async (req, res) => {
 });
 
 // ── Disbursements ─────────────────────────────────────────────────────────────
-router.get('/disbursements', fundRequestController.getFundRequests);
+router.get('/disbursements', (req, res, next) => {
+    req.query = {
+        ...req.query,
+        status: req.query.status || 'PENDING_DISBURSAL',
+        limit: req.query.limit || '200',
+    };
+    return fundRequestController.getFundRequests(req, res, next);
+});
 router.put('/disbursements/:id/execute', authorize('FINANCE_OFFICER', 'ADMIN'), fundRequestController.disburseFund);
 
 // ── PFMS Transactions (real DB queries) ───────────────────────────────────────

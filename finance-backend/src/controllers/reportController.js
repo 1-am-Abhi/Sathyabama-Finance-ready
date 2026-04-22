@@ -1,7 +1,7 @@
 const PDFDocument = require('pdfkit');
 const ExcelJS = require('exceljs');
 const { getAdminDashboardData } = require('../services/pipelineMetricsService');
-const asyncHandler = require('../middleware/asyncHandler');
+const asyncHandler = require('../utils/asyncHandler');
 
 /**
  * @desc    Export financial reports in PDF or Excel format
@@ -11,7 +11,9 @@ const asyncHandler = require('../middleware/asyncHandler');
 const exportReport = asyncHandler(async (req, res) => {
     const { fy, type } = req.query;
     const adminData = await getAdminDashboardData(fy || '2024-25');
-    const stats = adminData.stats;
+    const stats = adminData?.data || {};
+    const centres = stats.centres || [];
+    const totalUsed = Number(stats.totalDisbursed ?? stats.totalUsed ?? stats.used ?? 0);
 
     if (type === 'pdf') {
         const doc = new PDFDocument({ margin: 50 });
@@ -33,17 +35,17 @@ const exportReport = asyncHandler(async (req, res) => {
         doc.fontSize(14).text('Global Allotment Summary', { underline: true });
         doc.moveDown(0.5);
         doc.fontSize(11)
-           .text(`Total Allocated Budget: INR ${stats.totalAllocated.toLocaleString()}`)
-           .text(`Total Funds Spent/Disbursed: INR ${stats.totalUsed.toLocaleString()}`)
-           .text(`Current Remaining Balance: INR ${stats.remaining.toLocaleString()}`)
-           .text(`Year-over-Year Growth: ${stats.growth.toFixed(2)}%`);
+           .text(`Total Allocated Budget: INR ${Number(stats.totalAllocated || 0).toLocaleString()}`)
+           .text(`Total Funds Spent/Disbursed: INR ${totalUsed.toLocaleString()}`)
+           .text(`Current Remaining Balance: INR ${Number(stats.remaining || 0).toLocaleString()}`)
+           .text(`Year-over-Year Growth: ${Number(stats.growth || 0).toFixed(2)}%`);
 
         doc.moveDown();
         doc.fontSize(14).text('Centre Breakdown', { underline: true });
         doc.moveDown(0.5);
         
-        (adminData.centres || []).forEach(centre => {
-            doc.fontSize(10).text(`${centre.name}: INR ${centre.totalBudget.toLocaleString()} (Spent: INR ${centre.disbursed.toLocaleString()})`);
+        centres.forEach(centre => {
+            doc.fontSize(10).text(`${centre.name}: INR ${Number(centre.totalBudget || 0).toLocaleString()} (Spent: INR ${Number(centre.disbursed || 0).toLocaleString()})`);
         });
 
         // Footer
@@ -64,10 +66,10 @@ const exportReport = asyncHandler(async (req, res) => {
 
         summarySheet.addRows([
             { metric: 'Fiscal Year', value: fy },
-            { metric: 'Total Allocated', value: stats.totalAllocated },
-            { metric: 'Total Used', value: stats.totalUsed },
-            { metric: 'Remaining Balance', value: stats.remaining },
-            { metric: 'YoY Growth (%)', value: stats.growth.toFixed(2) }
+            { metric: 'Total Allocated', value: Number(stats.totalAllocated || 0) },
+            { metric: 'Total Used', value: totalUsed },
+            { metric: 'Remaining Balance', value: Number(stats.remaining || 0) },
+            { metric: 'YoY Growth (%)', value: Number(stats.growth || 0).toFixed(2) }
         ]);
 
         const centreSheet = workbook.addWorksheet('Centre Breakdown');
@@ -77,11 +79,11 @@ const exportReport = asyncHandler(async (req, res) => {
             { header: 'Disbursed Amount', key: 'disbursed', width: 20 }
         ];
 
-        adminData.centres.forEach(c => {
+        centres.forEach(c => {
             centreSheet.addRow({
                 name: c.name,
-                totalBudget: c.totalBudget,
-                disbursed: c.disbursed
+                totalBudget: Number(c.totalBudget || 0),
+                disbursed: Number(c.disbursed || 0)
             });
         });
 

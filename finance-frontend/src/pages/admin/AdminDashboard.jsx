@@ -27,10 +27,18 @@ import apiClient from '../../api/client';
 import AddCentreModal from '../../components/shared/AddCentreModal';
 import Loader from '../../components/shared/Loader';
 import EmptyState from '../../components/shared/EmptyState';
+import { normalizeFundSource } from '../../constants/fundSources';
 
 const safeNumber = (val) => {
-    const num = Number(val);
+    const num = Number(val || 0);
     return isFinite(num) ? num : 0;
+};
+
+const getAdminFundSourceLabel = (value) => {
+    const normalized = normalizeFundSource(value);
+    if (normalized === 'INSTITUTIONAL') return 'Director Fund';
+    if (normalized === 'OTHERS') return 'Others';
+    return 'PFMS';
 };
 
 
@@ -92,6 +100,7 @@ const AdminDashboard = () => {
                 const cached = dashboardCache[selectedFY];
                 setStats(cached.stats);
                 setCentresStats(cached.centres);
+                setFundSources(cached.fundSources || []);
                 setLoading(false);
                 return;
             }
@@ -107,13 +116,13 @@ const AdminDashboard = () => {
                 const fetchedData = statsRes.data.data || {};
                 dashboardCache[selectedFY] = {
                     stats: fetchedData,
-                    centres: fetchedData.centres || [],
-                    fundSources: fetchedData.fundSources || []
+                    centres: fetchedData.centres ?? [],
+                    fundSources: fetchedData.fundSources ?? []
                 };
 
                 setStats(fetchedData);
-                setCentresStats(fetchedData.centres || []);
-                setFundSources(fetchedData.fundSources || []);
+                setCentresStats(fetchedData.centres ?? []);
+                setFundSources(fetchedData.fundSources ?? []);
             }
         } catch (error) {
             console.error("Error fetching admin data:", error);
@@ -133,12 +142,13 @@ const AdminDashboard = () => {
                 ]);
                 
                 if (insightsRes.data?.success) {
-                    setInsights(insightsRes.data.data.insights || []);
+                    setInsights(insightsRes.data.data?.insights ?? []);
+                    const avgDaily = Number(insightsRes.data.data?.avgDailySpend || 0);
                     setForecast({
-                        avgDailySpend: insightsRes.data.data.avgDailySpend,
-                        projectedUsage30Days: insightsRes.data.data.avgDailySpend * 30,
-                        confidence: insightsRes.data.data.avgDailySpend > 0 ? 'HIGH' : 'LOW',
-                        risk: (insightsRes.data.data.avgDailySpend * 30) > (totalStats.totalAllocated / 12) ? 'HIGH' : 'LOW'
+                        avgDailySpend: avgDaily,
+                        projectedUsage30Days: avgDaily * 30,
+                        confidence: avgDaily > 0 ? 'HIGH' : 'LOW',
+                        risk: (avgDaily * 30) > (Number(totalStats?.totalAllocated || 0) / 12) ? 'HIGH' : 'LOW'
                     });
                 }
             } catch (err) {
@@ -147,7 +157,7 @@ const AdminDashboard = () => {
         };
         fetchInsights();
 
-        const socketUrl = (process.env.REACT_APP_API_URL || 'https://finance-api-x1ig.onrender.com').replace('/api', '');
+        const socketUrl = (process.env.REACT_APP_API_URL || 'https://finance-api-x1ig.onrender.com').replace(/\/api\/?$/, '');
         const token = localStorage.getItem('token');
         
         const socket = io(socketUrl, {
@@ -173,11 +183,11 @@ const AdminDashboard = () => {
         });
 
         return () => {
+            if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);
             socket.off('connect');
             socket.off('disconnect');
             socket.off('finance:update');
             socket.disconnect();
-            if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);
         };
     }, [selectedFY]);
 
@@ -200,7 +210,7 @@ const AdminDashboard = () => {
             used: safeNumber(stats.used),
             remaining: safeNumber(stats.remaining),
             totalFaculty: safeNumber(stats.totalFaculty),
-            totalDisbursed: safeNumber(stats.totalDisbursed)
+            totalDisbursed: safeNumber(stats.totalDisbursed ?? stats.used)
         };
     }, [stats]);
 
@@ -277,16 +287,28 @@ const AdminDashboard = () => {
             {fundSources.length > 0 && (
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
                     {fundSources.map(fund => (
-                        <Card key={fund.id} className="border-0 shadow-lg bg-white dark:bg-slate-900 overflow-hidden relative group">
+                        <Card key={fund.id || fund.name} className="border-0 shadow-lg bg-white dark:bg-slate-900 overflow-hidden relative group">
                             <CardHeader className="p-4 border-b border-gray-100 dark:border-slate-800 flex flex-row items-center justify-between">
-                                <CardTitle className="text-[10px] font-black uppercase tracking-widest text-slate-500">{fund.name}</CardTitle>
+                                <CardTitle className="text-[10px] font-black uppercase tracking-widest text-slate-500">
+                                    {fund.displayName || getAdminFundSourceLabel(fund.name)}
+                                </CardTitle>
                                 <Wallet className="w-4 h-4 text-indigo-500" />
                             </CardHeader>
                             <CardContent className="p-4">
                                 <p className="text-2xl font-black italic tracking-tighter text-gray-800 dark:text-white">
                                     ₹{(safeNumber(fund.totalAllocated) / 10000000).toFixed(2)} Cr
                                 </p>
-                                <p className="text-[9px] font-bold uppercase text-slate-400 mt-1 italic">Total Allocated Allocation</p>
+                                <p className="text-[9px] font-bold uppercase text-slate-400 mt-1 italic">Read-only source allocation</p>
+                                <div className="mt-4 grid grid-cols-2 gap-3 text-[10px] font-bold uppercase tracking-wide text-slate-500">
+                                    <div>
+                                        <p className="text-slate-400">Used</p>
+                                        <p className="mt-1 text-slate-700 dark:text-slate-200">{formatCurrency(safeNumber(fund.totalUsed))}</p>
+                                    </div>
+                                    <div>
+                                        <p className="text-slate-400">Remaining</p>
+                                        <p className="mt-1 text-slate-700 dark:text-slate-200">{formatCurrency(safeNumber(fund.remainingBalance))}</p>
+                                    </div>
+                                </div>
                             </CardContent>
                             <div className="absolute bottom-0 left-0 h-1 bg-indigo-500 w-full transform scale-x-0 group-hover:scale-x-100 transition-transform origin-left"></div>
                         </Card>
@@ -510,7 +532,11 @@ const AdminDashboard = () => {
                                     outerRadius="100%" 
                                     barSize={20} 
                                     data={[
-                                        { name: 'Utilization', value: totalStats.totalAllocated > 0 ? (totalStats.totalDisbursed / totalStats.totalAllocated) * 100 : 0, fill: (totalStats.totalDisbursed / totalStats.totalAllocated) > 0.8 ? '#e11d48' : '#6366f1' }
+                                        {
+                                            name: 'Utilization',
+                                            value: totalStats.totalAllocated > 0 ? (totalStats.totalDisbursed / totalStats.totalAllocated) * 100 : 0,
+                                            fill: totalStats.totalAllocated > 0 && (totalStats.totalDisbursed / totalStats.totalAllocated) > 0.8 ? '#e11d48' : '#6366f1'
+                                        }
                                     ]}
                                     startAngle={180}
                                     endAngle={0}

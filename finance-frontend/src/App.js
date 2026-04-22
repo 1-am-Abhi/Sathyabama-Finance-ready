@@ -3,38 +3,10 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import AppRoutes from './routes';
 import { ProjectProvider } from './contexts/ProjectContext';
 import { PipelineProvider } from './contexts/PipelineContext';
-import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { AuthProvider } from './contexts/AuthContext';
 import { NotificationProvider } from './contexts/NotificationContext';
 import ErrorBoundary from './components/shared/ErrorBoundary';
-import { Toaster, toast } from 'sonner';
-import { io } from 'socket.io-client';
-
-const API_URL = process.env.REACT_APP_API_URL || 'https://finance-api-x1ig.onrender.com';
-
-const SocketHandler = () => {
-  const { user } = useAuth();
-  
-  useEffect(() => {
-    if (!user) return;
-    
-    const socket = io(API_URL, {
-      transports: ["websocket", "polling"],
-      auth: {
-        token: localStorage.getItem('token') || ''
-      }
-    });
-
-    
-    socket.on('notification', (data) => {
-
-      toast.success(data.message || 'New notification received');
-    });
-    
-    return () => socket.disconnect();
-  }, [user]);
-  
-  return null;
-};
+import { Toaster } from 'sonner';
 
 
 const queryClient = new QueryClient({
@@ -67,7 +39,6 @@ function App() {
           <ProjectProvider>
             <PipelineProvider>
               <ErrorBoundary>
-                <SocketHandler />
                 <AppRoutes />
               </ErrorBoundary>
             </PipelineProvider>
