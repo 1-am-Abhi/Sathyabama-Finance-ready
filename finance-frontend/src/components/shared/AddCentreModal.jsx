@@ -22,7 +22,7 @@ const AddCentreModal = ({ isOpen, onClose, onRefresh }) => {
 
         setIsSubmitting(true);
         try {
-            const response = await apiClient.post('/auth/centres', { name: name.trim() });
+            const response = await apiClient.post('/research-centers', { name: name.trim() });
             if (response.data.success) {
                 // Alert the ADMIN role
                 try {

@@ -191,13 +191,29 @@ const AdminDashboard = () => {
         };
     }, []);
 
-    const centres = React.useMemo(() => {
-        const base = [...dynamicCentres];
+    const centresList = React.useMemo(() => {
+        const list = (dynamicCentres || []).map(c => ({
+            label: c.name || c.centre || 'Unknown Centre',
+            value: c._id || c.id || c.name
+        }));
+
+        // Merge with stats-based centres for maximum coverage
         (centresStats || []).forEach(c => {
-            if (c.name && !base.includes(c.name)) base.push(c.name);
+            const name = c.name || c.centre;
+            if (name && !list.find(item => item.label === name)) {
+                list.push({ label: name, value: c._id || c.id || name });
+            }
         });
-        return base;
-    }, [centresStats, dynamicCentres]);
+
+        return list;
+    }, [dynamicCentres, centresStats]);
+
+    // Auto-select first centre if none selected
+    React.useEffect(() => {
+        if ((selectedCentre === 'ALL' || !selectedCentre) && centresList.length > 0) {
+            setSelectedCentre(centresList[0].value);
+        }
+    }, [centresList, selectedCentre]);
 
     const totalStats = React.useMemo(() => {
         if (!stats) return { totalProjects: 0, activeProjects: 0, pendingApprovals: 0, totalBudget: 0, totalAllocated: 0, used: 0, remaining: 0, totalFaculty: 0, totalDisbursed: 0 };
@@ -385,9 +401,21 @@ const AdminDashboard = () => {
                     </div>
                     <div className="flex items-center gap-2 bg-gray-50 dark:bg-slate-800 px-3 py-2 rounded-lg border border-gray-200 dark:border-slate-700">
                         <span className="text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 whitespace-nowrap">Centre</span>
-                        <select className="bg-transparent text-xs sm:text-sm font-bold text-gray-700 dark:text-gray-200 outline-none cursor-pointer max-w-[120px] sm:max-w-[180px]" value={selectedCentre} onChange={(e) => setSelectedCentre(e.target.value)}>
+                        <select 
+                            className="bg-transparent text-xs sm:text-sm font-bold text-gray-700 dark:text-gray-200 outline-none cursor-pointer max-w-[120px] sm:max-w-[180px]" 
+                            value={selectedCentre} 
+                            onChange={(e) => setSelectedCentre(e.target.value)}
+                        >
                             <option value="ALL" className="dark:bg-slate-800">All Centres</option>
-                            {centres.map(c => <option key={c} value={c} className="dark:bg-slate-800">{c}</option>)}
+                            {centresList.length > 0 ? (
+                                centresList.map(c => (
+                                    <option key={c.value} value={c.value} className="dark:bg-slate-800">
+                                        {c.label}
+                                    </option>
+                                ))
+                            ) : (
+                                <option disabled className="dark:bg-slate-800">No Centres Found</option>
+                            )}
                         </select>
                     </div>
                 </div>

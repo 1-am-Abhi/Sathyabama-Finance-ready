@@ -11,7 +11,7 @@ export const useCentres = () => {
     const fetchCentres = async () => {
         setLoading(true);
         try {
-            const response = await apiClient.get('/auth/centres');
+            const response = await apiClient.get('/research-centers');
             if (response.data.success) {
                 setCentres(response.data.data);
             }
