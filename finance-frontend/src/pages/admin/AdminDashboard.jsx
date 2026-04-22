@@ -189,7 +189,7 @@ const AdminDashboard = () => {
             socket.off('finance:update');
             socket.disconnect();
         };
-    }, [selectedFY]);
+    }, []);
 
     const centres = React.useMemo(() => {
         const base = [...dynamicCentres];
@@ -250,8 +250,8 @@ const AdminDashboard = () => {
 
     const chartConfig = { grid: '#E2E8F0', text: '#64748B', tooltip: '#FFFFFF', tooltipBorder: '#E2E8F0' };
     const quickActions = [
-        { title: 'Manage Faculty', description: 'View and edit staff', icon: Users, color: 'bg-maroon-50', iconBg: 'bg-maroon-100', action: () => navigate('/admin/assign-faculty') },
-        { title: 'Projects', description: 'Oversight & status', icon: Target, color: 'bg-indigo-50', iconBg: 'bg-indigo-100', action: () => navigate('/admin/approve-projects') },
+        { title: 'Manage Faculty / Projects', description: 'View and edit staff', icon: Users, color: 'bg-maroon-50', iconBg: 'bg-maroon-100', action: () => navigate('/admin/assign-faculty') },
+        { title: 'Projects', description: 'Oversight & status', icon: Target, color: 'bg-indigo-50', iconBg: 'bg-indigo-100', action: () => navigate('/admin/projects') },
         { title: 'Fund Requests', description: 'Process approvals', icon: FileText, color: 'bg-emerald-50', iconBg: 'bg-emerald-100', action: () => navigate('/admin/fund-requests') },
         { title: 'Reports', description: 'Audit & analytics', icon: Landmark, color: 'bg-amber-50', iconBg: 'bg-amber-100', action: () => navigate('/admin/reports') }
     ];
@@ -265,7 +265,7 @@ const AdminDashboard = () => {
     if (!userId) return null;
     if (loading) return <Loader message="Analyzing financial metrics..." />;
 
-    const hasData = (stats?.totalAllocated ?? 0) > 0 || (stats?.used ?? 0) > 0;
+    const hasData = (stats?.totalAllocated ?? 0) > 0 || safeNumber(stats?.used) > 0;
     const monthlyData = stats?.monthlyData ?? [];
     const centreList = stats?.centres ?? [];
 
@@ -287,7 +287,7 @@ const AdminDashboard = () => {
             {fundSources.length > 0 && (
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
                     {fundSources.map(fund => (
-                        <Card key={fund.id || fund.name} className="border-0 shadow-lg bg-white dark:bg-slate-900 overflow-hidden relative group">
+                        <Card key={fund.name} className="border-0 shadow-lg bg-white dark:bg-slate-900 overflow-hidden relative group">
                             <CardHeader className="p-4 border-b border-gray-100 dark:border-slate-800 flex flex-row items-center justify-between">
                                 <CardTitle className="text-[10px] font-black uppercase tracking-widest text-slate-500">
                                     {fund.displayName || getAdminFundSourceLabel(fund.name)}
@@ -451,15 +451,22 @@ const AdminDashboard = () => {
                                         <TableRow
                                             key={index}
                                             className="hover:bg-gray-50/50 dark:hover:bg-slate-800/30 cursor-pointer transition-colors dark:border-slate-800"
-                                            onClick={() => { setSelectedCentreDetail(centre.name); setDetailModalOpen(true); }}
+                                            onClick={() => { setSelectedCentreDetail(centre.centre); setDetailModalOpen(true); }}
                                         >
-                                            <TableCell className="font-bold text-gray-700 dark:text-gray-200 pl-4 sm:pl-6">{centre.name || 'Unknown'}</TableCell>
+                                            <TableCell className="font-bold text-gray-700 dark:text-gray-200 pl-4 sm:pl-6">{centre.name || centre.centre || 'Unknown'}</TableCell>
                                             <TableCell className="text-gray-500 font-medium">{centre.totalProjects || 0}</TableCell>
                                             <TableCell><Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-900 font-bold">{centre.activeProjects || 0}</Badge></TableCell>
                                             <TableCell className="text-gray-500 font-medium">{formatCurrency(centre.totalBudget || 0)}</TableCell>
                                             <TableCell className="font-bold text-slate-800 dark:text-white">{formatCurrency(centre.disbursed || 0)}</TableCell>
                                             <TableCell className="text-right pr-4 sm:pr-6">
-                                                </span>
+                                                <div className="flex items-center justify-end gap-3">
+                                                    <div className="w-16 sm:w-24 bg-gray-100 dark:bg-slate-800 h-1.5 rounded-full overflow-hidden">
+                                                        <div className="bg-maroon-600 h-full rounded-full" style={{ width: `${Math.min(100, (safeNumber(centre.disbursed) / (safeNumber(centre.totalBudget) || 1)) * 100)}%` }}></div>
+                                                    </div>
+                                                    <span className="text-[10px] font-black italic text-gray-500 w-8">
+                                                        {((safeNumber(centre.disbursed) / (safeNumber(centre.totalBudget) || 1)) * 100).toFixed(0)}%
+                                                    </span>
+                                                </div>
                                             </TableCell>
                                         </TableRow>
                                     ))
@@ -683,7 +690,7 @@ const AdminDashboard = () => {
                                         <div className="relative h-1.5 w-full bg-gray-100 dark:bg-slate-800 rounded-full overflow-hidden">
                                             <div
                                                 className="absolute top-0 left-0 h-full bg-maroon-600 rounded-full transition-all duration-1000"
-                                                style={{ width: `${Math.min(100, ((centre.disbursed ?? 0) / (stats.used || 1)) * 100)}%` }}
+                                                style={{ width: `${Math.min(100, (safeNumber(centre.disbursed) / (safeNumber(stats?.used) || 1)) * 100)}%` }}
                                             ></div>
                                         </div>
                                     </div>
