@@ -84,66 +84,66 @@ const DepartmentFundingTable = ({ data, isLoading }) => {
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
-                                {(Array.isArray(data) ? data : []).map((item, index) => (
-                                    <TableRow key={index} className="hover:bg-gray-50 dark:hover:bg-slate-700/50 dark:border-slate-700">
-                                        {(() => {
-                                            const normalizedSource = normalizeFundSource(item.fundSource);
-                                            const badgeClass =
-                                                normalizedSource === 'PFMS'
-                                                    ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/50 dark:text-purple-300'
-                                                    : normalizedSource === 'OTHERS'
-                                                        ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-300'
-                                                        : 'bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300';
+                                {(Array.isArray(data) ? data : []).map((item, index) => {
+                                    if (!item) return null;
+                                    
+                                    const normalizedSource = normalizeFundSource(item.fundSource);
+                                    const badgeClass =
+                                        normalizedSource === 'PFMS'
+                                            ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/50 dark:text-purple-300'
+                                            : normalizedSource === 'OTHERS'
+                                                ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-300'
+                                                : 'bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300';
 
-                                            return (
-                                                <>
-                                        <TableCell className="font-medium dark:text-slate-200">{item.departmentName}</TableCell>
-                                        <TableCell>
-                                            <Badge
-                                                variant="secondary"
-                                                className={badgeClass}
-                                            >
-                                                {getFundSourceLabel(normalizedSource)}
-                                            </Badge>
-                                        </TableCell>
-                                        <TableCell className="text-right font-semibold dark:text-slate-200">
-                                            {formatCurrencyCompact(item.totalAllocated)}
-                                        </TableCell>
-                                        <TableCell className="text-right text-orange-600 dark:text-orange-400 font-medium">
-                                            {formatCurrencyCompact(item.amountReleased)}
-                                        </TableCell>
-                                        <TableCell className="text-right text-green-600 dark:text-green-400 font-medium">
-                                            {formatCurrencyCompact(item.remainingBalance)}
-                                        </TableCell>
-                                        <TableCell className="text-center">
-                                            <Button
-                                                size="sm"
-                                                variant="outline"
-                                                onClick={() => handleUpdateClick(item)}
-                                                className="hover:bg-blue-50 dark:hover:bg-slate-700 dark:border-slate-600 dark:text-slate-300"
-                                            >
-                                                <Edit className="w-4 h-4 mr-1" />
-                                                Update
-                                            </Button>
-                                        </TableCell>
-                                                </>
-                                            );
-                                        })()}
-                                    </TableRow>
-                                ))}
+                                    return (
+                                        <TableRow key={index} className="hover:bg-gray-50 dark:hover:bg-slate-700/50 dark:border-slate-700">
+                                            <TableCell className="font-medium dark:text-slate-200">
+                                                {item.departmentName || item.name || "Unknown Center"}
+                                            </TableCell>
+                                            <TableCell>
+                                                <Badge
+                                                    variant="secondary"
+                                                    className={badgeClass}
+                                                >
+                                                    {getFundSourceLabel(normalizedSource)}
+                                                </Badge>
+                                            </TableCell>
+                                            <TableCell className="text-right font-semibold dark:text-slate-200">
+                                                {formatCurrencyCompact(item.totalAllocated || 0)}
+                                            </TableCell>
+                                            <TableCell className="text-right text-orange-600 dark:text-orange-400 font-medium">
+                                                {formatCurrencyCompact(item.amountReleased || 0)}
+                                            </TableCell>
+                                            <TableCell className="text-right text-green-600 dark:text-green-400 font-medium">
+                                                {formatCurrencyCompact(item.remainingBalance || 0)}
+                                            </TableCell>
+                                            <TableCell className="text-center">
+                                                <Button
+                                                    size="sm"
+                                                    variant="outline"
+                                                    onClick={() => handleUpdateClick(item)}
+                                                    className="hover:bg-blue-50 dark:hover:bg-slate-700 dark:border-slate-600 dark:text-slate-300"
+                                                >
+                                                    <Edit className="w-4 h-4 mr-1" />
+                                                    Update
+                                                </Button>
+                                            </TableCell>
+                                        </TableRow>
+                                    );
+                                })}
                             </TableBody>
                         </Table>
                     </div>
 
                     {/* Summary Section */}
-                    {data.length > 0 && (
+                    {Array.isArray(data) && data.length > 0 && (
                         <div className="mt-6 pt-6 border-t border-gray-200 dark:border-slate-700">
                             <div className="grid grid-cols-3 gap-4">
                                 <div className="text-center">
                                     <p className="text-sm text-gray-600 dark:text-slate-400">Total Allocated</p>
                                     <p className="text-xl font-bold text-gray-900 dark:text-white mt-1">
                                         {formatCurrencyCompact(
-                                            (Array.isArray(data) ? data : []).reduce((sum, item) => sum + item.totalAllocated, 0)
+                                            data.reduce((sum, item) => sum + (Number(item?.totalAllocated) || 0), 0)
                                         )}
                                     </p>
                                 </div>
@@ -151,7 +151,7 @@ const DepartmentFundingTable = ({ data, isLoading }) => {
                                     <p className="text-sm text-gray-600 dark:text-slate-400">Total Released</p>
                                     <p className="text-xl font-bold text-orange-600 dark:text-orange-400 mt-1">
                                         {formatCurrencyCompact(
-                                            (Array.isArray(data) ? data : []).reduce((sum, item) => sum + item.amountReleased, 0)
+                                            data.reduce((sum, item) => sum + (Number(item?.amountReleased) || 0), 0)
                                         )}
                                     </p>
                                 </div>
@@ -159,7 +159,7 @@ const DepartmentFundingTable = ({ data, isLoading }) => {
                                     <p className="text-sm text-gray-600 dark:text-slate-400">Total Remaining</p>
                                     <p className="text-xl font-bold text-green-600 dark:text-green-400 mt-1">
                                         {formatCurrencyCompact(
-                                            (Array.isArray(data) ? data : []).reduce((sum, item) => sum + item.remainingBalance, 0)
+                                            data.reduce((sum, item) => sum + (Number(item?.remainingBalance) || 0), 0)
                                         )}
                                     </p>
                                 </div>

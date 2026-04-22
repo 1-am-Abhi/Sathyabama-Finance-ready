@@ -37,9 +37,9 @@ const FinancialAnalytics = ({ data }) => {
     ];
 
     const pieChartData = [
-        { name: "Director's Innovation Fund", value: getSource('INSTITUTIONAL').totalAllocated },
-        { name: 'PFMS Funds', value: getSource('PFMS').totalAllocated },
-        { name: "Other's Fund", value: getSource('OTHERS').totalAllocated }
+        { name: "Director's Innovation Fund", value: Number(getSource('INSTITUTIONAL')?.totalAllocated) || 0 },
+        { name: 'PFMS Funds', value: Number(getSource('PFMS')?.totalAllocated) || 0 },
+        { name: "Other's Fund", value: Number(getSource('OTHERS')?.totalAllocated) || 0 }
     ].filter(d => d.value > 0); // hide slices with 0 allocation
 
     const COLORS = ['#3b82f6', '#8b5cf6', '#10b981']; // Blue, Purple, Emerald
@@ -62,9 +62,10 @@ const FinancialAnalytics = ({ data }) => {
     };
 
     const formatCurrency = (value) => {
-        if (value >= 10000000) return `₹${(value / 10000000).toFixed(1)} Cr`;
-        if (value >= 100000) return `₹${(value / 100000).toFixed(1)} L`;
-        return `₹${value.toLocaleString()}`;
+        const num = Number(value) || 0;
+        if (num >= 10000000) return `₹${(num / 10000000).toFixed(1)} Cr`;
+        if (num >= 100000) return `₹${(num / 100000).toFixed(1)} L`;
+        return `₹${num.toLocaleString()}`;
     };
 
     return (

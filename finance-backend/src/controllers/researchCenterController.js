@@ -67,7 +67,9 @@ exports.getResearchCenters = asyncHandler(async (req, res) => {
     return res.status(200).json({
         success: true,
         count: centres.length,
-        data: centres
+        data: {
+            centres: centres
+        }
     });
 });
 

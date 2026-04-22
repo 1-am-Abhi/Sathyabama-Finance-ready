@@ -72,7 +72,7 @@ const UpdateFundSourceModal = ({ isOpen, onClose, fundSource, onSubmit, isLoadin
         <Dialog open={isOpen} onOpenChange={onClose}>
             <DialogContent className="sm:max-w-[500px]">
                 <DialogHeader>
-                    <DialogTitle>Update {fundSource?.title}</DialogTitle>
+                    <DialogTitle>Update {fundSource?.title || "Fund Source"}</DialogTitle>
                     <DialogDescription>
                         Update the total amount received from {getFundSourceLabel(normalizedFundSource)}
                     </DialogDescription>
@@ -84,7 +84,7 @@ const UpdateFundSourceModal = ({ isOpen, onClose, fundSource, onSubmit, isLoadin
                         <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                             <p className="text-sm text-gray-600 mb-1">Current Total Allocated</p>
                             <p className="text-2xl font-bold text-blue-700">
-                                ₹{fundSource?.currentAmount?.toLocaleString('en-IN') || '0'}
+                                ₹{Number(fundSource?.currentAmount || 0).toLocaleString('en-IN')}
                             </p>
                         </div>
 

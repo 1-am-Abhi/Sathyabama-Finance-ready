@@ -46,7 +46,9 @@ const FinanceManagerDashboard = () => {
     };
 
     const getFundSource = (name) => {
-        return (Array.isArray(fundSourcesData) ? fundSourcesData : []).find(f => f.name === name) || { totalAllocated: 0, totalUsed: 0, remainingBalance: 0, count: 0 };
+        const sources = Array.isArray(fundSourcesData) ? fundSourcesData : [];
+        const source = sources.find(f => f && (f.name === name || f.type === name));
+        return source || { totalAllocated: 0, totalUsed: 0, remainingBalance: 0, count: 0 };
     };
 
     const handleEditFundSource = (type, title, currentAmount) => {
