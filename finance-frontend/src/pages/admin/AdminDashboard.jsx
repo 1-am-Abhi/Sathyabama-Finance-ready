@@ -91,7 +91,6 @@ const AdminDashboard = () => {
     const [centresStats, setCentresStats] = useState([]);
     const [loading, setLoading] = useState(true);
     const [socketConnected, setSocketConnected] = useState(false);
-    const { centres: dynamicCentres } = useCentres();
     const refreshTimerRef = React.useRef(null);
 
     const fetchDashboardData = async (force = false) => {
@@ -192,21 +191,11 @@ const AdminDashboard = () => {
     }, []);
 
     const centresList = React.useMemo(() => {
-        const list = (dynamicCentres || []).map(c => ({
+        return (centresStats || []).map(c => ({
             label: c.name || c.centre || 'Unknown Centre',
-            value: c._id || c.id || c.name
+            value: c._id || c.id || c.name || c.centre
         }));
-
-        // Merge with stats-based centres for maximum coverage
-        (centresStats || []).forEach(c => {
-            const name = c.name || c.centre;
-            if (name && !list.find(item => item.label === name)) {
-                list.push({ label: name, value: c._id || c.id || name });
-            }
-        });
-
-        return list;
-    }, [dynamicCentres, centresStats]);
+    }, [centresStats]);
 
     // Auto-select first centre if none selected
     React.useEffect(() => {
@@ -231,22 +220,14 @@ const AdminDashboard = () => {
     }, [stats]);
 
     const centreData = React.useMemo(() => {
-        const normalize = (s) => (s || '').trim().toLowerCase().replace(/^centre\s+(for|of\s+excellence\s+for)\s+/i, '');
-        return centres.map(name => {
-            const centreStat = (centresStats || []).find(c => {
-                const n1 = normalize(c.name);
-                const n2 = normalize(name);
-                return n1 === n2 || (n1.length > 5 && n2.includes(n1)) || (n2.length > 5 && n1.includes(n2));
-            });
-            return {
-                centre: name,
-                totalProjects: centreStat?.totalProjects ?? 0,
-                activeProjects: centreStat?.activeProjects ?? 0,
-                totalBudget: centreStat?.totalBudget ?? 0,
-                disbursed: centreStat?.disbursed ?? 0
-            };
-        });
-    }, [centres, centresStats]);
+        return (centresStats || []).map(c => ({
+            centre: c.name || c.centre || 'Unknown Centre',
+            totalProjects: safeNumber(c.totalProjects),
+            activeProjects: safeNumber(c.activeProjects),
+            totalBudget: safeNumber(c.totalBudget),
+            disbursed: safeNumber(c.disbursed)
+        }));
+    }, [centresStats]);
 
     const filteredData = React.useMemo(() =>
         selectedCentre === 'ALL' ? centreData : centreData.filter(c => c.centre === selectedCentre)
