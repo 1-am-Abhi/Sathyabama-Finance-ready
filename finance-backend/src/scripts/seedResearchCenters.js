@@ -6,8 +6,8 @@ const seedResearchCenters = async () => {
         console.log('--- SEEDING RESEARCH CENTERS ---');
         
         const centers = [
+            { name: 'Centre for Molecular and Nanomedical Sciences', code: 'CMNS' },
             { name: 'AI Lab', code: 'AIL' },
-            { name: 'CMNS', code: 'CMNS' },
             { name: 'Biotech', code: 'BIO' }
         ];
 

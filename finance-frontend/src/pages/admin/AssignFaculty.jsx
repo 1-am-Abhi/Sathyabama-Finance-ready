@@ -106,7 +106,7 @@ const ManageFaculty = () => {
                         name: u.name,
                         username: u.email.split('@')[0],
                         email: u.email,
-                        centre: u.centre || 'Not Assigned',
+                        centre: normalizeCentreName(u.centre),
                         status: u.status || 'Active',
                         projectCount: Number(u.projectCount ?? u.projectsCount ?? 0),
                         department: u.department,
@@ -125,6 +125,12 @@ const ManageFaculty = () => {
     // UI State
     const [selectedFaculty, setSelectedFaculty] = useState(null);
     const [selectedProject, setSelectedProject] = useState(null);
+
+    const normalizeCentreName = (name) => {
+        if (!name) return 'Not Assigned';
+        if (name === 'CMNS') return 'Centre for Molecular and Nanomedical Sciences';
+        return name;
+    };
 
     // Modals
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -288,7 +294,7 @@ const ManageFaculty = () => {
                     name: addedUser.name,
                     username: addedUser.email.split('@')[0],
                     email: addedUser.email,
-                    centre: addedUser.centre || 'Not Assigned',
+                    centre: normalizeCentreName(addedUser.centre),
                     status: newFaculty.status,
                     projectCount: 0,
                     role: addedUser.role
@@ -470,7 +476,7 @@ const ManageFaculty = () => {
                                         >
                                             <option value="All">All Research Centres</option>
                                             {(dynamicCentres ?? []).map(centre => (
-                                                <option key={centre} value={centre}>{centre}</option>
+                                                <option key={centre} value={centre}>{normalizeCentreName(centre)}</option>
                                             ))}
                                         </select>
                                     </div>

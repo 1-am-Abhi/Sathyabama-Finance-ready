@@ -5,7 +5,7 @@ const { isResearchCenterFailure } = require('../utils/researchCenterSafety');
 
 const ResearchCenterModel = ResearchCenter || Centre;
 const DEFAULT_RESEARCH_CENTERS = [
-    { name: 'CMNS', code: 'CMNS' },
+    { name: 'Centre for Molecular and Nanomedical Sciences', code: 'CMNS' },
     { name: 'AI Lab', code: 'AI' },
     { name: 'Biotech', code: 'BIO' },
 ];
