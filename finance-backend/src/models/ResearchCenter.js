@@ -1,7 +1,7 @@
 const { DataTypes } = require('sequelize');
 const { sequelize } = require('../config/db');
 
-const Centre = sequelize.define('Centre', {
+const ResearchCenter = sequelize.define('ResearchCenter', {
     _id: {
         type: DataTypes.UUID,
         defaultValue: DataTypes.UUIDV4,
@@ -11,9 +11,15 @@ const Centre = sequelize.define('Centre', {
         type: DataTypes.STRING,
         allowNull: false,
         unique: true
+    },
+    code: {
+        type: DataTypes.STRING,
+        allowNull: true,
+        unique: true
     }
 }, {
-    timestamps: true
+    timestamps: true,
+    tableName: 'ResearchCenters' // Ensure consistency
 });
 
-module.exports = Centre;
+module.exports = ResearchCenter;

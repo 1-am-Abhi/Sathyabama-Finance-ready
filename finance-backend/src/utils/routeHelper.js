@@ -35,7 +35,8 @@ const mountRoutes = (mainRouter, routesDir) => {
                 if (kebabName === 'notification') mountPoint = '/notifications';
                 if (kebabName === 'project') mountPoint = '/projects';
                 if (kebabName === 'document') mountPoint = '/documents';
-                if (kebabName === 'faculty-request') mountPoint = '/'; // Root mounting for admin/finance/faculty generic routes
+                if (kebabName === 'research-center') mountPoint = '/research-centers'; 
+                if (kebabName === 'faculty-request') mountPoint = '/'; 
                 
                 mainRouter.use(mountPoint, router);
                 logger.info(`[Router] Mounted ${file} at ${mountPoint}`);

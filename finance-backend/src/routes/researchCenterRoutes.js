@@ -13,4 +13,10 @@ router.post(
     researchCenterController.createResearchCenter
 );
 
+router.delete(
+    '/:id',
+    authorize('ADMIN'),
+    researchCenterController.deleteResearchCenter
+);
+
 module.exports = router;

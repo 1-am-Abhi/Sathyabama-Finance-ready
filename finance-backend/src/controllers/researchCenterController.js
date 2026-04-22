@@ -64,3 +64,23 @@ exports.createResearchCenter = asyncHandler(async (req, res) => {
         data: centre
     });
 });
+
+/**
+ * @desc    Delete a research centre
+ * @route   DELETE /api/research-centers/:id
+ * @access  Private/Admin
+ */
+exports.deleteResearchCenter = asyncHandler(async (req, res) => {
+    const centre = await Centre.findByPk(req.params.id);
+
+    if (!centre) {
+        return res.status(404).json({ success: false, message: 'Research centre not found' });
+    }
+
+    await centre.destroy();
+
+    return res.status(200).json({
+        success: true,
+        message: 'Research centre deleted successfully'
+    });
+});

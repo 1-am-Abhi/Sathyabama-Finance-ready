@@ -20,7 +20,6 @@ import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
     PieChart, Pie, Cell, Sector, RadialBarChart, RadialBar
 } from 'recharts';
-import { useCentres } from '../../constants/researchCentres';
 import ResearchCentreDetail from './ResearchCentreDetail';
 import { formatCurrency } from '../../utils/format';
 import apiClient from '../../api/client';
@@ -250,6 +249,7 @@ const AdminDashboard = () => {
         { title: 'Manage Faculty / Projects', description: 'View and edit staff', icon: Users, color: 'bg-maroon-50', iconBg: 'bg-maroon-100', action: () => navigate('/admin/assign-faculty') },
         { title: 'Projects', description: 'Oversight & status', icon: Target, color: 'bg-indigo-50', iconBg: 'bg-indigo-100', action: () => navigate('/admin/approve-projects') },
         { title: 'Fund Requests', description: 'Process approvals', icon: FileText, color: 'bg-emerald-50', iconBg: 'bg-emerald-100', action: () => navigate('/admin/fund-requests') },
+        { title: 'Add Research Center', description: 'Register new academic entity', icon: Building2, color: 'bg-indigo-50', iconBg: 'bg-indigo-100', action: () => setIsAddCentreOpen(true) },
         { title: 'Reports', description: 'Audit & analytics', icon: Landmark, color: 'bg-amber-50', iconBg: 'bg-amber-100', action: () => navigate('/admin/reports') }
     ];
     const recentRequests = stats?.recentRequests ?? [];
@@ -499,8 +499,8 @@ const AdminDashboard = () => {
                         <Badge variant="outline" className="text-[10px] font-bold uppercase tracking-widest">Global Overview</Badge>
                     </CardHeader>
                     <CardContent className="p-3 sm:p-6 flex-1 flex flex-col justify-center">
-                        <div className="h-[300px] w-full">
-                            <ResponsiveContainer width="100%" height="100%">
+                        <div className="w-full">
+                            <ResponsiveContainer width="100%" height={300}>
                                 <BarChart data={barChartData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
                                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={chartConfig.grid} />
                                     <XAxis dataKey="name" fontSize={10} tick={{ fill: chartConfig.text }} axisLine={false} tickLine={false} />
@@ -524,8 +524,8 @@ const AdminDashboard = () => {
                         <CardTitle className="text-base sm:text-lg font-semibold">Fund Utilization Percentage</CardTitle>
                     </CardHeader>
                     <CardContent className="p-3 sm:p-6 flex-1 flex flex-col justify-center items-center">
-                        <div className="h-[280px] w-full relative">
-                            <ResponsiveContainer width="100%" height="100%">
+                        <div className="w-full relative">
+                            <ResponsiveContainer width="100%" height={280}>
                                 <RadialBarChart
                                     cx="50%"
                                     cy="50%"

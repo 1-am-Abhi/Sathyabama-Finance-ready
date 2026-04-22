@@ -4,7 +4,7 @@ const { Sequelize } = require('sequelize');
 const models = {
     AcademicMetric: require('./AcademicMetric'),
     AuditLog: require('./AuditLog'),
-    Centre: require('./Centre'),
+    Centre: require('./ResearchCenter'),
     Disbursement: require('./Disbursement'),
     Document: require('./Document'),
     EquipmentRequest: require('./EquipmentRequest'),
