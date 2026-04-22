@@ -446,17 +446,19 @@ const AdminDashboard = () => {
                                 <TableHead className="text-right pr-4 sm:pr-6">Utilization</TableHead>
                             </TableRow></TableHeader>
                             <TableBody>
-                                {filteredData.length > 0 ? (
+                                {hasData && filteredData.length > 0 ? (
                                     filteredData.map((centre, index) => (
-                                        <TableRow key={index} className="hover:bg-gray-50 dark:hover:bg-slate-800/50 cursor-pointer" onClick={() => { setSelectedCentreDetail(centre.centre); setDetailModalOpen(true); }}>
-                                            <TableCell className="font-semibold pl-4 sm:pl-6 text-xs sm:text-sm">{centre.centre}</TableCell>
-                                            <TableCell><Badge className="bg-maroon-100 text-maroon-700 dark:bg-maroon-900/40 dark:text-maroon-300">{centre.totalProjects}</Badge></TableCell>
-                                            <TableCell><Badge className={`${centre.activeProjects > 0 ? 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300' : 'bg-gray-100 text-gray-500'}`}>{centre.activeProjects}</Badge></TableCell>
-                                            <TableCell className="text-xs sm:text-sm">{formatCurrency(centre.totalBudget)}</TableCell>
-                                            <TableCell className="text-xs sm:text-sm">{formatCurrency(centre.disbursed)}</TableCell>
+                                        <TableRow
+                                            key={index}
+                                            className="hover:bg-gray-50/50 dark:hover:bg-slate-800/30 cursor-pointer transition-colors dark:border-slate-800"
+                                            onClick={() => { setSelectedCentreDetail(centre.name); setDetailModalOpen(true); }}
+                                        >
+                                            <TableCell className="font-bold text-gray-700 dark:text-gray-200 pl-4 sm:pl-6">{centre.name || 'Unknown'}</TableCell>
+                                            <TableCell className="text-gray-500 font-medium">{centre.totalProjects || 0}</TableCell>
+                                            <TableCell><Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-900 font-bold">{centre.activeProjects || 0}</Badge></TableCell>
+                                            <TableCell className="text-gray-500 font-medium">{formatCurrency(centre.totalBudget || 0)}</TableCell>
+                                            <TableCell className="font-bold text-slate-800 dark:text-white">{formatCurrency(centre.disbursed || 0)}</TableCell>
                                             <TableCell className="text-right pr-4 sm:pr-6">
-                                                <span className={`text-xs font-semibold ${centre.totalBudget > 0 && (centre.disbursed / centre.totalBudget) > 0.8 ? 'text-red-500' : centre.totalBudget > 0 && (centre.disbursed / centre.totalBudget) > 0.5 ? 'text-amber-500' : 'text-gray-500'}`}>
-                                                    {centre.totalBudget > 0 ? ((centre.disbursed / centre.totalBudget) * 100).toFixed(0) : 0}%
                                                 </span>
                                             </TableCell>
                                         </TableRow>
