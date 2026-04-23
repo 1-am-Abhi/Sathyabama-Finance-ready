@@ -263,7 +263,7 @@ const ApproveFundRequests = () => {
                                 onChange={(e) => setSelectedCentre(e.target.value)}
                             >
                                 <option value="All">All Centres</option>
-                                {(dynamicCentres ?? []).map(c => <option key={c} value={c}>{c}</option>)}
+                                {(dynamicCentres ?? []).map(c => <option key={c._id || c.name} value={c.name}>{c.name}</option>)}
                             </select>
                         </div>
                         <div className="flex items-center space-x-2">

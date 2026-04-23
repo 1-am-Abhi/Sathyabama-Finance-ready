@@ -157,7 +157,7 @@ const CreateProject = () => {
                                     >
                                         <option value="">Select Research Centre</option>
                                         {(dynamicCentres ?? []).map((centre) => (
-                                            <option key={centre} value={centre}>{centre}</option>
+                                            <option key={centre._id || centre.name} value={centre.name}>{centre.name}</option>
                                         ))}
                                     </select>
                                 </div>
