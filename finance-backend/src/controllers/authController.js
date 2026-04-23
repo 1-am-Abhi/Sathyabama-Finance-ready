@@ -65,6 +65,15 @@ const register = asyncHandler(async (req, res) => {
 });
 
 const cleanupUsers = asyncHandler(async (req, res) => {
+    // SAFETY GUARD: This endpoint is permanently disabled in production
+    // to prevent accidental bulk deletion of faculty accounts.
+    if (process.env.NODE_ENV === 'production') {
+        return res.status(403).json({
+            success: false,
+            message: 'This operation is disabled in production to protect user data.'
+        });
+    }
+
     const { Op } = require('sequelize');
     const deletedCount = await User.destroy({
       where: {
@@ -138,6 +147,14 @@ const deleteUser = asyncHandler(async (req, res) => {
   const user = await User.findByPk(req.params.id);
   if (!user) {
     return res.status(404).json({ success: false, message: "User not found" });
+  }
+
+  // SAFETY GUARD: Prevent deletion of privileged accounts
+  if (['ADMIN', 'FINANCE_OFFICER'].includes(user.role)) {
+    return res.status(403).json({
+      success: false,
+      message: `Cannot delete ${user.role} accounts. Deactivate the account instead.`
+    });
   }
 
   await user.destroy();
