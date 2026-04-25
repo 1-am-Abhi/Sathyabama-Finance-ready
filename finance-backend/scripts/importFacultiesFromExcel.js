@@ -41,7 +41,7 @@ async function importFaculties() {
             const employeeId = row['ERP STAFF CODE  (IF AVAILABLE)'] ? String(row['ERP STAFF CODE  (IF AVAILABLE)']).trim() : null;
             const phone = row['MOBILE NUMBER'] ? String(row['MOBILE NUMBER']).trim() : null;
             const department = String(row['Department'] || '').trim();
-            const password = row['Password'] ? String(row['Password']).trim() : '12345';
+            const password = 'Password@2026';
             const designation = String(row['Designation'] || '').trim();
             const joiningDate = typeof row['Joining_Date'] === 'number' ? parseExcelDate(row['Joining_Date']) : null;
             

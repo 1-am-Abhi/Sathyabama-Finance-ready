@@ -89,7 +89,7 @@ exports.uploadFacultiesFinal = async (req, res) => {
                 where: { email: faculty.email },
                 defaults: {
                     name: faculty.name,
-                    password: 'password123', // Default password
+                    password: 'Password@2026', // Default password
                     role: 'FACULTY',
                     department: faculty.department,
                     centre: faculty.department,
