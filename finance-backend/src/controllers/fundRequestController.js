@@ -504,6 +504,24 @@ const disburseFund = asyncHandler(async (req, res) => {
     if (!request) return res.status(404).json({ success: false, message: 'Request not found' });
 
     if (request.status !== 'PENDING_DISBURSAL') {
+        // Idempotency check: If already disbursed, check if it was this transaction
+        if (request.status === 'DISBURSED' && req.body.transactionId) {
+            const existing = await Disbursement.findOne({
+                where: { 
+                    fundRequestId: request._id || request.id,
+                    bankReference: req.body.transactionId
+                }
+            });
+            if (existing) {
+                return res.status(200).json({
+                    success: true,
+                    message: 'Disbursement already processed successfully (Idempotent)',
+                    data: request,
+                    disbursement: existing
+                });
+            }
+        }
+
         return res.status(400).json({
             success: false,
             message: `Cannot disburse a request with status '${request.status}'. Only PENDING_DISBURSAL requests can be disbursed.`,
