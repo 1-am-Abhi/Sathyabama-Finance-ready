@@ -359,6 +359,10 @@ const ManageFaculty = () => {
     const unassignedProjectsCount = projects.filter(p => !p.assignedFacultyIds || p.assignedFacultyIds.length === 0).length;
 
     const MAPPED_CENTRES = Object.keys(CENTRE_MAP);
+    const REVERSE_MAP = Object.fromEntries(
+        Object.entries(CENTRE_MAP).map(([key, value]) => [value, key])
+    );
+
     const filteredFaculty = faculties.filter((item) => {
         const centre = typeof item.researchCenter === "object" ? item.researchCenter?.name : item.researchCenter;
 
@@ -368,7 +372,8 @@ const ManageFaculty = () => {
             return centre && !MAPPED_CENTRES.includes(centre);
         }
 
-        return centre === selectedCentre;
+        const selectedCode = REVERSE_MAP[selectedCentre] || selectedCentre;
+        return centre === selectedCode;
     });
 
     return (
