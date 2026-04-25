@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { X, BookOpen, Briefcase, Plus, Trash2 } from 'lucide-react';
 import { Button } from '../ui/button';
-import { useCentres } from '../../constants/researchCentres';
+import { useCentres } from '../../hooks/useCentres';
 import { FUND_SOURCE_OPTIONS } from '../../constants/fundSources';
 
 const AcademicWorkModal = ({ isOpen, onClose, onSubmit, initialData = null, mode = 'create', isSubmitting = false }) => {

@@ -28,7 +28,7 @@ import Loader from '../../components/shared/Loader';
 import EmptyState from '../../components/shared/EmptyState';
 import { normalizeFundSource } from '../../constants/fundSources';
 import { safeApiObj } from '../../api/safeApi';
-import { useCentres } from '../../constants/researchCentres';
+import { useCentres } from '../../hooks/useCentres';
 
 const safeNumber = (val) => {
     const num = Number(val || 0);

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useLayout } from '../../contexts/LayoutContext';
 import { useFinancialReports } from '../../hooks/useFinance';
-import { useCentres } from '../../constants/researchCentres';
+import { useCentres } from '../../hooks/useCentres';
 import { FUND_SOURCE_OPTIONS } from '../../constants/fundSources';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';

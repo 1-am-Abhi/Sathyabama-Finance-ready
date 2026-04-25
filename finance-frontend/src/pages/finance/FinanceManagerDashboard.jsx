@@ -8,7 +8,7 @@ import { Label } from '../../components/ui/label';
 import { useFundSourcesOverview, useDepartmentFunding, useUpdateFundSource } from '../../hooks/useFinance';
 import { Building2, Landmark, AlertCircle, CircleDollarSign } from 'lucide-react';
 import { useLayout } from '../../contexts/LayoutContext';
-import { useCentres } from '../../constants/researchCentres';
+import { useCentres } from '../../hooks/useCentres';
 
 const FinanceManagerDashboard = () => {
     const { setLayout } = useLayout();

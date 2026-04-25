@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useLayout } from '../../contexts/LayoutContext';
-import { useCentres } from '../../constants/researchCentres';
+import { useCentres } from '../../hooks/useCentres';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '../../components/ui/card';
 import { Label } from '../../components/ui/label';
 import { Input } from '../../components/ui/input';

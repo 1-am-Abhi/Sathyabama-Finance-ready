@@ -12,7 +12,7 @@ import {
     Trash2, Sparkles
 } from 'lucide-react';
 import { useLayout } from '../../contexts/LayoutContext';
-import { useCentres } from '../../constants/researchCentres';
+import { useCentres } from '../../hooks/useCentres';
 import apiClient from '../../api/client';
 
 const ManageFaculty = () => {

@@ -9,7 +9,7 @@ import { useLayout } from '../../contexts/LayoutContext';
 import { usePipeline } from '../../contexts/PipelineContext';
 import { formatCurrency } from '../../utils/format';
 import DateFilter from '../../components/shared/DateFilter';
-import { useCentres } from '../../constants/researchCentres';
+import { useCentres } from '../../hooks/useCentres';
 import { FUND_SOURCE_OPTIONS } from '../../constants/fundSources';
 import AIResultModal from '../../components/shared/AIResultModal';
 import { summarizeRequest } from '../../services/aiService';

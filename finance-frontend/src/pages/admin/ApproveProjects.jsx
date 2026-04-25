@@ -10,7 +10,7 @@ import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Toolti
 import { useLayout } from '../../contexts/LayoutContext';
 import { usePipeline } from '../../contexts/PipelineContext';
 import DateFilter from '../../components/shared/DateFilter';
-import { useCentres } from '../../constants/researchCentres';
+import { useCentres } from '../../hooks/useCentres';
 import { AGENCIES } from '../../constants/agencies';
 import { FACULTY_MEMBERS } from '../../constants/facultyMembers';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../../components/ui/tooltip';
