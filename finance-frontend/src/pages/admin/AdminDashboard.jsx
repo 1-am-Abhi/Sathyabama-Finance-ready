@@ -28,6 +28,7 @@ import Loader from '../../components/shared/Loader';
 import EmptyState from '../../components/shared/EmptyState';
 import { normalizeFundSource } from '../../constants/fundSources';
 import { safeApiObj } from '../../api/safeApi';
+import { useCentres } from '../../constants/researchCentres';
 
 const safeNumber = (val) => {
     const num = Number(val || 0);
@@ -108,27 +109,7 @@ const AdminDashboard = () => {
     const [loading, setLoading] = useState(true);
     const [socketConnected, setSocketConnected] = useState(false);
     const refreshTimerRef = React.useRef(null);
-    const fetchFallbackCentres = React.useCallback(async () => {
-        try {
-            const token = localStorage.getItem('token');
-            const response = await fetch('/api/research-centers', {
-                headers: token
-                    ? { Authorization: `Bearer ${token}` }
-                    : undefined,
-                credentials: 'include',
-            });
-
-            if (!response.ok) {
-                return [];
-            }
-
-            const payload = await response.json();
-            return Array.isArray(payload?.data) ? payload.data : [];
-        } catch (error) {
-            console.error('Error fetching fallback centres:', error);
-            return [];
-        }
-    }, []);
+    const { centres: dynamicCentres } = useCentres();
 
     const normalizeCentre = (c) => {
         if (!c) return { _id: Math.random().toString(), name: 'Unknown', centre: 'Unknown' };
@@ -165,7 +146,7 @@ const AdminDashboard = () => {
             );
 
             const statsCentres = (Array.isArray(fetchedData?.centres) ? fetchedData.centres : []).map(normalizeCentre);
-            const fallbackCentres = statsCentres.length === 0 ? (await fetchFallbackCentres()).map(normalizeCentre) : [];
+            const fallbackCentres = statsCentres.length === 0 ? dynamicCentres.map(normalizeCentre) : [];
             
             const normalizedData = {
                 ...EMPTY_ADMIN_DASHBOARD,
@@ -184,7 +165,7 @@ const AdminDashboard = () => {
             setFundSources(normalizedData.fundSources ?? []);
         } catch (error) {
             console.error("Error fetching admin data:", error);
-            const fallbackCentres = await fetchFallbackCentres();
+            const fallbackCentres = dynamicCentres;
             const fallbackData = {
                 ...EMPTY_ADMIN_DASHBOARD,
                 centres: fallbackCentres,
