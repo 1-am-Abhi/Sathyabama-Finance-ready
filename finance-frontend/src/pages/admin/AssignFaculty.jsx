@@ -16,7 +16,7 @@ import { useCentres } from '../../hooks/useCentres';
 import apiClient from '../../api/client';
 import FacultyUploadModal from '../../components/faculty/FacultyUploadModal';
 import FacultyAnalytics from '../../components/faculty/FacultyAnalytics';
-import { getCentreName } from '../../constants/centreMap';
+import { getCentreName, CENTRE_MAP } from '../../constants/centreMap';
 
 const ManageFaculty = () => {
     const { setLayout } = useLayout();
@@ -358,6 +358,16 @@ const ManageFaculty = () => {
     // Stats Logic
     const unassignedProjectsCount = projects.filter(p => !p.assignedFacultyIds || p.assignedFacultyIds.length === 0).length;
 
+    const MAPPED_CENTRES = Object.keys(CENTRE_MAP);
+    const filteredFaculty = faculties.filter((item) => {
+        const centre = typeof item.researchCenter === "object" ? item.researchCenter?.name : item.researchCenter;
+        if (selectedCentre === "All") return true;
+        if (selectedCentre === "Others") {
+            return !MAPPED_CENTRES.includes(centre);
+        }
+        return centre === selectedCentre;
+    });
+
     return (
         <div className="flex-1 overflow-y-auto overflow-x-hidden">
             {/* Toast Notification */}
@@ -544,9 +554,7 @@ const ManageFaculty = () => {
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                    {faculties.filter(f =>
-                                        (selectedCentre === 'All' || f.centre === selectedCentre)
-                                    ).map((faculty) => (
+                                    {filteredFaculty.map((faculty) => (
                                         <TableRow
                                             key={faculty.id}
                                             className={`hover:bg-gray-50 dark:hover:bg-slate-800/50 dark:border-slate-800 transition-opacity duration-200 ${faculty.status === 'Inactive' ? 'opacity-50 grayscale-[0.3]' : ''}`}
