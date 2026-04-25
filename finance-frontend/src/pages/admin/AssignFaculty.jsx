@@ -364,7 +364,8 @@ const ManageFaculty = () => {
     );
 
     const filteredFaculty = faculties.filter((item) => {
-        const centre = typeof item.researchCenter === "object" ? item.researchCenter?.name : item.researchCenter;
+        let centre = typeof item.researchCenter === "object" ? item.researchCenter?.name : item.researchCenter;
+        centre = REVERSE_MAP[centre] || centre;
 
         if (selectedCentre === "All") return true;
 
