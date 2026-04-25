@@ -236,7 +236,7 @@ const AdminDashboard = () => {
             socket.off('finance:update');
             socket.disconnect();
         };
-    }, [fetchFallbackCentres]);
+    }, [selectedFY]);
 
     const centresList = React.useMemo(
         () => (Array.isArray(stats?.centres) ? stats.centres : []),
