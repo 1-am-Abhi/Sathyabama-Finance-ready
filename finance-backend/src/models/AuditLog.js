@@ -8,7 +8,7 @@ const AuditLog = sequelize.define('AuditLog', {
         primaryKey: true,
     },
     userId: {
-        type: DataTypes.INTEGER,
+        type: DataTypes.UUID,
         allowNull: false
     },
     action: {
