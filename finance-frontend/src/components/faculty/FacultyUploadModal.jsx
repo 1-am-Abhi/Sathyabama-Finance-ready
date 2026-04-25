@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../../components/ui/dialog';
 import { Button } from '../../components/ui/button';
-import { Upload, FileText, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
+import { Upload, FileText, CheckCircle2, AlertCircle, Loader2, Download } from 'lucide-react';
 import apiClient from '../../api/client';
 
 const FacultyUploadModal = ({ isOpen, onClose, onUploadSuccess }) => {
@@ -71,6 +71,28 @@ const FacultyUploadModal = ({ isOpen, onClose, onUploadSuccess }) => {
     const validCount = preview?.filter(p => p.isValid && !p.isDuplicate).length || 0;
     const invalidCount = preview?.filter(p => !p.isValid).length || 0;
     const duplicateCount = preview?.filter(p => p.isDuplicate).length || 0;
+    const invalidRows = preview?.filter(p => !p.isValid || p.isDuplicate) || [];
+
+    const downloadErrors = () => {
+        const csv = [
+            ['Name', 'Email', 'Department', 'Designation', 'Errors'],
+            ...invalidRows.map(r => [
+                `"${(r.name || '').replace(/"/g, '""')}"`,
+                `"${(r.email || '').replace(/"/g, '""')}"`,
+                `"${(r.department || '').replace(/"/g, '""')}"`,
+                `"${(r.designation || '').replace(/"/g, '""')}"`,
+                `"${(r.errors || []).join(' | ')}"`
+            ])
+        ].map(e => e.join(',')).join('\n');
+
+        const blob = new Blob([csv], { type: 'text/csv' });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'invalid_faculties.csv';
+        a.click();
+        window.URL.revokeObjectURL(url);
+    };
 
     return (
         <Dialog open={isOpen} onOpenChange={handleClose}>
@@ -141,6 +163,7 @@ const FacultyUploadModal = ({ isOpen, onClose, onUploadSuccess }) => {
                                             <th className="px-4 py-3 font-semibold text-gray-600">Email</th>
                                             <th className="px-4 py-3 font-semibold text-gray-600">Centre</th>
                                             <th className="px-4 py-3 font-semibold text-gray-600">Status</th>
+                                            <th className="px-4 py-3 font-semibold text-gray-600">Errors</th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y">
@@ -158,22 +181,37 @@ const FacultyUploadModal = ({ isOpen, onClose, onUploadSuccess }) => {
                                                         <span className="text-xs font-bold px-2 py-1 bg-emerald-100 text-emerald-700 rounded-md flex items-center w-fit gap-1"><CheckCircle2 className="w-3 h-3"/> Ready</span>
                                                     )}
                                                 </td>
+                                                <td className="px-4 py-3 text-xs text-gray-500">
+                                                    {row.errors?.length > 0
+                                                        ? <span className="text-red-600 font-medium">{row.errors.join(', ')}</span>
+                                                        : <span className="text-gray-300">—</span>}
+                                                </td>
                                             </tr>
                                         ))}
                                     </tbody>
                                 </table>
                             </div>
 
-                            <div className="flex justify-end gap-3 pt-4 border-t">
-                                <Button variant="outline" onClick={handleClose} disabled={uploading}>Cancel</Button>
-                                <Button 
-                                    className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold" 
-                                    onClick={handleUpload}
-                                    disabled={validCount === 0 || uploading}
-                                >
-                                    {uploading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Upload className="w-4 h-4 mr-2" />}
-                                    {uploading ? 'Importing...' : `Import ${validCount} Faculties`}
-                                </Button>
+                            <div className="flex justify-between items-center gap-3 pt-4 border-t">
+                                <div>
+                                    {invalidRows.length > 0 && (
+                                        <Button variant="outline" className="text-red-600 border-red-200 hover:bg-red-50 font-bold text-xs" onClick={downloadErrors}>
+                                            <Download className="w-4 h-4 mr-2" />
+                                            Download {invalidRows.length} Invalid Rows (CSV)
+                                        </Button>
+                                    )}
+                                </div>
+                                <div className="flex gap-3">
+                                    <Button variant="outline" onClick={handleClose} disabled={uploading}>Cancel</Button>
+                                    <Button 
+                                        className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold" 
+                                        onClick={handleUpload}
+                                        disabled={validCount === 0 || uploading}
+                                    >
+                                        {uploading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Upload className="w-4 h-4 mr-2" />}
+                                        {uploading ? 'Importing...' : `Import ${validCount} Faculties`}
+                                    </Button>
+                                </div>
                             </div>
                         </div>
                     )}

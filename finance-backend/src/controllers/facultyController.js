@@ -34,7 +34,13 @@ exports.previewFaculties = async (req, res) => {
             let phone = row['MOBILE NUMBER'] ? String(row['MOBILE NUMBER']).trim() : '';
             let designation = String(row['Designation'] || '').trim();
 
-            const isValid = email.includes('@');
+            // PHASE 1: ERROR REPORTING — per-row validation
+            const errors = [];
+            if (!email || !email.includes('@')) errors.push('Invalid email');
+            if (!name) errors.push('Missing name');
+            if (!department) errors.push('Missing department');
+
+            const isValid = errors.length === 0;
 
             // PHASE 5: DUPLICATE DETECTION
             let isDuplicate = false;
@@ -43,9 +49,11 @@ exports.previewFaculties = async (req, res) => {
             if (existingEmails.has(email)) {
                 isDuplicate = true;
                 duplicateType = 'email';
+                errors.push('Duplicate email in database');
             } else if (existingNames.has(name.toLowerCase())) {
                 isDuplicate = true;
                 duplicateType = 'name';
+                errors.push('Duplicate name in database');
             }
 
             return {
@@ -57,6 +65,7 @@ exports.previewFaculties = async (req, res) => {
                 isValid,
                 isDuplicate,
                 duplicateType,
+                errors,
                 originalRow: row
             };
         });
