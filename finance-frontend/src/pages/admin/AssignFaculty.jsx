@@ -361,10 +361,13 @@ const ManageFaculty = () => {
     const MAPPED_CENTRES = Object.keys(CENTRE_MAP);
     const filteredFaculty = faculties.filter((item) => {
         const centre = typeof item.researchCenter === "object" ? item.researchCenter?.name : item.researchCenter;
+
         if (selectedCentre === "All") return true;
+
         if (selectedCentre === "Others") {
-            return !MAPPED_CENTRES.includes(centre);
+            return centre && !MAPPED_CENTRES.includes(centre);
         }
+
         return centre === selectedCentre;
     });
 
