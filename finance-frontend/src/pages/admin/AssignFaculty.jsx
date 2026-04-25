@@ -369,17 +369,14 @@ const ManageFaculty = () => {
                 ? item.centre?.name
                 : item.centre;
 
-        centre = REVERSE_MAP[centre] || centre;
-
         if (selectedCentre === "All") return true;
 
         if (selectedCentre === "Others") {
-            return centre && !MAPPED_CENTRES.includes(centre);
+            return centre && !MAPPED_CENTRES.includes(REVERSE_MAP[centre] || centre);
         }
 
-        const selectedCode = REVERSE_MAP[selectedCentre] || selectedCentre;
-
-        return centre === selectedCode;
+        // Compare full names directly for specific filters
+        return centre === selectedCentre;
     });
 
     return (
