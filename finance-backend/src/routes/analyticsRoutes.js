@@ -8,5 +8,6 @@ router.use(protect);
 // Only Admin and Finance Officer can see raw forecasting data and insights
 router.get('/forecast-base', authorize('ADMIN', 'FINANCE_OFFICER'), analyticsController.getForecastBase);
 router.get('/insights', authorize('ADMIN', 'FINANCE_OFFICER'), analyticsController.getInsights);
+router.get('/faculty-stats', authorize('ADMIN', 'FINANCE_OFFICER'), analyticsController.getFacultyStats);
 
 module.exports = router;

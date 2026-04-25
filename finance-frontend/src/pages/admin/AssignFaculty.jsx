@@ -9,15 +9,18 @@ import { Label } from '../../components/ui/label';
 import {
     UserPlus, Users, CheckCircle, Shield, Key,
     AtSign, Building2, UserCircle, PlusCircle, AlertCircle, LayoutGrid, FileText,
-    Trash2, Sparkles
+    Trash2, Sparkles, Upload, BarChart3
 } from 'lucide-react';
 import { useLayout } from '../../contexts/LayoutContext';
 import { useCentres } from '../../hooks/useCentres';
 import apiClient from '../../api/client';
+import FacultyUploadModal from '../../components/faculty/FacultyUploadModal';
+import FacultyAnalytics from '../../components/faculty/FacultyAnalytics';
 
 const ManageFaculty = () => {
     const { setLayout } = useLayout();
-    const [activeTab, setActiveTab] = useState('faculty'); // 'faculty' | 'projects' | 'events'
+    const [activeTab, setActiveTab] = useState('faculty'); // 'faculty' | 'projects' | 'events' | 'analytics'
+    const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
 
     // Escape key listener for modals
     useEffect(() => {
@@ -460,6 +463,15 @@ const ManageFaculty = () => {
                                     <Sparkles className="w-4 h-4 mr-2" />
                                     Events
                                 </button>
+                                <button
+                                    onClick={() => setActiveTab('analytics')}
+                                    className={`px-4 py-2 text-sm font-medium rounded-md transition-all flex items-center ${activeTab === 'analytics'
+                                        ? 'bg-white dark:bg-slate-700 text-maroon-600 shadow-sm'
+                                        : 'text-slate-500 hover:text-slate-700 dark:text-slate-400'}`}
+                                >
+                                    <BarChart3 className="w-4 h-4 mr-2" />
+                                    Analytics
+                                </button>
                             </div>
                         </div>
 
@@ -483,13 +495,22 @@ const ManageFaculty = () => {
                                 )}
                             </div>
                             {activeTab === 'faculty' ? (
-                                <Button
-                                    className="bg-maroon-600 hover:bg-maroon-700 text-white shadow-lg"
-                                    onClick={() => setIsAddModalOpen(true)}
-                                >
-                                    <UserPlus className="w-4 h-4 mr-2" />
-                                    Add New Faculty
-                                </Button>
+                                <div className="flex items-center gap-3">
+                                    <Button
+                                        className="bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg"
+                                        onClick={() => setIsUploadModalOpen(true)}
+                                    >
+                                        <Upload className="w-4 h-4 mr-2" />
+                                        Upload Excel
+                                    </Button>
+                                    <Button
+                                        className="bg-maroon-600 hover:bg-maroon-700 text-white shadow-lg"
+                                        onClick={() => setIsAddModalOpen(true)}
+                                    >
+                                        <UserPlus className="w-4 h-4 mr-2" />
+                                        Add New Faculty
+                                    </Button>
+                                </div>
                             ) : activeTab === 'projects' ? (
                                 <Button
                                     className="bg-maroon-600 hover:bg-maroon-700 text-white shadow-lg"
@@ -761,9 +782,49 @@ const ManageFaculty = () => {
                                 </TableBody>
                             </Table>
                         )}
+
+                        {/* VIEW 4: ANALYTICS */}
+                        {activeTab === 'analytics' && (
+                            <div className="p-6">
+                                <FacultyAnalytics />
+                            </div>
+                        )}
                     </CardContent>
                 </Card>
 
+                {/* Faculty Upload Modal */}
+                <FacultyUploadModal
+                    isOpen={isUploadModalOpen}
+                    onClose={() => setIsUploadModalOpen(false)}
+                    onUploadSuccess={(result) => {
+                        showToast(result.message || 'Faculty imported successfully!');
+                        // Refresh faculties list
+                        const fetchFaculties = async () => {
+                            try {
+                                const response = await apiClient.get('/auth/users');
+                                if (response.data.success) {
+                                    const rawFaculties = (response.data.data || response.data.users || [])
+                                        .filter(u => u.role === 'FACULTY')
+                                        .map(f => ({
+                                            id: f._id,
+                                            name: f.name,
+                                            email: f.email,
+                                            department: f.department || '',
+                                            centre: f.centre || '',
+                                            role: f.role,
+                                            projectCount: 0,
+                                            designation: f.designation || '',
+                                            status: f.status || 'Active'
+                                        }));
+                                    setFaculties(rawFaculties);
+                                }
+                            } catch (err) {
+                                console.error('Refresh failed', err);
+                            }
+                        };
+                        fetchFaculties();
+                    }}
+                />
                 {/* Modals Container */}
                 <div className="fixed inset-0 pointer-events-none z-50">
 

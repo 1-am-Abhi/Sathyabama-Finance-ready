@@ -46,3 +46,39 @@ exports.getInsights = async (req, res) => {
         });
     }
 };
+
+const { User } = require('../models');
+
+exports.getFacultyStats = async (req, res) => {
+    try {
+        const faculties = await User.findAll({ where: { role: 'FACULTY' }, attributes: ['centre', 'createdAt', 'status'] });
+        const totalFaculty = faculties.length;
+        
+        const centreMap = {};
+        const monthMap = {};
+
+        faculties.forEach(f => {
+            const centre = f.centre || 'Unassigned';
+            centreMap[centre] = (centreMap[centre] || 0) + 1;
+
+            const date = new Date(f.createdAt);
+            const month = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+            monthMap[month] = (monthMap[month] || 0) + 1;
+        });
+
+        const byCentre = Object.keys(centreMap).map(centre => ({ centre, count: centreMap[centre] }));
+        const growth = Object.keys(monthMap).sort().map(month => ({ month, count: monthMap[month] }));
+
+        res.json({
+            success: true,
+            data: {
+                totalFaculty,
+                byCentre,
+                growth
+            }
+        });
+    } catch (error) {
+        console.error('getFacultyStats error:', error);
+        res.status(500).json({ success: false, message: 'Server error' });
+    }
+};
