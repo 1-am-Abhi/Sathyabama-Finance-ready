@@ -45,6 +45,17 @@ const DisbursementQueue = () => {
         setLayout("Disbursement Queue", "Manage and execute payments for approved fund requests");
     }, [setLayout]);
 
+    React.useEffect(() => {
+        if (isModalOpen) {
+            document.body.style.overflow = "hidden";
+        } else {
+            document.body.style.overflow = "unset";
+        }
+        return () => {
+            document.body.style.overflow = "unset";
+        };
+    }, [isModalOpen]);
+
     const handleExecuteClick = (request) => {
         setSelectedRequest(request);
         setFormData({
@@ -334,19 +345,19 @@ const DisbursementQueue = () => {
 
             {/* Execution Modal */}
             {isModalOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-                    <Card className="w-full max-w-md shadow-2xl animate-in fade-in zoom-in duration-200">
-                        <CardHeader className="border-b border-slate-100 dark:border-slate-800 bg-gradient-to-r from-slate-950 to-maroon-800 text-white">
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+                    <div className="bg-white dark:bg-slate-900 w-full max-w-2xl h-[90vh] overflow-y-auto rounded-xl shadow-2xl animate-in fade-in zoom-in duration-200 border border-slate-200 dark:border-slate-800">
+                        <div className="sticky top-0 z-10 border-b border-slate-100 dark:border-slate-800 bg-gradient-to-r from-slate-950 to-maroon-800 text-white p-6 rounded-t-xl">
                             <div className="space-y-2">
                                 <Badge className="bg-white/10 text-white border-0 w-fit">
                                     Installment #{selectedInstallmentNumber}
                                 </Badge>
-                                <CardTitle className="text-white">Execute Disbursement</CardTitle>
-                                <CardDescription className="text-slate-200">Enter transaction details to finalize the payment.</CardDescription>
+                                <h3 className="text-xl font-bold text-white">Execute Disbursement</h3>
+                                <p className="text-sm text-slate-200">Enter transaction details to finalize the payment.</p>
                             </div>
-                        </CardHeader>
+                        </div>
                         <form onSubmit={handleSubmit}>
-                            <CardContent className="p-6 space-y-4">
+                            <div className="p-6 space-y-4">
                                 <div className="p-3 bg-maroon-50 dark:bg-maroon-900/20 rounded-lg border border-maroon-100 dark:border-maroon-800 space-y-1">
                                     <p className="text-xs text-maroon-600 dark:text-maroon-400 font-bold uppercase tracking-wider">Payable To</p>
                                     <p className="text-sm font-semibold">{selectedRequest?.Project?.pi || selectedRequest?.Project?.piName || selectedRequest?.faculty}</p>
@@ -456,7 +467,7 @@ const DisbursementQueue = () => {
                                         />
                                     </div>
                                 </div>
-                            </CardContent>
+                            </div>
                                 <div className="p-6 border-t border-slate-100 dark:border-slate-800 flex gap-3">
                                 <Button 
                                     type="button" 
@@ -476,7 +487,7 @@ const DisbursementQueue = () => {
                                 </Button>
                             </div>
                         </form>
-                    </Card>
+                    </div>
                 </div>
             )}
         </div>
