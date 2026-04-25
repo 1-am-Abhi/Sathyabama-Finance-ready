@@ -527,7 +527,8 @@ const disburseFund = asyncHandler(async (req, res) => {
         remarks: req.body.remarks || null,
         mode: req.body.mode || 'FULL',
         installmentNo: req.body.installmentNo || request.installmentNumber,
-        isInstallment: req.body.isInstallment || req.body.mode === 'INSTALLMENT'
+        isInstallment: req.body.isInstallment || req.body.mode === 'INSTALLMENT',
+        amount: req.body.amount || request.requestedAmount
     };
 
     const { request: updatedRequest, disbursement } = await executeDisbursementPipeline(
