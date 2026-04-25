@@ -131,7 +131,7 @@ const getFundRequests = asyncHandler(async (req, res) => {
         const projectInc = buildProjectInclude();
         if (projectInc) {
             // Enforce inner join and status filter
-            projectInc.required = true;
+            projectInc.required = false;
             projectInc.where = { 
                 ...(projectInc.where || {}),
                 status: { [Op.in]: VALID_PROJECT_STATUSES }

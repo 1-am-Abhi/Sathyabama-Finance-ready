@@ -178,7 +178,7 @@ const buildCentreInclude = () => {
 const buildProjectInclude = (options = {}) => {
     const {
         includeResearchCenter = true,
-        required = true,
+        required = false,
         statusFilter = VALID_PROJECT_STATUSES,
     } = options;
 
@@ -243,7 +243,7 @@ const normalizeFundRequest = (request) => {
         faculty: project?.pi || raw.faculty || null,
         researchCenterName: getResearchCenterName(raw, project?.researchCenterName || 'N/A'),
         centreName:
-            raw.researchCenter?.name ||
+            raw?.researchCenter?.name ||
             raw.researchCentre?.name ||
             project?.centreName ||
             raw.centre ||
