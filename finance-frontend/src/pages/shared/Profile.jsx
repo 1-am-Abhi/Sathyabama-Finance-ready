@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import apiClient from '../../api/client';
+import { getCentreName } from '../../constants/centreMap';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
@@ -149,7 +150,7 @@ const Profile = () => {
                             <div className="flex-1 text-center md:text-left">
                                 <h2 className="text-2xl font-bold text-gray-900 dark:text-white">{profileData.name}</h2>
                                 <p className="text-gray-600 dark:text-gray-400 mt-1">{profileData.designation}</p>
-                                <p className="text-sm text-gray-500 dark:text-gray-500 mt-1">{profileData.department}</p>
+                                <p className="text-sm text-gray-500 dark:text-gray-500 mt-1">{getCentreName(profileData.department)}</p>
                                 <div className="flex flex-wrap items-center justify-center md:justify-start gap-4 mt-3">
                                     <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-maroon-100 text-maroon-800 dark:bg-maroon-900/30 dark:text-maroon-300">
                                         <Building2 className="w-4 h-4 mr-1" />
@@ -267,7 +268,7 @@ const Profile = () => {
                                     <Building2 className="w-4 h-4" />
                                     Department
                                 </Label>
-                                <p className="mt-1 text-gray-900 dark:text-white font-medium">{profileData.department}</p>
+                                <p className="mt-1 text-gray-900 dark:text-white font-medium">{getCentreName(profileData.department)}</p>
                             </div>
 
                             <div>

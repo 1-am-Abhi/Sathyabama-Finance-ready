@@ -3,6 +3,7 @@ import { Card, CardContent } from '../ui/card';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
 import { User, Building, Mail, Award, Calendar, MapPin, Globe, BookOpen, Edit2, Phone, Clock } from 'lucide-react';
+import { getCentreName } from '../../constants/centreMap';
 
 const FacultyDetailsSection = ({ facultyData, onEdit }) => {
     return (
@@ -28,7 +29,7 @@ const FacultyDetailsSection = ({ facultyData, onEdit }) => {
                             </Badge>
                             <h2 className="text-3xl md:text-5xl font-black italic tracking-tighter uppercase leading-none mb-2">{facultyData.name}</h2>
                             <p className="text-blue-100/80 font-bold uppercase tracking-[0.2em] text-[10px] italic flex items-center gap-2">
-                                <Building className="w-3 h-3" /> {facultyData.designation} | {facultyData.department}
+                                <Building className="w-3 h-3" /> {facultyData.designation} | {getCentreName(facultyData.department)}
                             </p>
                         </div>
                     </div>

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import apiClient from '../../api/client';
+import { getCentreName } from '../../constants/centreMap';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Users, TrendingUp, Activity } from 'lucide-react';
 // Recharts for charts
@@ -14,7 +15,14 @@ const FacultyAnalytics = () => {
             try {
                 const res = await apiClient.get('/analytics/faculty-stats');
                 if (res.data?.success) {
-                    setStats(res.data.data);
+                    const mappedStats = {
+                        ...res.data.data,
+                        byCentre: (res.data.data.byCentre || []).map(c => ({
+                            ...c,
+                            centre: getCentreName(c.centre)
+                        }))
+                    };
+                    setStats(mappedStats);
                 }
             } catch (err) {
                 console.error("Failed to fetch analytics:", err);

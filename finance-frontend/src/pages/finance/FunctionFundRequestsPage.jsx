@@ -25,6 +25,7 @@ import { formatCurrency } from '../../utils/currency';
 import { Calendar, CheckCircle, Clock, Search, FileText } from 'lucide-react';
 import { useLayout } from '../../contexts/LayoutContext';
 import { useFunctionRequests, useReleaseFunctionFunds } from '../../hooks/useFinance';
+import { getCentreName } from '../../constants/centreMap';
 
 const FunctionFundRequestsPage = () => {
     const { setLayout } = useLayout();
@@ -188,7 +189,7 @@ const FunctionFundRequestsPage = () => {
                                                     <TableCell>
                                                         <div>
                                                             <p className="font-medium text-gray-900 dark:text-white">{request.facultyName}</p>
-                                                            <p className="text-xs text-gray-500 dark:text-slate-400">{request.department}</p>
+                                                            <p className="text-xs text-gray-500 dark:text-slate-400">{getCentreName(request.department)}</p>
                                                         </div>
                                                     </TableCell>
                                                     <TableCell className="font-semibold text-gray-900 dark:text-white">

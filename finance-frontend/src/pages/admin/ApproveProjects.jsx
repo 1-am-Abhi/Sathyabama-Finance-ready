@@ -21,6 +21,7 @@ import { Label } from '../../components/ui/label';
 import { Textarea } from '../../components/ui/textarea';
 import apiClient from '../../api/client';
 import useToast from '../../hooks/useToast';
+import { getCentreName } from '../../constants/centreMap';
 
 const ApproveProjects = () => {
     const { setLayout } = useLayout();
@@ -701,7 +702,7 @@ const ApproveProjects = () => {
                                     </div>
                                     <div>
                                         <p className="text-sm font-semibold text-gray-500 dark:text-gray-400">Research Centre</p>
-                                        <p className="text-base font-semibold mt-1 dark:text-white">{selectedProject.centre}</p>
+                                        <p className="text-base font-semibold mt-1 dark:text-white">{getCentreName(selectedProject.centre)}</p>
                                     </div>
                                     <div>
                                         <p className="text-sm font-semibold text-gray-500 dark:text-gray-400">Budget Requested</p>
@@ -726,7 +727,7 @@ const ApproveProjects = () => {
                                 <div className="pt-4 border-t dark:border-slate-800">
                                     <p className="text-sm font-semibold text-gray-500 dark:text-gray-400 mb-2">Project Description</p>
                                     <p className="text-sm text-gray-700 dark:text-gray-300">
-                                        This research project aims to develop innovative solutions in the field of {selectedProject.centre}.
+                                        This research project aims to develop innovative solutions in the field of {getCentreName(selectedProject.centre)}.
                                         The project will span 24 months and involve collaboration with industry partners under the {selectedProject.agency} grant scheme.
                                     </p>
                                 </div>
@@ -889,7 +890,7 @@ const ApproveProjects = () => {
                                         <option value="">-- Select Faculty --</option>
                                         {FACULTY_MEMBERS.map((faculty) => (
                                             <option key={faculty.id} value={faculty.name}>
-                                                {faculty.name} ({faculty.department}) - {faculty.centre}
+                                                {faculty.name} ({getCentreName(faculty.department)}) - {getCentreName(faculty.centre)}
                                             </option>
                                         ))}
                                     </select>
@@ -909,7 +910,7 @@ const ApproveProjects = () => {
                                                 <div className="flex items-center justify-between">
                                                     <div>
                                                         <p className="font-semibold text-sm dark:text-white">{faculty.name}</p>
-                                                        <p className="text-xs text-gray-500 dark:text-gray-400">{faculty.department} • {faculty.centre}</p>
+                                                        <p className="text-xs text-gray-500 dark:text-gray-400">{getCentreName(faculty.department)} • {getCentreName(faculty.centre)}</p>
                                                     </div>
                                                     {manageFacultyModal.selectedFaculty === faculty.name && (
                                                         <CheckCircle className="w-5 h-5 text-blue-600 dark:text-blue-400" />

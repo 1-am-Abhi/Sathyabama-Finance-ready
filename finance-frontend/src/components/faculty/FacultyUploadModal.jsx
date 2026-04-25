@@ -3,6 +3,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../../componen
 import { Button } from '../../components/ui/button';
 import { Upload, FileText, CheckCircle2, AlertCircle, Loader2, Download } from 'lucide-react';
 import apiClient from '../../api/client';
+import { getCentreName } from '../../constants/centreMap';
 
 const FacultyUploadModal = ({ isOpen, onClose, onUploadSuccess }) => {
     const [file, setFile] = useState(null);
@@ -171,7 +172,7 @@ const FacultyUploadModal = ({ isOpen, onClose, onUploadSuccess }) => {
                                             <tr key={i} className={!row.isValid || row.isDuplicate ? 'bg-red-50/30' : ''}>
                                                 <td className="px-4 py-3 font-medium">{row.name}</td>
                                                 <td className="px-4 py-3 text-gray-600">{row.email}</td>
-                                                <td className="px-4 py-3 text-gray-600">{row.department}</td>
+                                                <td className="px-4 py-3 text-gray-600">{getCentreName(row.department)}</td>
                                                 <td className="px-4 py-3">
                                                     {row.isDuplicate ? (
                                                         <span className="text-xs font-bold px-2 py-1 bg-amber-100 text-amber-700 rounded-md">Duplicate ({row.duplicateType})</span>

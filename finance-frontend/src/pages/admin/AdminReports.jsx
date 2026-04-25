@@ -26,6 +26,7 @@ import ResearchCentreDetail from './ResearchCentreDetail';
 import * as XLSX from 'xlsx';
 import apiClient from '../../api/client';
 import { safeApi, safeApiObj } from '../../api/safeApi';
+import { getCentreName } from '../../constants/centreMap';
 
 const AdminReports = () => {
     const { setLayout } = useLayout();
@@ -737,7 +738,7 @@ const AdminReports = () => {
                                                 className="hover:bg-gray-50 dark:hover:bg-slate-800/50 dark:border-slate-800 cursor-pointer"
                                                 onClick={() => setSelectedCentreDetail(dept.centre)}
                                             >
-                                                <TableCell className="font-semibold dark:text-gray-200">{dept.centre}</TableCell>
+                                                <TableCell className="font-semibold dark:text-gray-200">{getCentreName(dept.centre)}</TableCell>
                                                 <TableCell>
                                                     <Badge variant="default" className="dark:bg-slate-800 dark:text-gray-300 border-0">{dept.projects}</Badge>
                                                 </TableCell>
@@ -926,7 +927,7 @@ const AdminReports = () => {
                                             className="hover:bg-gray-50 dark:hover:bg-slate-800/50 cursor-pointer"
                                             onClick={() => setSelectedCentreDetail(dept.centre)}
                                         >
-                                            <TableCell className="font-medium">{dept.centre}</TableCell>
+                                            <TableCell className="font-medium">{getCentreName(dept.centre)}</TableCell>
                                             <TableCell className="text-green-600 font-bold">{formatCurrency(dept.budget)}</TableCell>
                                             <TableCell>{formatCurrency(dept.disbursed)}</TableCell>
                                             <TableCell>
@@ -1061,7 +1062,7 @@ const AdminReports = () => {
                                     {facultyMockData.map((fac) => (
                                         <TableRow key={fac.id}>
                                             <TableCell className="dark:text-gray-300 font-black italic uppercase tracking-tighter">{fac.name}</TableCell>
-                                            <TableCell className="dark:text-gray-400">{fac.centre}</TableCell>
+                                            <TableCell className="dark:text-gray-400">{getCentreName(fac.centre)}</TableCell>
                                             <TableCell className="text-blue-600 font-black italic tracking-tighter">{fac.projects}</TableCell>
                                             <TableCell className="text-green-600">{formatCurrency(fac.grants)}</TableCell>
                                         </TableRow>
@@ -1113,7 +1114,7 @@ const AdminReports = () => {
                                     </div>
                                     <div>
                                         <p className="text-sm font-semibold text-gray-500 dark:text-gray-400">Research Centre</p>
-                                        <p className="text-base font-semibold mt-1 dark:text-white truncate" title={activeProject.centre}>{activeProject.centre}</p>
+                                        <p className="text-base font-semibold mt-1 dark:text-white truncate" title={getCentreName(activeProject.centre)}>{getCentreName(activeProject.centre)}</p>
                                     </div>
                                     <div>
                                         <p className="text-sm font-semibold text-gray-500 dark:text-gray-400">Requested Amount</p>
@@ -1266,7 +1267,7 @@ const AdminReports = () => {
                                         <option value="">-- Select Faculty --</option>
                                         {FACULTY_MEMBERS.map((faculty) => (
                                             <option key={faculty.id} value={faculty.name}>
-                                                {faculty.name} ({faculty.department}) - {faculty.centre}
+                                                {faculty.name} ({getCentreName(faculty.department)}) - {getCentreName(faculty.centre)}
                                             </option>
                                         ))}
                                     </select>
@@ -1286,7 +1287,7 @@ const AdminReports = () => {
                                                 <div className="flex items-center justify-between">
                                                     <div>
                                                         <p className="font-semibold text-sm dark:text-white">{faculty.name}</p>
-                                                        <p className="text-xs text-gray-500 dark:text-gray-400">{faculty.department} • {faculty.centre}</p>
+                                                        <p className="text-xs text-gray-500 dark:text-gray-400">{getCentreName(faculty.department)} • {getCentreName(faculty.centre)}</p>
                                                     </div>
                                                     {manageFacultyModal.selectedFaculty === faculty.name && (
                                                         <CheckCircle className="w-5 h-5 text-blue-600 dark:text-blue-400" />

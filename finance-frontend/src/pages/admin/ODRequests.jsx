@@ -14,6 +14,7 @@ import AIResultModal from '../../components/shared/AIResultModal';
 import { summarizeRequest } from '../../services/aiService';
 import { useNotifications } from '../../contexts/NotificationContext';
 import apiClient from '../../api/client';
+import { getCentreName } from '../../constants/centreMap';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSameDay, addMonths, subMonths, isWithinInterval, parseISO, isPast, addHours, differenceInHours } from 'date-fns';
 import * as XLSX from 'xlsx';
 import useToast from '../../hooks/useToast';
@@ -117,7 +118,7 @@ const ODCalendar = ({ requests, holidays, onDateClick, selectedDate, onRequestCl
                                                         <>
                                                             <p className="font-semibold">{event.faculty}</p>
                                                             <p className="text-xs">{event.purpose}</p>
-                                                            <p className="text-xs italic">{event.department}</p>
+                                                            <p className="text-xs italic">{getCentreName(event.department)}</p>
                                                             <p className="text-xs font-mono mt-1">{event.status}</p>
                                                             <p className="text-[10px] opacity-75">(Click for details)</p>
                                                         </>
@@ -519,7 +520,7 @@ const ODRequests = () => {
                             className="flex items-center gap-2"
                             onClick={() => setFilterOpen(!filterOpen)}
                         >
-                            <Filter className="w-4 h-4" /> {centreFilter === 'All' ? 'Research Centres' : centreFilter}
+                            <Filter className="w-4 h-4" /> {centreFilter === 'All' ? 'Research Centres' : getCentreName(centreFilter)}
                         </Button>
                         {filterOpen && (
                             <div className="absolute right-0 top-full mt-2 w-56 bg-white dark:bg-slate-800 rounded-md shadow-lg border border-gray-200 dark:border-slate-700 z-50 py-1">
@@ -529,7 +530,7 @@ const ODRequests = () => {
                                         className={`px-4 py-2 text-sm cursor-pointer hover:bg-gray-100 dark:hover:bg-slate-700 ${centreFilter === centre ? 'font-bold text-blue-600' : 'text-gray-700 dark:text-gray-300'}`}
                                         onClick={() => { setCentreFilter(centre); setFilterOpen(false); }}
                                     >
-                                        {centre}
+                                        {getCentreName(centre)}
                                     </div>
                                 )}
                             </div>
@@ -561,7 +562,7 @@ const ODRequests = () => {
                                     className="bg-white border-b dark:bg-slate-900 dark:border-slate-800 hover:bg-gray-50 dark:hover:bg-slate-800/50 cursor-pointer transition-colors"
                                 >
                                     <td className="px-6 py-4 font-medium dark:text-white">{req.faculty}</td>
-                                    <td className="px-6 py-4 dark:text-gray-300">{req.researchCentre}</td>
+                                    <td className="px-6 py-4 dark:text-gray-300">{getCentreName(req.researchCentre)}</td>
                                     <td className="px-6 py-4 dark:text-gray-300">{req.purpose}</td>
                                     <td className="px-6 py-4 dark:text-gray-300">{req.dates}</td>
                                     <td className="px-6 py-4">
@@ -795,7 +796,7 @@ const ODRequests = () => {
                                 </div>
                                 <div>
                                     <h4 className="font-semibold text-lg leading-none">{selectedRequest.faculty}</h4>
-                                    <p className="text-sm text-gray-500">{selectedRequest.department}</p>
+                                    <p className="text-sm text-gray-500">{getCentreName(selectedRequest.department)}</p>
                                 </div>
                             </div>
 

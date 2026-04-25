@@ -14,6 +14,7 @@ import { FUND_SOURCE_OPTIONS } from '../../constants/fundSources';
 import AIResultModal from '../../components/shared/AIResultModal';
 import { summarizeRequest } from '../../services/aiService';
 import apiClient from '../../api/client';
+import { getCentreName } from '../../constants/centreMap';
 import { toast } from 'sonner';
 
 const safeNumber = (value) => {
@@ -467,11 +468,11 @@ const ApproveFundRequests = () => {
                                     <div>
                                         <p className="text-sm font-semibold text-gray-500 dark:text-gray-400">Principal Investigator</p>
                                         <p className="text-base font-semibold mt-1 dark:text-white">{selectedRequest.faculty}</p>
-                                        <p className="text-xs text-gray-400">{selectedRequest.department}</p>
+                                        <p className="text-xs text-gray-400">{getCentreName(selectedRequest.department)}</p>
                                     </div>
                                     <div>
                                         <p className="text-sm font-semibold text-gray-500 dark:text-gray-400">Research Centre</p>
-                                        <p className="text-base font-semibold mt-1 dark:text-white">{selectedRequest.centre}</p>
+                                        <p className="text-base font-semibold mt-1 dark:text-white">{getCentreName(selectedRequest.centre)}</p>
                                     </div>
                                     <div>
                                         <p className="text-sm font-semibold text-gray-500 dark:text-gray-400">Submitted On</p>

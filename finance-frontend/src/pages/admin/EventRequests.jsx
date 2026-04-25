@@ -13,6 +13,7 @@ import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSam
 import AIResultModal from '../../components/shared/AIResultModal';
 import { analyzeEventFeasibility } from '../../services/aiService';
 import apiClient from '../../api/client';
+import { getCentreName } from '../../constants/centreMap';
 import { useNotifications } from '../../contexts/NotificationContext';
 import { useNavigate } from 'react-router-dom';
 
@@ -1043,7 +1044,7 @@ const EventRequests = () => {
                                                 {isMember && <Badge className="text-[9px] bg-slate-800 text-slate-400 border-slate-700">Team Member</Badge>}
                                             </div>
                                         </div>
-                                        <p className="text-[10px] text-slate-500">{faculty.centre} • {faculty.email}</p>
+                                        <p className="text-[10px] text-slate-500">{getCentreName(faculty.centre)} • {faculty.email}</p>
                                     </div>
                                 </div>
                             );

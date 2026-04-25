@@ -16,6 +16,7 @@ import { useCentres } from '../../hooks/useCentres';
 import apiClient from '../../api/client';
 import FacultyUploadModal from '../../components/faculty/FacultyUploadModal';
 import FacultyAnalytics from '../../components/faculty/FacultyAnalytics';
+import { getCentreName } from '../../constants/centreMap';
 
 const ManageFaculty = () => {
     const { setLayout } = useLayout();
@@ -109,7 +110,7 @@ const ManageFaculty = () => {
                         name: u.name,
                         username: u.email.split('@')[0],
                         email: u.email,
-                        centre: normalizeCentreName(u.centre),
+                        centre: getCentreName(u.centre),
                         status: u.status || 'Active',
                         projectCount: Number(u.projectCount ?? u.projectsCount ?? 0),
                         department: u.department,
@@ -129,11 +130,7 @@ const ManageFaculty = () => {
     const [selectedFaculty, setSelectedFaculty] = useState(null);
     const [selectedProject, setSelectedProject] = useState(null);
 
-    const normalizeCentreName = (name) => {
-        if (!name) return 'Not Assigned';
-        if (name === 'CMNS') return 'Centre for Molecular and Nanomedical Sciences';
-        return name;
-    };
+    // getCentreName is imported from constants/centreMap
 
     // Modals
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -297,7 +294,7 @@ const ManageFaculty = () => {
                     name: addedUser.name,
                     username: addedUser.email.split('@')[0],
                     email: addedUser.email,
-                    centre: normalizeCentreName(addedUser.centre),
+                    centre: getCentreName(addedUser.centre),
                     status: newFaculty.status,
                     projectCount: 0,
                     role: addedUser.role
@@ -488,7 +485,7 @@ const ManageFaculty = () => {
                                         >
                                             <option value="All">All Research Centres</option>
                                             {(dynamicCentres ?? []).map(centre => (
-                                                <option key={centre._id || centre.name} value={centre.name}>{normalizeCentreName(centre.name)}</option>
+                                                <option key={centre._id || centre.name} value={centre.name}>{getCentreName(centre.name)}</option>
                                             ))}
                                         </select>
                                     </div>

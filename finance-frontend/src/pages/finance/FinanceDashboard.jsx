@@ -11,6 +11,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { useLayout } from '../../contexts/LayoutContext';
 import { useFinanceStats, useFundFlowProjects, useInternshipFees, usePFMSTransactions } from '../../hooks/useFinance';
+import { getCentreName } from '../../constants/centreMap';
 
 const FinanceDashboard = () => {
     const { setLayout } = useLayout();
@@ -135,7 +136,7 @@ const FinanceDashboard = () => {
                                                     <div className="flex-1">
                                                         <h3 className="font-semibold text-gray-900">{project.title}</h3>
                                                         <p className="text-sm text-gray-600 mt-1">
-                                                            {project.pi} • {project.department}
+                                                            {project.pi} • {getCentreName(project.department)}
                                                         </p>
                                                     </div>
                                                     <Badge className={`${project.status === 'AMOUNT_DISBURSED' ? 'bg-green-100 text-green-700' :
