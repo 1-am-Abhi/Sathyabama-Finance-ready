@@ -346,8 +346,8 @@ const DisbursementQueue = () => {
             {/* Execution Modal */}
             {isModalOpen && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-                    <div className="bg-white dark:bg-slate-900 w-full max-w-2xl h-[90vh] overflow-y-auto rounded-xl shadow-2xl animate-in fade-in zoom-in duration-200 border border-slate-200 dark:border-slate-800">
-                        <div className="sticky top-0 z-10 border-b border-slate-100 dark:border-slate-800 bg-gradient-to-r from-slate-950 to-maroon-800 text-white p-6 rounded-t-xl">
+                    <div className="bg-white dark:bg-slate-900 w-full max-w-2xl max-h-[90vh] flex flex-col rounded-xl shadow-2xl animate-in fade-in zoom-in duration-200 border border-slate-200 dark:border-slate-800">
+                        <div className="border-b border-slate-100 dark:border-slate-800 bg-gradient-to-r from-slate-950 to-maroon-800 text-white p-6 rounded-t-xl shrink-0">
                             <div className="space-y-2">
                                 <Badge className="bg-white/10 text-white border-0 w-fit">
                                     Installment #{selectedInstallmentNumber}
@@ -356,8 +356,8 @@ const DisbursementQueue = () => {
                                 <p className="text-sm text-slate-200">Enter transaction details to finalize the payment.</p>
                             </div>
                         </div>
-                        <form onSubmit={handleSubmit}>
-                            <div className="p-6 space-y-4">
+                        <form onSubmit={handleSubmit} className="flex flex-col overflow-hidden">
+                            <div className="p-6 space-y-4 overflow-y-auto flex-1">
                                 <div className="p-3 bg-maroon-50 dark:bg-maroon-900/20 rounded-lg border border-maroon-100 dark:border-maroon-800 space-y-1">
                                     <p className="text-xs text-maroon-600 dark:text-maroon-400 font-bold uppercase tracking-wider">Payable To</p>
                                     <p className="text-sm font-semibold">{selectedRequest?.Project?.pi || selectedRequest?.Project?.piName || selectedRequest?.faculty}</p>
@@ -414,7 +414,7 @@ const DisbursementQueue = () => {
                                     </div>
                                 )}
 
-                                <div className="space-y-4 overflow-y-auto max-h-[40vh] pr-1">
+                                <div className="space-y-4">
                                     <div className="space-y-2">
                                         <label className="text-xs font-black uppercase text-slate-500 flex items-center gap-2">
                                             <Hash className="w-3 h-3" /> Transaction ID / UTR
@@ -468,7 +468,7 @@ const DisbursementQueue = () => {
                                     </div>
                                 </div>
                             </div>
-                                <div className="p-6 border-t border-slate-100 dark:border-slate-800 flex gap-3">
+                            <div className="p-6 border-t border-slate-100 dark:border-slate-800 flex gap-3 shrink-0">
                                 <Button 
                                     type="button" 
                                     variant="outline" 
