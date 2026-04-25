@@ -13,8 +13,10 @@ export const useCentres = () => {
             const centresData = await getResearchCentres();
 
             // PHASE 2: SAFE DATA NORMALIZATION (MINIMAL)
+            const generateId = () => Date.now().toString(36) + Math.random().toString(36).substring(2, 7);
+            
             const normalizeCentre = (c) => ({
-                _id: c?._id || Math.random().toString(36).substring(2, 9),
+                _id: c?._id || generateId(),
                 name: typeof c === "string" ? c : c?.name || "Unknown"
             });
 
