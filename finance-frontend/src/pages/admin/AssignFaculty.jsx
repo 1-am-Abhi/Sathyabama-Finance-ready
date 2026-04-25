@@ -370,7 +370,12 @@ const ManageFaculty = () => {
         if (selectedCentre === "All") return true;
 
         if (selectedCentre === "Others") {
-            return centre && !MAPPED_CENTRES.includes(centre);
+            return (
+                centre &&
+                typeof centre === "string" &&
+                centre !== "Not Assigned" &&
+                !MAPPED_CENTRES.includes(centre)
+            );
         }
 
         const selectedCode = REVERSE_MAP[selectedCentre] || selectedCentre;
