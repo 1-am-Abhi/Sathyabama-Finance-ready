@@ -33,14 +33,22 @@ const resolveCentreAssignment = async (centreInput, centreIdInput) => {
         if (centreIdInput) {
             const centre = await ResearchCenterModel.findByPk(centreIdInput);
             if (centre) {
-                return { centreId: centre._id || centre.id, centre: centre.name };
+                return { 
+                    centreId: centre._id || centre.id, 
+                    researchCenterId: centre._id || centre.id,
+                    centre: centre.name 
+                };
             }
         }
 
         if (centreInput) {
             const centre = await ResearchCenterModel.findOne({ where: { name: centreInput } });
             if (centre) {
-                return { centreId: centre._id || centre.id, centre: centre.name };
+                return { 
+                    centreId: centre._id || centre.id, 
+                    researchCenterId: centre._id || centre.id,
+                    centre: centre.name 
+                };
             }
             return { centreId: null, centre: centreInput };
         }
@@ -257,6 +265,7 @@ const updateProject = asyncHandler(async (req, res) => {
         );
         updateData.centre = centreAssignment.centre;
         updateData.centreId = centreAssignment.centreId;
+        updateData.researchCenterId = centreAssignment.researchCenterId;
     }
     
     if (req.body.proofStatus === 'REJECTED') {
@@ -286,6 +295,7 @@ const updateProject = asyncHandler(async (req, res) => {
                     department: project.department || 'Research',
                     centre: project.centre || 'Research Centre',
                     centreId: project.centreId || null,
+                    researchCenterId: project.researchCenterId || null,
                     source: normalizeFundSource(project.fundingSource || 'INSTITUTIONAL'),
                 },
             });

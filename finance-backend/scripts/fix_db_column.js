@@ -1,23 +1,26 @@
-const { sequelize } = require('./src/config/db');
+const { sequelize } = require('../src/config/db');
 
 async function fixColumn() {
   try {
-    console.log('Adding researchCenterId column to Projects table...');
-    // Use IF NOT EXISTS to avoid errors if the column was already added
+    console.log('--- Step 1: Projects table ---');
     await sequelize.query('ALTER TABLE "Projects" ADD COLUMN IF NOT EXISTS "researchCenterId" UUID;');
-    
-    console.log('Adding foreign key constraint...');
     try {
-        await sequelize.query('ALTER TABLE "Projects" ADD CONSTRAINT "fk_research_center" FOREIGN KEY ("researchCenterId") REFERENCES "ResearchCenters"("_id") ON DELETE SET NULL;');
-    } catch (e) {
-        if (e.name === 'SequelizeDatabaseError' && e.message.includes('already exists')) {
-            console.log('Constraint already exists, skipping.');
-        } else {
-            console.warn('Foreign key constraint could not be added (it might already exist or the table structure is slightly different):', e.message);
-        }
-    }
-    
-    console.log('Database fix completed successfully.');
+        await sequelize.query('ALTER TABLE "Projects" ADD CONSTRAINT "fk_research_center_projects" FOREIGN KEY ("researchCenterId") REFERENCES "ResearchCenters"("_id") ON DELETE SET NULL;');
+    } catch (e) { console.log('Constraint on Projects already exists or skipped.'); }
+
+    console.log('--- Step 2: Users table ---');
+    await sequelize.query('ALTER TABLE "Users" ADD COLUMN IF NOT EXISTS "researchCenterId" UUID;');
+    try {
+        await sequelize.query('ALTER TABLE "Users" ADD CONSTRAINT "fk_research_center_users" FOREIGN KEY ("researchCenterId") REFERENCES "ResearchCenters"("_id") ON DELETE SET NULL;');
+    } catch (e) { console.log('Constraint on Users already exists or skipped.'); }
+
+    console.log('--- Step 3: FundRequests table ---');
+    await sequelize.query('ALTER TABLE "FundRequests" ADD COLUMN IF NOT EXISTS "researchCenterId" UUID;');
+    try {
+        await sequelize.query('ALTER TABLE "FundRequests" ADD CONSTRAINT "fk_research_center_fundrequests" FOREIGN KEY ("researchCenterId") REFERENCES "ResearchCenters"("_id") ON DELETE SET NULL;');
+    } catch (e) { console.log('Constraint on FundRequests already exists or skipped.'); }
+
+    console.log('Database schema fix completed successfully.');
     process.exit(0);
   } catch (error) {
     console.error('Failed to fix database:', error.message);
