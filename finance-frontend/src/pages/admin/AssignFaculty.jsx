@@ -364,21 +364,21 @@ const ManageFaculty = () => {
     );
 
     const filteredFaculty = faculties.filter((item) => {
-        let centre = typeof item.researchCenter === "object" ? item.researchCenter?.name : item.researchCenter;
+        let centre =
+            typeof item.centre === "object"
+                ? item.centre?.name
+                : item.centre;
+
         centre = REVERSE_MAP[centre] || centre;
 
         if (selectedCentre === "All") return true;
 
         if (selectedCentre === "Others") {
-            return (
-                centre &&
-                typeof centre === "string" &&
-                centre !== "Not Assigned" &&
-                !MAPPED_CENTRES.includes(centre)
-            );
+            return centre && !MAPPED_CENTRES.includes(centre);
         }
 
         const selectedCode = REVERSE_MAP[selectedCentre] || selectedCentre;
+
         return centre === selectedCode;
     });
 
