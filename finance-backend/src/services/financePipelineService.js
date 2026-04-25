@@ -285,7 +285,7 @@ const executeDisbursementPipeline = async (request, payload, actor) => {
     return sequelize.transaction(async (transaction) => {
         // 2. ELITE-LEVEL CONCURRENCY LOCK (Lock Project to serialize all payments for it)
         const project = await Project.findOne({
-            where: { id: request.projectId },
+            where: { _id: request.projectId },
             transaction,
             lock: transaction.LOCK.UPDATE
         });
