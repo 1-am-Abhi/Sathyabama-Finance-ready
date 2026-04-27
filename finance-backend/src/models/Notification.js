@@ -19,17 +19,15 @@ const Notification = sequelize.define('Notification', {
     },
     title: {
         type: DataTypes.STRING,
-        allowNull: true,
-        defaultValue: 'Notification'
+        allowNull: false
     },
     message: {
-        type: DataTypes.STRING(1000),
-        allowNull: true
+        type: DataTypes.STRING,
+        allowNull: false
     },
     type: {
-        type: DataTypes.STRING, // Changed from ENUM to STRING to fix migration crash
-        defaultValue: 'INFO',
-        allowNull: true
+        type: DataTypes.STRING,
+        defaultValue: 'INFO'
     },
     relatedId: {
         type: DataTypes.STRING,
@@ -39,10 +37,6 @@ const Notification = sequelize.define('Notification', {
     isRead: {
         type: DataTypes.BOOLEAN,
         defaultValue: false
-    },
-    createdBy: {
-        type: DataTypes.STRING,
-        defaultValue: 'System'
     }
 }, {
     timestamps: true

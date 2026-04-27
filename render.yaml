@@ -24,6 +24,8 @@ services:
         value: 5000
       - key: FRONTEND_URL
         value: https://finance-frontend-pxh9.onrender.com
+      - key: REDIS_URL
+        sync: false
 
   - type: web
     name: finance-frontend

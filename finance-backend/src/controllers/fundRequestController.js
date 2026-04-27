@@ -184,28 +184,18 @@ const getFundRequests = asyncHandler(async (req, res) => {
                 });
             } catch (fallbackError) {
                 console.error('[FundRequestController] Fallback fund request query failed:', fallbackError.message);
-                return res.status(200).json({
-                    success: true,
-                    data: [],
-                    meta: {
-                        total: 0,
-                        page,
-                        limit,
-                        totalPages: 0,
-                    }
+                return res.status(500).json({
+                    success: false,
+                    message: 'Failed to retrieve fund requests',
+                    error: fallbackError.message
                 });
             }
         } else {
             console.error('[FundRequestController] Non-ResearchCenter query failure:', queryError);
-            return res.status(200).json({
-                success: true,
-                data: [],
-                meta: {
-                    total: 0,
-                    page,
-                    limit,
-                    totalPages: 0,
-                }
+            return res.status(500).json({
+                success: false,
+                message: 'Failed to retrieve fund requests',
+                error: queryError.message
             });
         }
     }

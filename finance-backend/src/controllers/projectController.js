@@ -76,9 +76,10 @@ const getAdminStats = asyncHandler(async (req, res) => {
         });
     } catch (error) {
         console.error('[ProjectController] getAdminStats failed:', error.message);
-        return res.status(200).json({
-            success: true,
-            data: getEmptyAdminStatsData(),
+        return res.status(500).json({
+            success: false,
+            message: 'Failed to retrieve admin stats',
+            error: error.message
         });
     }
 });
@@ -138,10 +139,10 @@ const getProjects = asyncHandler(async (req, res) => {
             });
         } catch (fallbackError) {
             console.error('[ProjectController] getProjects fallback failed:', fallbackError.message);
-            return res.status(200).json({
-                success: true,
-                data: [],
-                meta: { count: 0 },
+            return res.status(500).json({
+                success: false,
+                message: 'Failed to retrieve projects',
+                error: fallbackError.message
             });
         }
     }

@@ -15,10 +15,10 @@ exports.getForecastBase = async (req, res) => {
         });
     } catch (error) {
         console.error('[AnalyticsController] getForecastBase failed:', error.message);
-        res.status(200).json({
-            success: true,
-            count: 0,
-            data: []
+        res.status(500).json({
+            success: false,
+            message: 'Failed to generate forecast dataset',
+            error: error.message
         });
     }
 };
@@ -36,13 +36,10 @@ exports.getInsights = async (req, res) => {
         });
     } catch (error) {
         console.error('[AnalyticsController] getInsights failed:', error.message);
-        res.status(200).json({
-            success: true,
-            data: {
-                avgDailySpend: 0,
-                insights: [],
-                period: 'Last 30 Days'
-            }
+        res.status(500).json({
+            success: false,
+            message: 'Failed to compute insights',
+            error: error.message
         });
     }
 };

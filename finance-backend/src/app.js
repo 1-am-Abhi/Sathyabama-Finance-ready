@@ -123,25 +123,7 @@ app.use((err, req, res, next) => {
         method: req.method
     });
 
-    const normalizedPath = req.originalUrl.replace(/^\/api(?:\/v1)?/, '');
-    const isProjectsListRoute = /^\/projects\/?$/.test(normalizedPath) || /^\/faculty\/projects\/?$/.test(normalizedPath);
-    const isFundRequestsRoute = /^\/fund-requests\/?$/.test(normalizedPath) || /^\/faculty\/fund-requests\/?$/.test(normalizedPath);
-    const isProjectStatsRoute = /^\/projects\/stats\/?$/.test(normalizedPath) || /^\/faculty\/projects\/stats\/?$/.test(normalizedPath);
-
-    if (isProjectStatsRoute) {
-        return res.status(200).json({
-            success: true,
-            data: getEmptyAdminStatsData(),
-        });
-    }
-
-    if (isProjectsListRoute || isFundRequestsRoute) {
-        return res.status(200).json({
-            success: true,
-            data: [],
-        });
-    }
-
+    // Removed silent failure interceptions for projects, stats, and fund requests
     res.status(status).json({
         success: false,
         message: err.message || 'Internal Server Error',

@@ -16,15 +16,27 @@ const createNotification = asyncHandler(async (req, res) => {
 
     if (!targetUserId && role) {
         console.log(`[NotificationController] Broadcasting to role: ${role}`);
-        const notifications = await NotificationService.notifyRole(
-            role,
-            title || 'Notification',
-            message,
-            normalizeType(type),
-            relatedId || actionUrl || null
-        );
+        let notifications;
+        try {
+            notifications = await NotificationService.notifyRole(
+                role,
+                title || 'Notification',
+                message,
+                normalizeType(type),
+                relatedId || actionUrl || null
+            );
+        } catch (error) {
+            if (error.message.includes('No users found')) {
+                return res.status(404).json({ success: false, message: 'No users found for role' });
+            }
+            throw error;
+        }
 
-        return res.status(201).json({ success: true, data: notifications || [] });
+        if (!notifications || notifications.length === 0) {
+            return res.status(404).json({ success: false, message: 'No users found for role' });
+        }
+
+        return res.status(201).json({ success: true, data: notifications });
     }
 
     const target = targetUserId || req.user?.id || req.user?._id;

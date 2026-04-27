@@ -5,7 +5,10 @@ import apiClient from '../api/client';
 import { useAuth } from './AuthContext';
 
 const NotificationContext = createContext(null);
-const SOCKET_URL = (process.env.REACT_APP_API_URL || 'https://finance-api-x1ig.onrender.com').replace(/\/api\/?$/, '');
+if (!process.env.REACT_APP_API_URL) {
+    throw new Error('REACT_APP_API_URL environment variable is missing.');
+}
+const SOCKET_URL = process.env.REACT_APP_API_URL.replace(/\/api\/?$/, '');
 
 const normalizeNotification = (notification) => ({
     ...notification,

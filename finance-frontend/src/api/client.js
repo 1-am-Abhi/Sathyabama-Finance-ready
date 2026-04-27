@@ -1,7 +1,10 @@
 import axios from 'axios';
 import { toast } from 'sonner';
 
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'https://finance-api-x1ig.onrender.com/api';
+if (!process.env.REACT_APP_API_URL) {
+    throw new Error('REACT_APP_API_URL environment variable is missing.');
+}
+const API_BASE_URL = process.env.REACT_APP_API_URL;
 
 
 

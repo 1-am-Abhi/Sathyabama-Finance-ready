@@ -25,7 +25,7 @@ const SystemStatus = () => {
             }
         };
 
-        const socket = io((process.env.REACT_APP_API_URL || 'https://finance-api-x1ig.onrender.com').replace(/\/api\/?$/, ''), {
+        const socket = io(process.env.REACT_APP_API_URL.replace(/\/api\/?$/, ''), {
             auth: { token: localStorage.getItem('token') },
             transports: ['websocket', 'polling']
         });

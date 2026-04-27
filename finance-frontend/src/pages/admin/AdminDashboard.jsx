@@ -204,7 +204,7 @@ const AdminDashboard = () => {
         };
         fetchInsights();
 
-        const socketUrl = (process.env.REACT_APP_API_URL || 'https://finance-api-x1ig.onrender.com').replace(/\/api\/?$/, '');
+        const socketUrl = process.env.REACT_APP_API_URL.replace(/\/api\/?$/, '');
         const token = localStorage.getItem('token');
 
         const socket = io(socketUrl, {
