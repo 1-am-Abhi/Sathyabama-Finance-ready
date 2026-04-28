@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { Card, CardContent } from "../../components/ui/card";
 import { Button } from "../../components/ui/button";
 import { usePipeline } from "../../contexts/PipelineContext";
 import { useAuth } from "../../contexts/AuthContext";
@@ -149,87 +148,158 @@ const FacultyRequestFunds = () => {
     }
   };
 
-  if (isLoading) return <div>Loading...</div>;
+  if (isLoading) return <div className="p-8 text-center text-white">Loading...</div>;
 
   return (
-    <div className="p-6 space-y-6">
-      {/* Summary */}
-      <div className="grid grid-cols-3 gap-4">
-        <Card>
-          <CardContent>
-            <p>Total Budget</p>
-            <h2>{formatCurrency(sanctionedAmount)}</h2>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent>
-            <p>Released</p>
-            <h2>{formatCurrency(releasedAmount)}</h2>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent>
-            <p>Remaining</p>
-            <h2>{formatCurrency(remainingAmount)}</h2>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* DEBUG VISIBILITY (TEMP) - Task 8 */}
-      <div className="bg-yellow-100 p-2 text-xs border border-yellow-300">
-        <p>DEBUG → Remaining: {remainingAmount}</p>
-        <p>DEBUG → Released (Backend): {selectedProject?.releasedBudget}</p>
-        <p>DEBUG → Sanctioned: {sanctionedAmount}</p>
-      </div>
-
-      {/* Project Selector */}
-      <div className="flex gap-2 flex-wrap">
+    <div className="flex h-full min-h-[calc(100vh-4rem)] bg-slate-950 text-slate-200">
+      {/* LEFT PANEL - Project Selector */}
+      <div className="w-1/3 border-r border-slate-800 p-6 overflow-y-auto space-y-4">
+        <h2 className="font-bold text-xl text-white mb-6">Your Projects</h2>
         {projectList.map((p) => {
           const id = p._id || p.id;
           const isActive = id === selectedProjectId;
+          
+          const pSanctioned = Number(p?.sanctionedBudget || 0);
+          const pReleased =
+            p?.releasedBudget !== undefined && p?.releasedBudget !== null
+              ? Number(p.releasedBudget)
+              : (p?.Disbursements || []).reduce(
+                  (sum, d) => sum + Number(d.amount || 0),
+                  0
+                );
+          const pRemaining = Math.max(pSanctioned - pReleased, 0);
+
           return (
-            <button 
+            <div 
               key={id} 
               onClick={() => setSelectedProjectId(id)}
-              className={`px-4 py-2 rounded ${isActive ? 'bg-blue-600 text-white' : 'bg-gray-200'}`}
+              className={`p-5 rounded-xl cursor-pointer transition-all shadow-sm ${isActive ? 'bg-blue-900 border border-blue-500 shadow-blue-900/20' : 'bg-[#1e293b] hover:bg-slate-800 border border-transparent'}`}
             >
-              {p.title}
-            </button>
+              <h3 className="font-semibold text-white leading-tight mb-2">{p.title}</h3>
+              <p className="text-sm text-blue-300 font-medium">Remaining: {formatCurrency(pRemaining)}</p>
+            </div>
           );
         })}
+        {projectList.length === 0 && (
+          <p className="text-gray-500 italic text-sm">No projects assigned.</p>
+        )}
       </div>
 
-      {/* Request Button */}
-      {selectedProject && (
-        <div className="text-center space-y-4">
-          <h2 className="text-xl font-bold">{selectedProject.title}</h2>
+      {/* RIGHT PANEL - Main Content */}
+      <div className="w-2/3 p-8 overflow-y-auto">
+        {selectedProject ? (
+          <div className="space-y-8 max-w-4xl mx-auto">
+            {/* TOP - Metrics Cards */}
+            <div className="grid grid-cols-3 gap-6">
+              <div className="bg-[#1e293b] p-6 rounded-xl border border-slate-800 shadow-sm">
+                <p className="text-gray-400 text-sm mb-2 font-medium uppercase tracking-wider">Total Budget</p>
+                <h2 className="text-2xl font-bold text-white">{formatCurrency(sanctionedAmount)}</h2>
+              </div>
+              <div className="bg-[#1e293b] p-6 rounded-xl border border-slate-800 shadow-sm">
+                <p className="text-gray-400 text-sm mb-2 font-medium uppercase tracking-wider">Released</p>
+                <h2 className="text-2xl font-bold text-white">{formatCurrency(releasedAmount)}</h2>
+              </div>
+              <div className="bg-[#1e293b] p-6 rounded-xl border border-slate-800 shadow-sm">
+                <p className="text-gray-400 text-sm mb-2 font-medium uppercase tracking-wider">Remaining</p>
+                <h2 className="text-2xl font-bold text-green-400">{formatCurrency(remainingAmount)}</h2>
+              </div>
+            </div>
 
-          <Button
-            disabled={!canRequest}
-            onClick={() => setShowModal(true)}
-          >
-            {!isPI
-              ? "PI Only"
-              : remainingAmount <= 0
-              ? "Budget Exhausted"
-              : "Request Installment"}
-          </Button>
-        </div>
-      )}
+            {/* CENTER - Action Section */}
+            <div className="bg-gradient-to-r from-blue-900 to-indigo-900 p-8 rounded-xl text-center shadow-lg border border-blue-800/50">
+              <h2 className="text-2xl font-bold mb-3 text-white">
+                Request Installment
+              </h2>
+              <p className="text-blue-200 mb-6 text-sm max-w-md mx-auto">
+                Submit your expense justification to request funds. Approval workflows will notify you at each stage.
+              </p>
+
+              <Button
+                disabled={!canRequest}
+                onClick={() => setShowModal(true)}
+                className="px-8 py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg transition-colors font-semibold text-md shadow-md"
+              >
+                {!isPI
+                  ? "PI Only"
+                  : remainingAmount <= 0
+                  ? "Budget Exhausted"
+                  : "Request Installment"}
+              </Button>
+            </div>
+
+            {/* BOTTOM - Request History */}
+            <div>
+              <h3 className="font-bold text-xl text-white mb-5 border-b border-slate-800 pb-2">Request History</h3>
+              <div className="space-y-4">
+                {requestHistory
+                  .filter(r => {
+                    const pid = r.projectId || r.projectRef;
+                    return pid === selectedProject?._id || pid === selectedProject?.id;
+                  })
+                  .length === 0 ? (
+                    <p className="text-gray-500 italic bg-[#1e293b] p-6 rounded-xl border border-slate-800 text-center">No request history for this project.</p>
+                ) : (
+                  requestHistory
+                    .filter(r => {
+                      const pid = r.projectId || r.projectRef;
+                      return pid === selectedProject?._id || pid === selectedProject?.id;
+                    })
+                    .map((r) => (
+                    <React.Fragment key={r._id || r.id}>
+                      <div className="bg-[#1e293b] p-5 rounded-xl flex justify-between items-center border border-slate-800 transition-all hover:border-slate-700 shadow-sm">
+                        <div>
+                          <p className="font-semibold text-lg text-white flex items-center gap-3">
+                            {formatCurrency(r.requestedAmount)}
+                            <span className="text-xs font-bold text-blue-300 bg-blue-900/30 px-2.5 py-1 rounded-md border border-blue-800/50 tracking-wider">INST #{r.installmentNumber || '?'}</span>
+                          </p>
+                          <p className="text-sm text-gray-400 mt-2 line-clamp-2 max-w-lg">
+                            {r.purpose || 'No purpose provided'}
+                          </p>
+                        </div>
+
+                        <div className="text-right flex flex-col items-end gap-3">
+                          <span className={`text-xs px-3 py-1 rounded font-bold uppercase tracking-wider ${
+                            r.status === 'APPROVED' ? 'bg-green-900/40 text-green-400 border border-green-800/50' :
+                            r.status === 'DISBURSED' ? 'bg-blue-900/40 text-blue-400 border border-blue-800/50' :
+                            r.status === 'REJECTED' ? 'bg-red-900/40 text-red-400 border border-red-800/50' :
+                            'bg-yellow-900/40 text-yellow-400 border border-yellow-800/50'
+                          }`}>
+                            {r.status}
+                          </span>
+                          <Button variant="ghost" size="sm" className="h-7 text-xs font-semibold text-blue-400 hover:text-blue-300 hover:bg-slate-800 transition-colors" onClick={() => toggleTimeline(r._id || r.id)}>
+                            {expandedRequestId === (r._id || r.id) ? "Hide Timeline" : "View Timeline"}
+                          </Button>
+                        </div>
+                      </div>
+                      {expandedRequestId === (r._id || r.id) && timelineData[r._id || r.id] && (
+                        <div className="ml-6 -mt-3 p-5 bg-slate-900/80 border border-slate-800 rounded-b-xl border-t-0 shadow-inner">
+                          <RequestTimeline timeline={timelineData[r._id || r.id]} />
+                        </div>
+                      )}
+                    </React.Fragment>
+                    ))
+                )}
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="flex items-center justify-center h-full">
+            <p className="text-slate-500 italic text-lg bg-[#1e293b] p-8 rounded-xl border border-slate-800">Select a project from the left panel to view details.</p>
+          </div>
+        )}
+      </div>
 
       {/* Modal */}
       {showModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white p-6 rounded w-96 space-y-4">
-            <h3 className="font-bold text-lg">Request Installment</h3>
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-md flex items-center justify-center z-[60] p-4">
+          <div className="bg-slate-900 border border-slate-800 p-7 rounded-2xl w-full max-w-md space-y-5 shadow-2xl">
+            <h3 className="font-bold text-xl text-white border-b border-slate-800 pb-3">Request Installment</h3>
 
             <div>
-              <label className="text-sm font-semibold">Amount (Max: {formatCurrency(remainingAmount)})</label>
+              <label className="text-sm font-semibold text-gray-300">Amount (Max: {formatCurrency(remainingAmount)})</label>
               <input
                 type="number"
-                placeholder="Amount"
+                placeholder="₹0.00"
                 value={amount}
                 onChange={(e) => {
                   if (e.target.value === "") return setAmount("");
@@ -238,88 +308,47 @@ const FacultyRequestFunds = () => {
                   if (value > remainingAmount) return;
                   setAmount(value);
                 }}
-                className="w-full border p-2 rounded mt-1"
+                className="w-full bg-slate-950 border border-slate-800 text-white p-3.5 rounded-xl mt-2 focus:ring-2 focus:ring-blue-500 outline-none transition-all placeholder:text-gray-600"
                 max={remainingAmount}
               />
             </div>
 
             <div>
-              <label className="text-sm font-semibold">Reason / Usage</label>
+              <label className="text-sm font-semibold text-gray-300">Reason / Usage</label>
               <textarea
-                placeholder="Reason / Usage"
+                placeholder="Explain the purpose of this request..."
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
-                className="w-full border p-2 rounded mt-1"
+                className="w-full bg-slate-950 border border-slate-800 text-white p-3.5 rounded-xl mt-2 focus:ring-2 focus:ring-blue-500 outline-none transition-all resize-none placeholder:text-gray-600"
                 rows={3}
               />
             </div>
 
             <div>
-              <label className="text-sm font-semibold">Bill / Invoice (Optional)</label>
-              <input type="file" onChange={(e) => setFile(e.target.files[0])} className="w-full border p-2 rounded mt-1" />
+              <label className="text-sm font-semibold text-gray-300">Bill / Invoice (Optional)</label>
+              <div className="mt-2 flex items-center justify-center w-full">
+                <label className="flex flex-col items-center justify-center w-full h-28 border-2 border-slate-800 border-dashed rounded-xl cursor-pointer bg-slate-950 hover:bg-slate-900 hover:border-blue-500/50 transition-all">
+                  <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                    <p className="text-sm text-gray-400">
+                      {file ? <span className="text-blue-400 font-medium bg-blue-900/30 px-3 py-1.5 rounded-lg">{file.name}</span> : <span>Click to select or drag and drop file</span>}
+                    </p>
+                  </div>
+                  <input type="file" className="hidden" onChange={(e) => setFile(e.target.files[0])} />
+                </label>
+              </div>
             </div>
 
-            {error && <p className="text-red-500 text-sm font-semibold">{error}</p>}
+            {error && <p className="text-red-400 text-sm font-medium bg-red-950/40 px-4 py-3 rounded-xl border border-red-900/50">{error}</p>}
 
-            <div className="flex gap-2 mt-4">
-              <Button onClick={handleSubmit} disabled={submitting} className="flex-1 bg-blue-600 text-white">
-                {submitting ? "Submitting..." : "Submit"}
+            <div className="flex gap-3 mt-8 pt-2">
+              <Button onClick={() => setShowModal(false)} variant="outline" className="flex-1 bg-slate-800 border-slate-700 text-white hover:bg-slate-700 h-11 rounded-xl">Cancel</Button>
+              <Button onClick={handleSubmit} disabled={submitting} className="flex-1 bg-blue-600 hover:bg-blue-500 text-white h-11 rounded-xl shadow-md font-semibold">
+                {submitting ? "Submitting..." : "Submit Request"}
               </Button>
-              <Button onClick={() => setShowModal(false)} variant="outline" className="flex-1">Cancel</Button>
             </div>
           </div>
         </div>
       )}
-
-      {/* History */}
-      <div className="mt-8">
-        <h3 className="font-bold text-lg mb-4">Request History</h3>
-        <div className="space-y-2">
-          {requestHistory
-            .filter(r => {
-              const pid = r.projectId || r.projectRef;
-              return pid === selectedProject?._id || pid === selectedProject?.id;
-            })
-            .length === 0 ? (
-              <p className="text-gray-500 italic">No request history for this project.</p>
-          ) : (
-            requestHistory
-              .filter(r => {
-                const pid = r.projectId || r.projectRef;
-                return pid === selectedProject?._id || pid === selectedProject?.id;
-              })
-              .map((r) => (
-              <React.Fragment key={r._id || r.id}>
-                <div className="p-3 border rounded flex justify-between items-center bg-gray-50">
-                  <div>
-                    <span className="font-semibold text-gray-800">Installment #{r.installmentNumber || '?'}</span>
-                    <span className="ml-2 text-sm text-gray-600">- {r.purpose || 'No purpose provided'}</span>
-                  </div>
-                  <div className="flex flex-col gap-2 items-end">
-                    <div className="flex items-center gap-4">
-                      <span className="font-bold">{formatCurrency(r.requestedAmount)}</span>
-                      <span className={`px-2 py-1 text-xs rounded font-bold ${
-                        r.status === 'APPROVED' ? 'bg-green-100 text-green-800' :
-                        r.status === 'DISBURSED' ? 'bg-blue-100 text-blue-800' :
-                        r.status === 'REJECTED' ? 'bg-red-100 text-red-800' :
-                        'bg-yellow-100 text-yellow-800'
-                      }`}>
-                        {r.status}
-                      </span>
-                    </div>
-                    <Button variant="ghost" size="sm" onClick={() => toggleTimeline(r._id || r.id)}>
-                      {expandedRequestId === (r._id || r.id) ? "Hide Timeline" : "View Timeline"}
-                    </Button>
-                  </div>
-                </div>
-                {expandedRequestId === (r._id || r.id) && timelineData[r._id || r.id] && (
-                  <RequestTimeline timeline={timelineData[r._id || r.id]} />
-                )}
-              </React.Fragment>
-              ))
-          )}
-        </div>
-      </div>
     </div>
   );
 };
