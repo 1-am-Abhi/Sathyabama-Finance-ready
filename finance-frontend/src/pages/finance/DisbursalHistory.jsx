@@ -28,7 +28,7 @@ const DisbursalHistory = () => {
         return title.includes(search) || pi.includes(search);
     });
 
-    const totalDisbursed = filteredHistory.reduce((sum, req) => sum + (req.requestedAmount || req.amount || 0), 0);
+    const totalDisbursed = filteredHistory.reduce((sum, req) => sum + Number(req.amount || 0), 0);
 
     return (
         <div className="p-6 space-y-6">

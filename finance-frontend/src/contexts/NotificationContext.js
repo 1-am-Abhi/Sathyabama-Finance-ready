@@ -112,6 +112,13 @@ export const NotificationProvider = ({ children }) => {
             }
         });
 
+        socket.on('connect', () => {
+            const uid = user?.id || user?._id;
+            if (uid) {
+                socket.emit('join', String(uid));
+            }
+        });
+
         socket.on('notification', (payload) => {
             const notification = normalizeNotification(payload);
             const nid = getNotificationId(notification);

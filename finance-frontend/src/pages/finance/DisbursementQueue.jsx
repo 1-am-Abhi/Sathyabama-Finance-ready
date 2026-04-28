@@ -58,13 +58,16 @@ const DisbursementQueue = () => {
 
     const handleExecuteClick = (request) => {
         setSelectedRequest(request);
+        const remaining = safeNumber(request?.remainingAmount);
+        const requested = safeNumber(request?.requestedAmount || request?.amount);
+        const maxAmount = remaining > 0 ? remaining : requested;
         setFormData({
             transactionId: '',
             bankName: '',
             disbursementDate: new Date().toISOString().split('T')[0],
             remarks: '',
             mode: Number(request?.installmentNumber || 1) > 1 ? 'INSTALLMENT' : 'FULL',
-            amount: safeNumber(request?.requestedAmount || request?.amount),
+            amount: maxAmount,
         });
         setIsModalOpen(true);
     };
@@ -135,14 +138,12 @@ const DisbursementQueue = () => {
         : 12;
     const selectedInstallmentNumber = Number(selectedRequest?.installmentNumber || 1);
     const selectedRequestedAmount = safeNumber(selectedRequest?.requestedAmount || selectedRequest?.amount);
-    const selectedReleasedAmount = safeNumber(selectedRequest?.Project?.releasedBudget);
+    const selectedReleasedAmount = safeNumber(selectedRequest?.releasedAmount);
+    const selectedRemainingAmount = safeNumber(selectedRequest?.remainingAmount) > 0
+        ? safeNumber(selectedRequest?.remainingAmount)
+        : Math.max(0, selectedRequestedAmount - selectedReleasedAmount);
     const selectedSanctionedAmount = safeNumber(selectedRequest?.Project?.sanctionedBudget);
-    const selectedRemainingAmount = selectedSanctionedAmount > 0
-        ? Math.max(0, selectedSanctionedAmount - selectedReleasedAmount)
-        : selectedRequestedAmount;
-    const maxDisbursementAmount = selectedSanctionedAmount > 0
-        ? selectedRemainingAmount
-        : selectedRequestedAmount;
+    const maxDisbursementAmount = selectedRemainingAmount;
 
     return (
         <div className="p-6 space-y-6">
@@ -383,7 +384,7 @@ const DisbursementQueue = () => {
                                         <button
                                             type="button"
                                             className={`rounded-xl border px-3 py-2 text-xs font-black uppercase tracking-wide transition-all ${formData.mode === 'FULL' ? 'border-maroon-600 bg-maroon-50 text-maroon-700 dark:bg-maroon-900/20' : 'border-slate-200 text-slate-500 dark:border-slate-700 dark:text-slate-300'}`}
-                                            onClick={() => setFormData({ ...formData, mode: 'FULL', amount: safeNumber(selectedRequest?.requestedAmount || selectedRequest?.amount) })}
+                                            onClick={() => setFormData({ ...formData, mode: 'FULL', amount: selectedRemainingAmount })}
                                         >
                                             Full
                                         </button>
@@ -409,6 +410,7 @@ const DisbursementQueue = () => {
                                             className="w-full p-3 bg-maroon-50/50 dark:bg-maroon-900/10 border border-maroon-200 dark:border-maroon-800 rounded-xl focus:ring-2 focus:ring-maroon-500 outline-none transition-all font-bold text-maroon-700 dark:text-maroon-300"
                                             placeholder="Enter payout amount"
                                             value={formData.amount}
+                                            max={maxDisbursementAmount}
                                             onChange={(e) => setFormData({...formData, amount: e.target.value})}
                                         />
                                     </div>

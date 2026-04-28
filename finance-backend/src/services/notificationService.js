@@ -67,7 +67,8 @@ class NotificationService {
         });
 
         if (!users.length) {
-            throw new Error(`No users found with role "${role}"`);
+            console.warn(`[NotificationService] No users found with role "${role}" — skipping notification`);
+            return [];
         }
 
         console.log(`[NotificationService] Creating ${users.length} notifications for role ${role}`);

@@ -138,6 +138,11 @@ const getFundRequests = asyncHandler(async (req, res) => {
             };
             options.include.push(projectInc);
         }
+        options.include.push({
+            model: Disbursement,
+            as: 'Disbursements',
+            required: false,
+        });
     } catch (incErr) {
         console.warn('[getFundRequests] Optional includes failed:', incErr.message);
     }
@@ -231,7 +236,11 @@ const getFundRequest = asyncHandler(async (req, res) => {
     let request;
     try {
         request = await FundRequest.findByPk(req.params.id, {
-            include: [buildCentreInclude(), buildProjectInclude()].filter(Boolean),
+            include: [
+                buildCentreInclude(), 
+                buildProjectInclude(),
+                { model: Disbursement, as: 'Disbursements', required: false }
+            ].filter(Boolean),
         });
     } catch (error) {
         console.warn('[FundRequestController] getFundRequest include failed:', error.message);
@@ -493,7 +502,8 @@ const disburseFund = asyncHandler(async (req, res) => {
     const request = await FundRequest.findByPk(req.params.id);
     if (!request) return res.status(404).json({ success: false, message: 'Request not found' });
 
-    if (request.status !== 'PENDING_DISBURSAL') {
+    const allowedStatuses = ['PENDING_DISBURSAL', 'APPROVED', 'PARTIALLY_DISBURSED'];
+    if (!allowedStatuses.includes(request.status)) {
         // Idempotency check: If already disbursed, check if it was this transaction
         if (request.status === 'DISBURSED' && req.body.transactionId) {
             const existing = await Disbursement.findOne({
@@ -514,18 +524,28 @@ const disburseFund = asyncHandler(async (req, res) => {
 
         return res.status(400).json({
             success: false,
-            message: `Cannot disburse a request with status '${request.status}'. Only PENDING_DISBURSAL requests can be disbursed.`,
+            message: `Cannot disburse a request with status '${request.status}'. Only PENDING_DISBURSAL, APPROVED, or PARTIALLY_DISBURSED requests can be disbursed.`,
         });
     }
 
-    const existing = await Disbursement.findOne({
-        where: { fundRequestId: request._id || request.id },
-    });
-    if (existing) {
-        return res.status(409).json({
+    const hasApproval = (request.auditTrail || []).some(entry => entry.stage === 'FUND_APPROVED');
+    if (!hasApproval) {
+        return res.status(400).json({
             success: false,
-            message: 'This fund request has already been disbursed.',
+            message: 'No valid approval record found for disbursement',
         });
+    }
+
+    if (req.body.transactionId) {
+        const duplicateTransaction = await Disbursement.findOne({
+            where: { bankReference: req.body.transactionId }
+        });
+        if (duplicateTransaction) {
+            return res.status(409).json({
+                success: false,
+                message: 'A disbursement with this transaction ID (UTR) already exists.',
+            });
+        }
     }
 
     const payload = {
@@ -640,16 +660,7 @@ const advanceStage = asyncHandler(async (req, res) => {
             `Your fund request for '${request.projectTitle}' moved to: ${nextStage.replace(/_/g, ' ')}.`, 'INFO', '/faculty/request-funds');
     }
 
-    if (nextStage === 'AMOUNT_DISBURSED') {
-        const project = request.projectId
-            ? await Project.findByPk(request.projectId)
-            : await Project.findOne({ where: { title: request.projectTitle } });
-        if (project) {
-            await project.update({
-                releasedBudget: Number(project.releasedBudget || 0) + Number(request.requestedAmount),
-            });
-        }
-    }
+    // Removed duplicate project.releasedBudget update. Handled authoritatively by executeDisbursementPipeline.
 
     if (nextStage === 'SETTLEMENT_CLOSED') {
         const project = request.projectId
@@ -696,6 +707,7 @@ const getProjectWithInstallments = asyncHandler(async (req, res) => {
 
     const installments = await FundRequest.findAll({
         where: { projectId: project._id || project.id },
+        include: [{ model: Disbursement, as: 'Disbursements', required: false }],
         order: [['installmentNumber', 'ASC'], ['createdAt', 'ASC']],
     });
 

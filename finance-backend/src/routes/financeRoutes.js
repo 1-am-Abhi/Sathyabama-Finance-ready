@@ -67,7 +67,7 @@ router.get('/projects/:id/history', async (req, res) => {
 router.get('/disbursements', (req, res, next) => {
     req.query = {
         ...req.query,
-        status: req.query.status || 'PENDING_DISBURSAL',
+        status: req.query.status || 'PENDING_DISBURSAL,APPROVED,PARTIALLY_DISBURSED',
         limit: req.query.limit || '200',
     };
     return fundRequestController.getFundRequests(req, res, next);

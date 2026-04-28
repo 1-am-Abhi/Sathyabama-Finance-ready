@@ -304,14 +304,27 @@ const executeDisbursementPipeline = async (request, payload, actor) => {
         const nextInstallmentNumber = (lastDisbursement?.installmentNumber || 0) + 1;
 
         // 4. ATOMIC OVERPAYMENT PROTECTION
-        const currentSum = await Disbursement.sum('amount', {
+        const currentProjectSum = await Disbursement.sum('amount', {
             where: { projectId: request.projectId },
             transaction
         }) || 0;
 
+        const currentRequestSum = await Disbursement.sum('amount', {
+            where: { fundRequestId: getRecordId(request) },
+            transaction
+        }) || 0;
+
         const sanctionedBudget = toNumber(project.sanctionedBudget);
-        if (toNumber(currentSum) + amount > sanctionedBudget) {
+        if (toNumber(currentProjectSum) + amount > sanctionedBudget) {
             throw new Error(`Overpayment protection: Sanctioned budget ₹${sanctionedBudget.toLocaleString()} exceeded by current transaction`);
+        }
+        
+        const requestTotal = toNumber(request.requestedAmount);
+        const requestReleasedAmount = currentRequestSum + amount;
+        const requestRemainingAmount = requestTotal - requestReleasedAmount;
+
+        if (amount <= 0 || requestRemainingAmount < 0) {
+            throw new Error(`Invalid disbursement: Amount ₹${amount} exceeds remaining request balance ₹${requestTotal - currentRequestSum}.`);
         }
 
         const sourceTotals = await getFundSourceAllocationState(request.source, transaction);
@@ -349,8 +362,9 @@ const executeDisbursementPipeline = async (request, payload, actor) => {
         }
 
         // 5. ATOMIC STATE UPDATES
+        const newStatus = requestRemainingAmount > 0 ? 'PARTIALLY_DISBURSED' : 'DISBURSED';
         await request.update({
-            status: 'DISBURSED',
+            status: newStatus,
             currentStage: 'AMOUNT_DISBURSED',
             transactionId: bankReference,
             bankName: payload.bankName || request.bankName,
@@ -387,7 +401,7 @@ const executeDisbursementPipeline = async (request, payload, actor) => {
         }
 
         // Update project releasedBudget using fresh transaction sum
-        const updatedFreshSum = toNumber(currentSum) + amount;
+        const updatedFreshSum = toNumber(currentProjectSum) + amount;
         await project.update({
             releasedBudget: updatedFreshSum,
             utilizedBudget: toNumber(project.utilizedBudget),
@@ -416,7 +430,7 @@ const executeDisbursementPipeline = async (request, payload, actor) => {
         await logDisbursementAudit({
             projectId: request.projectId,
             amount,
-            previousTotalUsed: toNumber(currentSum),
+            previousTotalUsed: toNumber(currentProjectSum),
             newTotalUsed: updatedFreshSum,
             remainingBudget: sanctionedBudget - updatedFreshSum,
             isInstallment,

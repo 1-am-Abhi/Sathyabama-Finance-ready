@@ -82,7 +82,22 @@ io.use((socket, next) => {
 io.on('connection', (socket) => {
     const userId = socket.user.id || socket.user._id;
     socket.join(userId);
-    logger.info(`[Socket] User ${userId} connected to distributed cluster node.`);
+    // Also join role-based room for broadcast notifications
+    if (socket.user.role) {
+        socket.join(`role:${socket.user.role}`);
+    }
+    logger.info(`[Socket] User ${userId} (${socket.user.role}) connected.`);
+
+    // Explicit join event — lets the frontend re-join after reconnect
+    socket.on('join', (targetUserId) => {
+        const safeId = String(targetUserId || userId);
+        socket.join(safeId);
+        logger.info(`[Socket] User ${userId} joined room ${safeId}`);
+    });
+
+    socket.on('disconnect', () => {
+        logger.info(`[Socket] User ${userId} disconnected.`);
+    });
 });
 
 // Latency & Slow API Detection Middleware

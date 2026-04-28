@@ -320,25 +320,47 @@ const getDisbursalHistory = asyncHandler(async (req, res) => {
     let history = [];
     try {
         history = await Disbursement.findAll({
-            attributes: [
-                [fn('date_trunc', 'month', col('disbursedAt')), 'month'],
-                [fn('SUM', col('amount')), 'total']
+            include: [
+                {
+                    model: FundRequest,
+                    as: 'FundRequest',
+                    attributes: ['_id', 'projectTitle', 'faculty', 'facultyId', 'source', 'department', 'requestedAmount', 'installmentNumber', 'status'],
+                    required: false,
+                },
+                {
+                    model: require('../models').Project,
+                    as: 'Project',
+                    attributes: ['_id', 'title', 'pi', 'department', 'sanctionedBudget', 'releasedBudget'],
+                    required: false,
+                },
+                {
+                    model: User,
+                    as: 'officer',
+                    attributes: ['_id', 'name', 'email'],
+                    required: false,
+                },
             ],
-            group: [literal("date_trunc('month', \"disbursedAt\")")],
-            order: [[literal("date_trunc('month', \"disbursedAt\")"), 'DESC']],
-            limit: 12,
-            raw: true
+            order: [['disbursedAt', 'DESC']],
+            limit: 200,
         });
     } catch (err) {
         logger.error('[getDisbursalHistory] DB Error: ' + err.message);
+        return res.status(500).json({ success: false, message: 'Failed to fetch disbursal history' });
     }
 
     res.json({
         success: true,
-        data: (Array.isArray(history) ? history : []).map(h => ({
-            month: h.month,
-            total: Number(h.total) || 0
-        }))
+        data: (Array.isArray(history) ? history : []).map(d => {
+            const raw = d.toJSON ? d.toJSON() : d;
+            return {
+                ...raw,
+                id: raw._id,
+                amount: Number(raw.amount) || 0,
+                disbursedAt: raw.disbursedAt || raw.createdAt,
+                projectTitle: raw.Project?.title || raw.FundRequest?.projectTitle || null,
+                faculty: raw.Project?.pi || raw.FundRequest?.faculty || null,
+            };
+        })
     });
 });
 
@@ -456,7 +478,7 @@ const getFundFlowData = asyncHandler(async (req, res) => {
     try {
         requests = await FundRequest.findAll({
             where: {
-                status: { [Op.in]: ['PENDING_DISBURSAL', 'DISBURSED'] },
+                status: { [Op.in]: ['PENDING_DISBURSAL', 'PARTIALLY_DISBURSED', 'DISBURSED'] },
                 currentStage: {
                     [Op.in]: [
                         'FUND_APPROVED', 'FUND_RELEASED', 'BILLS_UPLOADED',

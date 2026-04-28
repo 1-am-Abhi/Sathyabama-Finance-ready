@@ -16,7 +16,7 @@ const Disbursement = sequelize.define('Disbursement', {
         allowNull: false
     },
     amount: {
-        type: DataTypes.FLOAT,
+        type: DataTypes.DECIMAL(15, 2),
         allowNull: false
     },
     installmentNumber: {
@@ -69,10 +69,13 @@ const Disbursement = sequelize.define('Disbursement', {
     indexes: [
         {
             unique: true,
-            fields: ['projectId', 'installmentNumber']
+            fields: ['fundRequestId', 'installmentNumber']
         },
         {
             fields: ['projectId']
+        },
+        {
+            fields: ['fundRequestId']
         }
     ]
 });

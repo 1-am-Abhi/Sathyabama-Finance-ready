@@ -86,7 +86,7 @@ FundRequest.init({
         allowNull: false
     },
     status: {
-        type: DataTypes.ENUM('PENDING', 'APPROVED', 'PENDING_DISBURSAL', 'DISBURSED', 'REJECTED'),
+        type: DataTypes.STRING,
         defaultValue: 'PENDING'
     },
     currentStage: {

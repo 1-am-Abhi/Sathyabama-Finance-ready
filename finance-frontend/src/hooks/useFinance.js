@@ -228,11 +228,18 @@ export const useExecuteDisbursement = () => {
     return useMutation({
         mutationFn: ({ requestId, data }) => executeDisbursement(requestId, data),
         onSuccess: () => {
+            // Invalidate ALL finance-related queries to ensure consistency
             queryClient.invalidateQueries({ queryKey: ['disbursementQueue'] });
             queryClient.invalidateQueries({ queryKey: ['disbursalHistory'] });
             queryClient.invalidateQueries({ queryKey: ['financialReports'] });
             queryClient.invalidateQueries({ queryKey: ['financeStats'] });
             queryClient.invalidateQueries({ queryKey: ['projects'] });
+            queryClient.invalidateQueries({ queryKey: ['projectDetails'] });
+            queryClient.invalidateQueries({ queryKey: ['fundSourcesOverview'] });
+            queryClient.invalidateQueries({ queryKey: ['fundFlowProjects'] });
+            queryClient.invalidateQueries({ queryKey: ['adminDashboard'] });
+            queryClient.invalidateQueries({ queryKey: ['facultyDashboard'] });
+            queryClient.invalidateQueries({ queryKey: ['notifications'] });
         },
     });
 };
