@@ -1,590 +1,262 @@
-import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../../components/ui/card';
-import { Badge } from '../../components/ui/badge';
-import { Button } from '../../components/ui/button';
-import {
-    History, ChevronRight, PlusCircle, Wallet, Activity, DollarSign,
-    CheckCircle, CheckCircle2, Clock, Banknote, ArrowRight, X, FileText, Globe, Upload
-} from 'lucide-react';
-import * as XLSX from 'xlsx';
-import { useLayout } from '../../contexts/LayoutContext';
-import { useNotifications } from '../../contexts/NotificationContext';
-import { usePipeline } from '../../contexts/PipelineContext';
-import { useAuth } from '../../contexts/AuthContext';
-import { formatCurrency } from '../../utils/format';
-import InstallmentStepper from '../../components/faculty/InstallmentStepper';
-import FundRequestModal from '../../components/faculty/FundRequestModal';
-import InitialFundRequestModal from '../../components/faculty/InitialFundRequestModal';
-
-const HIGH_VALUE_THRESHOLD = 100000;
-
-const safeNumber = (value) => {
-    const numeric = Number(value || 0);
-    return Number.isFinite(numeric) ? numeric : 0;
-};
+import React, { useState, useEffect, useMemo } from "react";
+import { Card, CardContent } from "../../components/ui/card";
+import { Button } from "../../components/ui/button";
+import { usePipeline } from "../../contexts/PipelineContext";
+import { useAuth } from "../../contexts/AuthContext";
+import { useNotifications } from "../../contexts/NotificationContext";
+import { formatCurrency } from "../../utils/format";
 
 const FacultyRequestFunds = () => {
-    const { setLayout } = useLayout();
-    const { addNotification } = useNotifications();
-    const { user } = useAuth();
+  const { 
+    projects, 
+    fundRequests, 
+    createRequest, 
+    isLoading,
+    refetchProjects,
+    refetchFundRequests 
+  } = usePipeline();
+  const { user } = useAuth();
+  const { addNotification, fetchNotifications } = useNotifications();
 
-    React.useEffect(() => {
-        setLayout("Fund & Asset Management", "Strategic disbursement oversight and grant lifecycle tracking");
-    }, [setLayout]);
+  const [selectedProjectId, setSelectedProjectId] = useState(null);
+  const [showModal, setShowModal] = useState(false);
+  const [amount, setAmount] = useState("");
+  const [reason, setReason] = useState("");
+  const [error, setError] = useState("");
 
-    const { projects, fundRequests, createRequest, updateFundRequest, isLoading } = usePipeline();
-    const [selectedProjectId, setSelectedProjectId] = useState(null);
-    const [isModalOpen, setIsModalOpen] = useState(false);
-    const [requestMode, setRequestMode] = useState('RELEASE');
-    const [selectedRequest, setSelectedRequest] = useState(null);
-    const [showDetailsModal, setShowDetailsModal] = useState(false);
-    const [isSubmitting, setIsSubmitting] = useState(false);
-    const [billUploadUrl, setBillUploadUrl] = useState('');
+  const projectList = useMemo(() => projects || [], [projects]);
+  const requestHistory = fundRequests || [];
 
-    const projectList = Array.isArray(projects) ? projects : [];
-    const requestHistory = Array.isArray(fundRequests) ? fundRequests : [];
+  // Polling for notifications to ensure reliability (Task 6)
+  useEffect(() => {
+    if (fetchNotifications) {
+      const interval = setInterval(fetchNotifications, 10000);
+      return () => clearInterval(interval);
+    }
+  }, [fetchNotifications]);
 
-    useEffect(() => {
-        if (projectList.length > 0 && !selectedProjectId) {
-            setSelectedProjectId(projectList[0]._id || projectList[0].id);
-        }
-    }, [projectList, selectedProjectId]);
+  useEffect(() => {
+    if (projectList.length > 0 && !selectedProjectId) {
+      setSelectedProjectId(projectList[0]._id || projectList[0].id);
+    }
+  }, [projectList, selectedProjectId]);
 
-    const selectedProject = projectList.find((project) => (project._id || project.id) === selectedProjectId);
-    const isPI = selectedProject && (selectedProject.piId === user?._id || selectedProject.userId === user?._id);
-    const allocatedStatuses = ['APPROVED', 'PENDING_DISBURSAL', 'DISBURSED'];
-    const releasedStages = ['CHEQUE_RELEASED', 'AMOUNT_DISBURSED'];
-    
-    // Dynamic installment logic based on actual released budget
-    const sanctionedAmount = safeNumber(selectedProject?.sanctionedBudget);
-    const releasedAmount = safeNumber(selectedProject?.releasedBudget);
+  const selectedProject = projectList.find(
+    (p) => (p._id || p.id) === selectedProjectId
+  );
 
-    // Check if there's any ongoing/pending fund request for this project
-    const activeRequest = requestHistory.find(r => 
-        (r.projectId === selectedProjectId || r.projectRef === selectedProjectId) && 
-        !['DISBURSED', 'REJECTED'].includes((r.status || '').toUpperCase())
+  const isPI =
+    selectedProject &&
+    (selectedProject.piId === user?._id ||
+      selectedProject.userId === user?._id);
+
+  // DATA CORRECTNESS (CRITICAL) - Task 1
+  const sanctionedAmount = Number(selectedProject?.sanctionedBudget || 0);
+  const releasedAmount =
+    Number(selectedProject?.releasedBudget ?? 0) ||
+    (selectedProject?.Disbursements || []).reduce(
+      (sum, d) => sum + Number(d.amount || 0),
+      0
     );
+  const remainingAmount = sanctionedAmount - releasedAmount;
 
-    const installments = [
-        { 
-            phase: 1, 
-            amount: sanctionedAmount * 0.4, 
-            status: releasedAmount >= (sanctionedAmount * 0.4) ? 'RELEASED' : 'PENDING', 
-            date: releasedAmount >= (sanctionedAmount * 0.4) ? 'Shared' : 'Upcoming' 
-        },
-        { 
-            phase: 2, 
-            amount: sanctionedAmount * 0.3, 
-            status: releasedAmount >= (sanctionedAmount * 0.7) ? 'RELEASED' : (activeRequest ? 'PENDING' : 'UPCOMING'), 
-            date: releasedAmount >= (sanctionedAmount * 0.7) ? 'Shared' : null 
-        },
-    ];
+  // BUTTON LOGIC (FINAL) - Task 4
+  const canRequest = isPI && remainingAmount > 0;
 
-    const nextInstallment = installments.find(i => i.status === 'UPCOMING' || i.status === 'PENDING');
-    const remainingAmount = sanctionedAmount - releasedAmount;
-    const releasedShare = sanctionedAmount > 0 ? Math.round((releasedAmount / sanctionedAmount) * 100) : 0;
-    const remainingShare = sanctionedAmount > 0 ? Math.round((Math.max(remainingAmount, 0) / sanctionedAmount) * 100) : 0;
+  // ENSURE REAL API CALL (NO SILENT FAIL) - Task 2
+  const handleSubmit = async () => {
+    setError("");
 
-    const handleExportExcel = () => {
-        const dataToExport = requestHistory.map(item => ({
-            'Request ID': item._id || item.id,
-            'Date': new Date(item.createdAt).toLocaleDateString(),
-            'Project': item.projectTitle,
-            'Amount (₹)': item.requestedAmount,
-            'Purpose': item.purpose,
-            'Status': item.status,
-            'Stage': item.currentStage || 'N/A',
-            'Source': item.source,
-            'Remarks': item.remarks || ''
-        }));
+    const numericAmount = Number(amount);
 
-        const ws = XLSX.utils.json_to_sheet(dataToExport);
-        const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, 'Fund Requests');
-        XLSX.writeFile(wb, `Fund_Requests_${user?.name?.replace(/\s+/g, '_')}.xlsx`);
-    };
-
-    const handleUploadBills = async () => {
-        if (!billUploadUrl.trim()) return;
-        try {
-            setIsSubmitting(true);
-            await updateFundRequest({
-                requestId: selectedRequest._id || selectedRequest.id,
-                updates: {
-                    documents: [...(selectedRequest.documents || []), { url: billUploadUrl, name: 'Payment Proof/Bill' }],
-                    currentStage: 'BILLS_UPLOADED'
-                }
-            });
-            
-            addNotification({
-                role: 'FINANCE_OFFICER',
-                type: 'info',
-                message: `Bills uploaded for Fund Request: ${selectedRequest?.projectTitle}. Ready for verification and disbursement.`,
-                actionUrl: '/finance/disbursements'
-            });
-            
-            setShowDetailsModal(false);
-            setBillUploadUrl('');
-            
-        } catch (error) {
-            console.error('Failed to upload bills:', error);
-        } finally {
-            setIsSubmitting(false);
-        }
-    };
-
-    if (isLoading) {
-        return (
-            <div className="p-6 space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    {[0, 1, 2].map((card) => (
-                        <div key={card} className="animate-pulse h-20 bg-gray-200 dark:bg-gray-700 rounded"></div>
-                    ))}
-                </div>
-                <div className="animate-pulse h-20 bg-gray-200 dark:bg-gray-700 rounded"></div>
-                <div className="animate-pulse h-20 bg-gray-200 dark:bg-gray-700 rounded"></div>
-            </div>
-        );
+    if (!numericAmount || numericAmount <= 0) {
+      return setError("Amount must be greater than 0");
     }
 
-    return (
-        <div className="p-6 space-y-10">
-            {/* Quick Summary Cards - Admin Style */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <Card className="border-0 bg-blue-50/50 dark:bg-blue-900/10 text-blue-700 dark:text-blue-400 ring-1 ring-blue-100 dark:ring-blue-900/30">
-                    <CardContent className="p-6">
-                        <div className="flex items-start justify-between">
-                            <div>
-                                <p className="text-xs font-bold uppercase tracking-wider opacity-70">Total Sanctioned</p>
-                                <p className="text-3xl font-bold mt-2">{formatCurrency(sanctionedAmount)}</p>
-                                <span className="text-green-500 dark:text-green-400 text-xs font-semibold">▲ Active sanctioned budget</span>
-                            </div>
-                            <div className="w-12 h-12 bg-blue-100/50 dark:bg-blue-800/20 rounded-xl flex items-center justify-center">
-                                <Banknote className="w-6 h-6" />
-                            </div>
-                        </div>
-                    </CardContent>
-                </Card>
+    if (numericAmount > remainingAmount) {
+      return setError("Amount exceeds remaining budget");
+    }
 
-                <Card className="border-0 bg-emerald-50/50 dark:bg-emerald-900/10 text-emerald-700 dark:text-emerald-400 ring-1 ring-emerald-100 dark:ring-emerald-900/30">
-                    <CardContent className="p-6">
-                        <div className="flex items-start justify-between">
-                            <div>
-                                <p className="text-xs font-bold uppercase tracking-wider opacity-70">Released Amount</p>
-                                <p className="text-3xl font-bold mt-2">{formatCurrency(releasedAmount)}</p>
-                                <span className="text-green-500 dark:text-green-400 text-xs font-semibold">▲ {releasedShare}% released</span>
-                            </div>
-                            <div className="w-12 h-12 bg-emerald-100/50 dark:bg-emerald-800/20 rounded-xl flex items-center justify-center">
-                                <CheckCircle className="w-6 h-6" />
-                            </div>
-                        </div>
-                    </CardContent>
-                </Card>
+    console.log("[DEBUG] Creating request:", {
+      projectId: selectedProject._id,
+      amount: numericAmount
+    });
 
-                <Card className="border-0 bg-amber-50/50 dark:bg-amber-900/10 text-amber-700 dark:text-amber-400 ring-1 ring-amber-100 dark:ring-amber-900/30">
-                    <CardContent className="p-6">
-                        <div className="flex items-start justify-between">
-                            <div>
-                                <p className="text-xs font-bold uppercase tracking-wider opacity-70">Remaining Balance</p>
-                                <p className="text-3xl font-bold mt-2">{formatCurrency(remainingAmount)}</p>
-                                <span className="text-green-500 dark:text-green-400 text-xs font-semibold">▲ {remainingShare}% available</span>
-                            </div>
-                            <div className="w-12 h-12 bg-amber-100/50 dark:bg-amber-800/20 rounded-xl flex items-center justify-center">
-                                <Wallet className="w-6 h-6" />
-                            </div>
-                        </div>
-                    </CardContent>
-                </Card>
-            </div>
+    try {
+      await createRequest({
+        projectRef: selectedProject._id,
+        projectTitle: selectedProject.title,
+        requestedAmount: numericAmount,
+        purpose: reason,
+        source: selectedProject.fundingSource || "INSTITUTIONAL",
+      });
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                {/* Project Selector - Sidebar */}
-                <Card className="border-0 shadow-sm dark:bg-slate-900 overflow-hidden lg:h-fit">
-                    <CardHeader className="bg-gray-50 dark:bg-slate-800/50 p-6 border-b dark:border-slate-800">
-                        <CardTitle className="text-sm font-black uppercase tracking-widest text-gray-500 italic">Active Projects</CardTitle>
-                    </CardHeader>
-                    <div className="divide-y divide-gray-100 dark:divide-slate-800">
-                        {projectList.length === 0 ? (
-                            <div className="p-8">
-                                <div className="text-center py-10 opacity-80">
-                                    <div className="text-4xl mb-2">📊</div>
-                                    <p className="text-lg font-medium">No Data Yet</p>
-                                    <p className="text-sm text-gray-400">
-                                        Select a research center or create a project to view funding insights
-                                    </p>
-                                </div>
-                            </div>
-                        ) : (
-                            projectList.map((project) => {
-                                const projectId = project._id || project.id;
-                                return (
-                                    <button
-                                        key={projectId}
-                                        onClick={() => setSelectedProjectId(projectId)}
-                                        className={`w-full text-left p-6 transition-all hover:bg-gray-50 dark:hover:bg-slate-800/50 ${
-                                            selectedProjectId === projectId ? 'bg-maroon-50/50 border-r-4 border-maroon-600' : ''
-                                        }`}
-                                    >
-                                        <p className={`text-sm font-bold italic tracking-tighter uppercase ${selectedProjectId === projectId ? 'text-maroon-700' : 'text-slate-600 dark:text-gray-300'}`}>
-                                            {project.title}
-                                        </p>
-                                        <div className="flex items-center gap-2 mt-2">
-                                            <Badge variant="outline" className="text-[9px] font-black italic px-2 py-0 border-gray-200">
-                                                #{String(projectId).substring(0, 6)}
-                                            </Badge>
-                                            <span className="text-[10px] font-bold text-gray-400">
-                                                REM: {formatCurrency(safeNumber(project.sanctionedBudget) - safeNumber(project.releasedBudget))}
-                                            </span>
-                                        </div>
-                                    </button>
-                                );
-                            })
-                        )}
-                    </div>
-                    <div className="p-6 bg-gray-50 dark:bg-slate-800/30">
-                        <Button 
-                            onClick={() => { setRequestMode('INITIAL'); setIsModalOpen(true); }}
-                            className="w-full bg-gradient-to-r from-pink-500 to-red-500 hover:scale-105 transition text-white rounded-xl py-6 font-black text-xs uppercase tracking-widest italic shadow-lg shadow-slate-900/20"
-                        >
-                            <PlusCircle className="w-4 h-4 mr-2" /> New Grant Request
-                        </Button>
-                        <p className="text-[9px] text-gray-400 mt-2 text-center italic uppercase leading-tight font-bold">
-                            * Only Principal Investigators can initiate new grant applications
-                        </p>
-                    </div>
-                </Card>
+      console.log("[SUCCESS] Request created");
 
-                {/* Management Area */}
-                <div className="lg:col-span-2 space-y-8">
-                    {selectedProject && (
-                        <Card className="border-0 shadow-xl shadow-gray-200/50 rounded-[2.5rem] overflow-hidden bg-white">
-                            <CardHeader className="p-10 border-b border-gray-50 flex flex-row items-center justify-between">
-                                <div className="space-y-2">
-                                    <Badge className="bg-maroon-600 text-white border-0 text-[10px] font-black italic tracking-widest px-3 py-1 uppercase">Subsequent Installment</Badge>
-                                    <CardTitle className="text-2xl font-black italic tracking-tighter uppercase text-slate-800">{selectedProject.title}</CardTitle>
-                                </div>
-                                <div className="w-16 h-16 bg-maroon-50 text-maroon-600 rounded-2xl flex items-center justify-center relative">
-                                    <Activity className="w-8 h-8" />
-                                    {!isPI && (
-                                        <div className="absolute -top-2 -right-2 bg-amber-500 text-white p-1 rounded-full shadow-lg" title="Read Only Access">
-                                            <Clock className="w-3 h-3" />
-                                        </div>
-                                    )}
-                                </div>
-                            </CardHeader>
-                            <CardContent className="p-10">
-                                <InstallmentStepper
-                                    installments={installments}
-                                    currentPhase={nextInstallment?.phase || 0}
-                                />
-                                <div className="mt-12 flex flex-col items-center text-center space-y-6">
-                                    <div className="max-w-md">
-                                        <h4 className="text-xl font-bold text-slate-800 italic uppercase tracking-tighter">
-                                            {!nextInstallment ? 'Project Fully Funded' : isPI ? 'Request Disbursement' : 'Restricted Access'}
-                                        </h4>
-                                        <p className="text-sm font-medium italic text-gray-400 mt-2">
-                                            {!nextInstallment 
-                                                ? 'All planned installments for this project have been successfully released.'
-                                                : isPI 
-                                                    ? 'Submit your progress report and expense justification to trigger the next phase release.'
-                                                    : "You are a team member on this project. Only the Principal Investigator can process fund release phases."}
-                                        </p>
-                                    </div>
-                                    {nextInstallment && (
-                                        <Button
-                                            disabled={!isPI || nextInstallment.status === 'PENDING'}
-                                            onClick={() => { setRequestMode('RELEASE'); setIsModalOpen(true); }}
-                                            className={`h-16 px-12 rounded-2xl font-black text-xs uppercase tracking-widest italic transition-all flex items-center gap-3 ${
-                                                isPI && nextInstallment.status !== 'PENDING'
-                                                ? 'bg-gradient-to-r from-pink-500 to-red-500 text-white shadow-xl shadow-maroon-600/20 hover:scale-105'
-                                                : 'bg-gray-100 text-gray-400 cursor-not-allowed border border-gray-200 shadow-none'
-                                            }`}
-                                        >
-                                            {nextInstallment?.status === 'PENDING' ? 'Request Under Review' : isPI ? 'Process Next Phase' : 'PI Only Action'}
-                                            <ArrowRight className="w-4 h-4" />
-                                        </Button>
-                                    )}
-                                    {!nextInstallment && (
-                                        <div className="flex items-center gap-2 text-emerald-600 font-bold bg-emerald-50 px-6 py-3 rounded-2xl border border-emerald-100 italic uppercase text-xs">
-                                            <CheckCircle2 className="w-4 h-4" /> Grant Utilization in Progress
-                                        </div>
-                                    )}
-                                </div>
-                            </CardContent>
-                        </Card>
-                    )}
+      // force UI sync
+      if (refetchProjects) await refetchProjects();
+      if (refetchFundRequests) await refetchFundRequests();
 
-                    {/* History Table */}
-                    <Card className="border-0 shadow-sm dark:bg-slate-900 overflow-hidden">
-                        <CardHeader className="bg-gray-50 dark:bg-slate-800/50 p-6 border-b dark:border-slate-800 flex flex-row items-center justify-between">
-                            <CardTitle className="text-sm font-black uppercase tracking-widest text-gray-500 italic">Disbursement History</CardTitle>
-                            <div className="flex items-center gap-2">
-                                <Button onClick={() => window.print()} variant="ghost" size="sm" className="text-gray-400 hover:text-maroon-600 font-black text-[10px] uppercase tracking-widest italic">
-                                    Export PDF
-                                </Button>
-                                <Button onClick={handleExportExcel} variant="ghost" size="sm" className="text-gray-400 hover:text-maroon-600 font-black text-[10px] uppercase tracking-widest italic">
-                                    Export Excel
-                                </Button>
-                            </div>
-                        </CardHeader>
-                        <div className="overflow-x-auto">
-                            <table className="w-full text-left border-collapse">
-                                <thead>
-                                    <tr className="bg-white dark:bg-slate-900 text-[9px] uppercase tracking-widest text-gray-400 font-black">
-                                        <th className="px-8 py-4">ID & Date</th>
-                                        <th className="px-8 py-4">Project Entity</th>
-                                        <th className="px-8 py-4">Amount</th>
-                                        <th className="px-8 py-4 text-right">Status</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-gray-50 dark:divide-slate-800">
-                                    {requestHistory.length === 0 ? (
-                                        <tr>
-                                            <td colSpan="4" className="px-8 py-10">
-                                                <div className="text-center py-10 opacity-80">
-                                                    <div className="text-4xl mb-2">📊</div>
-                                                    <p className="text-lg font-medium">No Data Yet</p>
-                                                    <p className="text-sm text-gray-400">
-                                                        Select a research center or create a project to view funding insights
-                                                    </p>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    ) : (
-                                        requestHistory.map((req) => {
-                                            const requestId = req._id || req.id || '';
-                                            const isHighValue = safeNumber(req.requestedAmount) >= HIGH_VALUE_THRESHOLD;
-                                            return (
-                                                <tr key={requestId} onClick={() => { setSelectedRequest(req); setShowDetailsModal(true); }} className="hover:bg-gray-50 dark:hover:bg-slate-800/50 cursor-pointer group">
-                                                    <td className="px-8 py-6">
-                                                        <p className="text-[10px] font-black text-slate-400 italic">#{String(requestId).slice(-6)}</p>
-                                                        <p className="text-[11px] font-black text-slate-800 dark:text-white uppercase italic mt-0.5">{new Date(req.createdAt).toLocaleDateString()}</p>
-                                                    </td>
-                                                    <td className="px-8 py-6">
-                                                        <p className="text-[11px] font-black text-slate-600 dark:text-gray-300 italic uppercase">{req.projectTitle}</p>
-                                                        <p className="text-[9px] font-bold text-gray-400 tracking-tighter mt-1">{req.purpose}</p>
-                                                        <div className="flex flex-wrap gap-2 mt-3">
-                                                            <span className="bg-blue-500 text-white px-2 py-1 rounded text-xs">
-                                                                Installment #{req.installmentNumber || 1}
-                                                            </span>
-                                                            {isHighValue && (
-                                                                <span className="bg-red-500 px-2 py-1 text-xs rounded text-white">
-                                                                    HIGH VALUE
-                                                                </span>
-                                                            )}
-                                                        </div>
-                                                    </td>
-                                                    <td className="px-8 py-6">
-                                                        <p className="text-sm font-black text-maroon-600 italic">{formatCurrency(req.requestedAmount)}</p>
-                                                    </td>
-                                                    <td className="px-8 py-6 text-right">
-                                                        <Badge className={`border-0 text-[10px] font-black italic px-3 py-1 rounded-full ${
-                                                            ['FUND_APPROVED', 'BILLS_UPLOADED', 'CHEQUE_RELEASED', 'AMOUNT_DISBURSED', 'APPROVED'].includes(req.status) ? 'bg-emerald-50 text-emerald-600' : 
-                                                            req.status === 'REJECTED' ? 'bg-red-50 text-red-600' :
-                                                            'bg-blue-50 text-blue-600'
-                                                        }`}>
-                                                            {req.currentStage || req.status}
-                                                        </Badge>
-                                                    </td>
-                                                </tr>
-                                            );
-                                        })
-                                    )}
-                                 </tbody>
-                            </table>
-                        </div>
-                    </Card>
-                </div>
-            </div>
+      addNotification({
+        role: "ADMIN",
+        type: "finance",
+        message: `New installment request for ${selectedProject.title}`,
+        actionUrl: "/admin/fund-requests",
+      });
 
-            {/* Modals */}
-            {selectedProject && nextInstallment && (
-                <FundRequestModal
-                    isOpen={isModalOpen && requestMode === 'RELEASE'}
-                    onClose={() => setIsModalOpen(false)}
-                    project={selectedProject}
-                    nextInstallment={nextInstallment}
-                    maxClaimableAmount={Math.min(nextInstallment.amount, remainingAmount)}
-                    onSubmit={async (data) => {
-                        try {
-                            setIsSubmitting(true);
-                                const progressReport = ` PROGRESS REPORT (PHASE ${nextInstallment.phase})
-Work Completed: ${data.workCompleted}
-Reason for Request: ${data.reasonForFunds}
-Usage Plan: ${data.usagePlan}
-${data.sufficiencyExplanation ? `Final Status: ${data.sufficiencyExplanation}` : ''}`;
+      setShowModal(false);
+      setAmount("");
+      setReason("");
+    } catch (err) {
+      console.error("[ERROR] createRequest failed:", err);
+      setError(err?.response?.data?.error || err?.response?.data?.message || err?.message || "Failed to create request");
+    }
+  };
 
-                            await createRequest({
-                                projectTitle: selectedProject.title,
-                                projectRef: selectedProject._id,
-                                requestedAmount: data.amount,
-                                purpose: progressReport,
-                                source: data.fundSource || selectedProject.fundingSource || 'INSTITUTIONAL'
-                            });
-                            
-                            addNotification({
-                                role: 'ADMIN',
-                                type: 'finance',
-                                message: `Fund Request for ${selectedProject.title}`,
-                                actionUrl: '/admin/fund-requests'
-                            });
-                            
-                            setIsModalOpen(false);
-                        } catch (err) {
-                            console.error(err);
-                        } finally {
-                            setIsSubmitting(false);
-                        }
-                    }}
-                />
-            )}
- 
-            <InitialFundRequestModal
-                isOpen={isModalOpen && requestMode === 'INITIAL'}
-                onClose={() => setIsModalOpen(false)}
-                onSubmit={async (data) => {
-                    try {
-                        setIsSubmitting(true);
-                        await createRequest({
-                            projectTitle: data.title,
-                            totalBudget: data.totalBudget,
-                            requestedAmount: data.amount,
-                            purpose: data.reason,
-                            source: data.fundSource === 'PFMS' ? 'PFMS' : 'INSTITUTIONAL'
-                        });
-;
-                        
-                        addNotification({
-                            role: 'ADMIN',
-                            type: 'finance',
-                            message: `New Grant Request for ${data.title}`,
-                            actionUrl: '/admin/fund-requests'
-                        });
-                        
-                        setIsModalOpen(false);
-                    } catch (err) {
-                        console.error(err);
-                    } finally {
-                        setIsSubmitting(false);
-                    }
-                }}
-            />
+  if (isLoading) return <div>Loading...</div>;
 
-            {/* Detailed View Modal */}
-            {showDetailsModal && selectedRequest && (
-                <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
-                    <div className="bg-slate-900 border border-white/10 rounded-[2rem] p-10 w-full max-w-2xl shadow-2xl mx-auto overflow-y-auto max-h-[90vh]">
-                        <div className="flex items-center justify-between mb-8">
-                            <div>
-                                <h3 className="text-2xl font-black italic tracking-tighter uppercase text-white">Fund Request Details</h3>
-                                <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic mt-1">Request ID: #{ (selectedRequest._id || selectedRequest.id).substring(0, 12) }</p>
-                            </div>
-                            <button onClick={() => setShowDetailsModal(false)} className="p-2 hover:bg-white/10 rounded-xl text-slate-400">
-                                <X className="w-6 h-6" />
-                            </button>
-                        </div>
+  return (
+    <div className="p-6 space-y-6">
+      {/* Summary */}
+      <div className="grid grid-cols-3 gap-4">
+        <Card>
+          <CardContent>
+            <p>Total Budget</p>
+            <h2>{formatCurrency(sanctionedAmount)}</h2>
+          </CardContent>
+        </Card>
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-10">
-                            <div className="space-y-6">
-                                <div>
-                                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic mb-1">Project & Status</p>
-                                    <p className="text-sm text-white font-bold italic mb-2 uppercase">{selectedRequest.projectTitle}</p>
-                                    <div className="flex items-center gap-3">
-                                        <Badge className={`px-3 py-1 font-black italic uppercase text-[10px] border ${
-                                            selectedRequest.status === 'APPROVED' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 
-                                            selectedRequest.status === 'REJECTED' ? 'bg-red-500/10 text-red-400 border-red-500/20' : 
-                                            'bg-blue-500/10 text-blue-400 border-blue-500/20'
-                                        }`}>{selectedRequest.status}</Badge>
-                                        <Badge className="bg-slate-800 text-slate-400 border-white/10 px-3 py-1 font-black italic uppercase text-[10px]">{selectedRequest.source}</Badge>
-                                    </div>
-                                </div>
-                                <div>
-                                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic mb-1">Financial Target</p>
-                                    <p className="text-2xl font-black italic text-maroon-500 tracking-tighter">{formatCurrency(selectedRequest.requestedAmount)}</p>
-                                    <p className="text-[10px] font-black uppercase text-slate-400 italic mt-1">Submitted: {new Date(selectedRequest.createdAt).toLocaleDateString()}</p>
-                                </div>
-                            </div>
+        <Card>
+          <CardContent>
+            <p>Released</p>
+            <h2>{formatCurrency(releasedAmount)}</h2>
+          </CardContent>
+        </Card>
 
-                            <div className="space-y-6">
-                                <div>
-                                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic mb-1">Purpose & Justification</p>
-                                    <p className="text-sm text-slate-200 font-bold italic leading-relaxed">{selectedRequest.purpose}</p>
-                                </div>
-                                {selectedRequest.remarks && (
-                                    <div>
-                                        <p className="text-[10px] font-black uppercase tracking-widest text-amber-500 italic mb-1">Admin Audit Feedback</p>
-                                        <p className="text-sm text-amber-100/70 italic leading-relaxed">{selectedRequest.remarks}</p>
-                                    </div>
-                                )}
-                            </div>
-                        </div>
+        <Card>
+          <CardContent>
+            <p>Remaining</p>
+            <h2>{formatCurrency(remainingAmount)}</h2>
+          </CardContent>
+        </Card>
+      </div>
 
-                        <div className="p-8 bg-white/5 border border-white/10 rounded-[2rem] mb-10">
-                            <div className="flex items-center gap-4 mb-4">
-                                <div className="w-10 h-10 bg-indigo-500/10 rounded-xl flex items-center justify-center">
-                                    <History className="w-5 h-5 text-indigo-400" />
-                                </div>
-                                <div>
-                                    <p className="text-[10px] font-black uppercase tracking-widest text-indigo-400 italic">Disbursement Pipeline</p>
-                                    <p className="text-sm text-white font-bold italic uppercase">{selectedRequest.currentStage || 'PENDING INITIAL AUDIT'}</p>
-                                </div>
-                            </div>
-                            <div className="flex items-center gap-2">
-                                <div className={`flex-1 h-1.5 rounded-full ${selectedRequest.status === 'APPROVED' ? 'bg-emerald-500' : 'bg-white/10'}`}></div>
-                                <div className={`flex-1 h-1.5 rounded-full ${['FUND_APPROVED', 'BILLS_UPLOADED', 'CHEQUE_RELEASED', 'AMOUNT_DISBURSED'].includes(selectedRequest.currentStage) ? 'bg-indigo-500' : 'bg-white/10'}`}></div>
-                                <div className={`flex-1 h-1.5 rounded-full ${['BILLS_UPLOADED', 'AMOUNT_DISBURSED', 'CHEQUE_RELEASED'].includes(selectedRequest.currentStage) ? 'bg-indigo-400' : 'bg-white/10'}`}></div>
-                                <div className={`flex-1 h-1.5 rounded-full ${selectedRequest.currentStage === 'AMOUNT_DISBURSED' ? 'bg-amber-500' : 'bg-white/10'}`}></div>
-                            </div>
-                        </div>
+      {/* DEBUG VISIBILITY (TEMP) - Task 8 */}
+      <div className="bg-yellow-100 p-2 text-xs border border-yellow-300">
+        <p>DEBUG → Remaining: {remainingAmount}</p>
+        <p>DEBUG → Released (Backend): {selectedProject?.releasedBudget}</p>
+        <p>DEBUG → Sanctioned: {sanctionedAmount}</p>
+      </div>
 
-                        {selectedRequest.status === 'APPROVED' && selectedRequest.currentStage === 'FUND_APPROVED' && (
-                            <div className="mb-10 p-6 bg-slate-800 border border-slate-700 rounded-xl">
-                                <h4 className="text-white font-bold mb-2">Upload Payment Proofs / Bills</h4>
-                                <p className="text-slate-400 text-xs mb-4">Please provide a URL to your uploaded bills/proofs (e.g., Google Drive link) so Finance can verify and disburse.</p>
-                                <div className="flex items-center gap-3">
-                                    <input 
-                                        type="text" 
-                                        placeholder="Enter Bill URL here..." 
-                                        value={billUploadUrl}
-                                        onChange={(e) => setBillUploadUrl(e.target.value)}
-                                        className="flex-1 bg-slate-900 border border-slate-700 text-white rounded-lg p-3 outline-none focus:border-maroon-500 transition-colors"
-                                    />
-                                    <Button 
-                                        onClick={handleUploadBills} 
-                                        disabled={!billUploadUrl.trim() || isSubmitting}
-                                        className="bg-gradient-to-r from-pink-500 to-red-500 hover:scale-105 transition text-white font-bold px-6 py-3 rounded-lg"
-                                    >
-                                        <Upload className="w-4 h-4 mr-2" />
-                                        Submit Bills
-                                    </Button>
-                                </div>
-                            </div>
-                        )}
-                        
-                        {selectedRequest.documents && selectedRequest.documents.length > 0 && (
-                            <div className="mb-10 p-6 bg-slate-800/50 border border-slate-700/50 rounded-xl">
-                                <h4 className="text-white font-bold mb-3 text-sm">Attached Documents</h4>
-                                <ul className="space-y-2">
-                                    {selectedRequest.documents.map((doc, idx) => (
-                                        <li key={idx} className="flex flex-col">
-                                            <a href={doc.url} target="_blank" rel="noreferrer" className="text-blue-400 hover:text-blue-300 text-sm font-medium flex items-center underline">
-                                                <FileText className="w-3 h-3 mr-1" />
-                                                {doc.name || 'Document'}
-                                            </a>
-                                        </li>
-                                    ))}
-                                </ul>
-                            </div>
-                        )}
+      {/* Project Selector */}
+      <div className="flex gap-2 flex-wrap">
+        {projectList.map((p) => {
+          const id = p._id || p.id;
+          const isActive = id === selectedProjectId;
+          return (
+            <button 
+              key={id} 
+              onClick={() => setSelectedProjectId(id)}
+              className={`px-4 py-2 rounded ${isActive ? 'bg-blue-600 text-white' : 'bg-gray-200'}`}
+            >
+              {p.title}
+            </button>
+          );
+        })}
+      </div>
 
-                        <Button onClick={() => {setShowDetailsModal(false); setBillUploadUrl('')}} className="w-full h-16 bg-slate-800 hover:bg-slate-700 text-white rounded-2xl font-black text-xs uppercase tracking-widest italic border border-white/10">
-                            Close Context
-                        </Button>
-                    </div>
-                </div>
-            )}
+      {/* Request Button */}
+      {selectedProject && (
+        <div className="text-center space-y-4">
+          <h2 className="text-xl font-bold">{selectedProject.title}</h2>
+
+          <Button
+            disabled={!canRequest}
+            onClick={() => setShowModal(true)}
+          >
+            {!isPI
+              ? "PI Only"
+              : remainingAmount <= 0
+              ? "Budget Exhausted"
+              : "Request Installment"}
+          </Button>
         </div>
-    );
+      )}
+
+      {/* Modal */}
+      {showModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white p-6 rounded w-96 space-y-4">
+            <h3 className="font-bold text-lg">Request Installment</h3>
+
+            <div>
+              <label className="text-sm font-semibold">Amount (Max: {formatCurrency(remainingAmount)})</label>
+              <input
+                type="number"
+                placeholder="Amount"
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
+                className="w-full border p-2 rounded mt-1"
+                max={remainingAmount}
+              />
+            </div>
+
+            <div>
+              <label className="text-sm font-semibold">Reason / Usage</label>
+              <textarea
+                placeholder="Reason / Usage"
+                value={reason}
+                onChange={(e) => setReason(e.target.value)}
+                className="w-full border p-2 rounded mt-1"
+                rows={3}
+              />
+            </div>
+
+            {error && <p className="text-red-500 text-sm font-semibold">{error}</p>}
+
+            <div className="flex gap-2 mt-4">
+              <Button onClick={handleSubmit} className="flex-1 bg-blue-600 text-white">Submit</Button>
+              <Button onClick={() => setShowModal(false)} variant="outline" className="flex-1">Cancel</Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* History */}
+      <div className="mt-8">
+        <h3 className="font-bold text-lg mb-4">Request History</h3>
+        <div className="space-y-2">
+          {requestHistory
+            .filter(r => (r.projectId || r.projectRef) === selectedProject?._id || (r.projectId || r.projectRef) === selectedProject?.id)
+            .length === 0 ? (
+              <p className="text-gray-500 italic">No request history for this project.</p>
+          ) : (
+            requestHistory
+              .filter(r => (r.projectId || r.projectRef) === selectedProject?._id || (r.projectId || r.projectRef) === selectedProject?.id)
+              .map((r) => (
+                <div key={r._id || r.id} className="p-3 border rounded flex justify-between items-center bg-gray-50">
+                  <div>
+                    <span className="font-semibold text-gray-800">Installment #{r.installmentNumber || '?'}</span>
+                    <span className="ml-2 text-sm text-gray-600">- {r.purpose || 'No purpose provided'}</span>
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <span className="font-bold">{formatCurrency(r.requestedAmount)}</span>
+                    <span className={`px-2 py-1 text-xs rounded font-bold ${
+                      r.status === 'APPROVED' ? 'bg-green-100 text-green-800' :
+                      r.status === 'DISBURSED' ? 'bg-blue-100 text-blue-800' :
+                      r.status === 'REJECTED' ? 'bg-red-100 text-red-800' :
+                      'bg-yellow-100 text-yellow-800'
+                    }`}>
+                      {r.status}
+                    </span>
+                  </div>
+                </div>
+              ))
+          )}
+        </div>
+      </div>
+    </div>
+  );
 };
 
 export default FacultyRequestFunds;

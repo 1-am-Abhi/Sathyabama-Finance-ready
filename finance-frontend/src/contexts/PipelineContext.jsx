@@ -19,7 +19,7 @@ export const PipelineProvider = ({ children }) => {
     const queryClient = useQueryClient();
 
     // Fetch projects
-    const { data: projects, isLoading: projectsLoading } = useQuery({
+    const { data: projects, isLoading: projectsLoading, refetch: refetchProjects } = useQuery({
         queryKey: ['projects'],
         queryFn: async () => {
             const prefix = user?.role === 'FACULTY' ? '/faculty' : '';
@@ -30,7 +30,7 @@ export const PipelineProvider = ({ children }) => {
     });
 
     // Fetch fund requests
-    const { data: fundRequests, isLoading: requestsLoading } = useQuery({
+    const { data: fundRequests, isLoading: requestsLoading, refetch: refetchFundRequests } = useQuery({
         queryKey: ['fund-requests'],
         queryFn: async () => {
             const prefix = user?.role === 'FACULTY' ? '/faculty' : '';
@@ -139,6 +139,8 @@ export const PipelineProvider = ({ children }) => {
     const value = {
         projects,
         fundRequests,
+        refetchProjects,
+        refetchFundRequests,
         isLoading: projectsLoading || requestsLoading,
         createRequest: createRequestMutation.mutateAsync,
         approveRequest: approveRequestMutation.mutateAsync,
