@@ -4,6 +4,8 @@ const fundRequestController = require('../controllers/fundRequestController');
 const { protect, authorize } = require('../middleware/authMiddleware');
 const { validate, fundRequestSchema } = require('../utils/validation');
 const { sanitizeFinancialInput } = require('../middleware/inputSanitizer');
+const { upload } = require('../middleware/uploadMiddleware');
+const auditController = require('../controllers/auditController');
 
 // All routes require authentication
 router.use(protect);
@@ -21,11 +23,13 @@ router.get('/project/:projectId', fundRequestController.getProjectWithInstallmen
 router.get('/project/:projectId/installments', fundRequestController.getProjectWithInstallments);
 
 router.get('/:id', fundRequestController.getFundRequest);
+router.get('/:requestId/audit', auditController.getAuditTimeline);
 
 // ── Create (Faculty only) ─────────────────────────────────────────────────────
 router.post(
     '/',
     authorize('FACULTY'),
+    upload.single('bill'),
     sanitizeFinancialInput,
     validate(fundRequestSchema),
     fundRequestController.createFundRequest

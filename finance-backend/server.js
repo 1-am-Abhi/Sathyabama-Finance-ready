@@ -184,6 +184,7 @@ app.get('/metrics', async (req, res) => {
 // Start server
 const PORT = process.env.PORT || 5000;
 const queueService = require('./src/services/queueService');
+require('./src/workers/disbursementWorker');
 
 connectDB().then(async () => {
     await queueService.setupRepeatableJobs();

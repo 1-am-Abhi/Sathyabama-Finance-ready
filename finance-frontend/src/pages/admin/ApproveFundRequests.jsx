@@ -456,10 +456,10 @@ const ApproveFundRequests = () => {
                                         <CardDescription className="dark:text-gray-400 mt-1">Request Funds for: {selectedRequest.purpose}</CardDescription>
                                     </div>
                                     <div className="text-right">
-                                        <p className="text-sm font-semibold text-gray-500 dark:text-gray-400">Amount</p>
-                                        <p className="text-2xl font-bold text-green-600 dark:text-green-400">
-                                            {formatCurrency(safeNumber(selectedRequest.requestedAmount || selectedRequest.amount))}
-                                        </p>
+                                        <div className="bg-gray-50 dark:bg-slate-800 p-2 rounded border border-gray-100 dark:border-slate-700">
+                                            <p className="text-sm font-semibold text-gray-500 dark:text-gray-400">Requested: ₹{safeNumber(selectedRequest.requestedAmount || selectedRequest.amount)}</p>
+                                            <p className="text-sm font-semibold text-gray-500 dark:text-gray-400">Remaining Budget: ₹{selectedRequest.remainingAmount || 'N/A'}</p>
+                                        </div>
                                     </div>
                                 </div>
                             </CardHeader>

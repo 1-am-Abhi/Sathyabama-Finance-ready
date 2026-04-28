@@ -1,4 +1,5 @@
 const asyncHandler = require('../utils/asyncHandler');
+const { disbursementQueue } = require('../queues/disbursementQueue');
 const { 
     FundRequest, 
     Project, 
@@ -600,113 +601,24 @@ const disburseFund = asyncHandler(async (req, res) => {
         bankName: req.body.bankName || null,
         disbursementDate: req.body.disbursementDate || new Date(),
         remarks: req.body.remarks || null,
+        amount: disbursementAmount
     };
 
-    const { request: updatedRequest, disbursement } = await executeDisbursementPipeline(
-        request,
+    // Use queue instead of direct execution
+    await disbursementQueue.add("disburse", {
+        requestId: request.id || request._id,
+        userId: req.user.id || req.user._id,
         payload,
-        req.user,
-        { correlationId: req.correlationId }
-    );
+        correlationId: req.correlationId
+    }, {
+        attempts: 3,
+        backoff: { type: "exponential", delay: 2000 },
+    });
 
-    let budgetSummary = null;
-    if (updatedRequest.projectId) {
-        const project = await Project.findByPk(updatedRequest.projectId);
-        if (project) {
-            const disbursedAmount = Number(await Disbursement.sum('amount', {
-                where: { projectId: updatedRequest.projectId }
-            }) || 0);
-            const totalAmount = Number(project.sanctionedBudget || 0);
-            budgetSummary = {
-                totalAmount,
-                disbursedAmount,
-                remainingAmount: Math.max(0, totalAmount - disbursedAmount),
-            };
-        }
-    }
-
-    // TASK 6 — Notifications: DB insert is guaranteed, socket emit is best-effort
-    // Each notification is isolated — one failure cannot block others
-    const notifyFacultyMsg = `Installment #${disbursement?.installmentNumber || 1} (₹${Number(payload.amount).toLocaleString()}) for '${updatedRequest.projectTitle}' has been disbursed.`;
-    try {
-        console.log(`[${req.correlationId}] [Notify] Sending faculty disbursement notification for ${updatedRequest.projectTitle}`);
-        await NotificationService.notifyFaculty(
-            updatedRequest,
-            'Funds Disbursed',
-            notifyFacultyMsg,
-            'SUCCESS',
-            '/faculty/request-funds'
-        );
-    } catch (notifyErr) {
-        console.error(`[${req.correlationId}] [Notify] Faculty notification failed (non-blocking):`, notifyErr.message);
-    }
-
-    try {
-        await NotificationService.notifyRole(
-            'ADMIN',
-            'Disbursement Completed',
-            `Finance disbursed installment #${disbursement?.installmentNumber || 1} for '${updatedRequest.projectTitle}'.`,
-            'INFO',
-            '/admin/fund-requests'
-        );
-    } catch (notifyErr) {
-        console.error(`[${req.correlationId}] [Notify] Admin notification failed (non-blocking):`, notifyErr.message);
-    }
-
-    try {
-        await NotificationService.notifyRole(
-            'FINANCE_OFFICER',
-            'Disbursement Completed',
-            `Installment #${disbursement?.installmentNumber || 1} for '${updatedRequest.projectTitle}' was processed (${payload.mode || 'FULL'}).`,
-            'INFO',
-            '/finance/disbursal-history'
-        );
-    } catch (notifyErr) {
-        console.error(`[${req.correlationId}] [Notify] Finance notification failed (non-blocking):`, notifyErr.message);
-    }
-
-    // Audit log — also non-blocking
-    try {
-        await AuditLog.create({
-            userId: req.user.id || req.user._id,
-            action: 'FUND_REQUEST_DISBURSED',
-            entityType: 'FundRequest',
-            entityId: String(updatedRequest._id || updatedRequest.id),
-            metadata: {
-                transactionId: payload.transactionId,
-                amount: Number(payload.amount),
-                installmentNumber: disbursement?.installmentNumber,
-                newStatus: updatedRequest.status,
-            }
-        });
-    } catch (auditErr) {
-        console.error(`[${req.correlationId}] [Audit] AuditLog create failed (non-blocking):`, auditErr.message);
-    }
-
-    // Socket emit — best-effort, never throws
-    // TASK 9 — HANDLE SOCKET FAILURE SAFELY
-    try {
-        if (global.io) {
-            console.log(`[${req.correlationId}] [Socket] Broadcasting finance:update for ${updatedRequest.projectTitle}`);
-            global.io.emit('finance:update', {
-                type: 'DISBURSEMENT',
-                subType: payload.mode || 'FULL',
-                projectTitle: updatedRequest.projectTitle,
-                amount: Number(payload.amount),
-                installmentNumber: disbursement?.installmentNumber,
-                updatedBy: req.user?.name,
-                newStatus: updatedRequest.status,
-            });
-        }
-    } catch (socketErr) {
-        console.error(`[${req.correlationId}] [Socket Error] finance:update emit failed (non-blocking):`, socketErr);
-    }
-
-    return res.status(200).json({
+    return res.status(202).json({
         success: true,
-        data: updatedRequest || {},
-        disbursement: disbursement || {},
-        budgetSummary: budgetSummary || {},
+        message: 'Disbursement request has been queued successfully for processing.',
+        correlationId: req.correlationId
     });
 });
 

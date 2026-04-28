@@ -71,9 +71,9 @@ const healthHandler = async (req, res) => {
     const status = (dbStatus === 'up' && redisStatus === 'up') ? 200 : 503;
     
     res.status(status).json({
-        status: status === 200 ? 'healthy' : 'degraded',
-        timestamp: new Date().toISOString(),
-        services: { database: dbStatus, redis: redisStatus }
+        status: status === 200 ? 'OK' : 'ERROR',
+        db: dbStatus === 'up' ? 'connected' : 'disconnected',
+        redis: redisStatus === 'up' ? 'connected' : 'disconnected'
     });
 };
 

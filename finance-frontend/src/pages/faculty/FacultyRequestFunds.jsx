@@ -5,6 +5,8 @@ import { usePipeline } from "../../contexts/PipelineContext";
 import { useAuth } from "../../contexts/AuthContext";
 import { useNotifications } from "../../contexts/NotificationContext";
 import { formatCurrency } from "../../utils/format";
+import apiClient from "../../api/client";
+import RequestTimeline from "./RequestTimeline";
 
 const FacultyRequestFunds = () => {
   const { 
@@ -22,8 +24,11 @@ const FacultyRequestFunds = () => {
   const [showModal, setShowModal] = useState(false);
   const [amount, setAmount] = useState("");
   const [reason, setReason] = useState("");
+  const [file, setFile] = useState(null);
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [timelineData, setTimelineData] = useState({});
+  const [expandedRequestId, setExpandedRequestId] = useState(null);
 
   const projectList = useMemo(() => projects || [], [projects]);
   const requestHistory = fundRequests || [];
@@ -91,13 +96,17 @@ const FacultyRequestFunds = () => {
         amount: numericAmount
       });
 
-      await createRequest({
-        projectRef: selectedProject._id,
-        projectTitle: selectedProject.title,
-        requestedAmount: numericAmount,
-        purpose: reason,
-        source: selectedProject.fundingSource || "INSTITUTIONAL",
-      });
+      const payload = new FormData();
+      payload.append("projectRef", selectedProject._id);
+      payload.append("projectTitle", selectedProject.title);
+      payload.append("requestedAmount", numericAmount);
+      payload.append("purpose", reason);
+      payload.append("source", selectedProject.fundingSource || "INSTITUTIONAL");
+      if (file) {
+        payload.append("bill", file);
+      }
+
+      await createRequest(payload);
 
       console.log("[SUCCESS] Request created");
 
@@ -115,11 +124,28 @@ const FacultyRequestFunds = () => {
       setShowModal(false);
       setAmount("");
       setReason("");
+      setFile(null);
     } catch (err) {
       console.error("[ERROR] createRequest failed:", err);
       setError(err?.response?.data?.error || err?.response?.data?.message || err?.message || "Failed to create request");
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const toggleTimeline = async (reqId) => {
+    if (expandedRequestId === reqId) {
+      setExpandedRequestId(null);
+      return;
+    }
+    setExpandedRequestId(reqId);
+    if (!timelineData[reqId]) {
+      try {
+        const res = await apiClient.get(`/fund-requests/${reqId}/audit`);
+        setTimelineData((prev) => ({ ...prev, [reqId]: res.data.data }));
+      } catch (err) {
+        console.error("Failed to load timeline", err);
+      }
     }
   };
 
@@ -228,6 +254,11 @@ const FacultyRequestFunds = () => {
               />
             </div>
 
+            <div>
+              <label className="text-sm font-semibold">Bill / Invoice (Optional)</label>
+              <input type="file" onChange={(e) => setFile(e.target.files[0])} className="w-full border p-2 rounded mt-1" />
+            </div>
+
             {error && <p className="text-red-500 text-sm font-semibold">{error}</p>}
 
             <div className="flex gap-2 mt-4">
@@ -258,23 +289,33 @@ const FacultyRequestFunds = () => {
                 return pid === selectedProject?._id || pid === selectedProject?.id;
               })
               .map((r) => (
-                <div key={r._id || r.id} className="p-3 border rounded flex justify-between items-center bg-gray-50">
+              <React.Fragment key={r._id || r.id}>
+                <div className="p-3 border rounded flex justify-between items-center bg-gray-50">
                   <div>
                     <span className="font-semibold text-gray-800">Installment #{r.installmentNumber || '?'}</span>
                     <span className="ml-2 text-sm text-gray-600">- {r.purpose || 'No purpose provided'}</span>
                   </div>
-                  <div className="flex items-center gap-4">
-                    <span className="font-bold">{formatCurrency(r.requestedAmount)}</span>
-                    <span className={`px-2 py-1 text-xs rounded font-bold ${
-                      r.status === 'APPROVED' ? 'bg-green-100 text-green-800' :
-                      r.status === 'DISBURSED' ? 'bg-blue-100 text-blue-800' :
-                      r.status === 'REJECTED' ? 'bg-red-100 text-red-800' :
-                      'bg-yellow-100 text-yellow-800'
-                    }`}>
-                      {r.status}
-                    </span>
+                  <div className="flex flex-col gap-2 items-end">
+                    <div className="flex items-center gap-4">
+                      <span className="font-bold">{formatCurrency(r.requestedAmount)}</span>
+                      <span className={`px-2 py-1 text-xs rounded font-bold ${
+                        r.status === 'APPROVED' ? 'bg-green-100 text-green-800' :
+                        r.status === 'DISBURSED' ? 'bg-blue-100 text-blue-800' :
+                        r.status === 'REJECTED' ? 'bg-red-100 text-red-800' :
+                        'bg-yellow-100 text-yellow-800'
+                      }`}>
+                        {r.status}
+                      </span>
+                    </div>
+                    <Button variant="ghost" size="sm" onClick={() => toggleTimeline(r._id || r.id)}>
+                      {expandedRequestId === (r._id || r.id) ? "Hide Timeline" : "View Timeline"}
+                    </Button>
                   </div>
                 </div>
+                {expandedRequestId === (r._id || r.id) && timelineData[r._id || r.id] && (
+                  <RequestTimeline timeline={timelineData[r._id || r.id]} />
+                )}
+              </React.Fragment>
               ))
           )}
         </div>
