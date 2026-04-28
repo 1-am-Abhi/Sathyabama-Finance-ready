@@ -12,7 +12,7 @@ const generateToken = (user) => {
 };
 
 const login = asyncHandler(async (req, res) => {
-  console.log('LOGIN REQUEST:', req.body);
+  console.log('LOGIN ATTEMPT:', { email: req.body.email });
   try {
     const { email, password } = req.body;
 
@@ -40,15 +40,19 @@ const login = asyncHandler(async (req, res) => {
       { expiresIn: '7d' }
     );
 
-    const userData = user.toJSON();
-    delete userData.password;
-
     console.log(`[AUTH] Login successful: ${email}`);
 
     return res.json({
       success: true,
       token,
-      user: userData
+      user: {
+        id: user._id || user.id,
+        email: user.email,
+        role: user.role,
+        name: user.name,
+        department: user.department,
+        centre: user.centre
+      }
     });
 
   } catch (err) {
@@ -85,13 +89,18 @@ const register = asyncHandler(async (req, res) => {
   console.log(`[USER CREATED] ${user.email} - ${user.role}`);
 
   const token = generateToken(user);
-  const userData = user.toJSON();
-  delete userData.password;
-
+  
   res.status(201).json({
     success: true,
     token,
-    user: userData,
+    user: {
+      id: user._id || user.id,
+      email: user.email,
+      role: user.role,
+      name: user.name,
+      department: user.department,
+      centre: user.centre
+    }
   });
 });
 
