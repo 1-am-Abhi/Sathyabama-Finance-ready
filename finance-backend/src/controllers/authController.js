@@ -14,32 +14,46 @@ const generateToken = (user) => {
 const login = asyncHandler(async (req, res) => {
   const { email, password } = req.body;
 
-  const user = await User.findOne({ where: { email } });
-  if (!user) {
-    return res.status(401).json({ success: false, message: "Invalid credentials" });
-  }
+  try {
+    const user = await User.findOne({ where: { email } });
+    if (!user) {
+      console.warn(`[AUTH] Login failed: User not found (${email})`);
+      return res.status(401).json({ success: false, message: "Invalid credentials" });
+    }
 
-  const isMatch = await user.comparePassword(password);
-  if (!isMatch) {
-    return res.status(401).json({ success: false, message: "Invalid credentials" });
-  }
+    const isMatch = await user.comparePassword(password);
+    if (!isMatch) {
+      console.warn(`[AUTH] Login failed: Invalid password (${email})`);
+      return res.status(401).json({ success: false, message: "Invalid credentials" });
+    }
 
-  if (user.status === "Inactive") {
-    return res.status(403).json({
+    if (user.status === "Inactive") {
+      console.warn(`[AUTH] Login blocked: Account inactive (${email})`);
+      return res.status(403).json({
+        success: false,
+        message: "Your account has been deactivated. Please contact the administrator.",
+      });
+    }
+
+    const token = generateToken(user);
+    const userData = user.toJSON();
+    delete userData.password;
+
+    console.log(`[AUTH] Login successful: ${email} (${user.role})`);
+
+    res.status(200).json({
+      success: true,
+      token,
+      user: userData,
+    });
+  } catch (error) {
+    console.error(`[AUTH FATAL] Login system error:`, error);
+    res.status(500).json({
       success: false,
-      message: "Your account has been deactivated. Please contact the administrator.",
+      message: "An internal error occurred during login. Please try again later.",
+      requestId: req.id
     });
   }
-
-  const token = generateToken(user);
-  const userData = user.toJSON();
-  delete userData.password;
-
-  res.status(200).json({
-    success: true,
-    token,
-    user: userData,
-  });
 });
 
 const register = asyncHandler(async (req, res) => {

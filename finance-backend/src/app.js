@@ -90,21 +90,29 @@ app.get('/api/status', (req, res) => {
 app.get('/health', healthHandler);
 app.get('/api/health', healthHandler);
 
-// Rate Limiting
-const globalLimiter = rateLimit({
-    windowMs: 15 * 60 * 1000,
-    max: 200,
-    message: { success: false, message: 'Too many requests' }
-});
-app.use('/api/', globalLimiter);
-
 // API Versioning & Routes
 const v1 = express.Router();
 const path = require('path');
 const { mountRoutes } = require('./utils/routeHelper');
 
-// Automatically mount all routes in the routes directory
+// 1. Auth Routes (Exempt from global rate limiting)
+const authRoutes = require('./routes/authRoutes');
+app.use('/api/v1/auth', authRoutes);
+app.use('/api/auth', authRoutes);
+
+// 2. Rate Limiting (Applied to all OTHER institutional APIs)
+const globalLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 200,
+    message: { success: false, message: 'Too many requests' },
+    skip: (req) => req.path.includes('/auth/') // Double safety
+});
+app.use('/api/', globalLimiter);
+
+// 3. Mount remaining institutional routes
 mountRoutes(v1, path.join(__dirname, 'routes'));
+// Filter out auth from v1 to prevent double mounting if mountRoutes picks it up
+v1.stack = v1.stack.filter(layer => !layer.route || !layer.route.path.includes('/auth'));
 
 app.use('/api/v1', v1);
 app.use('/api', v1); // Fallback for backward compatibility

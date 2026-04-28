@@ -216,6 +216,19 @@ const syncEvents = asyncHandler(async (req, res) => {
 });
 
 /**
+ * GET /finance/audit/replay
+ * Returns a complete audit trail for financial oversight.
+ */
+const getAuditReplay = asyncHandler(async (req, res) => {
+    const logs = await AuditLog.findAll({
+        order: [['createdAt', 'DESC']],
+        limit: 100,
+        include: [{ model: User, as: 'user', attributes: ['name', 'email'] }]
+    });
+    res.json({ success: true, data: logs || [] });
+});
+
+/**
  * GET /finance/pfms
  * Returns all PFMS transactions.
  */
@@ -510,7 +523,11 @@ module.exports = {
             }
         });
     }),
-    rollbackDisbursement: asyncHandler(async (req, res) => {
+
+/**
+ * POST /finance/disbursements/:id/rollback
+ */
+const rollbackDisbursement = asyncHandler(async (req, res) => {
         const { id } = req.params;
         const disbursement = await Disbursement.findByPk(id);
         if (!disbursement) return res.status(404).json({ success: false, message: 'Disbursement not found' });
@@ -978,11 +995,12 @@ const archiveOldLedgerEntries = asyncHandler(async (req, res) => {
     });
 });
 
+const getPFMSData = getPFMSTransactionsController;
+
 module.exports = {
     getFinanceStats,
     getFundFlowData,
     getPFMSData,
-    getInternshipFees,
     getFinancialReports,
     getDisbursalHistory,
     getReportsData,

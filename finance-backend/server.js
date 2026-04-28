@@ -26,14 +26,16 @@ if (!process.env.REDIS_URL) {
     throw new Error('FATAL: REDIS_URL is required for production scaling and reliability');
 }
 
-// Create Redis clients (TLS enabled)
-const pubClient = createClient({
+// Create Redis clients (TLS only in production)
+const redisConfig = {
     url: process.env.REDIS_URL,
     socket: {
-        tls: true,
+        tls: process.env.NODE_ENV === 'production',
         rejectUnauthorized: false
     }
-});
+};
+
+const pubClient = createClient(redisConfig);
 const subClient = pubClient.duplicate();
 
 // Rate limiting
@@ -42,10 +44,6 @@ const disbursementLimiter = rateLimit({
     windowMs: 60 * 1000,
     max: 5,
     message: "Too many disbursement attempts, try again later",
-    keyGenerator: (req) => {
-        const userId = req.user?.id || req.user?._id || 'anonymous';
-        return `${userId}:${req.ip}`;
-    },
     standardHeaders: true,
     legacyHeaders: false
 });

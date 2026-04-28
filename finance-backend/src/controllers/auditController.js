@@ -123,6 +123,8 @@ const verifyAuditLog = asyncHandler(async (req, res) => {
     });
 });
 
+const topSpendProjects = getTopSpendProjects;
+
 module.exports = {
   getAuditTimeline,
   exportAuditLogs,
