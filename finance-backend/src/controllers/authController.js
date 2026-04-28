@@ -62,7 +62,7 @@ const login = async (req, res) => {
       success: true,
       token,
       user: {
-        id: user._id,
+        id: user._id || user.id,
         email: user.email,
         role: user.role,
         name: user.name
@@ -74,6 +74,32 @@ const login = async (req, res) => {
 
     return res.status(500).json({
       message: err.message
+    });
+  }
+};
+
+/**
+ * Lightweight Auth Health Probe
+ * Helps catch schema or connection issues without processing credentials
+ */
+const checkAuthHealth = async (req, res) => {
+  try {
+    const userCount = await User.count();
+    return res.json({
+      success: true,
+      status: 'UP',
+      diagnostics: {
+        userTableAccessible: true,
+        recordCount: userCount,
+        timestamp: new Date().toISOString()
+      }
+    });
+  } catch (err) {
+    console.error('🚨 AUTH HEALTH FAILED:', err);
+    return res.status(503).json({
+      success: false,
+      status: 'DOWN',
+      error: err.message
     });
   }
 };
@@ -244,6 +270,7 @@ const addCentre = asyncHandler(async (req, res) => {
 module.exports = {
   login,
   register,
+  checkAuthHealth,
   getMe,
   getUsers,
   updateUser,

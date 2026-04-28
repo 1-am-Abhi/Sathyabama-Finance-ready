@@ -3,14 +3,26 @@ const logger = require('../src/utils/logger');
 
 const fixSchemaAlignment = async () => {
     try {
-        logger.info('Starting GLOBAL Schema Alignment (Users + Ledgers)...');
+        logger.info('Starting HARDENED GLOBAL Schema Alignment...');
 
         await sequelize.transaction(async (t) => {
             // --- USERS TABLE ---
             await sequelize.query(`
                 ALTER TABLE "Users" ADD COLUMN IF NOT EXISTS "organizationId" INTEGER;
             `, { transaction: t });
-            logger.info('✔ Users: organizationId verified/added');
+
+            const [orgTable] = await sequelize.query(`
+                SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'Organizations');
+            `, { transaction: t });
+
+            if (orgTable[0].exists) {
+                await sequelize.query(`
+                    ALTER TABLE "Users" DROP CONSTRAINT IF EXISTS "fk_users_org";
+                    ALTER TABLE "Users" ADD CONSTRAINT "fk_users_org" 
+                    FOREIGN KEY ("organizationId") REFERENCES "Organizations"(id) ON DELETE RESTRICT;
+                `, { transaction: t });
+            }
+            logger.info('✔ Users: organizationId and FK verified/added');
 
             // --- LEDGERS TABLE ---
             await sequelize.query(`
@@ -23,9 +35,8 @@ const fixSchemaAlignment = async () => {
                 ALTER TABLE "Ledgers" ADD COLUMN IF NOT EXISTS "previousHash" VARCHAR(64);
                 ALTER TABLE "Ledgers" ADD COLUMN IF NOT EXISTS "metadata" JSONB;
             `, { transaction: t });
-            logger.info('✔ Ledgers: functional columns verified/added');
-
-            // Data Mapping
+            
+            // Data Mapping (Enum-safe)
             await sequelize.query(`
                 UPDATE "Ledgers" 
                 SET "debit" = "amount" 
@@ -35,9 +46,8 @@ const fixSchemaAlignment = async () => {
                 SET "credit" = "amount" 
                 WHERE "credit" = 0 AND "entryType"::TEXT = 'REVENUE' AND "amount" > 0;
             `, { transaction: t });
-            logger.info('✔ Ledgers: Legacy data mapped');
 
-            // Constraints & Indexes
+            // Ledgers Constraints & Indexes
             await sequelize.query(`
                 ALTER TABLE "Ledgers" DROP CONSTRAINT IF EXISTS "fk_ledgers_account";
                 ALTER TABLE "Ledgers" ADD CONSTRAINT "fk_ledgers_account" FOREIGN KEY ("accountId") REFERENCES "Accounts"(id) ON DELETE SET NULL;
@@ -49,10 +59,10 @@ const fixSchemaAlignment = async () => {
                 CREATE INDEX IF NOT EXISTS "ledgers_account_id" ON "Ledgers" ("accountId");
                 CREATE INDEX IF NOT EXISTS "ledgers_hash" ON "Ledgers" ("hash");
             `, { transaction: t });
-            logger.info('✔ Ledgers: Constraints and indexes verified');
+            logger.info('✔ Ledgers: Comprehensive alignment complete');
         });
 
-        logger.info('✅ GLOBAL Schema Alignment complete.');
+        logger.info('✅ HARDENED GLOBAL Schema Alignment complete.');
         process.exit(0);
     } catch (error) {
         logger.error('❌ Schema alignment failed:', error);
