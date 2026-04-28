@@ -5,6 +5,7 @@ const { syncRevenueLedger } = require('../services/financePipelineService');
 const NotificationService = require('../services/notificationService');
 const { buildResearchCenterIncludeArray } = require('../utils/researchCenterSafety');
 const { getCurrentFY, getFYRange } = require('../utils/fyUtils');
+const { safeEmit } = require('../socketInstance');
 
 const createRevenueRecord = asyncHandler(async (req, res) => {
     const { year, revenueSource, amountGenerated, details } = req.body;
@@ -151,6 +152,11 @@ const verifyRevenue = asyncHandler(async (req, res) => {
     });
 
     await syncRevenueLedger(record, req.user);
+
+    safeEmit('finance', 'finance:update', {
+        type: 'PFMS_UPDATE',
+        timestamp: Date.now()
+    });
     
     res.status(200).json({ success: true, message: 'Revenue verified successfully', data: record || {} });
 });
@@ -198,6 +204,11 @@ const adminApproveRevenue = asyncHandler(async (req, res) => {
             '/finance/revenue-verification'
         );
     }
+
+    safeEmit('finance', 'finance:update', {
+        type: 'PFMS_UPDATE',
+        timestamp: Date.now()
+    });
     
     res.status(200).json({ success: true, message: 'Revenue admin status updated successfully', data: record || {} });
 });

@@ -6,7 +6,8 @@ const {
     FundRequest: FR, 
     Disbursement,
     ResearchCenter,
-    Centre
+    Centre,
+    Ledger
 } = require('../models');
 const { Op } = require('sequelize');
 const {
@@ -193,10 +194,17 @@ const getProject = asyncHandler(async (req, res) => {
         attributes: ['_id', 'installmentNumber', 'requestedAmount', 'purpose', 'status', 'currentStage', 'createdAt', 'faculty']
     });
 
+    // --- BANK-GRADE BALANCE CALCULATION (DOUBLE-ENTRY) ---
+    const ledger = await Ledger.findAll({ 
+        where: { projectId: project._id || project.id } 
+    });
+
+    const totalReleased = ledger.reduce((acc, e) => {
+        return acc + Number(e.debit || 0) - Number(e.credit || 0);
+    }, 0);
+
     const totalAmount = Number(project.sanctionedBudget || 0);
-    const disbursedAmount = Number(await Disbursement.sum('amount', {
-        where: { projectId: project._id || project.id }
-    }) || 0);
+    const disbursedAmount = totalReleased;
     const remainingAmount = Math.max(0, totalAmount - disbursedAmount);
 
     return res.status(200).json({

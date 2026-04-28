@@ -121,7 +121,7 @@ export const getFinanceStats = async (fy) => {
 // ── Fund Flow ─────────────────────────────────────────────────────────────────
 
 // Get fund flow projects
-export const getFundFlowProjects = async (fy) => {
+export const getFundFlow = async (fy) => {
     const response = await api.get('/finance/fund-flow', { params: { fy } });
     return response.data?.data || response.data || [];
 };
@@ -129,7 +129,7 @@ export const getFundFlowProjects = async (fy) => {
 // ── PFMS ──────────────────────────────────────────────────────────────────────
 
 // Get PFMS transactions
-export const getPFMSTransactions = async (fy) => {
+export const getPFMS = async (fy) => {
     const response = await api.get('/finance/pfms', { params: { fy } });
     return response.data?.data || response.data || [];
 };
@@ -143,7 +143,7 @@ export const createPFMSTransaction = async (data) => {
 // ── Internship Fees ───────────────────────────────────────────────────────────
 
 // Get internship fees
-export const getInternshipFees = async (fy) => {
+export const getInternships = async (fy) => {
     const response = await api.get('/finance/internship-fees', { params: { fy } });
     return response.data?.data || response.data || [];
 };
@@ -180,5 +180,11 @@ export const getFunctionRequests = async () => {
 
 export const releaseFunctionFunds = async (fundRequestId, data) => {
     const response = await api.put(`/finance/disbursements/${fundRequestId}/execute`, data);
+    return response.data;
+};
+
+// Rollback/Reverse a disbursement
+export const rollbackDisbursement = async (id) => {
+    const response = await api.post(`/finance/disbursements/${id}/rollback`);
     return response.data;
 };

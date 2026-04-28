@@ -29,6 +29,7 @@ const {
     normalizeResearchCenterResponse,
     normalizeResearchCenterResponseList,
 } = require('../utils/researchCenterSafety');
+const { safeEmit } = require('../socketInstance');
 
 const ResearchCenterModel = ResearchCenter || Centre;
 
@@ -496,13 +497,13 @@ const approveFundRequest = asyncHandler(async (req, res) => {
         metadata: { remarks: req.body.remarks }
     });
 
-    if (global.io) {
-        global.io.emit('finance:update', {
-            type: 'FUND_REQUEST_APPROVED',
-            projectTitle: request.projectTitle,
-            updatedBy: req.user?.name,
-        });
-    }
+    safeEmit('finance', 'finance:update', {
+        type: 'APPROVAL',
+        requestId: request._id || request.id,
+        projectTitle: request.projectTitle,
+        updatedBy: req.user?.name,
+        timestamp: Date.now()
+    });
 
     return res.status(200).json({ success: true, data: request || {} });
 });
@@ -531,13 +532,13 @@ const rejectFundRequest = asyncHandler(async (req, res) => {
         metadata: { remarks: req.body.remarks }
     });
 
-    if (global.io) {
-        global.io.emit('finance:update', {
-            type: 'FUND_REQUEST_REJECTED',
-            projectTitle: request.projectTitle,
-            updatedBy: req.user?.name,
-        });
-    }
+    safeEmit('finance', 'finance:update', {
+        type: 'REJECTION',
+        requestId: request._id || request.id,
+        projectTitle: request.projectTitle,
+        updatedBy: req.user?.name,
+        timestamp: Date.now()
+    });
 
     return res.status(200).json({ success: true, data: request || {} });
 });
@@ -684,14 +685,14 @@ const advanceStage = asyncHandler(async (req, res) => {
         }
     }
 
-    if (global.io) {
-        global.io.emit('finance:update', {
-            type: 'FUND_STAGE',
-            projectTitle: request.projectTitle,
-            nextStage,
-            updatedBy: req.user?.name,
-        });
-    }
+    safeEmit('finance', 'finance:update', {
+        type: 'STAGE_UPDATE',
+        requestId: request._id || request.id,
+        projectTitle: request.projectTitle,
+        nextStage,
+        updatedBy: req.user?.name,
+        timestamp: Date.now()
+    });
 
     return res.status(200).json({ success: true, data: request || {} });
 });

@@ -7,6 +7,7 @@ const socketIo = require('socket.io');
 const jwt = require('jsonwebtoken');
 const client = require('prom-client');
 const app = require('./src/app');
+const { setIO } = require('./src/socketInstance');
 
 let logger;
 try {
@@ -84,7 +85,7 @@ const io = socketIo(server, {
     transports: ["websocket", "polling"]
 });
 
-global.io = io;
+setIO(io);
 
 // 🔥 INIT REDIS + SOCKET ADAPTER
 (async () => {
@@ -141,6 +142,15 @@ io.on('connection', (socket) => {
         console.log(`[Socket] User joined room: ${safeId}`);
     });
 
+    socket.on('join-finance', () => {
+        if (socket.user.role === 'FINANCE_OFFICER' || socket.user.role === 'ADMIN') {
+            socket.join('finance');
+            console.log(`[Socket] Authorized User ${userId} joined finance room`);
+        } else {
+            console.warn(`[Socket] Unauthorized room join attempt by user ${userId} (Role: ${socket.user.role})`);
+        }
+    });
+
     socket.on('disconnect', () => {
         logger.info(`[Socket] User ${userId} disconnected.`);
     });
@@ -188,6 +198,14 @@ require('./src/workers/disbursementWorker');
 require('./src/jobs/reportScheduler');
 
 connectDB().then(async () => {
+    // Seed standard chart of accounts
+    const seedAccounts = require('./src/utils/accountSeeder');
+    await seedAccounts();
+
+    // Start financial snapshot scheduler
+    const { initSnapshotJobs } = require('./src/jobs/snapshotJob');
+    initSnapshotJobs();
+
     await queueService.setupRepeatableJobs();
 
     server.listen(PORT, () => {

@@ -1,5 +1,7 @@
 const { InternshipFee, User, Revenue } = require('../models');
+const { Op } = require('sequelize');
 const asyncHandler = require('../utils/asyncHandler');
+const { getCurrentFY, getFYRange } = require('../utils/fyUtils');
 const { serverError } = require('../utils/controllerError');
 
 /**
@@ -8,7 +10,13 @@ const { serverError } = require('../utils/controllerError');
  * @access  Private (FINANCE_OFFICER, ADMIN)
  */
 const getInternshipFees = asyncHandler(async (req, res) => {
+    const fy = req.query.fy || getCurrentFY();
+    const { startDate, endDate } = getFYRange(fy);
+
     const fees = await InternshipFee.findAll({
+        where: {
+            createdAt: { [Op.between]: [startDate, endDate] }
+        },
         include: [{ model: User, as: 'verifier', attributes: ['name', 'email'] }],
         order: [['createdAt', 'DESC']]
     });
@@ -25,8 +33,14 @@ const getInternshipFees = asyncHandler(async (req, res) => {
  * @access  Private (ADMIN)
  */
 const getAdminInternships = asyncHandler(async (req, res) => {
+    const fy = req.query.fy || getCurrentFY();
+    const { startDate, endDate } = getFYRange(fy);
+
     const fees = await InternshipFee.findAll({
-        where: { paymentStatus: 'PAID' }, // Typically admin approves paid ones or those pending approval
+        where: { 
+            paymentStatus: 'PAID',
+            createdAt: { [Op.between]: [startDate, endDate] }
+        },
         include: [{ model: User, as: 'verifier', attributes: ['name', 'email'] }],
         order: [['createdAt', 'DESC']]
     });

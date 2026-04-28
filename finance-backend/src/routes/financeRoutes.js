@@ -2,10 +2,24 @@ const express = require('express');
 const router = express.Router();
 const { protect, authorize } = require('../middleware/authMiddleware');
 const financeController = require('../controllers/financeController');
+const { 
+    getAuditReplay, 
+    rollbackDisbursement, 
+    getTrialBalance, 
+    getProfitAndLoss, 
+    getBalanceSheet,
+    verifyLedgerIntegrity,
+    exportLedger,
+    createLedgerSnapshot,
+    verifyLedgerSnapshot,
+    getSystemHealth,
+    archiveOldLedgerEntries
+} = require('../controllers/financeController');
 const projectController = require('../controllers/projectController');
 const internshipController = require('../controllers/internshipController');
 const fundRequestController = require('../controllers/fundRequestController');
 const { sanitizeFinancialInput } = require('../middleware/inputSanitizer');
+const { financeRateLimiter, reportRateLimiter } = require('../middleware/rateLimiter');
 
 // All finance routes require authentication
 router.use(protect);
@@ -15,6 +29,8 @@ router.use(require('../middleware/orgScope'));
 router.get('/stats', financeController.getFinanceStats);
 router.get('/dashboard', financeController.getFinanceStats);
 router.get('/fund-sources/overview', financeController.getFundSourcesOverview);
+router.get('/sync', financeController.syncEvents);
+router.get('/audit/replay', protect, authorize('FINANCE_OFFICER', 'ADMIN'), getAuditReplay);
 router.put('/funds/update', authorize('FINANCE_OFFICER', 'ADMIN'), sanitizeFinancialInput, financeController.updateFundSourceAmount);
 
 // ── Departments ───────────────────────────────────────────────────────────────
@@ -50,6 +66,19 @@ router.get('/financial-reports', financeController.getFinancialReports);
 router.get('/financial-reports/export', financeController.exportFinancialReports);
 router.get('/financial-reports/pdf', financeController.exportFinancialReportsPDF);
 
+// ── Financial Statements ──────────────────────────────────────────────────────
+router.get('/statements/trial-balance', protect, authorize('ADMIN'), reportRateLimiter, getTrialBalance);
+router.get('/statements/profit-loss', protect, authorize('ADMIN'), reportRateLimiter, getProfitAndLoss);
+router.get('/statements/balance-sheet', protect, authorize('ADMIN'), reportRateLimiter, getBalanceSheet);
+
+// ── Ledger Auditing ──────────────────────────────────────────────────────────
+router.get('/ledger/verify', protect, authorize('ADMIN'), financeRateLimiter, verifyLedgerIntegrity);
+router.get('/ledger/export', protect, authorize('ADMIN'), financeRateLimiter, exportLedger);
+router.post('/ledger/snapshot', protect, authorize('ADMIN'), financeRateLimiter, createLedgerSnapshot);
+router.post('/ledger/snapshot/:id/verify', protect, authorize('ADMIN'), financeRateLimiter, verifyLedgerSnapshot);
+router.post('/ledger/archive', protect, authorize('ADMIN'), financeRateLimiter, archiveOldLedgerEntries);
+router.get('/health', protect, authorize('ADMIN'), getSystemHealth);
+
 // ── Projects ──────────────────────────────────────────────────────────────────
 router.get('/projects', projectController.getProjects);
 router.get('/projects/:id', projectController.getProject);
@@ -77,8 +106,8 @@ router.get('/disbursements', (req, res, next) => {
     };
     return fundRequestController.getFundRequests(req, res, next);
 });
-router.put('/disbursements/:id/execute', authorize('FINANCE_OFFICER', 'ADMIN'), fundRequestController.disburseFund);
-router.post('/disbursements/:id/rollback', authorize('ADMIN', 'FINANCE_OFFICER'), financeController.rollbackDisbursement);
+router.put('/disbursements/:id/execute', authorize('FINANCE_OFFICER', 'ADMIN'), financeRateLimiter, fundRequestController.disburseFund);
+router.post('/disbursements/:id/rollback', protect, authorize('ADMIN'), financeRateLimiter, rollbackDisbursement);
 
 // ── PFMS Transactions (real DB queries) ───────────────────────────────────────
 router.get('/pfms', financeController.getPFMSTransactionsController);

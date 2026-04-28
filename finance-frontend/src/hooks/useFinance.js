@@ -14,14 +14,15 @@ import {
     verifyRevenue,
     getFinancialReports,
     getFinanceStats,
-    getFundFlowProjects,
+    getFundFlow,
     getDisbursalHistory,
-    getPFMSTransactions,
-    getInternshipFees,
+    getPFMS,
+    getInternships,
     verifyInternshipFee,
     createPFMSTransaction,
     getFunctionRequests,
-    releaseFunctionFunds
+    releaseFunctionFunds,
+    rollbackDisbursement
 } from '../services/financeService';
 
 /**
@@ -32,6 +33,7 @@ export const useFinanceStats = (fy) => {
         queryKey: ['financeStats', fy],
         queryFn: () => getFinanceStats(fy),
         staleTime: 0,
+        refetchInterval: 30000,
     });
 };
 
@@ -40,9 +42,10 @@ export const useFinanceStats = (fy) => {
  */
 export const useFundFlowProjects = (fy) => {
     return useQuery({
-        queryKey: ['fundFlowProjects', fy],
-        queryFn: () => getFundFlowProjects(fy),
+        queryKey: ['fundFlow', fy],
+        queryFn: () => getFundFlow(fy),
         staleTime: 0,
+        refetchInterval: 30000,
     });
 };
 
@@ -51,9 +54,10 @@ export const useFundFlowProjects = (fy) => {
  */
 export const usePFMSTransactions = (fy) => {
     return useQuery({
-        queryKey: ['pfmsTransactions', fy],
-        queryFn: () => getPFMSTransactions(fy),
+        queryKey: ['pfms', fy],
+        queryFn: () => getPFMS(fy),
         staleTime: 0,
+        refetchInterval: 30000,
     });
 };
 
@@ -65,7 +69,7 @@ export const useCreatePFMSTransaction = () => {
     return useMutation({
         mutationFn: createPFMSTransaction,
         onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['pfmsTransactions'] });
+            queryClient.invalidateQueries({ queryKey: ['pfms'] });
             queryClient.invalidateQueries({ queryKey: ['financeStats'] });
         },
     });
@@ -76,9 +80,10 @@ export const useCreatePFMSTransaction = () => {
  */
 export const useInternshipFees = (fy) => {
     return useQuery({
-        queryKey: ['internshipFees', fy],
-        queryFn: () => getInternshipFees(fy),
+        queryKey: ['internships', fy],
+        queryFn: () => getInternships(fy),
         staleTime: 0,
+        refetchInterval: 30000,
     });
 };
 
@@ -90,7 +95,7 @@ export const useVerifyInternshipFee = () => {
     return useMutation({
         mutationFn: ({ id, data }) => verifyInternshipFee(id, data),
         onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['internshipFees'] });
+            queryClient.invalidateQueries({ queryKey: ['internships'] });
             queryClient.invalidateQueries({ queryKey: ['financeStats'] });
         },
     });
@@ -236,7 +241,9 @@ export const useExecuteDisbursement = () => {
             queryClient.invalidateQueries({ queryKey: ['projects'] });
             queryClient.invalidateQueries({ queryKey: ['projectDetails'] });
             queryClient.invalidateQueries({ queryKey: ['fundSourcesOverview'] });
-            queryClient.invalidateQueries({ queryKey: ['fundFlowProjects'] });
+            queryClient.invalidateQueries({ queryKey: ['fundFlow'] });
+            queryClient.invalidateQueries({ queryKey: ['pfms'] });
+            queryClient.invalidateQueries({ queryKey: ['internships'] });
             queryClient.invalidateQueries({ queryKey: ['adminDashboard'] });
             queryClient.invalidateQueries({ queryKey: ['facultyDashboard'] });
             queryClient.invalidateQueries({ queryKey: ['notifications'] });
@@ -309,6 +316,21 @@ export const useReleaseFunctionFunds = () => {
             queryClient.invalidateQueries({ queryKey: ['disbursalHistory'] });
             queryClient.invalidateQueries({ queryKey: ['financialReports'] });
             queryClient.invalidateQueries({ queryKey: ['financeStats'] });
+        },
+    });
+};
+
+/**
+ * Hook to reverse/rollback a disbursement (Bank-Grade)
+ */
+export const useRollbackDisbursement = () => {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: (id) => rollbackDisbursement(id),
+        onSuccess: () => {
+            // Re-sync all financial datasets
+            queryClient.invalidateQueries();
         },
     });
 };

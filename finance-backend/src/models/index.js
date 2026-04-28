@@ -3,6 +3,8 @@ const { Sequelize } = require('sequelize');
 const ResearchCenterModel = require('./ResearchCenter');
 
 const models = {
+    Account: require('./Account'),
+    AccountingPeriod: require('./AccountingPeriod'),
     AcademicMetric: require('./AcademicMetric'),
     AuditLog: require('./AuditLog'),
     Centre: ResearchCenterModel,
@@ -14,7 +16,9 @@ const models = {
     FundRequest: require('./FundRequest').FundRequest || require('./FundRequest'),
     FundSource: require('./FundSource'),
     InternshipFee: require('./InternshipFee'),
+    JournalEntry: require('./JournalEntry'),
     Ledger: require('./Ledger'),
+    LedgerSnapshot: require('./LedgerSnapshot'),
     Notification: require('./Notification'),
     ODRequest: require('./ODRequest'),
     PFMSTransaction: require('./PFMSTransaction'),
@@ -37,7 +41,11 @@ const {
     FacultyRequest,
     FundRequest,
     InternshipFee,
+    JournalEntry,
     Ledger,
+    LedgerSnapshot,
+    Account,
+    AccountingPeriod,
     Notification,
     ODRequest,
     PFMSTransaction,
@@ -154,6 +162,12 @@ Revenue.hasMany(Ledger, { foreignKey: 'revenueId', as: 'ledgerEntries' });
 Ledger.belongsTo(Revenue, { foreignKey: 'revenueId', as: 'Revenue' });
 User.hasMany(Ledger, { foreignKey: 'createdByUserId', as: 'createdLedgerEntries' });
 Ledger.belongsTo(User, { foreignKey: 'createdByUserId', as: 'createdByUser' });
+
+JournalEntry.hasMany(Ledger, { foreignKey: 'journalId', as: 'ledgerEntries' });
+Ledger.belongsTo(JournalEntry, { foreignKey: 'journalId', as: 'JournalEntry' });
+
+Account.hasMany(Ledger, { foreignKey: 'accountId', as: 'ledgerEntries' });
+Ledger.belongsTo(Account, { foreignKey: 'accountId', as: 'Account' });
 
 // Audit logs
 User.hasMany(AuditLog, { foreignKey: 'userId', as: 'auditLogs' });

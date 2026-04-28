@@ -11,6 +11,9 @@ const {
     FundRequest,
     FundSource,
     Ledger,
+    JournalEntry,
+    Account,
+    AccountingPeriod,
     Project,
     ProjectMember,
     User,
@@ -20,12 +23,14 @@ const {
     mapToFundSourceKey,
     normalizeFundSource,
 } = require('./fundSourceCatalogService');
+const { safeEmit } = require('../socketInstance');
 
 const {
     VALID_PROJECT_STATUSES,
     isValidProjectStatus,
     getSqlStatusList
 } = require('../constants/financeConstants');
+const { ACCOUNTS } = require('../constants/accounts');
 
 const EVENT_SOURCE_LABEL = 'College Funded';
 
@@ -53,20 +58,103 @@ const getFinancialYear = (input = new Date()) => {
     return `${startYear}-${endYear}`;
 };
 
+/**
+ * Double-Entry Posting Engine
+ * Enforces: totalDebit === totalCredit per transaction.
+ */
+const postJournalTransaction = async (params, options = {}) => {
+    const { description, entries, referenceId, metadata, actor, transactionDate = new Date() } = params;
+    const transaction = options.transaction;
+
+    // 1. Period Lock Guard (Pipeline Layer)
+    const closedPeriod = await AccountingPeriod.findOne({
+        where: {
+            startDate: { [Op.lte]: transactionDate },
+            endDate: { [Op.gte]: transactionDate },
+            status: 'CLOSED'
+        },
+        transaction
+    });
+
+    if (closedPeriod) {
+        throw new Error(`CRITICAL: Access denied. Financial period ${closedPeriod.startDate} to ${closedPeriod.endDate} is CLOSED and locked for auditing.`);
+    }
+
+    // 2. Enforce Double-Entry Rule
+    const totalDebit = entries.reduce((acc, e) => acc + toNumber(e.debit), 0);
+    const totalCredit = entries.reduce((acc, e) => acc + toNumber(e.credit), 0);
+
+    // Opening balances might have a different validation if they are single-sided (uncommon but possible in some migrations)
+    // However, for strictness, we require them to be balanced (usually against an Equity/Capital account)
+    if (Math.abs(totalDebit - totalCredit) > 0.01) {
+        throw new Error(`ACCOUNTING ERROR: Unbalanced journal entry. Debits (₹${totalDebit}) must equal Credits (₹${totalCredit}).`);
+    }
+
+    // 3. Create Journal Header
+    const journal = await JournalEntry.create({
+        description,
+        referenceId,
+        metadata: { ...metadata, isOpeningBalance: description === 'OPENING_BALANCE' },
+        transactionDate,
+        createdByUserId: actor?.id || actor?._id || null
+    }, { transaction });
+
+    // 3. Post Ledger Lines
+    const ledgerLines = entries.map(entry => ({
+        journalId: journal.id,
+        accountId: entry.accountId,
+        projectId: entry.projectId || null,
+        fundRequestId: entry.fundRequestId || null,
+        debit: entry.debit || 0,
+        credit: entry.credit || 0,
+        referenceId: referenceId || null,
+        description: entry.description || description,
+        metadata: entry.metadata || {}
+    }));
+
+    await Ledger.bulkCreate(ledgerLines, { transaction });
+    return journal;
+};
+
 const safeCreateLedgerEntry = async (payload, options = {}) => {
+    const transaction = options.transaction;
     try {
-        // Ensure audit fields are persisted if present
+        const { entryType, amount, projectId, fundRequestId, referenceId, description, createdByUserId } = payload;
+        
+        // 1. Calculate current balance for the context (Institutional vs Project)
+        const where = projectId ? { projectId } : {};
+        const ledgerEntries = await Ledger.findAll({ where, transaction });
+        const currentBalance = ledgerEntries.reduce((acc, entry) => {
+            return acc + Number(entry.credit || 0) - Number(entry.debit || 0);
+        }, 0);
+
+        // 2. Map legacy fields to bank-grade ledger schema
+        const isOutflow = entryType === 'OUTFLOW';
+        const type = payload.type || (isOutflow ? 'DISBURSEMENT' : 'REVENUE');
+        const debit = isOutflow ? toNumber(amount) : 0;
+        const credit = isOutflow ? 0 : toNumber(amount);
+        const newBalance = currentBalance + credit - debit;
+
         const ledgerPayload = {
-            ...payload,
-            approvedBy: payload.approvedBy || null,
-            isHighValue: payload.isHighValue || false,
+            type,
+            projectId,
+            fundRequestId,
+            debit,
+            credit,
+            balanceAfter: newBalance,
+            referenceId,
+            description: description || `${type} recorded`,
+            createdByUserId: createdByUserId || null,
+            metadata: payload.metadata || {}
         };
-        return await Ledger.create(ledgerPayload, options);
+
+        return await Ledger.create(ledgerPayload, { transaction });
     } catch (error) {
         if (isMissingTableError(error)) {
             console.warn('[Ledger] Table missing, skipping ledger write until schema is synced.');
             return null;
         }
+        console.error('[safeCreateLedgerEntry] Error:', error.message);
         throw error;
     }
 };
@@ -300,6 +388,17 @@ const executeDisbursementPipeline = async (request, payload, actor, options = {}
                 throw new Error(`Reconciliation Error: Transaction ID ${payload.transactionId} has already been recorded.`);
             }
         }
+
+        // --- HARD IDEMPOTENCY CHECK ---
+        const existingDisbursement = await Disbursement.findOne({
+            where: { fundRequestId: request._id || request.id },
+            transaction
+        });
+
+        if (existingDisbursement) {
+            throw new Error('Disbursement already exists for this fund request. Double payout prevented.');
+        }
+
         // ROW-LEVEL LOCK on FundRequest
         const lockedRequest = await FundRequest.findByPk(request._id || request.id, {
             transaction,
@@ -449,26 +548,44 @@ const executeDisbursementPipeline = async (request, payload, actor, options = {}
             transaction
         }) || 0);
 
-        await project.update({
-            releasedBudget: authoritativeProjectSum,
+        // --- DOUBLE-ENTRY ACCOUNTING INTEGRATION ---
+        const [bankAcc, expenseAcc] = await Promise.all([
+            Account.findOne({ where: { code: ACCOUNTS.BANK.code }, transaction }),
+            Account.findOne({ where: { code: ACCOUNTS.PROJECT_EXPENSE.code }, transaction })
+        ]);
+
+        if (!bankAcc || !expenseAcc) {
+            throw new Error('CRITICAL: Chart of Accounts not properly initialized. Aborting disbursement.');
+        }
+
+        await postJournalTransaction({
+            description: `Fund disbursement for: ${lockedRequest.projectTitle}`,
+            referenceId: bankReference,
+            actor,
+            entries: [
+                {
+                    accountId: expenseAcc.id,
+                    projectId: lockedRequest.projectId,
+                    fundRequestId: requestId,
+                    debit: amount,
+                    credit: 0,
+                    description: `Research Expense: ${lockedRequest.purpose}`
+                },
+                {
+                    accountId: bankAcc.id,
+                    projectId: null, // Bank account is institutional level
+                    fundRequestId: requestId,
+                    debit: 0,
+                    credit: amount,
+                    description: `Cash outflow from Institutional Bank`
+                }
+            ]
         }, { transaction });
 
-        await ensureFundSourceSeed(lockedRequest.source, transaction);
-
-        await safeCreateLedgerEntry({
-            entryType: 'OUTFLOW',
-            category: lockedRequest.source || 'GENERAL',
-            amount,
-            projectId: lockedRequest.projectId,
-            fundRequestId: requestId,
-            disbursementId: getRecordId(disbursement),
-            referenceId: bankReference,
-            description: `Fund disbursement for ${lockedRequest.projectTitle}`,
-            financialYear: getFinancialYear(disbursementDate),
-            entryDate: disbursementDate,
-            createdByUserId: actor?.id || actor?._id || null,
-            approvedBy,
-            isHighValue,
+        // Update Project aggregated metrics (Caching Layer)
+        await project.update({
+            releasedBudget: authoritativeProjectSum,
+            status: 'ACTIVE'
         }, { transaction });
 
         const anomalyCheck = await detectAnomalies({ projectId: lockedRequest.projectId, amount });
@@ -497,6 +614,14 @@ const executeDisbursementPipeline = async (request, payload, actor, options = {}
         });
 
         console.log(`[${correlationId}] [Pipeline:DISBURSE] Committed — request=${requestId} disbursement=${disbursement._id} status=DISBURSED authSum=${authoritativeProjectSum}`);
+
+        // --- REAL-TIME STREAMING ---
+        safeEmit('finance', 'finance:update', {
+            type: 'DISBURSEMENT',
+            projectId: lockedRequest.projectId,
+            amount,
+            timestamp: Date.now()
+        });
 
         // --- REAL-TIME BUDGET ALERTS ---
         const sanctioned = toNumber(project.sanctionedBudget);
@@ -540,19 +665,34 @@ const syncRevenueLedger = async (revenue, actor, options = {}) => {
     const transaction = options.transaction;
     const amount = toNumber(revenue.verifiedAmount || revenue.amountGenerated);
 
-    return safeCreateLedgerEntry({
-        entryType: 'INFLOW',
-        category: revenue.revenueSource || 'Revenue',
-        amount,
-        projectId: null,
-        fundRequestId: null,
-        disbursementId: null,
-        revenueId: getRecordId(revenue),
-        referenceId: revenue.bankReference || getRecordId(revenue),
+    const [bankAcc, revenueAcc] = await Promise.all([
+        Account.findOne({ where: { code: ACCOUNTS.BANK.code }, transaction }),
+        Account.findOne({ where: { code: ACCOUNTS.REVENUE.code }, transaction })
+    ]);
+
+    if (!bankAcc || !revenueAcc) {
+        console.error('[syncRevenueLedger] Chart of Accounts missing');
+        return null;
+    }
+
+    return await postJournalTransaction({
         description: `Verified revenue: ${revenue.revenueSource}`,
-        financialYear: getFinancialYear(revenue.verifiedAt || new Date()),
-        entryDate: revenue.verifiedAt || new Date(),
-        createdByUserId: actor?.id || actor?._id || null,
+        referenceId: revenue.bankReference || getRecordId(revenue),
+        actor,
+        entries: [
+            {
+                accountId: bankAcc.id,
+                debit: amount,
+                credit: 0,
+                description: `Bank Inflow from ${revenue.revenueSource}`
+            },
+            {
+                accountId: revenueAcc.id,
+                debit: 0,
+                credit: amount,
+                description: `Institutional Revenue Recognition`
+            }
+        ]
     }, { transaction });
 };
 
