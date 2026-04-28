@@ -60,10 +60,16 @@ const getNotifications = asyncHandler(async (req, res) => {
         return res.status(403).json({ success: false, message: 'Unauthorized' });
     }
 
+    const whereClause = { userId };
+    if (req.query.isRead !== undefined) {
+        whereClause.isRead = req.query.isRead === 'true';
+    }
+
+    // TASK 5 — OPTIMIZE NOTIFICATION QUERY
     const notifications = await Notification.findAll({
-        where: { userId },
+        where: whereClause,
         order: [['createdAt', 'DESC']],
-        limit: 50
+        limit: Number(req.query.limit) || 50
     });
 
     res.status(200).json({ success: true, data: notifications || [] });

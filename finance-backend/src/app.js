@@ -128,7 +128,8 @@ app.use((err, req, res, next) => {
         success: false,
         message: err.message || 'Internal Server Error',
         stack: process.env.NODE_ENV === 'development' ? err.stack : undefined,
-        requestId: req.id
+        requestId: req.id,
+        correlationId: req.correlationId
     });
 });
 
@@ -138,7 +139,8 @@ app.use((req, res) => {
     res.status(404).json({
         success: false,
         message: "Route not found",
-        data: [] 
+        path: req.originalUrl,
+        correlationId: req.correlationId
     });
 });
 

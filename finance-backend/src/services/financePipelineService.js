@@ -402,10 +402,20 @@ const executeDisbursementPipeline = async (request, payload, actor, options = {}
             financeProcessedBy: actor?.id || actor?._id || null,
         }, { transaction });
 
+        // TASK 2 — ENFORCE INSTALLMENT SEQUENCE (APP LEVEL)
+        const maxInstallment = await Disbursement.max('installmentNumber', {
+            where: { fundRequestId: requestId },
+            transaction
+        }) || 0;
+        
+        if (Number(nextInstallmentNumber) !== maxInstallment + 1) {
+            throw new Error(`Invalid installment sequence. Expected ${maxInstallment + 1}, got ${nextInstallmentNumber}`);
+        }
+
         // TASK 2 — ENFORCE IDEMPOTENCY IN CONTROLLER (Pipeline)
-        // Ensure idempotency Key (TASK 1: Stable key without time window)
+        // Ensure idempotency Key (TASK 1: Normalize idempotency key format)
         const sysActor = actor?.id || actor?._id || 'sys';
-        const idempotencyKey = payload.idempotencyKey || `disburse_${requestId}*${amount}*${nextInstallmentNumber}_${sysActor}`;
+        const idempotencyKey = payload.idempotencyKey || `disburse_${requestId}*${Number(amount).toFixed(2)}*${Number(nextInstallmentNumber)}_${sysActor}`;
 
         let disbursement = await Disbursement.findOne({
             where: { idempotencyKey },
