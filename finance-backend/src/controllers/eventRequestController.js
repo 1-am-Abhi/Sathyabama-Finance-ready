@@ -135,7 +135,7 @@ const updateEventRequestStatus = asyncHandler(async (req, res) => {
         pipeline: {
             projectId: getRecordId(pipelineResult.project),
             fundRequestId: getRecordId(pipelineResult.fundRequest),
-            status: pipelineResult.fundRequest ? 'PENDING_DISBURSAL' : pipelineResult.event.status,
+            status: pipelineResult.fundRequest ? 'APPROVED' : pipelineResult.event.status,
             redirectTo: pipelineResult.fundRequest ? '/finance/function-requests' : null,
         },
     });

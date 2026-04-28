@@ -65,13 +65,13 @@ const getFinanceStats = asyncHandler(async (req, res) => {
             // Finance-activity counts used by FinanceDashboard
             FundRequest.count({
                 where: {
-                    status: 'PENDING_DISBURSAL',
+                    status: 'APPROVED',
                     currentStage: { [Op.in]: ['FUND_APPROVED', 'BILLS_UPLOADED', null] }
                 }
             }),
             FundRequest.count({
                 where: {
-                    status: 'PENDING_DISBURSAL',
+                    status: 'APPROVED',
                     currentStage: { [Op.in]: ['FUND_RELEASED', 'CHEQUE_RELEASED'] }
                 }
             }),
@@ -320,27 +320,18 @@ const getDisbursalHistory = asyncHandler(async (req, res) => {
     let history = [];
     try {
         history = await Disbursement.findAll({
+            attributes: ['_id', 'id', 'amount', 'createdAt', 'bankReference', 'disbursedAt'],
             include: [
                 {
                     model: FundRequest,
                     as: 'FundRequest',
-                    attributes: ['_id', 'projectTitle', 'faculty', 'facultyId', 'source', 'department', 'requestedAmount', 'installmentNumber', 'status'],
-                    required: false,
-                },
-                {
-                    model: require('../models').Project,
-                    as: 'Project',
-                    attributes: ['_id', 'title', 'pi', 'department', 'sanctionedBudget', 'releasedBudget'],
-                    required: false,
-                },
-                {
-                    model: User,
-                    as: 'officer',
-                    attributes: ['_id', 'name', 'email'],
-                    required: false,
-                },
+                    include: [
+                        { model: require('../models').Project, as: 'Project' },
+                        { model: User, as: 'officer', required: false }
+                    ]
+                }
             ],
-            order: [['disbursedAt', 'DESC']],
+            order: [['createdAt', 'DESC']],
             limit: 200,
         });
     } catch (err) {
@@ -478,7 +469,7 @@ const getFundFlowData = asyncHandler(async (req, res) => {
     try {
         requests = await FundRequest.findAll({
             where: {
-                status: { [Op.in]: ['APPROVED', 'PENDING_DISBURSAL', 'DISBURSED'] },
+                status: { [Op.in]: ['APPROVED', 'DISBURSED'] },
                 currentStage: {
                     [Op.in]: [
                         'FUND_APPROVED', 'FUND_RELEASED', 'BILLS_UPLOADED',

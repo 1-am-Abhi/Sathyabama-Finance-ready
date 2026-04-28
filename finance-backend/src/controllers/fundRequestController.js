@@ -282,20 +282,17 @@ const createFundRequest = asyncHandler(async (req, res) => {
         });
     }
 
-    // ── 2. Resolve / auto-create project ───────────────────────────────
-    const standardizedSource = normalizeFundSource(source || 'PFMS');
-    let project = null;
+    const transaction = await FundRequest.sequelize.transaction();
 
-    if (bodyProjectIdResolved) {
-        try {
-            project = await Project.findByPk(bodyProjectIdResolved, { include: [buildCentreInclude()].filter(Boolean) });
-        } catch (error) {
-            console.warn('[FundRequestController] Project lookup include failed:', error.message);
-            project = await Project.findByPk(bodyProjectIdResolved);
+    try {
+        // ── 2. Resolve / auto-create project ───────────────────────────────
+        const standardizedSource = normalizeFundSource(source || 'PFMS');
+        let project = null;
+
+        if (bodyProjectIdResolved) {
+            project = await Project.findByPk(bodyProjectIdResolved, { transaction });
         }
-    }
-    if (!project) {
-        try {
+        if (!project) {
             project = await Project.findOne({
                 where: {
                     [Op.or]: [
@@ -303,99 +300,136 @@ const createFundRequest = asyncHandler(async (req, res) => {
                         { pi: req.user.name, title: projectTitle },
                     ],
                 },
-                include: [buildCentreInclude()].filter(Boolean),
+                transaction
             });
-        } catch (error) {
-            console.warn('[FundRequestController] Project title lookup include failed:', error.message);
-            project = await Project.findOne({
-                where: {
-                    [Op.or]: [
-                        { title: projectTitle },
-                        { pi: req.user.name, title: projectTitle },
-                    ],
+        }
+
+        if (!project) {
+            const centreAssignment = await resolveCentreAssignment(null, req.user);
+            const totalSanctioned = Number(totalBudget || amount);
+            project = await Project.create({
+                title: projectTitle,
+                pi: req.user.name,
+                userId: facultyId,
+                facultyId,
+                sanctionedBudget: totalSanctioned,
+                releasedBudget: 0,
+                utilizedBudget: 0,
+                status: 'PENDING',
+                department: req.user.department || 'RESEARCH',
+                centre: centreAssignment.centre,
+                centreId: centreAssignment.centreId,
+                fundingSource: standardizedSource,
+                description: purpose || `Auto-created for fund request: ${projectTitle}`,
+            }, { transaction });
+        }
+
+        const projectId = project._id || project.id;
+
+        // ── 3. Budget enforcement ───────────────────────────────────────────
+        const totalReleased = await Disbursement.sum('amount', {
+            where: { projectId },
+            transaction
+        }) || 0;
+
+        const totalRequestedPending = await FundRequest.sum('requestedAmount', {
+            where: {
+                projectId,
+            status: ['PENDING', 'APPROVED']
+            },
+            transaction
+        }) || 0;
+
+        const sanctionedBudget = Number(project.sanctionedBudget || 0);
+        const remaining = sanctionedBudget - totalReleased - totalRequestedPending;
+
+        if (amount > remaining) {
+            await transaction.rollback();
+            return res.status(400).json({
+                success: false,
+                message: `Requested amount ₹${amount.toLocaleString()} exceeds remaining project budget ₹${remaining.toLocaleString()}.`,
+                data: {
+                    totalAmount: sanctionedBudget,
+                    disbursedAmount: totalReleased,
+                    pendingAmount: totalRequestedPending,
+                    remainingAmount: remaining,
                 },
             });
         }
-    }
 
-    if (!project) {
-        const centreAssignment = await resolveCentreAssignment(null, req.user);
-        const totalSanctioned = Number(totalBudget || amount);
-        project = await Project.create({
-            title: projectTitle,
-            pi: req.user.name,
-            userId: facultyId,
+        // ── 4. Installment number ───────────────────────────────────────────
+        const maxInstallment = await FundRequest.max('installmentNumber', {
+            where: { projectId },
+            transaction,
+            lock: transaction.LOCK.UPDATE
+        });
+        const installmentNumber = (maxInstallment || 0) + 1;
+
+        // ── 5. Create fund request ──────────────────────────────────────────
+        const centreAssignment = await resolveCentreAssignment(project, req.user);
+        const fundRequest = await FundRequest.create({
+            projectTitle,
+            projectId,
+            faculty: req.user.name,
             facultyId,
-            sanctionedBudget: totalSanctioned,
-            releasedBudget: 0,
-            utilizedBudget: 0,
-            status: 'PENDING',
+            userId: facultyId,
+            requestedAmount: amount,
+            installmentNumber,
+            type: 'INSTALLMENT',
+            purpose,
             department: req.user.department || 'RESEARCH',
             centre: centreAssignment.centre,
             centreId: centreAssignment.centreId,
-            fundingSource: standardizedSource,
-            description: purpose || `Auto-created for fund request: ${projectTitle}`,
-        });
-    }
+            source: standardizedSource,
+            status: 'PENDING',
+        }, { transaction });
 
-    const projectId = project._id || project.id;
+        await AuditLog.create({
+            userId: req.user.id || req.user._id,
+            action: 'FUND_REQUEST_CREATED',
+            entityType: 'FundRequest',
+            entityId: String(fundRequest.id || fundRequest._id),
+            metadata: { projectTitle, amount }
+        }, { transaction });
 
-    // ── 3. Budget enforcement ───────────────────────────────────────────
-    const remaining = await computeRemaining(project);
-    if (amount > remaining) {
-        const totalAmount = Number(project.sanctionedBudget);
-        const disbursedAmount = totalAmount - remaining;
-        return res.status(400).json({
+        await transaction.commit();
+
+        // ── 6. Notify Admin ─────────────────────────────────────────────────
+        try {
+            await NotificationService.notifyRole(
+                'ADMIN',
+                'New Fund Request',
+                `${req.user.name} submitted installment #${installmentNumber} for '${projectTitle}' — ₹${amount.toLocaleString()}.`,
+                'INFO',
+                `/admin/fund-requests`
+            );
+        } catch (err) {
+            console.error('[Notification Failed]', err);
+        }
+
+        // Fetch full request to return properly populated object
+        let fullRequest;
+        try {
+            fullRequest = await FundRequest.findByPk(fundRequest.id || fundRequest._id, {
+                include: [
+                    buildCentreInclude(), 
+                    buildProjectInclude()
+                ].filter(Boolean),
+            });
+        } catch (err) {
+            fullRequest = fundRequest;
+        }
+
+        return res.status(201).json({ success: true, data: normalizeResearchCenterResponse(normalizeFundRequest(fullRequest)) || fullRequest || {} });
+    } catch (error) {
+        await transaction.rollback();
+        console.error('[FundRequestController] createFundRequest Error:', error);
+        return res.status(500).json({
             success: false,
-            message: `Requested amount ₹${amount.toLocaleString()} exceeds remaining project budget ₹${remaining.toLocaleString()}.`,
-            data: {
-                totalAmount,
-                disbursedAmount,
-                remainingAmount: remaining,
-            },
+            message: 'Failed to create fund request',
+            error: error.message
         });
     }
-
-    // ── 4. Installment number ───────────────────────────────────────────
-    const installmentNumber = await nextInstallmentNumber(projectId);
-
-    // ── 5. Create fund request ──────────────────────────────────────────
-    const centreAssignment = await resolveCentreAssignment(project, req.user);
-    const fundRequest = await FundRequest.create({
-        projectTitle,
-        projectId,
-        faculty: req.user.name,
-        facultyId,
-        userId: facultyId,
-        requestedAmount: amount,
-        installmentNumber,
-        type: 'INSTALLMENT',
-        purpose,
-        department: req.user.department || 'RESEARCH',
-        centre: centreAssignment.centre,
-        centreId: centreAssignment.centreId,
-        source: standardizedSource,
-        status: 'PENDING',
-    });
-
-    // ── 6. Notify Admin ─────────────────────────────────────────────────
-    await NotificationService.notifyRole(
-        'ADMIN',
-        'New Fund Request',
-        `${req.user.name} submitted installment #${installmentNumber} for '${projectTitle}' — ₹${amount.toLocaleString()}.`,
-        'INFO',
-        `/admin/fund-requests`
-    );
-
-    await AuditLog.create({
-        userId: req.user.id || req.user._id,
-        action: 'FUND_REQUEST_CREATED',
-        entityType: 'FundRequest',
-        entityId: String(fundRequest.id),
-        metadata: { projectTitle, amount }
-    });
-
-    return res.status(201).json({ success: true, data: fundRequest || {} });
 });
 
 const updateFundRequest = asyncHandler(async (req, res) => {
@@ -462,20 +496,8 @@ const rejectFundRequest = asyncHandler(async (req, res) => {
     const request = await FundRequest.findByPk(req.params.id);
     if (!request) return res.status(404).json({ success: false, message: 'Request not found' });
 
-    const currentAudit = request.auditTrail || [];
     await request.update({
-        status: 'REJECTED',
-        auditTrail: [
-            ...currentAudit,
-            {
-                stage: 'REJECTED',
-                prevStage: request.currentStage,
-                updatedBy: req.user.id || req.user._id,
-                updatedByName: req.user.name,
-                timestamp: new Date(),
-                remarks: req.body.remarks || 'Rejected by Admin',
-            },
-        ],
+        status: 'REJECTED'
     });
 
     await NotificationService.notifyFaculty(
@@ -509,8 +531,8 @@ const disburseFund = asyncHandler(async (req, res) => {
     const request = await FundRequest.findByPk(req.params.id);
     if (!request) return res.status(404).json({ success: false, message: 'Request not found' });
 
-    // Only PENDING_DISBURSAL is valid — no partial flow
-    if (request.status !== 'PENDING_DISBURSAL') {
+    // Only APPROVED is valid
+    if (request.status !== 'APPROVED') {
         if (request.status === 'DISBURSED' && req.body.transactionId) {
             const existing = await Disbursement.findOne({
                 where: {
@@ -529,24 +551,20 @@ const disburseFund = asyncHandler(async (req, res) => {
         }
         return res.status(400).json({
             success: false,
-            message: `Cannot disburse a request in '${request.status}' status. Only PENDING_DISBURSAL requests can be disbursed.`,
+            message: `Cannot disburse a request in '${request.status}' status. Only APPROVED requests can be disbursed.`,
             correlationId: req.correlationId
         });
     }
 
-    // TASK 11 — Strengthen approval check: auditTrail JSON + AuditLog DB fallback
-    const hasApprovalInTrail = (request.auditTrail || []).some(entry => entry.stage === 'FUND_APPROVED');
-    let hasApprovalInDB = false;
-    if (!hasApprovalInTrail) {
-        const approvalLog = await AuditLog.findOne({
-            where: {
-                entityId: String(request._id || request.id),
-                action: { [Op.in]: ['FUND_REQUEST_APPROVED', 'FUND_APPROVED'] }
-            }
-        });
-        hasApprovalInDB = !!approvalLog;
-    }
-    if (!hasApprovalInTrail && !hasApprovalInDB) {
+    // Check DB AuditLog for approval
+    const approvalLog = await AuditLog.findOne({
+        where: {
+            entityId: String(request._id || request.id),
+            action: { [Op.in]: ['FUND_REQUEST_APPROVED', 'FUND_APPROVED'] }
+        }
+    });
+
+    if (!approvalLog) {
         return res.status(400).json({
             success: false,
             message: 'No valid approval record found. This request must be approved before disbursement.',

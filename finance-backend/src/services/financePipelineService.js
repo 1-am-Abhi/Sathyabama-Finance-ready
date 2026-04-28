@@ -177,22 +177,13 @@ const ensureEventFundRequest = async (event, project, actor, options = {}) => {
         userId: event.facultyId,
         requestedAmount,
         purpose,
-        status: 'PENDING_DISBURSAL',
+        status: 'APPROVED',
         currentStage: 'FUND_APPROVED',
         department: event.department || project.department || 'RESEARCH',
         centre: event.researchCentre || project.centre || 'Research Centre',
         centreId: project.centreId || null,
         source,
-        auditTrail: [
-            {
-                stage: 'FUND_APPROVED',
-                prevStage: fundRequest?.status || 'PENDING',
-                updatedBy: actor?.id || actor?._id || null,
-                updatedByName: actor?.name || 'System',
-                timestamp: new Date(),
-                remarks: `Event approved and routed to Finance ${marker}`,
-            },
-        ],
+
     };
 
     if (fundRequest) {
@@ -247,22 +238,9 @@ const getFundSourceAllocationState = async (source, transaction) => {
 
 const approveFundRequestPipeline = async (request, actor, remarks, options = {}) => {
     const transaction = options.transaction;
-    const currentAudit = request.auditTrail || [];
-
     await request.update({
-        status: 'PENDING_DISBURSAL',
-        currentStage: 'FUND_APPROVED',
-        auditTrail: [
-            ...currentAudit,
-            {
-                stage: 'FUND_APPROVED',
-                prevStage: request.currentStage || request.status,
-                updatedBy: actor?.id || actor?._id || null,
-                updatedByName: actor?.name || 'System',
-                timestamp: new Date(),
-                remarks: remarks || 'Approved by Admin',
-            },
-        ],
+        status: 'APPROVED',
+        currentStage: 'FUND_APPROVED'
     }, { transaction });
 
     return request;
@@ -307,8 +285,8 @@ const executeDisbursementPipeline = async (request, payload, actor, options = {}
             throw new Error('Already fully disbursed but no disbursement record found — data inconsistency');
         }
 
-        if (lockedRequest.status !== 'PENDING_DISBURSAL') {
-            throw new Error(`Cannot disburse request in status '${lockedRequest.status}'. Only PENDING_DISBURSAL is allowed.`);
+        if (lockedRequest.status !== 'APPROVED') {
+            throw new Error(`Cannot disburse request in status '${lockedRequest.status}'. Only APPROVED is allowed.`);
         }
 
         // ROW-LEVEL LOCK on Project

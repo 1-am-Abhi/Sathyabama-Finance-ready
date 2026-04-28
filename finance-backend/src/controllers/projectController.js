@@ -294,7 +294,7 @@ const updateProject = asyncHandler(async (req, res) => {
                     userId: project.userId,
                     requestedAmount: project.sanctionedBudget || 1,
                     purpose: `Initial advance for approved project: ${project.title}`,
-                    status: 'PENDING_DISBURSAL',
+                    status: 'APPROVED',
                     currentStage: 'FUND_APPROVED',
                     department: project.department || 'Research',
                     centre: project.centre || 'Research Centre',

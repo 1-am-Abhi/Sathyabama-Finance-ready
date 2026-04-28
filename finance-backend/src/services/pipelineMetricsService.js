@@ -22,7 +22,7 @@ const {
     normalizeFundSourceType,
 } = require('./fundSourceCatalogService');
 
-const ALLOCATED_STATUSES = ['APPROVED', 'PENDING_DISBURSAL', 'PARTIALLY_DISBURSED', 'DISBURSED'];
+const ALLOCATED_STATUSES = ['APPROVED', 'DISBURSED'];
 const ACTIVE_PROJECT_STATUSES = VALID_PROJECT_STATUSES;
 const FUND_SOURCE_LABELS = {
     PFMS: 'PFMS Funds',
@@ -523,7 +523,7 @@ const getSharedPipelineData = async () => {
                         'centre',
                         'centreId',
                         'source',
-                        'auditTrail',
+
                         'createdAt',
                         'updatedAt',
                     ],
@@ -552,7 +552,7 @@ const getSharedPipelineData = async () => {
                         'centre',
                         'centreId',
                         'source',
-                        'auditTrail',
+
                         'createdAt',
                         'updatedAt',
                     ],

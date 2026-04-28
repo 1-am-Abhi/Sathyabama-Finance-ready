@@ -36,7 +36,7 @@ const runSmokeTest = async () => {
             requestedAmount: 50000,
             installmentNumber: 1,
             type: 'INSTALLMENT',
-            status: 'PENDING_DISBURSAL',
+            status: 'APPROVED',
             source: 'INSTITUTIONAL',
             purpose: 'Smoke Test Request 1',
             currentStage: 'FUND_APPROVED'
@@ -69,7 +69,7 @@ const runSmokeTest = async () => {
             requestedAmount: 100000,
             installmentNumber: 2,
             type: 'INSTALLMENT',
-            status: 'PENDING_DISBURSAL',
+            status: 'APPROVED',
             source: 'INSTITUTIONAL',
             purpose: 'Smoke Test Request 2',
             currentStage: 'FUND_APPROVED'

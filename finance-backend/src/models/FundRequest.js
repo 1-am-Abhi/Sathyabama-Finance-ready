@@ -15,7 +15,6 @@ const VALID_STATUSES = [
     'PENDING',
     'PENDING_APPROVAL',
     'APPROVED',
-    'PENDING_DISBURSAL',
     'DISBURSED',
     'REJECTED',
     'CANCELLED'
@@ -42,9 +41,7 @@ class FundRequest extends Model {
             remarks
         };
 
-        // Sequelize JSON updates need to be handled carefully
-        const currentAudit = this.auditTrail || [];
-        this.auditTrail = [...currentAudit, newEntry];
+        // Audit DB should be used for tracking history now
         
         // Auto-update chequeStatus
         if (nextStage === 'CHEQUE_RELEASED') this.chequeStatus = 'Approved';
@@ -145,10 +142,7 @@ FundRequest.init({
         type: DataTypes.JSON,
         defaultValue: []
     },
-    auditTrail: {
-        type: DataTypes.JSON,
-        defaultValue: []
-    }
+
 }, { 
     sequelize, 
     modelName: 'FundRequest',
