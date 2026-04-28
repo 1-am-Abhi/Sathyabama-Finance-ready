@@ -8,11 +8,15 @@ const emitNotification = (notification) => {
     }
 
     const payload = notification.toJSON ? notification.toJSON() : notification;
-    global.io.to(String(payload.userId)).emit('notification', payload);
-    global.io.to(String(payload.userId)).emit('notifications:update', {
-        userId: String(payload.userId),
-        notificationId: payload._id || payload.id,
-    });
+    try {
+        global.io.to(String(payload.userId)).emit('notification', payload);
+        global.io.to(String(payload.userId)).emit('notifications:update', {
+            userId: String(payload.userId),
+            notificationId: payload._id || payload.id,
+        });
+    } catch (err) {
+        console.error('[Socket Error]', err);
+    }
 };
 
 /**

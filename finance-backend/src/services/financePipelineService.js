@@ -268,7 +268,8 @@ const approveFundRequestPipeline = async (request, actor, remarks, options = {})
     return request;
 };
 
-const executeDisbursementPipeline = async (request, payload, actor) => {
+const executeDisbursementPipeline = async (request, payload, actor, options = {}) => {
+    const correlationId = options.correlationId || `INTERNAL-${Date.now()}`;
     // 1. STRICT AUTHORITATIVE VALIDATION (No trust in frontend)
     if (!payload.amount || toNumber(payload.amount) <= 0) {
         throw new Error('Disbursement amount is mandatory and must be greater than zero');
@@ -392,7 +393,7 @@ const executeDisbursementPipeline = async (request, payload, actor) => {
             financeRemarks = `[HIGH-VALUE] ${financeRemarks}`.trim();
         }
 
-        console.log(`[Pipeline:DISBURSE] Start — request=${requestId} amount=${amount} installment=${nextInstallmentNumber} isHighValue=${isHighValue}`);
+        console.log(`[${correlationId}] [Pipeline:DISBURSE] Start — request=${requestId} amount=${amount} installment=${nextInstallmentNumber} isHighValue=${isHighValue}`);
 
         // 5. ATOMIC STATE UPDATES
         const newStatus = requestRemainingAmount > 0 ? 'PARTIALLY_DISBURSED' : 'DISBURSED';
@@ -430,7 +431,7 @@ const executeDisbursementPipeline = async (request, payload, actor) => {
             if (err.name === 'SequelizeUniqueConstraintError') {
                 throw new Error('Concurrent disbursement conflict detected (Installment # or UTR already exists). Please retry.');
             }
-            console.error(`[Pipeline:DISBURSE] Disbursement create failed for ${requestId}:`, err.message);
+            console.error(`[${correlationId}] [Pipeline:DISBURSE] Disbursement create failed for ${requestId}:`, err.message);
             throw err;
         }
 
@@ -485,9 +486,9 @@ const executeDisbursementPipeline = async (request, payload, actor) => {
             }
         });
 
-        console.log(`[Pipeline:DISBURSE] Committed — request=${requestId} disbursement=${disbursement._id} newStatus=${newStatus} authSum=${authoritativeProjectSum}`);
+        console.log(`[${correlationId}] [Pipeline:DISBURSE] Committed — request=${requestId} disbursement=${disbursement._id} newStatus=${newStatus} authSum=${authoritativeProjectSum}`);
 
-        verifyFinancialParity('DISBURSEMENT_PIPELINE').catch(err => console.error('Watchdog failed:', err));
+        verifyFinancialParity('DISBURSEMENT_PIPELINE').catch(err => console.error(`[${correlationId}] Watchdog failed:`, err));
 
         return { request: lockedRequest, disbursement };
     });

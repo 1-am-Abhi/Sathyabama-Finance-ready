@@ -600,7 +600,8 @@ const disburseFund = asyncHandler(async (req, res) => {
     const { request: updatedRequest, disbursement } = await executeDisbursementPipeline(
         request,
         payload,
-        req.user
+        req.user,
+        { correlationId: req.correlationId }
     );
 
     let budgetSummary = null;
@@ -623,7 +624,7 @@ const disburseFund = asyncHandler(async (req, res) => {
     // Each notification is isolated — one failure cannot block others
     const notifyFacultyMsg = `Installment #${disbursement?.installmentNumber || 1} (₹${Number(payload.amount).toLocaleString()}) for '${updatedRequest.projectTitle}' has been disbursed.`;
     try {
-        console.log(`[Notify] Sending faculty disbursement notification for ${updatedRequest.projectTitle}`);
+        console.log(`[${req.correlationId}] [Notify] Sending faculty disbursement notification for ${updatedRequest.projectTitle}`);
         await NotificationService.notifyFaculty(
             updatedRequest,
             'Funds Disbursed',
@@ -632,7 +633,7 @@ const disburseFund = asyncHandler(async (req, res) => {
             '/faculty/request-funds'
         );
     } catch (notifyErr) {
-        console.error('[Notify] Faculty notification failed (non-blocking):', notifyErr.message);
+        console.error(`[${req.correlationId}] [Notify] Faculty notification failed (non-blocking):`, notifyErr.message);
     }
 
     try {
@@ -644,7 +645,7 @@ const disburseFund = asyncHandler(async (req, res) => {
             '/admin/fund-requests'
         );
     } catch (notifyErr) {
-        console.error('[Notify] Admin notification failed (non-blocking):', notifyErr.message);
+        console.error(`[${req.correlationId}] [Notify] Admin notification failed (non-blocking):`, notifyErr.message);
     }
 
     try {
@@ -656,7 +657,7 @@ const disburseFund = asyncHandler(async (req, res) => {
             '/finance/disbursal-history'
         );
     } catch (notifyErr) {
-        console.error('[Notify] Finance notification failed (non-blocking):', notifyErr.message);
+        console.error(`[${req.correlationId}] [Notify] Finance notification failed (non-blocking):`, notifyErr.message);
     }
 
     // Audit log — also non-blocking
@@ -674,13 +675,14 @@ const disburseFund = asyncHandler(async (req, res) => {
             }
         });
     } catch (auditErr) {
-        console.error('[Audit] AuditLog create failed (non-blocking):', auditErr.message);
+        console.error(`[${req.correlationId}] [Audit] AuditLog create failed (non-blocking):`, auditErr.message);
     }
 
     // Socket emit — best-effort, never throws
+    // TASK 9 — HANDLE SOCKET FAILURE SAFELY
     try {
         if (global.io) {
-            console.log(`[Socket] Broadcasting finance:update for ${updatedRequest.projectTitle}`);
+            console.log(`[${req.correlationId}] [Socket] Broadcasting finance:update for ${updatedRequest.projectTitle}`);
             global.io.emit('finance:update', {
                 type: 'DISBURSEMENT',
                 subType: payload.mode || 'FULL',
@@ -692,7 +694,7 @@ const disburseFund = asyncHandler(async (req, res) => {
             });
         }
     } catch (socketErr) {
-        console.error('[Socket] finance:update emit failed (non-blocking):', socketErr.message);
+        console.error(`[${req.correlationId}] [Socket Error] finance:update emit failed (non-blocking):`, socketErr);
     }
 
     return res.status(200).json({

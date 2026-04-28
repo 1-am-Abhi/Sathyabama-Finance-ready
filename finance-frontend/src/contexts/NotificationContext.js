@@ -93,7 +93,9 @@ export const NotificationProvider = ({ children }) => {
     useEffect(() => {
         if (user) {
             fetchNotifications();
-            const interval = setInterval(fetchNotifications, 5000);
+            const interval = setInterval(() => {
+                fetchNotifications();
+            }, 10000); // every 10 seconds
             return () => clearInterval(interval);
         } else {
             setNotifications([]);

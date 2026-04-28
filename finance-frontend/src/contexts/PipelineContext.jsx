@@ -66,6 +66,7 @@ export const PipelineProvider = ({ children }) => {
         onSuccess: () => {
             queryClient.invalidateQueries(['fund-requests']);
             queryClient.invalidateQueries(['projects']);
+            queryClient.invalidateQueries(['notifications']);
         }
     });
     
@@ -121,6 +122,7 @@ export const PipelineProvider = ({ children }) => {
         onSuccess: () => {
             queryClient.invalidateQueries(['fund-requests']);
             queryClient.invalidateQueries(['projects']);
+            queryClient.invalidateQueries(['notifications']);
         }
     });
 

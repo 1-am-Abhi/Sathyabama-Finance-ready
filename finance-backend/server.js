@@ -12,20 +12,39 @@ try {
 const http = require('http');
 const socketIo = require('socket.io');
 
-let createAdapter;
-try {
-    createAdapter = require('@socket.io/redis-adapter').createAdapter;
-} catch (e) {
-    console.warn("⚠️ Redis adapter not installed, running in single-instance mode");
+const { createAdapter } = require('@socket.io/redis-adapter');
+const { createClient } = require('redis');
+
+dotenv.config();
+
+// TASK 8 — ENSURE REDIS ENV CONFIG
+if (!process.env.REDIS_URL) {
+    throw new Error('FATAL: REDIS_URL is required for production scaling and reliability');
 }
+
+const pubClient = createClient({ url: process.env.REDIS_URL });
+const subClient = pubClient.duplicate();
 
 const client = require('prom-client');
 const jwt = require('jsonwebtoken');
 const app = require('./src/app');
-const { pubClient, subClient, isHealthy } = require('./src/services/redisService');
 
+// TASK 5 — ADD RATE LIMITING (ABUSE PROTECTION)
+const rateLimit = require('express-rate-limit');
+const disbursementLimiter = rateLimit({
+    windowMs: 60 * 1000, // 1 minute
+    max: 5,
+    message: "Too many disbursement attempts, try again later"
+});
+app.use('/api/disburse', disbursementLimiter);
+app.use('/api/finance/', disbursementLimiter);
+app.use('/api/notifications', disbursementLimiter);
 
-dotenv.config();
+// TASK 6 — ADD CORRELATION ID LOGGING
+app.use((req, res, next) => {
+    req.correlationId = `REQ-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`;
+    next();
+});
 
 // Observability: Prometheus
 const collectDefaultMetrics = client.collectDefaultMetrics;
@@ -55,13 +74,14 @@ const io = socketIo(server, {
     transports: ["websocket", "polling"]
 });
 
-
-if (createAdapter && isHealthy()) {
+// TASK 3 — ENABLE REDIS SOCKET ADAPTER (CRITICAL)
+Promise.all([pubClient.connect(), subClient.connect()]).then(() => {
     io.adapter(createAdapter(pubClient, subClient));
-    logger.info('[HA] Socket.io Redis Adapter initialized.');
-} else {
-    logger.info('[HA] Running Socket.io in single-instance mode.');
-}
+    logger.info('[HA] Socket.io Redis Adapter active across instances.');
+}).catch(err => {
+    logger.error('Redis connection failed:', err);
+    process.exit(1);
+});
 
 global.io = io;
 
@@ -89,10 +109,11 @@ io.on('connection', (socket) => {
     logger.info(`[Socket] User ${userId} (${socket.user.role}) connected.`);
 
     // Explicit join event — lets the frontend re-join after reconnect
+    // TASK 4 — VERIFY SOCKET ROOM JOIN
     socket.on('join', (targetUserId) => {
         const safeId = String(targetUserId || userId);
         socket.join(safeId);
-        logger.info(`[Socket] User ${userId} joined room ${safeId}`);
+        console.log(`[Socket] User joined room: ${safeId}`);
     });
 
     socket.on('disconnect', () => {
