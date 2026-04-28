@@ -23,6 +23,7 @@ const FacultyRequestFunds = () => {
   const [amount, setAmount] = useState("");
   const [reason, setReason] = useState("");
   const [error, setError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
   const projectList = useMemo(() => projects || [], [projects]);
   const requestHistory = fundRequests || [];
@@ -70,24 +71,26 @@ const FacultyRequestFunds = () => {
 
   // ENSURE REAL API CALL (NO SILENT FAIL) - Task 2
   const handleSubmit = async () => {
-    setError("");
-
-    const numericAmount = Number(amount);
-
-    if (!numericAmount || numericAmount <= 0) {
-      return setError("Amount must be greater than 0");
-    }
-
-    if (numericAmount > remainingAmount) {
-      return setError("Amount exceeds remaining budget");
-    }
-
-    console.log("[DEBUG] Creating request:", {
-      projectId: selectedProject._id,
-      amount: numericAmount
-    });
-
+    if (submitting) return;
+    setSubmitting(true);
     try {
+      setError("");
+
+      const numericAmount = Number(amount);
+
+      if (!numericAmount || numericAmount <= 0) {
+        return setError("Amount must be greater than 0");
+      }
+
+      if (numericAmount > remainingAmount) {
+        return setError("Amount exceeds remaining budget");
+      }
+
+      console.log("[DEBUG] Creating request:", {
+        projectId: selectedProject._id,
+        amount: numericAmount
+      });
+
       await createRequest({
         projectRef: selectedProject._id,
         projectTitle: selectedProject.title,
@@ -115,6 +118,8 @@ const FacultyRequestFunds = () => {
     } catch (err) {
       console.error("[ERROR] createRequest failed:", err);
       setError(err?.response?.data?.error || err?.response?.data?.message || err?.message || "Failed to create request");
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -201,7 +206,9 @@ const FacultyRequestFunds = () => {
                 placeholder="Amount"
                 value={amount}
                 onChange={(e) => {
+                  if (e.target.value === "") return setAmount("");
                   const value = Number(e.target.value);
+                  if (isNaN(value) || value <= 0) return;
                   if (value > remainingAmount) return;
                   setAmount(value);
                 }}
@@ -224,7 +231,9 @@ const FacultyRequestFunds = () => {
             {error && <p className="text-red-500 text-sm font-semibold">{error}</p>}
 
             <div className="flex gap-2 mt-4">
-              <Button onClick={handleSubmit} className="flex-1 bg-blue-600 text-white">Submit</Button>
+              <Button onClick={handleSubmit} disabled={submitting} className="flex-1 bg-blue-600 text-white">
+                {submitting ? "Submitting..." : "Submit"}
+              </Button>
               <Button onClick={() => setShowModal(false)} variant="outline" className="flex-1">Cancel</Button>
             </div>
           </div>
