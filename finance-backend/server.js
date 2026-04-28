@@ -1,6 +1,13 @@
 const dotenv = require('dotenv');
+dotenv.config();
+
 const { connectDB, sequelize } = require('./src/config/db');
-const path = require('path');
+const http = require('http');
+const socketIo = require('socket.io');
+const jwt = require('jsonwebtoken');
+const client = require('prom-client');
+const app = require('./src/app');
+
 let logger;
 try {
     logger = require('./src/utils/logger');
@@ -9,64 +16,61 @@ try {
     logger = console;
 }
 
-const http = require('http');
-const socketIo = require('socket.io');
-
+// Redis + Socket Adapter
 const { createAdapter } = require('@socket.io/redis-adapter');
 const { createClient } = require('redis');
 
-dotenv.config();
-
-// TASK 8 — ENSURE REDIS ENV CONFIG
+// 🚨 Ensure REDIS_URL exists
 if (!process.env.REDIS_URL) {
     throw new Error('FATAL: REDIS_URL is required for production scaling and reliability');
 }
 
-const pubClient = createClient({ url: process.env.REDIS_URL });
+// Create Redis clients (TLS enabled)
+const pubClient = createClient({
+    url: process.env.REDIS_URL,
+    socket: {
+        tls: true,
+        rejectUnauthorized: false
+    }
+});
 const subClient = pubClient.duplicate();
 
-const client = require('prom-client');
-const jwt = require('jsonwebtoken');
-const app = require('./src/app');
-
-// TASK 5 — ADD RATE LIMITING (ABUSE PROTECTION)
+// Rate limiting
 const rateLimit = require('express-rate-limit');
 const disbursementLimiter = rateLimit({
-    windowMs: 60 * 1000, // 1 minute
+    windowMs: 60 * 1000,
     max: 5,
     message: "Too many disbursement attempts, try again later",
     keyGenerator: (req) => {
-        // TASK 9 — STRONG RATE LIMIT KEY
         const userId = req.user?.id || req.user?._id || 'anonymous';
         return `${userId}:${req.ip}`;
     },
-    // TASK 7 — ENABLE RATE LIMIT HEADERS
     standardHeaders: true,
     legacyHeaders: false
 });
+
 app.use('/api/disburse', disbursementLimiter);
 app.use('/api/finance/', disbursementLimiter);
 app.use('/api/notifications', disbursementLimiter);
 
-// TASK 6/7 — ADD CORRELATION ID LOGGING & HEADERS
+// Correlation ID
 app.use((req, res, next) => {
-    req.correlationId = `REQ-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`;
+    req.correlationId = `REQ-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
     res.setHeader('X-Correlation-Id', req.correlationId);
     next();
 });
 
-// Observability: Prometheus
-const collectDefaultMetrics = client.collectDefaultMetrics;
-collectDefaultMetrics({ prefix: 'finance_api_' });
+// Prometheus metrics
+client.collectDefaultMetrics({ prefix: 'finance_api_' });
 
 const httpRequestDuration = new client.Histogram({
     name: 'finance_http_latency_seconds',
     help: 'Request latency in seconds',
     labelNames: ['method', 'route', 'status'],
-    buckets: [0.1, 0.3, 0.5, 0.7, 1, 3, 5, 10] // Tailored for P95/P99 tracking
+    buckets: [0.1, 0.3, 0.5, 0.7, 1, 3, 5, 10]
 });
 
-// Feature Flag System
+// Feature flags via Redis
 global.features = {
     async isEnabled(flag) {
         const val = await require('./src/services/redisService').cache.get(`feature:${flag}`);
@@ -74,60 +78,63 @@ global.features = {
     }
 };
 
-
 const server = http.createServer(app);
-
-// Distributed Real-time: Socket.io with Redis Adapter (polling fallback enabled)
-const io = socketIo(server, { 
+const io = socketIo(server, {
     cors: { origin: '*', methods: ["GET", "POST"] },
     transports: ["websocket", "polling"]
 });
 
-// TASK 3 — ENABLE REDIS SOCKET ADAPTER (CRITICAL)
-Promise.all([pubClient.connect(), subClient.connect()]).then(() => {
-    io.adapter(createAdapter(pubClient, subClient));
-    logger.info('[HA] Socket.io Redis Adapter active across instances.');
-
-    // TASK 8 — ADD REDIS HEALTH CHECK
-    setInterval(async () => {
-        try {
-            await pubClient.ping();
-        } catch (err) {
-            console.error("[Redis] ping failed", err);
-        }
-    }, 30000);
-}).catch(err => {
-    logger.error('Redis connection failed:', err);
-    process.exit(1);
-});
-
 global.io = io;
 
-// Enforce JWT Expiration & Auth
+// 🔥 INIT REDIS + SOCKET ADAPTER
+(async () => {
+    try {
+        await pubClient.connect();
+        await subClient.connect();
+
+        io.adapter(createAdapter(pubClient, subClient));
+        logger.info('[Redis] Connected & Socket adapter initialized');
+
+        // Health check
+        setInterval(async () => {
+            try {
+                await pubClient.ping();
+            } catch (err) {
+                console.error('[Redis] ping failed', err);
+            }
+        }, 30000);
+
+    } catch (err) {
+        logger.error('Redis connection failed:', err);
+        process.exit(1);
+    }
+})();
+
+// Socket auth
 io.use((socket, next) => {
     const token = socket.handshake.auth?.token;
     if (!token) return next(new Error('Auth required'));
 
     jwt.verify(token, process.env.JWT_SECRET, (err, decoded) => {
         if (err) return next(new Error('Token expired or invalid'));
-        // Extra check for distributed scaling: ensure user object has minimal requirements
         if (!decoded.id && !decoded._id) return next(new Error('Invalid token payload'));
         socket.user = decoded;
         next();
     });
 });
 
+// Socket connection
 io.on('connection', (socket) => {
     const userId = socket.user.id || socket.user._id;
+
     socket.join(userId);
-    // Also join role-based room for broadcast notifications
+
     if (socket.user.role) {
         socket.join(`role:${socket.user.role}`);
     }
+
     logger.info(`[Socket] User ${userId} (${socket.user.role}) connected.`);
 
-    // Explicit join event — lets the frontend re-join after reconnect
-    // TASK 4 — VERIFY SOCKET ROOM JOIN
     socket.on('join', (targetUserId) => {
         const safeId = String(targetUserId || userId);
         socket.join(safeId);
@@ -139,7 +146,7 @@ io.on('connection', (socket) => {
     });
 });
 
-// Latency & Slow API Detection Middleware
+// Latency tracking
 app.use((req, res, next) => {
     const start = process.hrtime();
     const end = httpRequestDuration.startTimer();
@@ -147,50 +154,50 @@ app.use((req, res, next) => {
     res.on('finish', () => {
         const diff = process.hrtime(start);
         const timeInMs = (diff[0] * 1e3 + diff[1] * 1e-6);
-        
+
         end({ method: req.method, route: req.route?.path || req.url, status: res.statusCode });
-        
+
         if (timeInMs > 1000) {
-            logger.warn(`[Slow API] Detected latency: ${timeInMs.toFixed(2)}ms`, {
+            logger.warn(`[Slow API] ${timeInMs.toFixed(2)}ms`, {
                 method: req.method,
-                url: req.url,
-                requestId: req.id
+                url: req.url
             });
         }
     });
+
     next();
 });
 
-// Protected Metrics
+// Metrics endpoint
 app.get('/metrics', async (req, res) => {
     const authHeader = req.headers.authorization;
-    if (process.env.NODE_ENV === 'production' && authHeader !== `Bearer ${process.env.METRICS_TOKEN}`) {
+
+    if (process.env.NODE_ENV === 'production' &&
+        authHeader !== `Bearer ${process.env.METRICS_TOKEN}`) {
         return res.status(401).end('Unauthorized');
     }
-    try {
-        res.set('Content-Type', client.register.contentType);
-        res.end(await client.register.metrics());
-    } catch (err) {
-        res.status(500).end(err);
-    }
+
+    res.set('Content-Type', client.register.contentType);
+    res.end(await client.register.metrics());
 });
 
+// Start server
 const PORT = process.env.PORT || 5000;
 const queueService = require('./src/services/queueService');
+
 connectDB().then(async () => {
-    // Initialize HA Schedulers
     await queueService.setupRepeatableJobs();
-    
+
     server.listen(PORT, () => {
-        logger.info(`Enterprise Server active on port ${PORT}`);
-        logger.info(`[HA] Socket.io Redis Adapter & Repeatable Jobs active.`);
+        logger.info(`Server running on port ${PORT}`);
+        logger.info('[System] Redis + Socket + Jobs initialized');
     });
 });
 
-
-
+// Graceful shutdown
 const gracefulShutdown = async (signal) => {
-    logger.info(`[${signal}] Graceful shutdown sequence starting...`);
+    logger.info(`[${signal}] Shutdown started`);
+
     server.close(async () => {
         try {
             await Promise.all([
@@ -198,7 +205,8 @@ const gracefulShutdown = async (signal) => {
                 subClient.quit(),
                 sequelize.close()
             ]);
-            logger.info('All distributed connections closed.');
+
+            logger.info('Shutdown complete');
             process.exit(0);
         } catch (err) {
             logger.error('Shutdown error:', err);
