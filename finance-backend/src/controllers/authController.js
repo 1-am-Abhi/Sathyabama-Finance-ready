@@ -2,69 +2,81 @@ const asyncHandler = require('../utils/asyncHandler');
 const { User, Centre } = require("../models");
 const jwt = require("jsonwebtoken");
 const { sequelize } = require("../config/db");
+const bcrypt = require('bcryptjs');
 
 const generateToken = (user) => {
   return jwt.sign(
-    { id: user._id, role: user.role, email: user.email },
+    { id: user._id || user.id, role: user.role, email: user.email },
     process.env.JWT_SECRET,
     { expiresIn: "7d" }
   );
 };
 
-const login = asyncHandler(async (req, res) => {
-  console.log('LOGIN ATTEMPT:', { email: req.body.email });
+const login = async (req, res) => {
   try {
+    console.log('LOGIN REQUEST:', req.body);
+
     const { email, password } = req.body;
 
+    // 🔴 Step 1: Validate input
     if (!email || !password) {
-      return res.status(400).json({ success: false, message: 'Email and password required' });
+      return res.status(400).json({
+        message: 'Email and password are required'
+      });
     }
 
-    const user = await User.findOne({ where: { email } });
+    // 🔴 Step 2: Find user
+    const user = await User.findOne({
+      where: { email }
+    });
+
+    console.log('USER FOUND:', user ? { id: user.id, email: user.email, role: user.role } : 'NULL');
 
     if (!user) {
-      console.warn(`[AUTH] User not found: ${email}`);
-      return res.status(400).json({ success: false, message: 'User not found' });
+      return res.status(404).json({
+        message: 'User not found'
+      });
+    }
+
+    // 🔴 Step 3: Check password safely
+    if (!user.password) {
+      throw new Error('Password not stored properly in DB');
     }
 
     const isMatch = await bcrypt.compare(password, user.password);
 
     if (!isMatch) {
-      console.warn(`[AUTH] Invalid password for: ${email}`);
-      return res.status(400).json({ success: false, message: 'Invalid password' });
+      return res.status(401).json({
+        message: 'Invalid password'
+      });
     }
 
+    // 🔴 Step 4: Generate token
     const token = jwt.sign(
-      { id: user._id || user.id, role: user.role, email: user.email },
+      { id: user._id, role: user.role, email: user.email },
       process.env.JWT_SECRET,
       { expiresIn: '7d' }
     );
-
-    console.log(`[AUTH] Login successful: ${email}`);
 
     return res.json({
       success: true,
       token,
       user: {
-        id: user._id || user.id,
+        id: user._id,
         email: user.email,
         role: user.role,
-        name: user.name,
-        department: user.department,
-        centre: user.centre
+        name: user.name
       }
     });
 
   } catch (err) {
-    console.error('🔥 LOGIN ERROR:', err);
+    console.error('🔥 LOGIN ERROR FULL:', err);
 
     return res.status(500).json({
-      success: false,
-      message: err.message,
-      error: err.name
+      message: err.message
     });
   }
-});
+};
 
 const register = asyncHandler(async (req, res) => {
   const { name, email, password, role, department, centre } = req.body;
