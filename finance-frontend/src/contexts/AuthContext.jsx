@@ -122,7 +122,19 @@ export const AuthProvider = ({ children }) => {
     const login = async (email, password, role) => {
         try {
             const response = await apiClient.post('/auth/login', { email, password, role });
-            const { user: userData, token: userToken } = response.data;
+            
+            const responseData = response.data;
+            const userData = responseData?.user || responseData?.data?.user;
+            const userToken = responseData?.token || responseData?.data?.token;
+
+            if (!userData) {
+                throw new Error('Login succeeded but user data is missing');
+            }
+
+            if (!userData.role) {
+                throw new Error('User role is missing');
+            }
+
             const normalizedUser = normalizeUser(userData);
 
             localStorage.setItem('token', userToken);
@@ -138,7 +150,7 @@ export const AuthProvider = ({ children }) => {
             console.error('Login error:', error);
             return {
                 success: false,
-                error: error.response?.data?.message || 'Login failed. Please check your credentials.'
+                error: error.message || error.response?.data?.message || 'Login failed. Please check your credentials.'
             };
         }
     };

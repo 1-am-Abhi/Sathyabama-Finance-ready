@@ -38,9 +38,9 @@ const safeNumber = (val) => {
 
 const getAdminFundSourceLabel = (value) => {
     const normalized = normalizeFundSource(value);
-    if (normalized === 'INSTITUTIONAL') return 'Director Fund';
-    if (normalized === 'OTHERS') return 'Others';
-    return 'PFMS';
+    if (normalized === 'INSTITUTIONAL') return 'Innovation Fund';
+    if (normalized === 'OTHERS') return 'External Grants';
+    return 'Government Funds';
 };
 
 const EMPTY_ADMIN_DASHBOARD = {
@@ -334,7 +334,7 @@ const AdminDashboard = () => {
     }
 
     return (
-        <div className="flex-1 overflow-y-auto overflow-x-hidden p-6 bg-gradient-to-br from-[#0b1220] to-[#0f172a] min-h-screen text-white selection:bg-indigo-500/30">
+        <div className="flex-1 overflow-y-auto overflow-x-hidden p-6 bg-gray-50 min-h-screen text-slate-900 selection:bg-indigo-500/30">
             {/* Real-time Connectivity Status */}
             {!isSocketConnected && (
                 <div className="mb-6 bg-red-500/10 backdrop-blur-md border border-red-500/20 text-red-400 text-[10px] font-bold text-center py-2.5 uppercase tracking-widest animate-pulse rounded-xl flex items-center justify-center gap-2">
@@ -346,11 +346,11 @@ const AdminDashboard = () => {
             <div className="mb-8 flex items-center justify-between">
                 <div className="flex items-center gap-3">
                     <div className={`w-2.5 h-2.5 rounded-full shadow-[0_0_10px_rgba(34,197,94,0.5)] ${socketConnected ? 'bg-green-400' : 'bg-red-400'}`} />
-                    <span className="text-xs font-semibold tracking-wider text-gray-400 uppercase">
+                    <span className="text-xs font-semibold tracking-wider text-gray-600 uppercase">
                         {socketConnected ? 'Institutional Node: Active' : 'Offline Mode'}
                     </span>
                 </div>
-                <div className="flex items-center gap-2 text-gray-400">
+                <div className="flex items-center gap-2 text-gray-600">
                     <Clock className="w-4 h-4" />
                     <span className="text-xs font-medium">{new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</span>
                 </div>
@@ -364,7 +364,7 @@ const AdminDashboard = () => {
                     { label: 'Total Disbursed', value: formatCurrency(totalStats.totalDisbursed), icon: Banknote, color: 'text-blue-400' },
                     { label: 'Pending Approvals', value: totalStats.pendingApprovals, icon: Clock, color: 'text-amber-400' }
                 ].map((item, i) => (
-                    <div key={i} className="p-6 rounded-2xl bg-white/5 backdrop-blur-xl border border-white/10 hover:bg-white/10 transition-all duration-300 group">
+                    <div key={i} className="p-6 rounded-2xl bg-white border border-gray-200 shadow-sm hover:bg-white/10 transition-all duration-300 group">
                         <div className="flex items-center justify-between mb-4">
                             <p className="text-[10px] font-bold uppercase tracking-widest text-gray-500">{item.label}</p>
                             <item.icon className={`w-4 h-4 ${item.color} opacity-50 group-hover:opacity-100 transition-opacity`} />
@@ -377,7 +377,7 @@ const AdminDashboard = () => {
             {fundSources.length > 0 && (
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
                     {(fundSources ?? []).map(fund => (
-                        <div key={fund.name} className="p-6 rounded-2xl bg-white/5 backdrop-blur-xl border border-white/10 hover:bg-white/[0.08] transition-all relative overflow-hidden group">
+                        <div key={fund.name} className="p-6 rounded-2xl bg-white border border-gray-200 shadow-sm hover:bg-white/[0.08] transition-all relative overflow-hidden group">
                             <div className="flex items-center justify-between mb-6">
                                 <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500">
                                     {fund.displayName || getAdminFundSourceLabel(fund.name)}
@@ -390,7 +390,7 @@ const AdminDashboard = () => {
                                 </h3>
                                 <p className="text-[10px] text-gray-500 font-medium uppercase mt-1">Authorized Allocation</p>
                             </div>
-                            <div className="grid grid-cols-2 gap-4 pt-4 border-t border-white/5">
+                            <div className="grid grid-cols-2 gap-4 pt-4 border-t border-gray-200">
                                 <div>
                                     <p className="text-[9px] font-bold text-gray-500 uppercase mb-1">Disbursed</p>
                                     <p className="text-sm font-medium text-emerald-400">{formatCurrency(safeNumber(fund.totalUsed))}</p>
@@ -418,7 +418,7 @@ const AdminDashboard = () => {
                                 key={index}
                                 onClick={isEditable ? action.action : () => toast.error(`Actions are locked for past fiscal year`)}
                                 disabled={!isEditable}
-                                className={`min-w-[240px] p-6 rounded-2xl bg-white/5 backdrop-blur-xl border border-white/10 text-left transition-all duration-300 ${!isEditable ? 'opacity-40 grayscale cursor-not-allowed' : 'hover:bg-white/10 hover:translate-y-[-2px] hover:shadow-2xl hover:shadow-indigo-500/10'}`}
+                                className={`min-w-[240px] p-6 rounded-2xl bg-white border border-gray-200 shadow-sm text-left transition-all duration-300 ${!isEditable ? 'opacity-40 grayscale cursor-not-allowed' : 'hover:bg-white/10 hover:translate-y-[-2px] hover:shadow-2xl hover:shadow-indigo-500/10'}`}
                             >
                                 <div className="flex items-center justify-between mb-4">
                                     <div className="w-12 h-12 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400">
@@ -435,11 +435,11 @@ const AdminDashboard = () => {
             </div>
 
             {/* ─── FILTERS BAR ─── */}
-            <div className="mb-8 p-6 rounded-2xl bg-white/5 backdrop-blur-xl border border-white/10 flex flex-col lg:flex-row items-center justify-between gap-6">
+            <div className="mb-8 p-6 rounded-2xl bg-white border border-gray-200 shadow-sm flex flex-col lg:flex-row items-center justify-between gap-6">
                 <div className="flex flex-wrap items-center gap-4">
                     <div className="space-y-1">
                         <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest px-1">Fiscal Cycle</label>
-                        <div className="bg-white/5 border border-white/10 rounded-xl px-4 py-2 flex items-center gap-3 hover:bg-white/10 transition-colors">
+                        <div className="bg-gray-100 border border-gray-200 rounded-xl px-4 py-2 flex items-center gap-3 hover:bg-white/10 transition-colors">
                             <Calendar className="w-4 h-4 text-indigo-400" />
                             <select 
                                 className="bg-transparent text-sm font-medium outline-none cursor-pointer appearance-none min-w-[80px]" 
@@ -453,7 +453,7 @@ const AdminDashboard = () => {
 
                     <div className="space-y-1">
                         <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest px-1">Research Hub</label>
-                        <div className="bg-white/5 border border-white/10 rounded-xl px-4 py-2 flex items-center gap-3 hover:bg-white/10 transition-colors">
+                        <div className="bg-gray-100 border border-gray-200 rounded-xl px-4 py-2 flex items-center gap-3 hover:bg-white/10 transition-colors">
                             <Building2 className="w-4 h-4 text-indigo-400" />
                             <select
                                 className="bg-transparent text-sm font-medium outline-none cursor-pointer max-w-[180px] appearance-none"
@@ -476,7 +476,7 @@ const AdminDashboard = () => {
                     <div className="flex gap-2">
                         <button
                             onClick={() => window.open(`${apiClient.defaults.baseURL}/reports/export?fy=${selectedFY}&type=pdf`, '_blank')}
-                            className="px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-xs font-semibold hover:bg-white/10 transition-all flex items-center gap-2"
+                            className="px-4 py-2 rounded-xl bg-gray-100 border border-gray-200 text-xs font-semibold hover:bg-white/10 transition-all flex items-center gap-2"
                         >
                             <FileText className="w-4 h-4 opacity-50" /> PDF
                         </button>
@@ -491,20 +491,20 @@ const AdminDashboard = () => {
             </div>
 
             {/* ─── RESEARCH HUB PERFORMANCE TABLE ─── */}
-            <div className="rounded-2xl bg-white/5 backdrop-blur-xl border border-white/10 overflow-hidden mb-8 shadow-2xl">
-                <div className="p-6 border-b border-white/10 flex items-center justify-between">
+            <div className="rounded-2xl bg-white border border-gray-200 shadow-sm overflow-hidden mb-8 shadow-2xl">
+                <div className="p-6 border-b border-gray-200 flex items-center justify-between">
                     <h3 className="text-lg font-medium tracking-tight">Research Hub Performance</h3>
                     <div className="flex items-center gap-3">
                          <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Sort by: Budget</span>
-                         <div className="w-8 h-8 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center cursor-pointer hover:bg-white/10 transition-colors">
-                            <Filter className="w-3.5 h-3.5 text-gray-400" />
+                         <div className="w-8 h-8 rounded-lg bg-gray-100 border border-gray-200 flex items-center justify-center cursor-pointer hover:bg-white/10 transition-colors">
+                            <Filter className="w-3.5 h-3.5 text-gray-600" />
                          </div>
                     </div>
                 </div>
                 <div className="overflow-x-auto">
                     <table className="w-full text-left">
                         <thead>
-                            <tr className="bg-white/[0.02] border-b border-white/5">
+                            <tr className="bg-white/[0.02] border-b border-gray-200">
                                 <th className="px-8 py-5 text-[10px] font-bold text-gray-500 uppercase tracking-[0.2em]">Institutional Centre</th>
                                 <th className="px-6 py-5 text-[10px] font-bold text-gray-500 uppercase tracking-[0.2em]">Staffing</th>
                                 <th className="px-6 py-5 text-[10px] font-bold text-gray-500 uppercase tracking-[0.2em]">Active Load</th>
@@ -522,17 +522,17 @@ const AdminDashboard = () => {
                                         className="hover:bg-white/[0.03] transition-colors cursor-pointer group"
                                     >
                                         <td className="px-8 py-6 font-medium tracking-tight">{centre.name}</td>
-                                        <td className="px-6 py-6 text-sm text-gray-400">{centre.totalProjects} Projects</td>
+                                        <td className="px-6 py-6 text-sm text-gray-600">{centre.totalProjects} Projects</td>
                                         <td className="px-6 py-6">
                                             <span className="px-2 py-1 rounded-md bg-emerald-500/10 text-emerald-400 text-[10px] font-bold uppercase tracking-widest border border-emerald-500/20">
                                                 {centre.activeProjects} Active
                                             </span>
                                         </td>
-                                        <td className="px-6 py-6 text-sm text-gray-400 font-mono">{formatCurrency(centre.totalBudget)}</td>
-                                        <td className="px-6 py-6 text-sm font-semibold text-white font-mono">{formatCurrency(centre.disbursed)}</td>
+                                        <td className="px-6 py-6 text-sm text-gray-600 font-mono">{formatCurrency(centre.totalBudget)}</td>
+                                        <td className="px-6 py-6 text-sm font-semibold text-slate-900 font-mono">{formatCurrency(centre.disbursed)}</td>
                                         <td className="px-8 py-6 text-right">
                                             <div className="flex flex-col items-end gap-1.5">
-                                                <div className="w-32 bg-white/5 h-1.5 rounded-full overflow-hidden border border-white/5">
+                                                <div className="w-32 bg-gray-100 h-1.5 rounded-full overflow-hidden border border-gray-200">
                                                     <div 
                                                         className="bg-indigo-500 h-full rounded-full transition-all duration-1000 shadow-[0_0_8px_rgba(99,102,241,0.5)]" 
                                                         style={{ width: `${Math.min(100, (safeNumber(centre.disbursed) / (safeNumber(centre.totalBudget) || 1)) * 100)}%` }}
@@ -561,12 +561,12 @@ const AdminDashboard = () => {
 
             {/* Budget Comparison + Fund Utilization */}
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-8 mb-8">
-                <div className="p-8 rounded-2xl bg-white/5 backdrop-blur-xl border border-white/10">
+                <div className="p-8 rounded-2xl bg-white border border-gray-200 shadow-sm">
                     <div className="flex items-center justify-between mb-8">
                         <h3 className="text-lg font-medium">Budget Comparison</h3>
-                        <Badge variant="outline" className="text-[10px] border-white/10 text-gray-500 uppercase tracking-widest px-3">Centre Breakdown</Badge>
+                        <Badge variant="outline" className="text-[10px] border-gray-200 text-gray-500 uppercase tracking-widest px-3">Centre Breakdown</Badge>
                     </div>
-                    <div className="w-full h-[300px]">
+                    <div className="w-full h-[300px] min-w-0">
                         <ResponsiveContainer width="100%" height="100%">
                             <BarChart data={barChartData} margin={{ top: 10, right: 0, left: -20, bottom: 0 }}>
                                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.05)" />
@@ -580,10 +580,10 @@ const AdminDashboard = () => {
                     </div>
                 </div>
 
-                <div className="p-8 rounded-2xl bg-white/5 backdrop-blur-xl border border-white/10 flex flex-col">
+                <div className="p-8 rounded-2xl bg-white border border-gray-200 shadow-sm flex flex-col">
                     <h3 className="text-lg font-medium mb-8">Fund Utilization</h3>
                     <div className="flex-1 flex flex-col items-center justify-center relative">
-                        <div className="w-full h-[240px]">
+                        <div className="w-full h-[240px] min-w-0">
                             <ResponsiveContainer width="100%" height="100%">
                                 <RadialBarChart cx="50%" cy="50%" innerRadius="70%" outerRadius="100%" barSize={24}
                                     data={[{ name: 'Utilization', value: totalStats.totalBudget > 0 ? (totalStats.totalDisbursed / totalStats.totalBudget) * 100 : 0, fill: '#6366f1' }]}
@@ -594,7 +594,7 @@ const AdminDashboard = () => {
                             </ResponsiveContainer>
                         </div>
                         <div className="absolute flex flex-col items-center justify-center pt-2">
-                            <span className="text-5xl font-bold tracking-tighter text-white">
+                            <span className="text-5xl font-bold tracking-tighter text-slate-900">
                                 {totalStats.totalBudget > 0 ? ((totalStats.totalDisbursed / totalStats.totalBudget) * 100).toFixed(0) : 0}<span className="text-xl text-gray-500">%</span>
                             </span>
                             <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-gray-500 mt-2">Utilized</p>
@@ -605,7 +605,7 @@ const AdminDashboard = () => {
                             <p className="text-[10px] font-bold text-gray-500 uppercase mb-2">Total Grant</p>
                             <p className="text-lg font-semibold tracking-tight">{formatCurrency(totalStats.totalBudget)}</p>
                         </div>
-                        <div className="text-center border-l border-white/5">
+                        <div className="text-center border-l border-gray-200">
                             <p className="text-[10px] font-bold text-gray-500 uppercase mb-2">Total Outflow</p>
                             <p className="text-lg font-semibold tracking-tight text-emerald-400">{formatCurrency(totalStats.totalDisbursed)}</p>
                         </div>
@@ -614,17 +614,17 @@ const AdminDashboard = () => {
             </div>
 
             {monthlyData.length > 0 && (
-                <div className="p-8 rounded-2xl bg-white/5 backdrop-blur-xl border border-white/10 shadow-2xl mb-8 group">
+                <div className="p-8 rounded-2xl bg-white border border-gray-200 shadow-sm shadow-2xl mb-8 group">
                     <div className="flex items-center justify-between mb-8">
                         <div>
                             <h3 className="text-xl font-semibold tracking-tight">Financial Performance Trajectory</h3>
                             <p className="text-xs text-gray-500 mt-1">Disbursement trends across fiscal cycles</p>
                         </div>
-                        <div className="flex items-center gap-2 p-1 bg-white/5 rounded-lg border border-white/5">
+                        <div className="flex items-center gap-2 p-1 bg-gray-100 rounded-lg border border-gray-200">
                            <TrendingUp className="w-5 h-5 text-indigo-400" />
                         </div>
                     </div>
-                    <div className="w-full h-[300px]">
+                    <div className="w-full h-[300px] min-w-0">
                         <ResponsiveContainer width="100%" height="100%">
                             <BarChart data={monthlyData}>
                                 <defs>
@@ -644,8 +644,8 @@ const AdminDashboard = () => {
                 </div>
             )}
 
-            <div className="rounded-2xl bg-white/5 backdrop-blur-xl border border-white/10 overflow-hidden mb-12">
-                <div className="px-8 py-6 border-b border-white/10 flex items-center justify-between">
+            <div className="rounded-2xl bg-white border border-gray-200 shadow-sm overflow-hidden mb-12">
+                <div className="px-8 py-6 border-b border-gray-200 flex items-center justify-between">
                     <div>
                         <h3 className="text-lg font-medium tracking-tight">Administrative Audit Trail</h3>
                         <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mt-1">Immutable Immutable Security Ledger</p>
@@ -657,7 +657,7 @@ const AdminDashboard = () => {
                 <div className="overflow-x-auto">
                     <table className="w-full text-left">
                         <thead>
-                            <tr className="bg-white/[0.02] border-b border-white/5">
+                            <tr className="bg-white/[0.02] border-b border-gray-200">
                                 <th className="px-8 py-4 text-[9px] font-bold text-gray-500 uppercase tracking-[0.2em]">State Change</th>
                                 <th className="px-6 py-4 text-[9px] font-bold text-gray-500 uppercase tracking-[0.2em]">Authorized By</th>
                                 <th className="px-6 py-4 text-[9px] font-bold text-gray-500 uppercase tracking-[0.2em]">Timestamp</th>
@@ -679,10 +679,10 @@ const AdminDashboard = () => {
                                             </td>
                                             <td className="px-6 py-5">
                                                 <div className="flex items-center gap-2">
-                                                    <div className="w-6 h-6 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-[8px] font-bold">
+                                                    <div className="w-6 h-6 rounded-full bg-gray-100 border border-gray-200 flex items-center justify-center text-[8px] font-bold">
                                                         {log.updatedByName?.charAt(0) || 'S'}
                                                     </div>
-                                                    <span className="text-xs font-medium text-gray-400">{log.updatedByName || 'SYSTEM'}</span>
+                                                    <span className="text-xs font-medium text-gray-600">{log.updatedByName || 'SYSTEM'}</span>
                                                 </div>
                                             </td>
                                             <td className="px-6 py-5 text-[10px] text-gray-500 font-mono">
@@ -707,7 +707,7 @@ const AdminDashboard = () => {
             </div>
 
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-8 mb-12">
-                <div className="p-8 rounded-2xl bg-white/5 backdrop-blur-xl border border-white/10 relative overflow-hidden group">
+                <div className="p-8 rounded-2xl bg-white border border-gray-200 shadow-sm relative overflow-hidden group">
                     <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/5 rounded-full blur-3xl -mr-32 -mt-32"></div>
                     <div className="flex items-center justify-between mb-8 relative z-10">
                         <div className="flex items-center gap-3">
@@ -723,10 +723,10 @@ const AdminDashboard = () => {
                     <div className="space-y-4 relative z-10">
                         {insights.length > 0 ? (
                             insights.map((insight, i) => (
-                                <div key={i} className="p-4 bg-white/[0.03] rounded-xl border border-white/5 hover:bg-white/[0.06] transition-all group/insight">
+                                <div key={i} className="p-4 bg-white/[0.03] rounded-xl border border-gray-200 hover:bg-white/[0.06] transition-all group/insight">
                                     <div className="flex gap-4">
                                         <div className="w-1.5 h-1.5 rounded-full bg-indigo-500 mt-1.5 shadow-[0_0_8px_rgba(99,102,241,0.8)]" />
-                                        <p className="text-sm text-gray-300 leading-relaxed group-hover/insight:text-white transition-colors">{insight}</p>
+                                        <p className="text-sm text-gray-300 leading-relaxed group-hover/insight:text-slate-900 transition-colors">{insight}</p>
                                     </div>
                                 </div>
                             ))
@@ -739,7 +739,7 @@ const AdminDashboard = () => {
                     </div>
                 </div>
 
-                <div className="p-8 rounded-2xl bg-white/5 backdrop-blur-xl border border-white/10">
+                <div className="p-8 rounded-2xl bg-white border border-gray-200 shadow-sm">
                     <div className="flex items-center justify-between mb-8">
                         <div className="flex items-center gap-3">
                              <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
@@ -758,11 +758,11 @@ const AdminDashboard = () => {
                     </div>
                     
                     <div className="grid grid-cols-2 gap-4 mb-8">
-                        <div className="p-6 bg-white/[0.03] rounded-2xl border border-white/5">
+                        <div className="p-6 bg-white/[0.03] rounded-2xl border border-gray-200">
                             <p className="text-[9px] font-bold text-gray-500 uppercase tracking-widest mb-2">Daily Average Spend</p>
                             <h4 className="text-xl font-semibold">{formatCurrency(forecast?.avgDailySpend ?? 0)}</h4>
                         </div>
-                        <div className="p-6 bg-white/[0.03] rounded-2xl border border-white/5">
+                        <div className="p-6 bg-white/[0.03] rounded-2xl border border-gray-200">
                             <p className="text-[9px] font-bold text-gray-500 uppercase tracking-widest mb-2">Projected 30-Day</p>
                             <h4 className="text-xl font-semibold text-indigo-400">{formatCurrency(forecast?.projectedUsage30Days ?? 0)}</h4>
                         </div>
@@ -772,10 +772,10 @@ const AdminDashboard = () => {
                         {(centreList ?? []).slice(0, 4).map((centre, idx) => (
                             <div key={idx} className="space-y-2">
                                 <div className="flex items-center justify-between">
-                                    <span className="text-xs font-medium text-gray-400">{centre.name}</span>
-                                    <span className="text-xs font-semibold text-white">{formatCurrency(centre.disbursed ?? 0)}</span>
+                                    <span className="text-xs font-medium text-gray-600">{centre.name}</span>
+                                    <span className="text-xs font-semibold text-slate-900">{formatCurrency(centre.disbursed ?? 0)}</span>
                                 </div>
-                                <div className="h-1 w-full bg-white/5 rounded-full overflow-hidden">
+                                <div className="h-1 w-full bg-gray-100 rounded-full overflow-hidden">
                                     <div 
                                         className="h-full bg-indigo-500 rounded-full shadow-[0_0_8px_rgba(99,102,241,0.4)]" 
                                         style={{ width: `${Math.min(100, (safeNumber(centre.disbursed) / (safeNumber(stats?.used) || 1)) * 100)}%` }}
@@ -794,26 +794,26 @@ const AdminDashboard = () => {
             {/* Drill-down Modal */}
             {openModal && (
                 <div className="fixed inset-0 bg-[#0b1220]/80 backdrop-blur-md flex items-center justify-center z-[100] p-4">
-                    <div className="bg-[#1e293b] border border-white/10 rounded-3xl w-full max-w-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
-                        <div className="p-6 border-b border-white/5 flex items-center justify-between bg-gradient-to-r from-indigo-500/10 to-transparent">
+                    <div className="bg-[#1e293b] border border-gray-200 rounded-3xl w-full max-w-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
+                        <div className="p-6 border-b border-gray-200 flex items-center justify-between bg-gradient-to-r from-indigo-500/10 to-transparent">
                             <div>
-                                <h2 className="text-xl font-semibold text-white flex items-center gap-2">
+                                <h2 className="text-xl font-semibold text-slate-900 flex items-center gap-2">
                                     <BarChart3 className="w-5 h-5 text-indigo-400" />
                                     {drillCentre} Breakdown
                                 </h2>
-                                <p className="text-xs text-gray-400 mt-1">Project-level disbursement granularity</p>
+                                <p className="text-xs text-gray-600 mt-1">Project-level disbursement granularity</p>
                             </div>
                             <button 
                                 onClick={() => { setOpenModal(false); setDrillData([]); }}
-                                className="p-2 hover:bg-white/5 rounded-full transition-colors"
+                                className="p-2 hover:bg-gray-100 rounded-full transition-colors"
                             >
-                                <Plus className="w-6 h-6 rotate-45 text-gray-400" />
+                                <Plus className="w-6 h-6 rotate-45 text-gray-600" />
                             </button>
                         </div>
 
                         <div className="p-6 max-h-[60vh] overflow-y-auto">
                             {isDrillLoading ? (
-                                <div className="py-20 flex flex-col items-center justify-center gap-4 text-gray-400">
+                                <div className="py-20 flex flex-col items-center justify-center gap-4 text-gray-600">
                                     <div className="w-8 h-8 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
                                     <p className="text-sm font-medium animate-pulse">Analyzing Financial Ledger...</p>
                                 </div>
@@ -822,13 +822,13 @@ const AdminDashboard = () => {
                                     {drillData.map((p, idx) => (
                                         <div 
                                             key={idx}
-                                            className="flex items-center justify-between p-4 rounded-2xl bg-white/5 border border-white/5 hover:border-indigo-500/30 transition-all group"
+                                            className="flex items-center justify-between p-4 rounded-2xl bg-gray-100 border border-gray-200 hover:border-indigo-500/30 transition-all group"
                                         >
                                             <div className="flex items-center gap-3">
                                                 <div className="w-8 h-8 rounded-lg bg-indigo-500/10 flex items-center justify-center text-indigo-400 font-bold text-xs">
                                                     {idx + 1}
                                                 </div>
-                                                <span className="text-sm font-medium text-gray-200 group-hover:text-white transition-colors truncate max-w-[300px]">
+                                                <span className="text-sm font-medium text-gray-200 group-hover:text-slate-900 transition-colors truncate max-w-[300px]">
                                                     {p.projectTitle}
                                                 </span>
                                             </div>
@@ -844,15 +844,15 @@ const AdminDashboard = () => {
                             ) : (
                                 <div className="py-20 text-center">
                                     <Activity className="w-12 h-12 text-gray-600 mx-auto mb-4 opacity-20" />
-                                    <p className="text-gray-400">No active projects found for this centre.</p>
+                                    <p className="text-gray-600">No active projects found for this centre.</p>
                                 </div>
                             )}
                         </div>
 
-                        <div className="p-6 bg-white/5 border-t border-white/5 flex justify-end">
+                        <div className="p-6 bg-gray-100 border-t border-gray-200 flex justify-end">
                             <button 
                                 onClick={() => { setOpenModal(false); setDrillData([]); }}
-                                className="px-6 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-white text-sm font-semibold transition-all"
+                                className="px-6 py-2.5 rounded-xl bg-gray-100 hover:bg-white/10 text-slate-900 text-sm font-semibold transition-all"
                             >
                                 Close Analysis
                             </button>

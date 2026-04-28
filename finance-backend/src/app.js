@@ -24,16 +24,12 @@ app.use(timeout('10s')); // Fail fast on slow requests
 app.set('trust proxy', 1);
 app.disable('x-powered-by');
 
-// CORS configuration
-const allowedOrigins = (process.env.FRONTEND_URL || '').split(',').map(o => o.trim()).filter(Boolean);
-if (process.env.NODE_ENV !== 'production') {
-    allowedOrigins.push('http://localhost:3000', 'http://127.0.0.1:3000');
-}
 app.use(cors({
-    origin: [...new Set(allowedOrigins)],
-    credentials: true,
-    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
+    origin: process.env.FRONTEND_URL,
+    credentials: true
 }));
+
+app.options('*', cors());
 
 // Request Tracing
 app.use((req, res, next) => {
@@ -119,26 +115,11 @@ app.use('/api', v1); // Fallback for backward compatibility
 
 // Global Error Handler
 app.use((err, req, res, next) => {
-    if (req.timedout) return res.status(503).json({ success: false, message: 'Request timed out' });
-    
-    const status = err.status || 500;
-    console.error("🔥 INTERNAL SERVER ERROR:", err);
-    
-    logger.error(`[App Error] ${err.message}`, {
-        requestId: req.id,
-        stack: err.stack,
-        url: req.originalUrl,
-        method: req.method
-    });
-
-    // Removed silent failure interceptions for projects, stats, and fund requests
-    res.status(status).json({
-        success: false,
-        message: err.message || 'Internal Server Error',
-        stack: process.env.NODE_ENV === 'development' ? err.stack : undefined,
-        requestId: req.id,
-        correlationId: req.correlationId
-    });
+  console.error('GLOBAL ERROR:', err);
+  res.status(500).json({
+    success: false,
+    message: err.message || 'Internal server error'
+  });
 });
 
 // Final 404 Catch-all (Must be last)

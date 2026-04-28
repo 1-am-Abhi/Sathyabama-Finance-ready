@@ -147,7 +147,7 @@ const updateDepartmentFunding = asyncHandler(async (req, res) => {
  * GET /finance/disbursal-history
  * Returns detailed history of disbursements.
  */
-const getDisbursalHistory = asyncHandler(async (req, res) => {
+const getDisbursalHistory = safe(async (req) => {
     const fy = req.query.fy || getCurrentFY();
     const { startDate, endDate } = getFYRange(fy);
 
@@ -159,10 +159,18 @@ const getDisbursalHistory = asyncHandler(async (req, res) => {
             { model: FundRequest, include: [Project] },
             { model: User, as: 'officer', attributes: ['name', 'email'] }
         ],
-        order: [['createdAt', 'DESC']]
+        order: [['createdAt', 'DESC']],
+        limit: 50
     });
 
-    res.json({ success: true, data: history });
+    return history.map(d => ({
+        id: d.id || d._id,
+        amount: d.amount,
+        projectTitle: d.FundRequest?.Project?.title || 'Unknown',
+        date: d.createdAt,
+        status: d.status || 'COMPLETED',
+        officer: d.officer?.name || 'System'
+    }));
 });
 
 /**
