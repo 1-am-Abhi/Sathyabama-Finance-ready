@@ -352,37 +352,26 @@ const executeDisbursementPipeline = async (request, payload, actor, options = {}
         let financeRemarks = (payload.remarks || '').trim();
         financeRemarks = `[INSTALLMENT #${nextInstallmentNumber}] ${financeRemarks}`.trim();
 
-        // TASK 7 — Use AuditLog DB as single source of truth for approval
+        // TASK 10 — REMOVE AUDIT FALLBACK
         const requestId = lockedRequest._id || lockedRequest.id;
         let approvedBy = null, approvedByName = 'Institutional Admin', approvedAt = lockedRequest.createdAt;
-        try {
-            const { AuditLog } = require('../models');
-            const { Op: SeqOp } = require('sequelize');
-            const approvalLog = await AuditLog.findOne({
-                where: {
-                    entityId: String(requestId),
-                    action: { [SeqOp.in]: ['FUND_REQUEST_APPROVED', 'FUND_APPROVED'] }
-                },
-                order: [['createdAt', 'DESC']],
-                transaction
-            });
-            if (approvalLog) {
-                approvedBy = approvalLog.userId || null;
-                approvedByName = approvalLog.performedByName || approvalLog.metadata?.updatedByName || 'Admin';
-                approvedAt = approvalLog.createdAt;
-            } else {
-                // Fallback: auditTrail JSON for legacy data
-                const auditEntry = (lockedRequest.auditTrail || [])
-                    .filter(e => e.stage === 'FUND_APPROVED')
-                    .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))[0];
-                if (auditEntry) {
-                    approvedBy = auditEntry.updatedBy;
-                    approvedByName = auditEntry.updatedByName || 'Admin';
-                    approvedAt = auditEntry.timestamp;
-                }
-            }
-        } catch (auditErr) {
-            console.warn(`[DisbursementPipeline] Could not fetch AuditLog for ${requestId}:`, auditErr.message);
+        const { AuditLog } = require('../models');
+        const { Op: SeqOp } = require('sequelize');
+        const approvalLog = await AuditLog.findOne({
+            where: {
+                entityId: String(requestId),
+                action: { [SeqOp.in]: ['FUND_REQUEST_APPROVED', 'FUND_APPROVED'] }
+            },
+            order: [['createdAt', 'DESC']],
+            transaction
+        });
+        
+        if (approvalLog) {
+            approvedBy = approvalLog.userId || null;
+            approvedByName = approvalLog.performedByName || approvalLog.metadata?.updatedByName || 'Admin';
+            approvedAt = approvalLog.createdAt;
+        } else {
+            throw new Error(`[Audit] No formal approval record found for request ${requestId}. Disbursement blocked.`);
         }
 
         // TASK 4.6 — High-Value Threshold Detection
@@ -408,7 +397,21 @@ const executeDisbursementPipeline = async (request, payload, actor, options = {}
             financeProcessedBy: actor?.id || actor?._id || null,
         }, { transaction });
 
-        let disbursement;
+        // TASK 2 — ENFORCE IDEMPOTENCY IN CONTROLLER (Pipeline)
+        // Ensure idempotency Key
+        const idempotencyKey = payload.idempotencyKey || `disburse_${requestId}_${amount}_${nextInstallmentNumber}_${actor?.id || 'sys'}`;
+
+        let disbursement = await Disbursement.findOne({
+            where: { idempotencyKey },
+            transaction,
+            lock: transaction.LOCK.UPDATE
+        });
+
+        if (disbursement) {
+            console.log(`[${correlationId}] [Pipeline:DISBURSE] Idempotent replay: returning existing disbursement ${disbursement._id}`);
+            return { request: lockedRequest, disbursement, idempotent: true };
+        }
+
         try {
             // TASK 2 — Insert FIRST, then compute authoritative SUM
             disbursement = await Disbursement.create({
@@ -426,10 +429,11 @@ const executeDisbursementPipeline = async (request, payload, actor, options = {}
                 disbursedAt: disbursementDate,
                 bankReference,
                 remarks: financeRemarks,
+                idempotencyKey
             }, { transaction });
         } catch (err) {
             if (err.name === 'SequelizeUniqueConstraintError') {
-                throw new Error('Concurrent disbursement conflict detected (Installment # or UTR already exists). Please retry.');
+                throw new Error('Concurrent disbursement conflict detected (Installment #, UTR, or Idempotency Key already exists). Please retry.');
             }
             console.error(`[${correlationId}] [Pipeline:DISBURSE] Disbursement create failed for ${requestId}:`, err.message);
             throw err;

@@ -34,15 +34,21 @@ const rateLimit = require('express-rate-limit');
 const disbursementLimiter = rateLimit({
     windowMs: 60 * 1000, // 1 minute
     max: 5,
-    message: "Too many disbursement attempts, try again later"
+    message: "Too many disbursement attempts, try again later",
+    keyGenerator: (req) => {
+        // TASK 9 — STRONG RATE LIMIT KEY
+        const userId = req.user?.id || req.user?._id || 'anonymous';
+        return `${userId}:${req.ip}`;
+    }
 });
 app.use('/api/disburse', disbursementLimiter);
 app.use('/api/finance/', disbursementLimiter);
 app.use('/api/notifications', disbursementLimiter);
 
-// TASK 6 — ADD CORRELATION ID LOGGING
+// TASK 6/7 — ADD CORRELATION ID LOGGING & HEADERS
 app.use((req, res, next) => {
     req.correlationId = `REQ-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`;
+    res.setHeader('X-Correlation-Id', req.correlationId);
     next();
 });
 

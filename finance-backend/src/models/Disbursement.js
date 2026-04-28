@@ -17,7 +17,10 @@ const Disbursement = sequelize.define('Disbursement', {
     },
     amount: {
         type: DataTypes.DECIMAL(15, 2),
-        allowNull: false
+        allowNull: false,
+        validate: {
+            min: 0.01 // TASK 4 — CHECK (amount > 0)
+        }
     },
     installmentNumber: {
         type: DataTypes.INTEGER,
@@ -63,6 +66,12 @@ const Disbursement = sequelize.define('Disbursement', {
     remarks: {
         type: DataTypes.TEXT,
         allowNull: true
+    },
+    // TASK 1 — Idempotency Key
+    idempotencyKey: {
+        type: DataTypes.STRING,
+        allowNull: true,
+        unique: true
     }
 }, {
     timestamps: true,
