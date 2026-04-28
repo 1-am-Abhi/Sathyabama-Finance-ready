@@ -482,48 +482,6 @@ const exportFinancialReportsPDF = async (req, res) => {
   }
 };
 
-module.exports = {
-    getFinanceStats,
-    getFundSourcesOverview,
-    updateFundSourceAmount,
-    getDepartmentFinance,
-    getDepartmentFundingDetails,
-    updateDepartmentFunding,
-    getDisbursalHistory,
-    getReportsData,
-    getPFMSTransactionsController,
-    createPFMSTransactionController,
-    getFundFlowData,
-    getFinancialReports,
-    syncEvents,
-    exportFinancialReports,
-    exportFinancialReportsPDF,
-    getAuditReplay: asyncHandler(async (req, res) => {
-        const { until } = req.query;
-        if (!until) return res.status(400).json({ success: false, message: 'Missing until timestamp' });
-
-        const ledger = await Ledger.findAll({
-            where: {
-                createdAt: { [Op.lte]: new Date(parseInt(until)) }
-            },
-            order: [['createdAt', 'ASC']]
-        });
-
-        const balance = ledger.reduce((acc, e) => {
-            return acc + Number(e.credit || 0) - Number(e.debit || 0);
-        }, 0);
-
-        res.json({
-            success: true,
-            data: {
-                balance,
-                timestamp: new Date(parseInt(until)).toISOString(),
-                entryCount: ledger.length,
-                entries: ledger
-            }
-        });
-    }),
-
 /**
  * POST /finance/disbursements/:id/rollback
  */
@@ -614,9 +572,8 @@ const rollbackDisbursement = asyncHandler(async (req, res) => {
                 message: 'Transaction successfully reversed in the immutable ledger.',
                 data: journal
             });
-        });
-    })
-};
+    });
+});
 
 /**
  * GET /finance/statements/trial-balance
@@ -999,11 +956,20 @@ const getPFMSData = getPFMSTransactionsController;
 
 module.exports = {
     getFinanceStats,
-    getFundFlowData,
-    getPFMSData,
-    getFinancialReports,
+    getFundSourcesOverview,
+    updateFundSourceAmount,
+    getDepartmentFinance,
+    getDepartmentFundingDetails,
+    updateDepartmentFunding,
     getDisbursalHistory,
     getReportsData,
+    getPFMSTransactionsController,
+    createPFMSTransactionController,
+    getFundFlowData,
+    getFinancialReports,
+    syncEvents,
+    exportFinancialReports,
+    exportFinancialReportsPDF,
     getAuditReplay,
     rollbackDisbursement,
     getTrialBalance,
@@ -1014,5 +980,6 @@ module.exports = {
     createLedgerSnapshot,
     verifyLedgerSnapshot,
     getSystemHealth,
+    getPFMSData,
     archiveOldLedgerEntries
 };

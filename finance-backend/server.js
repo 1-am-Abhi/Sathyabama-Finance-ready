@@ -26,11 +26,11 @@ if (!process.env.REDIS_URL) {
     throw new Error('FATAL: REDIS_URL is required for production scaling and reliability');
 }
 
-// Create Redis clients (TLS only in production)
+// Create Redis clients (TLS only in production or if using rediss://)
 const redisConfig = {
     url: process.env.REDIS_URL,
     socket: {
-        tls: process.env.NODE_ENV === 'production',
+        tls: process.env.NODE_ENV === 'production' || process.env.REDIS_URL.startsWith('rediss://'),
         rejectUnauthorized: false
     }
 };
@@ -56,6 +56,12 @@ app.use('/api/notifications', disbursementLimiter);
 app.use((req, res, next) => {
     req.correlationId = `REQ-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
     res.setHeader('X-Correlation-Id', req.correlationId);
+    
+    // 🔴 ISOLATE AUTH ROUTES (TASK 1)
+    if (req.path.startsWith('/api/auth') || req.path.startsWith('/api/v1/auth')) {
+        return next(); // Skip all institutional finance logic
+    }
+    
     next();
 });
 
@@ -196,6 +202,9 @@ require('./src/workers/disbursementWorker');
 require('./src/jobs/reportScheduler');
 
 connectDB().then(async () => {
+    // 🔴 DEBUG: ENSURE TABLES EXIST (TASK 4)
+    await sequelize.sync();
+
     // Seed standard chart of accounts
     const seedAccounts = require('./src/utils/accountSeeder');
     await seedAccounts();

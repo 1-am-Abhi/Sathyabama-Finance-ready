@@ -12,46 +12,52 @@ const generateToken = (user) => {
 };
 
 const login = asyncHandler(async (req, res) => {
-  const { email, password } = req.body;
-
+  console.log('LOGIN REQUEST:', req.body);
   try {
+    const { email, password } = req.body;
+
+    if (!email || !password) {
+      return res.status(400).json({ success: false, message: 'Email and password required' });
+    }
+
     const user = await User.findOne({ where: { email } });
+
     if (!user) {
-      console.warn(`[AUTH] Login failed: User not found (${email})`);
-      return res.status(401).json({ success: false, message: "Invalid credentials" });
+      console.warn(`[AUTH] User not found: ${email}`);
+      return res.status(400).json({ success: false, message: 'User not found' });
     }
 
-    const isMatch = await user.comparePassword(password);
+    const isMatch = await bcrypt.compare(password, user.password);
+
     if (!isMatch) {
-      console.warn(`[AUTH] Login failed: Invalid password (${email})`);
-      return res.status(401).json({ success: false, message: "Invalid credentials" });
+      console.warn(`[AUTH] Invalid password for: ${email}`);
+      return res.status(400).json({ success: false, message: 'Invalid password' });
     }
 
-    if (user.status === "Inactive") {
-      console.warn(`[AUTH] Login blocked: Account inactive (${email})`);
-      return res.status(403).json({
-        success: false,
-        message: "Your account has been deactivated. Please contact the administrator.",
-      });
-    }
+    const token = jwt.sign(
+      { id: user._id || user.id, role: user.role, email: user.email },
+      process.env.JWT_SECRET,
+      { expiresIn: '7d' }
+    );
 
-    const token = generateToken(user);
     const userData = user.toJSON();
     delete userData.password;
 
-    console.log(`[AUTH] Login successful: ${email} (${user.role})`);
+    console.log(`[AUTH] Login successful: ${email}`);
 
-    res.status(200).json({
+    return res.json({
       success: true,
       token,
-      user: userData,
+      user: userData
     });
-  } catch (error) {
-    console.error(`[AUTH FATAL] Login system error:`, error);
-    res.status(500).json({
+
+  } catch (err) {
+    console.error('🔥 LOGIN ERROR:', err);
+
+    return res.status(500).json({
       success: false,
-      message: "An internal error occurred during login. Please try again later.",
-      requestId: req.id
+      message: err.message,
+      error: err.name
     });
   }
 });
@@ -64,7 +70,18 @@ const register = asyncHandler(async (req, res) => {
     return res.status(400).json({ success: false, message: "User already exists" });
   }
 
-  const user = await User.create({ name, email, password, role, department, centre });
+  const salt = await bcrypt.genSalt(10);
+  const hashedPassword = await bcrypt.hash(password, salt);
+
+  const user = await User.create({ 
+    name, 
+    email, 
+    password: hashedPassword, 
+    role, 
+    department, 
+    centre 
+  });
+  
   console.log(`[USER CREATED] ${user.email} - ${user.role}`);
 
   const token = generateToken(user);
