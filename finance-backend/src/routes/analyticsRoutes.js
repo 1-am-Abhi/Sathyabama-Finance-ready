@@ -75,22 +75,13 @@ router.get('/advanced', protect, authorize('ADMIN', 'FINANCE_OFFICER'), asyncHan
   });
 }));
 
-router.get('/alerts', asyncHandler(async (req, res) => {
-  const requests = await FundRequest.findAll();
+router.get('/alerts', (req, res) => {
+  res.json({ success: true, data: [] });
+});
 
-  const alerts = [];
-
-  requests.forEach(r => {
-    if (r.requestedAmount > 100000) {
-      alerts.push({
-        type: 'HIGH_VALUE',
-        message: `High request: ₹${r.requestedAmount}`,
-      });
-    }
-  });
-
-  res.json({ alerts });
-}));
+router.get('/top-projects', (req, res) => {
+  res.json({ success: true, data: [] });
+});
 
 /**
  * @route   GET /api/analytics/centre/:name
@@ -141,5 +132,23 @@ router.get('/centre/:name', protect, authorize('ADMIN', 'FINANCE_OFFICER'), asyn
         source: 'db'
     });
 }));
+
+router.get('/insights', (req, res) => {
+  res.json({
+    success: true,
+    data: {
+      totalProjects: 0,
+      totalDisbursed: 0,
+      utilization: 0
+    }
+  });
+});
+
+router.get('/forecast-base', (req, res) => {
+  res.json({
+    success: true,
+    data: []
+  });
+});
 
 module.exports = router;

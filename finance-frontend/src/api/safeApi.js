@@ -2,14 +2,14 @@
  * Global API wrapper to handle success/error states consistently
  * and ensure a safe data format (defaults to [] if failed)
  */
-export const safeApi = async (fn, fallback = []) => {
-    try {
-        const res = await fn();
-        return res?.data?.data ?? fallback;
-    } catch (err) {
-        console.error(err);
-        return fallback;
-    }
+export const safeApi = async (fn) => {
+  try {
+    const res = await fn();
+    return res?.data?.data || [];
+  } catch (err) {
+    console.error(err);
+    return [];
+  }
 };
 
 /**

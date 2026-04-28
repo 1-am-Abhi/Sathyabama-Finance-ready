@@ -14,13 +14,13 @@ const generateToken = (user) => {
 
 const login = async (req, res) => {
   try {
-    console.log('LOGIN REQUEST:', req.body);
-
     const { email, password } = req.body;
+    console.log('LOGIN ATTEMPT:', { email });
 
     // 🔴 Step 1: Validate input
     if (!email || !password) {
       return res.status(400).json({
+        success: false,
         message: 'Email and password are required'
       });
     }
@@ -30,10 +30,9 @@ const login = async (req, res) => {
       where: { email }
     });
 
-    console.log('USER FOUND:', user ? { id: user.id, email: user.email, role: user.role } : 'NULL');
-
     if (!user) {
       return res.status(404).json({
+        success: false,
         message: 'User not found'
       });
     }
@@ -47,33 +46,38 @@ const login = async (req, res) => {
 
     if (!isMatch) {
       return res.status(401).json({
+        success: false,
         message: 'Invalid password'
       });
     }
 
     // 🔴 Step 4: Generate token
     const token = jwt.sign(
-      { id: user._id, role: user.role, email: user.email },
+      { id: user._id || user.id, role: user.role, email: user.email },
       process.env.JWT_SECRET,
       { expiresIn: '7d' }
     );
 
     return res.json({
       success: true,
-      token,
-      user: {
-        id: user._id || user.id,
-        email: user.email,
-        role: user.role,
-        name: user.name
-      }
+      data: {
+        token,
+        user: {
+          id: user._id || user.id,
+          email: user.email,
+          role: user.role,
+          name: user.name
+        }
+      },
+      message: 'OK'
     });
 
   } catch (err) {
     console.error('🔥 LOGIN ERROR FULL:', err);
 
     return res.status(500).json({
-      message: err.message
+      success: false,
+      message: err.message || 'Internal error'
     });
   }
 };

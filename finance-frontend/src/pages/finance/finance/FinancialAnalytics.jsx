@@ -80,7 +80,7 @@ const FinancialAnalytics = ({ data }) => {
                 </CardHeader>
                 <CardContent className="overflow-hidden">
                     <div className="h-[300px] w-full min-w-0">
-                        <ResponsiveContainer width="100%" height={300} debounce={1}>
+                        <ResponsiveContainer width="100%" height="100%" debounce={1}>
                             <BarChart
                                 data={barChartData}
                                 margin={{
@@ -110,7 +110,7 @@ const FinancialAnalytics = ({ data }) => {
                 </CardHeader>
                 <CardContent className="overflow-hidden">
                     <div className="h-[300px] w-full min-w-0 flex items-center justify-center">
-                        <ResponsiveContainer width="100%" height={300} debounce={1}>
+                        <ResponsiveContainer width="100%" height="100%" debounce={1}>
                             <PieChart>
                                 <Pie
                                     data={pieChartData}

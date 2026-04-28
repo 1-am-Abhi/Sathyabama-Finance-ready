@@ -597,7 +597,7 @@ const ApproveProjects = () => {
                         </CardHeader>
                         <CardContent className="pt-6">
                             <div className="h-[300px]">
-                                <ResponsiveContainer width="100%" height={300}>
+                                <ResponsiveContainer width="100%" height="100%">
                                     <PieChart>
                                         <Pie
                                             data={[
@@ -644,7 +644,7 @@ const ApproveProjects = () => {
                         </CardHeader>
                         <CardContent className="pt-6">
                             <div className="h-[300px]">
-                                <ResponsiveContainer width="100%" height={300}>
+                                <ResponsiveContainer width="100%" height="100%">
                                     <BarChart data={
                                         AGENCIES.map(agency => ({
                                             agency: agency.length > 15 ? agency.substring(0, 12) + '...' : agency,

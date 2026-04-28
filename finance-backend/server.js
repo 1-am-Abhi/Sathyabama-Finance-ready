@@ -202,10 +202,8 @@ require('./src/workers/disbursementWorker');
 require('./src/jobs/reportScheduler');
 
 connectDB().then(async () => {
-    // 🔴 DEBUG: ENSURE TABLES EXIST (TASK 4 - DEV ONLY)
-    if (process.env.NODE_ENV !== 'production') {
-        await sequelize.sync();
-    }
+    // 🔴 DB SAFETY
+    await sequelize.sync(); // ONLY THIS
 
     // Seed standard chart of accounts
     const seedAccounts = require('./src/utils/accountSeeder');

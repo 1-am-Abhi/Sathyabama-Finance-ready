@@ -99,67 +99,14 @@ const getFacultyStats = asyncHandler(async (req, res) => {
     });
 });
 
-const getProjects = asyncHandler(async (req, res) => {
-    const membersInclude = {
-        model: ProjectMember,
-        as: 'members',
-        include: [{ model: User, as: 'user', attributes: ['_id', 'name', 'email', 'centre', 'department'] }]
-    };
-    const includeMembers = {
-        include: [
-            membersInclude,
-            ...buildResearchCenterIncludeArray({ attributes: ['name'], required: false }),
-        ],
-        order: [['createdAt', 'DESC']]
-    };
+const safe = require('../utils/safeController');
 
-    const where = req.organizationId ? { organizationId: req.organizationId } : {};
+const getProjects = safe(async (req, res) => {
+  const projects = await Project.findAll({
+    include: []
+  });
 
-    if (req.user?.role === 'FACULTY') {
-        const userId = req.user?.id || req.user?._id;
-        const memberRows = await ProjectMember.findAll({ where: { userId }, attributes: ['projectId'] });
-        const memberProjectIds = memberRows.map(m => m.projectId || m._id);
-
-        where[Op.or] = [
-            { facultyId: userId },
-            { userId: userId },
-            { pi: req.user?.name },
-            ...(memberProjectIds.length > 0 ? [{ _id: { [Op.in]: memberProjectIds } }] : [])
-        ];
-    }
-
-    includeMembers.where = where;
-
-    let projects = [];
-    try {
-        projects = await Project.findAll(includeMembers);
-    } catch (error) {
-        console.warn('[ProjectController] getProjects include failed:', error.message);
-
-        try {
-            projects = await Project.findAll({
-                ...includeMembers,
-                include: [membersInclude],
-            });
-        } catch (fallbackError) {
-            console.error('[ProjectController] getProjects fallback failed:', fallbackError.message);
-            return res.status(500).json({
-                success: false,
-                message: 'Failed to retrieve projects',
-                error: fallbackError.message
-            });
-        }
-    }
-
-    const safeProjects = normalizeResearchCenterResponseList(projects);
-
-    return res.status(200).json({
-        success: true,
-        data: safeProjects,
-        meta: {
-            count: safeProjects.length
-        }
-    });
+  return projects;
 });
 
 const getProject = asyncHandler(async (req, res) => {

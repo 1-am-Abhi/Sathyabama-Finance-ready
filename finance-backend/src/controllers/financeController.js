@@ -364,52 +364,17 @@ const getFundFlowData = asyncHandler(async (req, res) => {
  * GET /finance/financial-reports
  * Returns data for Financial Reports Dashboard.
  */
-const getFinancialReports = async (req, res) => {
-  try {
-    const fy = req.query.fy || getCurrentFY();
-    let { startDate, endDate } = req.query;
+const safe = require('../utils/safeController');
 
-    if (!startDate || !endDate) {
-      const range = getFYRange(fy);
-      startDate = range.startDate;
-      endDate = range.endDate;
-    }
+const getFinancialReports = safe(async (req) => {
+  const { startDate, endDate } = req.query;
 
-    const whereClause = {
-      createdAt: { [Op.between]: [new Date(startDate), new Date(endDate)] }
-    };
+  if (!startDate || !endDate) return [];
 
-    if (req.organizationId) {
-      whereClause.organizationId = req.organizationId;
-    }
-
-    const disbursements = await Disbursement.findAll({
-      where: whereClause,
-      include: [
-        { model: FundRequest, include: [Project] }
-      ],
-    });
-
-    const revenues = await Revenue.findAll({
-      where: whereClause,
-    });
-
-    let totalDisbursed = 0;
-    disbursements.forEach(d => { totalDisbursed += (Number(d.amount) || 0); });
-
-    res.json({
-      success: true,
-      data: {
-        totalDisbursed,
-        totalRevenue: revenues.reduce((acc, curr) => acc + (Number(curr.amountGenerated) || 0), 0),
-        disbursementCount: disbursements.length
-      }
-    });
-
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-};
+  return await Disbursement.findAll({
+    attributes: ['amount', 'createdAt']
+  });
+});
 
 /**
  * CSV Export
@@ -981,5 +946,6 @@ module.exports = {
     verifyLedgerSnapshot,
     getSystemHealth,
     getPFMSData,
-    archiveOldLedgerEntries
+    archiveOldLedgerEntries,
+    getEquipmentDisbursements
 };

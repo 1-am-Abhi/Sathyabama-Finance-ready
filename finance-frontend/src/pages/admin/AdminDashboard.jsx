@@ -216,28 +216,33 @@ const AdminDashboard = () => {
             transports: ['websocket', 'polling']
         });
 
-        socket.on('connect', () => {
+        const handleConnect = () => {
             setSocketConnected(true);
             setIsSocketConnected(true);
-        });
-        socket.on('disconnect', () => {
+        };
+
+        const handleDisconnect = () => {
             setSocketConnected(false);
             setIsSocketConnected(false);
-        });
+        };
 
-        socket.on('finance:update', () => {
+        const handleFinanceUpdate = () => {
             if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);
             refreshTimerRef.current = setTimeout(() => {
                 fetchDashboardData();
                 fetchInsights();
             }, 1000);
-        });
+        };
+
+        socket.on('connect', handleConnect);
+        socket.on('disconnect', handleDisconnect);
+        socket.on('finance:update', handleFinanceUpdate);
 
         return () => {
             if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);
-            socket.off('connect');
-            socket.off('disconnect');
-            socket.off('finance:update');
+            socket.off('connect', handleConnect);
+            socket.off('disconnect', handleDisconnect);
+            socket.off('finance:update', handleFinanceUpdate);
             socket.disconnect();
         };
     }, [selectedFY]);
@@ -346,6 +351,10 @@ const AdminDashboard = () => {
     const hasData = (stats?.totalAllocated ?? 0) > 0 || safeNumber(stats?.used) > 0;
     const monthlyData = stats?.monthlyData ?? [];
     const centreList = stats?.centres ?? [];
+
+    if (!loading && !hasData && (!centreList || !centreList.length)) {
+        return <EmptyState message="No Financial Data Available" description="There are no records for the selected financial year." />;
+    }
 
     return (
         <div className="flex-1 overflow-y-auto overflow-x-hidden p-6 bg-gradient-to-br from-[#0b1220] to-[#0f172a] min-h-screen text-white selection:bg-indigo-500/30">

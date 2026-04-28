@@ -65,6 +65,7 @@ router.get('/reports-data', financeController.getReportsData);
 router.get('/financial-reports', financeController.getFinancialReports);
 router.get('/financial-reports/export', financeController.exportFinancialReports);
 router.get('/financial-reports/pdf', financeController.exportFinancialReportsPDF);
+router.get('/equipment', financeController.getEquipmentDisbursements);
 
 // ── Financial Statements ──────────────────────────────────────────────────────
 router.get('/statements/trial-balance', protect, authorize('ADMIN'), reportRateLimiter, getTrialBalance);
