@@ -217,6 +217,23 @@ connectDB().then(async () => {
 
     await queueService.setupRepeatableJobs();
 
+    // 🔴 STARTUP SCHEMA CHECK (FOR STABILITY)
+    try {
+        const [results] = await sequelize.query(`
+            SELECT column_name 
+            FROM information_schema.columns 
+            WHERE table_name = 'Ledgers'
+        `);
+        const columns = results.map(c => c.column_name);
+        logger.info(`[System] Ledger columns verified: ${columns.join(', ')}`);
+        
+        if (!columns.includes('accountId') || !columns.includes('journalId')) {
+            logger.error('🚨 CRITICAL SCHEMA DRIFT: Core columns missing from Ledgers table!');
+        }
+    } catch (err) {
+        logger.warn('[System] Could not verify schema at startup');
+    }
+
     server.listen(PORT, () => {
         logger.info(`Server running on port ${PORT}`);
         logger.info('[System] Redis + Socket + Jobs initialized');
