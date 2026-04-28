@@ -410,12 +410,13 @@ const updateFundRequest = asyncHandler(async (req, res) => {
 
 const approveFundRequest = asyncHandler(async (req, res) => {
     const request = await FundRequest.findByPk(req.params.id);
-    if (!request) return res.status(404).json({ success: false, message: 'Request not found' });
+    if (!request) return res.status(404).json({ success: false, message: 'Request not found', correlationId: req.correlationId });
 
     if (request.status !== 'PENDING') {
         return res.status(400).json({
             success: false,
             message: `Cannot approve a request with status '${request.status}'. Only PENDING requests can be approved.`,
+            correlationId: req.correlationId
         });
     }
 
@@ -549,6 +550,7 @@ const disburseFund = asyncHandler(async (req, res) => {
         return res.status(400).json({
             success: false,
             message: 'No valid approval record found. This request must be approved before disbursement.',
+            correlationId: req.correlationId
         });
     }
 
@@ -560,6 +562,7 @@ const disburseFund = asyncHandler(async (req, res) => {
             return res.status(409).json({
                 success: false,
                 message: 'A disbursement with this transaction ID (UTR) already exists.',
+                correlationId: req.correlationId
             });
         }
     }
@@ -570,6 +573,7 @@ const disburseFund = asyncHandler(async (req, res) => {
         return res.status(400).json({
             success: false,
             message: 'Disbursement amount must be a positive number.',
+            correlationId: req.correlationId
         });
     }
 
@@ -583,6 +587,7 @@ const disburseFund = asyncHandler(async (req, res) => {
         return res.status(400).json({
             success: false,
             message: `Amount ₹${disbursementAmount.toLocaleString()} exceeds remaining balance ₹${remainingAmount.toLocaleString()} (requested: ₹${requestedAmount.toLocaleString()}, already disbursed: ₹${alreadyDisbursed.toLocaleString()}).`,
+            correlationId: req.correlationId
         });
     }
 

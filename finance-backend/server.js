@@ -39,7 +39,10 @@ const disbursementLimiter = rateLimit({
         // TASK 9 — STRONG RATE LIMIT KEY
         const userId = req.user?.id || req.user?._id || 'anonymous';
         return `${userId}:${req.ip}`;
-    }
+    },
+    // TASK 7 — ENABLE RATE LIMIT HEADERS
+    standardHeaders: true,
+    legacyHeaders: false
 });
 app.use('/api/disburse', disbursementLimiter);
 app.use('/api/finance/', disbursementLimiter);
@@ -84,6 +87,15 @@ const io = socketIo(server, {
 Promise.all([pubClient.connect(), subClient.connect()]).then(() => {
     io.adapter(createAdapter(pubClient, subClient));
     logger.info('[HA] Socket.io Redis Adapter active across instances.');
+
+    // TASK 8 — ADD REDIS HEALTH CHECK
+    setInterval(async () => {
+        try {
+            await pubClient.ping();
+        } catch (err) {
+            console.error("[Redis] ping failed", err);
+        }
+    }, 30000);
 }).catch(err => {
     logger.error('Redis connection failed:', err);
     process.exit(1);

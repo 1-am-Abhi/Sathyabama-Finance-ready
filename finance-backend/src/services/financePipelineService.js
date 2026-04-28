@@ -295,6 +295,11 @@ const executeDisbursementPipeline = async (request, payload, actor, options = {}
         }
 
         // Re-validate status after acquiring lock (state may have changed)
+        // TASK 4 — FINAL STATE GUARD
+        if (lockedRequest.status === 'DISBURSED') {
+            throw new Error("Already fully disbursed");
+        }
+        
         const allowedStatuses = ['PENDING_DISBURSAL', 'PARTIALLY_DISBURSED'];
         if (!allowedStatuses.includes(lockedRequest.status)) {
             throw new Error(`[CONCURRENCY] Request status changed to '${lockedRequest.status}' before lock was acquired. Disbursement rejected.`);
@@ -398,8 +403,9 @@ const executeDisbursementPipeline = async (request, payload, actor, options = {}
         }, { transaction });
 
         // TASK 2 — ENFORCE IDEMPOTENCY IN CONTROLLER (Pipeline)
-        // Ensure idempotency Key
-        const idempotencyKey = payload.idempotencyKey || `disburse_${requestId}_${amount}_${nextInstallmentNumber}_${actor?.id || 'sys'}`;
+        // Ensure idempotency Key (TASK 1: Stable key without time window)
+        const sysActor = actor?.id || actor?._id || 'sys';
+        const idempotencyKey = payload.idempotencyKey || `disburse_${requestId}*${amount}*${nextInstallmentNumber}_${sysActor}`;
 
         let disbursement = await Disbursement.findOne({
             where: { idempotencyKey },
