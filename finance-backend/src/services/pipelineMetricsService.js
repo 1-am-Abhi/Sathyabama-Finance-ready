@@ -643,7 +643,12 @@ const buildCentreBreakdown = ({ centres, projects, fundRequests, disbursements }
     // 1. Map Projects to Centres to assist Disbursement mapping
     const projectToCentreId = new Map();
     projects.forEach((project) => {
-        const centre = ensureCentreEntry(resolveCentreIdentity(project, context), context);
+        const identity = resolveCentreIdentity(project, context);
+        if (!identity) {
+            console.warn('[DATA ISSUE] Project missing researchCentre:', project._id || project.id);
+            return; // 🔴 DO NOT GROUP INTO "Others"
+        }
+        const centre = ensureCentreEntry(identity, context);
         centre.totalProjects += 1;
         projectToCentreId.set(project.id || project._id, centre.key);
 

@@ -7,6 +7,9 @@ const { Op, fn, col, literal } = require('sequelize');
 const logger = require('../utils/logger');
 const { mapToFundSourceKey, ensureCanonicalFundSources } = require('../services/fundSourceCatalogService');
 const { getFundingTotals, getFundSourceOverview } = require('../services/pipelineMetricsService');
+const { Parser } = require('json2csv');
+const PDFDocument = require('pdfkit');
+const { getCurrentFY, getFYRange } = require('../utils/fyUtils');
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -54,29 +57,35 @@ const getDisbursedBySource = async () => {
  * Aggregated dashboard metrics for the Finance portal.
  */
 const getFinanceStats = asyncHandler(async (req, res) => {
+    const fy = req.query.fy || getCurrentFY();
+    const { startDate, endDate } = getFYRange(fy);
+    const dateRange = { [Op.between]: [startDate, endDate] };
+
     let results;
     try {
         results = await Promise.all([
-            Project.count(),
-            Project.count({ where: { status: { [Op.in]: ['ACTIVE', 'APPROVED'] } } }),
-            FundRequest.count({ where: { status: 'PENDING' } }),
+            Project.count({ where: { createdAt: dateRange } }),
+            Project.count({ where: { status: { [Op.in]: ['ACTIVE', 'APPROVED'] }, createdAt: dateRange } }),
+            FundRequest.count({ where: { status: 'PENDING', createdAt: dateRange } }),
             User.count({ where: { role: 'FACULTY' } }),
-            Revenue.sum('verifiedAmount', { where: { status: 'VERIFIED' } }),
+            Revenue.sum('verifiedAmount', { where: { status: 'VERIFIED', createdAt: dateRange } }),
             // Finance-activity counts used by FinanceDashboard
             FundRequest.count({
                 where: {
                     status: 'APPROVED',
-                    currentStage: { [Op.in]: ['FUND_APPROVED', 'BILLS_UPLOADED', null] }
+                    currentStage: { [Op.in]: ['FUND_APPROVED', 'BILLS_UPLOADED', null] },
+                    createdAt: dateRange
                 }
             }),
             FundRequest.count({
                 where: {
                     status: 'APPROVED',
-                    currentStage: { [Op.in]: ['FUND_RELEASED', 'CHEQUE_RELEASED'] }
+                    currentStage: { [Op.in]: ['FUND_RELEASED', 'CHEQUE_RELEASED'] },
+                    createdAt: dateRange
                 }
             }),
-            FundRequest.count({ where: { currentStage: 'UTILIZATION_COMPLETED' } }),
-            InternshipFee.count({ where: { paymentStatus: 'PENDING' } }).catch(() => 0),
+            FundRequest.count({ where: { currentStage: 'UTILIZATION_COMPLETED', createdAt: dateRange } }),
+            InternshipFee.count({ where: { paymentStatus: 'PENDING', createdAt: dateRange } }).catch(() => 0),
         ]);
     } catch (err) {
         logger.error('[getFinanceStats] DB Error: ' + err.message);
@@ -316,44 +325,62 @@ const updateDepartmentFunding = asyncHandler(async (req, res) => {
 /**
  * GET /finance/disbursal-history
  */
-const getDisbursalHistory = asyncHandler(async (req, res) => {
-    let history = [];
-    try {
-        history = await Disbursement.findAll({
-            attributes: ['_id', 'id', 'amount', 'createdAt', 'bankReference', 'disbursedAt'],
-            include: [
-                {
-                    model: FundRequest,
-                    as: 'FundRequest',
-                    include: [
-                        { model: require('../models').Project, as: 'Project' },
-                        { model: User, as: 'officer', required: false }
-                    ]
-                }
-            ],
-            order: [['createdAt', 'DESC']],
-            limit: 200,
-        });
-    } catch (err) {
-        logger.error('[getDisbursalHistory] DB Error: ' + err.message);
-        return res.status(500).json({ success: false, message: 'Failed to fetch disbursal history' });
-    }
-
-    res.json({
-        success: true,
-        data: (Array.isArray(history) ? history : []).map(d => {
-            const raw = d.toJSON ? d.toJSON() : d;
-            return {
-                ...raw,
-                id: raw._id,
-                amount: Number(raw.amount) || 0,
-                disbursedAt: raw.disbursedAt || raw.createdAt,
-                projectTitle: raw.Project?.title || raw.FundRequest?.projectTitle || null,
-                faculty: raw.Project?.pi || raw.FundRequest?.faculty || null,
-            };
-        })
+const getDisbursalHistory = async (req, res) => {
+  try {
+    console.log('[DEBUG] Fetching disbursal history...');
+    const records = await Disbursement.findAll({
+      order: [['createdAt', 'DESC']],
+      include: [
+        {
+          model: FundRequest,
+          attributes: ['id', '_id', 'requestedAmount', 'projectId'],
+          include: [
+            {
+              model: Project,
+              attributes: ['id', '_id', 'title'],
+            },
+          ],
+        },
+        {
+          model: User,
+          as: 'officer',
+          attributes: ['id', '_id', 'name'],
+        },
+      ],
     });
-});
+
+    const safeData = records.map(d => ({
+      id: d.id || d._id,
+      amount: Number(d.amount),
+      disbursedAt: d.disbursedAt || d.createdAt,
+      bankReference: d.bankReference,
+      paymentMode: d.paymentMode,
+      chequeNumber: d.chequeNumber,
+      bankName: d.bankName,
+      transactionId: d.transactionId,
+
+      projectTitle:
+        d.FundRequest?.Project?.title || 'Unknown Project',
+
+      requestedAmount:
+        d.FundRequest?.requestedAmount || 0,
+
+      officerName:
+        d.officer?.name || 'N/A',
+    }));
+
+    return res.json({ success: true, data: safeData });
+
+  } catch (err) {
+    console.error('[DisbursalHistory ERROR]', err);
+
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to fetch disbursal history',
+      error: err.message,
+    });
+  }
+};
 
 /**
  * GET /finance/reports-data
@@ -507,6 +534,236 @@ const getFundFlowData = asyncHandler(async (req, res) => {
     });
 });
 
+/**
+ * GET /finance/financial-reports
+ * Returns data for Financial Reports Dashboard.
+ */
+const getFinancialReports = async (req, res) => {
+  try {
+    const fy = req.query.fy || getCurrentFY();
+    let { startDate, endDate } = req.query;
+
+    if (!startDate || !endDate) {
+      const range = getFYRange(fy);
+      startDate = range.startDate;
+      endDate = range.endDate;
+    }
+
+    console.log('[REPORT FILTER]', fy, startDate, endDate);
+
+    const whereClause = {};
+
+    whereClause.createdAt = {
+      [Op.between]: [new Date(startDate), new Date(endDate)],
+    };
+
+    if (req.organizationId) {
+      whereClause.organizationId = req.organizationId;
+    }
+
+    const disbursements = await Disbursement.findAll({
+      where: whereClause,
+      include: [
+        {
+          model: FundRequest,
+          include: [Project],
+        },
+      ],
+    });
+
+    const revenues = await Revenue.findAll({
+      where: whereClause,
+    });
+
+    let totalDisbursed = 0;
+    let totalRevenue = 0;
+
+    const projectMap = {};
+    const groupedCentres = {};
+
+    disbursements.forEach(d => {
+      const amount = Number(d.amount) || 0;
+      totalDisbursed += amount;
+
+      const project = d.FundRequest?.Project?.title || 'Unknown';
+      if (!projectMap[project]) {
+        projectMap[project] = 0;
+      }
+      projectMap[project] += amount;
+    });
+
+    const projects = await Project.findAll({
+      where: req.organizationId ? { organizationId: req.organizationId } : {}
+    });
+
+    projects.forEach(p => {
+      const centre = p.researchCentre;
+
+      if (!centre || centre === 'Others' || centre === 'N/A') {
+        console.warn('[DATA ISSUE] Project missing researchCentre or has fallback:', p.id);
+        return; // 🔴 DO NOT GROUP INTO "Others"
+      }
+
+      if (!groupedCentres[centre]) {
+        groupedCentres[centre] = {
+          name: centre,
+          totalBudget: 0,
+          totalDisbursed: 0,
+          projectCount: 0
+        };
+      }
+
+      groupedCentres[centre].totalBudget += Number(p.sanctionedBudget || 0);
+      groupedCentres[centre].totalDisbursed += Number(p.releasedBudget || 0);
+      groupedCentres[centre].projectCount += 1;
+    });
+
+    revenues.forEach(r => {
+      totalRevenue += Number(r.amount) || 0;
+    });
+
+    const totalSanctioned = await Project.sum('sanctionedBudget') || 0;
+
+    res.json({
+      totalSanctioned,
+      totalDisbursed,
+      totalRevenue,
+      netFlow: totalRevenue - totalDisbursed,
+      projects: Object.keys(projectMap).map(p => ({
+        name: p,
+        value: projectMap[p],
+      })),
+      centres: Object.values(groupedCentres),
+      outflows: disbursements,
+      inflows: revenues,
+    });
+
+  } catch (err) {
+    console.error('[FinancialReports ERROR]', err);
+    res.status(500).json({ error: err.message });
+  }
+};
+
+/**
+ * GET /finance/financial-reports/export
+ * Exports financial reports data as CSV.
+ */
+const exportFinancialReports = async (req, res) => {
+  try {
+    const { startDate, endDate } = req.query;
+
+    const whereClause = {};
+
+    if (startDate && endDate) {
+      whereClause.createdAt = {
+        [Op.between]: [new Date(startDate), new Date(endDate)],
+      };
+    }
+
+    if (req.organizationId) {
+      whereClause.organizationId = req.organizationId;
+    }
+
+    const disbursements = await Disbursement.findAll({
+      where: whereClause,
+      include: [
+        {
+          model: FundRequest,
+          include: [Project],
+        },
+        {
+          model: User,
+          as: 'officer',
+          attributes: ['name'],
+        },
+      ],
+      order: [['createdAt', 'DESC']],
+    });
+
+    const data = disbursements.map(d => ({
+      Date: d.createdAt,
+      Project: d.FundRequest?.Project?.title || 'Unknown',
+      Amount: Number(d.amount),
+      Officer: d.officer?.name || 'N/A',
+      TransactionID: d.bankReference || 'N/A',
+    }));
+
+    if (!data.length) {
+      return res.status(404).json({ message: 'No data for selected period' });
+    }
+
+    const parser = new Parser();
+    const csv = parser.parse(data);
+
+    res.header('Content-Type', 'text/csv');
+    res.attachment(`financial-report-${startDate}-to-${endDate}.csv`);
+    return res.send(csv);
+
+  } catch (err) {
+    console.error('[EXPORT ERROR]', err);
+    res.status(500).json({ error: err.message });
+  }
+};
+
+const exportFinancialReportsPDF = async (req, res) => {
+  try {
+    const { startDate, endDate } = req.query;
+
+    const whereClause = {};
+
+    if (startDate && endDate) {
+      whereClause.createdAt = {
+        [Op.between]: [new Date(startDate), new Date(endDate)],
+      };
+    }
+
+    if (req.organizationId) {
+      whereClause.organizationId = req.organizationId;
+    }
+
+    const disbursements = await Disbursement.findAll({
+      where: whereClause,
+      include: [
+        {
+          model: FundRequest,
+          include: [Project],
+        },
+        {
+          model: User,
+          as: 'officer',
+          attributes: ['name'],
+        },
+      ],
+      order: [['createdAt', 'DESC']],
+    });
+
+    const doc = new PDFDocument();
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', 'attachment; filename=financial-report.pdf');
+
+    doc.pipe(res);
+
+    doc.fontSize(18).text('Financial Report', { align: 'center' });
+    doc.moveDown();
+
+    doc.fontSize(10).text(`From: ${startDate} To: ${endDate}`);
+    doc.moveDown();
+
+    disbursements.forEach((d, i) => {
+      doc.text(
+        `${i + 1}. ${d.FundRequest?.Project?.title || 'Unknown'} | ₹${d.amount} | ${d.officer?.name || 'N/A'}`
+      );
+    });
+
+    doc.end();
+
+  } catch (err) {
+    console.error('[PDF EXPORT ERROR]', err);
+    res.status(500).json({ error: err.message });
+  }
+};
+
 module.exports = {
     getFinanceStats,
     getFundSourcesOverview,
@@ -519,4 +776,36 @@ module.exports = {
     getPFMSTransactionsController,
     createPFMSTransactionController,
     getFundFlowData,
+    getFinancialReports,
+    exportFinancialReports,
+    exportFinancialReportsPDF,
+    rollbackDisbursement: asyncHandler(async (req, res) => {
+        const { id } = req.params;
+        const { AuditLog } = require('../models');
+
+        const disbursement = await Disbursement.findByPk(id);
+        if (!disbursement) return res.status(404).json({ success: false, message: 'Disbursement not found' });
+
+        const requestId = disbursement.fundRequestId;
+        const amount = disbursement.amount;
+
+        await sequelize.transaction(async (t) => {
+            // Restore FundRequest status to APPROVED
+            await FundRequest.update({ status: 'APPROVED', currentStage: 'FUND_APPROVED' }, { where: { _id: requestId }, transaction: t });
+            
+            // Delete the disbursement record
+            await disbursement.destroy({ transaction: t });
+
+            // Log the rollback
+            await AuditLog.create({
+                userId: req.user.id || req.user._id,
+                action: 'DISBURSEMENT_ROLLBACK',
+                entityType: 'Disbursement',
+                entityId: id,
+                metadata: { amount, requestId, reason: req.body.reason || 'Administrative Rollback' }
+            }, { transaction: t });
+        });
+
+        res.json({ success: true, message: 'Disbursement rolled back successfully' });
+    })
 };

@@ -261,7 +261,45 @@ const executeDisbursementPipeline = async (request, payload, actor, options = {}
     const disbursementDate = payload.disbursementDate || new Date();
     const bankReference = payload.transactionId;
 
+    // --- RECONCILIATION ENGINE: SMART MULTI-MODE CHECKS ---
+    if (!payload.paymentMode) {
+        throw new Error('Institutional Compliance: Payment mode is required.');
+    }
+
+    if (payload.paymentMode === 'CHEQUE') {
+        if (!payload.chequeNumber || !payload.bankName) {
+            throw new Error('Institutional Compliance: Cheque number and Bank name are mandatory for CHEQUE disbursement.');
+        }
+    }
+
+    if (['UPI', 'NEFT', 'RTGS'].includes(payload.paymentMode)) {
+        if (!payload.transactionId) {
+            throw new Error('Institutional Compliance: Transaction ID / UTR is mandatory for digital disbursement.');
+        }
+    }
+
     return sequelize.transaction(async (transaction) => {
+        // Reconciliation: Duplicate Cheque Detection
+        if (payload.chequeNumber) {
+            const duplicateCheque = await Disbursement.findOne({
+                where: { chequeNumber: payload.chequeNumber },
+                transaction
+            });
+            if (duplicateCheque) {
+                throw new Error(`Reconciliation Error: Cheque Number ${payload.chequeNumber} has already been recorded.`);
+            }
+        }
+
+        // Reconciliation: Duplicate Transaction Detection
+        if (payload.transactionId) {
+            const duplicateTxn = await Disbursement.findOne({
+                where: { transactionId: payload.transactionId },
+                transaction
+            });
+            if (duplicateTxn) {
+                throw new Error(`Reconciliation Error: Transaction ID ${payload.transactionId} has already been recorded.`);
+            }
+        }
         // ROW-LEVEL LOCK on FundRequest
         const lockedRequest = await FundRequest.findByPk(request._id || request.id, {
             transaction,
@@ -389,6 +427,11 @@ const executeDisbursementPipeline = async (request, payload, actor, options = {}
                 disbursedByName: actor?.name || 'Finance Officer',
                 disbursedAt: disbursementDate,
                 bankReference,
+                chequeNumber: payload.chequeNumber,
+                bankName: payload.bankName,
+                transactionId: bankReference,
+                proofUrl: payload.proofUrl || null,
+                paymentMode: payload.paymentMode || 'CHEQUE',
                 remarks: financeRemarks,
                 idempotencyKey
             }, { transaction });
@@ -442,6 +485,8 @@ const executeDisbursementPipeline = async (request, payload, actor, options = {}
             entityId: requestId,
             metadata: {
                 transactionId: bankReference,
+                chequeNumber: payload.chequeNumber,
+                bankName: payload.bankName,
                 projectTitle: lockedRequest.projectTitle,
                 financeRemarks,
                 approvedBy,
@@ -452,6 +497,36 @@ const executeDisbursementPipeline = async (request, payload, actor, options = {}
         });
 
         console.log(`[${correlationId}] [Pipeline:DISBURSE] Committed — request=${requestId} disbursement=${disbursement._id} status=DISBURSED authSum=${authoritativeProjectSum}`);
+
+        // --- REAL-TIME BUDGET ALERTS ---
+        const sanctioned = toNumber(project.sanctionedBudget);
+        const finalRemaining = sanctioned - authoritativeProjectSum;
+        
+        if (finalRemaining < sanctioned * 0.1 && sanctioned > 0) {
+            await NotificationService.create(
+                project.facultyId || project.userId,
+                'Budget Threshold Alert',
+                `⚠ Project '${project.title}' has less than 10% budget remaining (₹${finalRemaining.toLocaleString()}).`,
+                'ALERT',
+                `/faculty/projects/${project._id || project.id}`
+            );
+            await NotificationService.notifyRole(
+                'ADMIN',
+                'Low Project Budget',
+                `Institutional Warning: '${project.title}' is at critical budget levels (<10%).`,
+                'ALERT',
+                '/admin/projects'
+            );
+        }
+
+        // --- DISBURSEMENT NOTIFICATION ---
+        await NotificationService.create(
+            project.facultyId || project.userId,
+            'Funds Disbursed',
+            `✅ ₹${amount.toLocaleString()} has been credited for '${project.title}'. UTR: ${bankReference}`,
+            'SUCCESS',
+            '/faculty/request-funds'
+        );
 
         verifyFinancialParity('DISBURSEMENT_PIPELINE').catch(err =>
             console.error(`[${correlationId}] Watchdog failed:`, err)

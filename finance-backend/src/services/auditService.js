@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const { AuditLog } = require('../models');
+const crypto = require('crypto');
 
 const LOG_FILE_PATH = path.join(__dirname, '../../logs/disbursements.audit.log');
 
@@ -40,13 +41,24 @@ const logDisbursementAudit = async (data) => {
             ...metadata
         };
 
+        // Compute SHA256 hash for immutability
+        const auditHash = crypto
+            .createHash('sha256')
+            .update(JSON.stringify(auditEntry))
+            .digest('hex');
+
         // 1. Write to Database
         await AuditLog.create({
             userId: userId || 0,
             action,
             entityType,
             entityId: String(entityId),
-            metadata: auditEntry
+            meta: {
+                amount,
+                transactionId: metadata.transactionId || metadata.bankReference
+            },
+            metadata: auditEntry,
+            hash: auditHash
         });
 
         // 2. Write to Filesystem (Immutable Trail)

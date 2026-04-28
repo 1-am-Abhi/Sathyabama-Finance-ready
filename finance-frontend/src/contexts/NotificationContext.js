@@ -3,6 +3,7 @@ import { io } from 'socket.io-client';
 import { toast } from 'sonner';
 import apiClient from '../api/client';
 import { useAuth } from './AuthContext';
+import Toast from '../components/common/Toast';
 
 const NotificationContext = createContext(null);
 if (!process.env.REACT_APP_API_URL) {
@@ -72,6 +73,7 @@ export const NotificationProvider = ({ children }) => {
     const { user } = useAuth();
     const [notifications, setNotifications] = useState([]);
     const [isLoading, setIsLoading] = useState(false);
+    const [liveAlerts, setLiveAlerts] = useState([]);
 
     const fetchNotifications = useCallback(async () => {
         if (!user) {
@@ -131,6 +133,15 @@ export const NotificationProvider = ({ children }) => {
                 
                 // Only toast for unique notifications
                 toast.success(notification.message || notification.title || 'New notification received');
+                
+                // Demo: Add to custom liveAlerts for the requested Toast UI
+                const alertId = Date.now();
+                setLiveAlerts(prev => [...prev, { 
+                    id: alertId, 
+                    message: notification.message || notification.title, 
+                    type: notification.type 
+                }]);
+
                 return mergeNotifications(prev, notification, { prepend: true });
             });
         });
@@ -234,6 +245,19 @@ export const NotificationProvider = ({ children }) => {
             refreshNotifications: fetchNotifications
         }}>
             {children}
+            
+            {/* Live Alerts Demo */}
+            <div className="fixed top-0 right-0 z-[9999] p-6 space-y-4 pointer-events-none">
+                {liveAlerts.map(alert => (
+                    <div key={alert.id} className="pointer-events-auto">
+                        <Toast 
+                            msg={alert.message} 
+                            type={alert.type} 
+                            onClose={() => setLiveAlerts(prev => prev.filter(a => a.id !== alert.id))} 
+                        />
+                    </div>
+                ))}
+            </div>
         </NotificationContext.Provider>
     );
 };

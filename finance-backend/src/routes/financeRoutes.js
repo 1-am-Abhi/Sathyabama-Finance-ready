@@ -9,6 +9,7 @@ const { sanitizeFinancialInput } = require('../middleware/inputSanitizer');
 
 // All finance routes require authentication
 router.use(protect);
+router.use(require('../middleware/orgScope'));
 
 // ── Core Dashboard & Overview ─────────────────────────────────────────────────
 router.get('/stats', financeController.getFinanceStats);
@@ -45,6 +46,9 @@ router.get('/departments/:id/funding-history', async (req, res) => {
 // ── Disbursal & Reports ───────────────────────────────────────────────────────
 router.get('/disbursal-history', financeController.getDisbursalHistory);
 router.get('/reports-data', financeController.getReportsData);
+router.get('/financial-reports', financeController.getFinancialReports);
+router.get('/financial-reports/export', financeController.exportFinancialReports);
+router.get('/financial-reports/pdf', financeController.exportFinancialReportsPDF);
 
 // ── Projects ──────────────────────────────────────────────────────────────────
 router.get('/projects', projectController.getProjects);
@@ -74,6 +78,7 @@ router.get('/disbursements', (req, res, next) => {
     return fundRequestController.getFundRequests(req, res, next);
 });
 router.put('/disbursements/:id/execute', authorize('FINANCE_OFFICER', 'ADMIN'), fundRequestController.disburseFund);
+router.post('/disbursements/:id/rollback', authorize('ADMIN', 'FINANCE_OFFICER'), financeController.rollbackDisbursement);
 
 // ── PFMS Transactions (real DB queries) ───────────────────────────────────────
 router.get('/pfms', financeController.getPFMSTransactionsController);

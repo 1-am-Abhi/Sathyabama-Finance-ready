@@ -4,6 +4,7 @@ const projectController = require('../controllers/projectController');
 const { protect, authorize } = require('../middleware/authMiddleware');
 
 router.use(protect); // All project routes are protected
+router.use(require('../middleware/orgScope'));
 
 router.get('/', projectController.getProjects);
 router.get('/stats', authorize('ADMIN'), projectController.getAdminStats);
@@ -13,6 +14,8 @@ router.get('/:id', projectController.getProject);
 // Only Admin and Faculty can create/update projects
 router.post('/', authorize('FACULTY', 'ADMIN'), projectController.createProject);
 router.put('/:id', authorize('FACULTY', 'ADMIN'), projectController.updateProject);
+router.put('/:id/freeze', authorize('ADMIN'), projectController.freezeProject);
+router.put('/:id/unfreeze', authorize('ADMIN'), projectController.unfreezeProject);
 router.delete('/:id', authorize('ADMIN'), projectController.deleteProject);
 
 

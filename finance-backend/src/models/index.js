@@ -23,6 +23,7 @@ const models = {
     ResearchCenter: ResearchCenterModel,
     Revenue: require('./Revenue'),
     User: require('./User'),
+    Organization: require('./Organization'),
 };
 
 const {
@@ -45,7 +46,21 @@ const {
     ResearchCenter,
     Revenue,
     User,
+    Organization,
 } = models;
+
+// Organization relations
+Organization.hasMany(User, { foreignKey: 'organizationId' });
+User.belongsTo(Organization, { foreignKey: 'organizationId' });
+
+Organization.hasMany(Project, { foreignKey: 'organizationId' });
+Project.belongsTo(Organization, { foreignKey: 'organizationId' });
+
+Organization.hasMany(FundRequest, { foreignKey: 'organizationId' });
+FundRequest.belongsTo(Organization, { foreignKey: 'organizationId' });
+
+Organization.hasMany(Disbursement, { foreignKey: 'organizationId' });
+Disbursement.belongsTo(Organization, { foreignKey: 'organizationId' });
 
 // Research centre ownership
 ResearchCenter.hasMany(User, { foreignKey: 'researchCenterId', as: 'faculty' });

@@ -21,12 +21,8 @@ const queryClient = new QueryClient({
 
 function App() {
   useEffect(() => {
-    // Check system preference or stored theme
-    if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-    }
+    const saved = localStorage.getItem('theme') || 'dark';
+    document.documentElement.classList.toggle('dark', saved === 'dark');
     // One-time cleanup of old seeded localStorage data
     localStorage.removeItem('academicSupportData');
   }, []);

@@ -5,7 +5,7 @@ import TopBar from '../shared/TopBar';
 
 const DashboardLayout = () => {
     return (
-        <div className="flex min-h-screen bg-gray-50/50">
+        <div className="flex min-h-screen bg-lightBg text-lightText dark:bg-darkBg dark:text-darkText">
             <Sidebar />
             <div className="flex-1 ml-64 flex flex-col">
                 <main className="flex-1">

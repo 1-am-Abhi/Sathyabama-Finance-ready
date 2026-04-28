@@ -12,8 +12,8 @@ import api from './api';
 // ── Fund Sources ──────────────────────────────────────────────────────────────
 
 // Get fund sources overview — returns array of { name, totalAllocated, totalUsed, remainingBalance }
-export const getFundSourcesOverview = async () => {
-    const response = await api.get('/finance/fund-sources/overview');
+export const getFundSourcesOverview = async (fy) => {
+    const response = await api.get('/finance/fund-sources/overview', { params: { fy } });
     const body = response.data;
     return Array.isArray(body?.data) ? body.data : (Array.isArray(body) ? body : []);
 };
@@ -113,24 +113,24 @@ export const verifyRevenue = async (revenueId, data) => {
 // ── Dashboard Stats ───────────────────────────────────────────────────────────
 
 // Get financial dashboard stats
-export const getFinanceStats = async () => {
-    const response = await api.get('/finance/stats');
+export const getFinanceStats = async (fy) => {
+    const response = await api.get('/finance/stats', { params: { fy } });
     return response.data?.data || response.data || {};
 };
 
 // ── Fund Flow ─────────────────────────────────────────────────────────────────
 
 // Get fund flow projects
-export const getFundFlowProjects = async () => {
-    const response = await api.get('/finance/fund-flow');
+export const getFundFlowProjects = async (fy) => {
+    const response = await api.get('/finance/fund-flow', { params: { fy } });
     return response.data?.data || response.data || [];
 };
 
 // ── PFMS ──────────────────────────────────────────────────────────────────────
 
 // Get PFMS transactions
-export const getPFMSTransactions = async () => {
-    const response = await api.get('/finance/pfms');
+export const getPFMSTransactions = async (fy) => {
+    const response = await api.get('/finance/pfms', { params: { fy } });
     return response.data?.data || response.data || [];
 };
 
@@ -143,8 +143,8 @@ export const createPFMSTransaction = async (data) => {
 // ── Internship Fees ───────────────────────────────────────────────────────────
 
 // Get internship fees
-export const getInternshipFees = async () => {
-    const response = await api.get('/finance/internship-fees');
+export const getInternshipFees = async (fy) => {
+    const response = await api.get('/finance/internship-fees', { params: { fy } });
     return response.data?.data || response.data || [];
 };
 
@@ -166,8 +166,8 @@ export const getFinancialReports = async (params = {}) => {
 // ── Disbursal History ─────────────────────────────────────────────────────────
 
 // Get disbursal history
-export const getDisbursalHistory = async () => {
-    const response = await api.get('/finance/disbursal-history');
+export const getDisbursalHistory = async (fy) => {
+    const response = await api.get('/finance/disbursal-history', { params: { fy } });
     return response.data?.data || response.data || [];
 };
 

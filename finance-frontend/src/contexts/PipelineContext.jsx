@@ -31,10 +31,13 @@ export const PipelineProvider = ({ children }) => {
 
     // Fetch fund requests
     const { data: fundRequests, isLoading: requestsLoading, refetch: refetchFundRequests } = useQuery({
-        queryKey: ['fund-requests'],
+        queryKey: ['fund-requests', user?.role],
         queryFn: async () => {
             const prefix = user?.role === 'FACULTY' ? '/faculty' : '';
-            return safeApi(() => apiClient.get(`${prefix}/fund-requests`), []);
+            // Get FY from URL or default to current
+            const params = new URLSearchParams(window.location.search);
+            const fy = params.get('fy');
+            return safeApi(() => apiClient.get(`${prefix}/fund-requests`, { params: { fy } }), []);
         },
         enabled: !!user,
         retry: false
@@ -115,8 +118,9 @@ export const PipelineProvider = ({ children }) => {
     });
 
     const disburseFundMutation = useMutation({
-        mutationFn: async ({ requestId, payload }) => {
-            const response = await apiClient.patch(`/fund-requests/${requestId}/disburse`, payload);
+        mutationFn: async ({ requestId, payload, isFormData }) => {
+            const config = isFormData ? { headers: { 'Content-Type': 'multipart/form-data' } } : {};
+            const response = await apiClient.post(`/fund-requests/${requestId}/disburse`, payload, config);
             return response.data.data;
         },
         onSuccess: () => {

@@ -112,20 +112,22 @@ const getProjects = asyncHandler(async (req, res) => {
         order: [['createdAt', 'DESC']]
     };
 
+    const where = req.organizationId ? { organizationId: req.organizationId } : {};
+
     if (req.user?.role === 'FACULTY') {
         const userId = req.user?.id || req.user?._id;
         const memberRows = await ProjectMember.findAll({ where: { userId }, attributes: ['projectId'] });
         const memberProjectIds = memberRows.map(m => m.projectId || m._id);
 
-        includeMembers.where = {
-            [Op.or]: [
-                { facultyId: userId },
-                { userId: userId },
-                { pi: req.user?.name },
-                ...(memberProjectIds.length > 0 ? [{ _id: { [Op.in]: memberProjectIds } }] : [])
-            ]
-        };
+        where[Op.or] = [
+            { facultyId: userId },
+            { userId: userId },
+            { pi: req.user?.name },
+            ...(memberProjectIds.length > 0 ? [{ _id: { [Op.in]: memberProjectIds } }] : [])
+        ];
     }
+
+    includeMembers.where = where;
 
     let projects = [];
     try {
@@ -393,5 +395,13 @@ module.exports = {
     updateProject,
     deleteProject,
     getProjectMembers,
-    updateProjectMembers
+    updateProjectMembers,
+    freezeProject: asyncHandler(async (req, res) => {
+        await Project.update({ status: 'FROZEN' }, { where: { _id: req.params.id } });
+        res.json({ success: true, message: 'Project frozen successfully' });
+    }),
+    unfreezeProject: asyncHandler(async (req, res) => {
+        await Project.update({ status: 'ACTIVE' }, { where: { _id: req.params.id } });
+        res.json({ success: true, message: 'Project unfrozen successfully' });
+    })
 };

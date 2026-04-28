@@ -48,6 +48,27 @@ const ApproveFundRequests = () => {
     const [disbursementMode, setDisbursementMode] = useState('FULL');
     const [installmentHistory, setInstallmentHistory] = useState([]);
     const [isFetchingHistory, setIsFetchingHistory] = useState(false);
+    
+    const [searchParams, setSearchParams] = useSearchParams();
+    const selectedFY = searchParams.get('fy') || getCurrentFY();
+
+    const setSelectedFY = (fy) => {
+        setSearchParams(prev => {
+            const next = new URLSearchParams(prev);
+            next.set('fy', fy);
+            return next;
+        });
+    };
+
+    // Cheque Entry State
+    const [chequeDetails, setChequeDetails] = useState({
+        chequeNumber: '',
+        bankName: '',
+        transactionId: '',
+        paymentMode: 'CHEQUE'
+    });
+    const [proofFile, setProofFile] = useState(null);
+    const [isUploading, setIsUploading] = useState(false);
 
 
     React.useEffect(() => {
@@ -111,27 +132,55 @@ const ApproveFundRequests = () => {
     };
 
     const handleDisburseCheque = async (requestId) => {
+        // Strict Validation based on payment mode
+        if (chequeDetails.paymentMode === 'CHEQUE') {
+            if (!chequeDetails.chequeNumber || !chequeDetails.bankName) {
+                toast.error("Cheque Number and Bank Name are required for Cheque payments");
+                return;
+            }
+        } else {
+            if (!chequeDetails.transactionId) {
+                toast.error("Transaction ID / UTR is required for digital payments");
+                return;
+            }
+        }
+
         try {
+            setIsUploading(true);
             const req = fundRequests.find(r => (r._id || r.id) === requestId) || selectedRequest;
             
+            const formData = new FormData();
+            formData.append('requestId', requestId);
+            formData.append('mode', disbursementMode);
+            formData.append('installmentNo', req?.installmentNumber || 1);
+            formData.append('chequeNumber', chequeDetails.chequeNumber);
+            formData.append('bankName', chequeDetails.bankName);
+            formData.append('transactionId', chequeDetails.transactionId);
+            formData.append('paymentMode', chequeDetails.paymentMode);
+            formData.append('remarks', `Manual disbursement: ${chequeDetails.paymentMode} #${chequeDetails.chequeNumber}`);
+            if (proofFile) formData.append('proof', proofFile);
+
+            // Use the base disburseFund call but with FormData
             await disburseFund({ 
                 requestId, 
-                payload: { 
-                    mode: disbursementMode,
-                    installmentNo: req?.installmentNumber || 1,
-                    remarks: `Cheque disbursed by Finance Officer (${disbursementMode})`
-                } 
+                payload: formData,
+                isFormData: true // We'll need to handle this in PipelineContext
             });
 
             setSelectedRequest(prev => prev ? ({ ...prev, status: 'DISBURSED', currentStage: 'AMOUNT_DISBURSED', chequeStatus: 'Disbursed' }) : null);
             toast.success(`Disbursement completed for ${req?.projectTitle || 'project'}`);
 
-            // Refresh history
+            // Reset fields
+            setChequeDetails({ chequeNumber: '', bankName: '', transactionId: '', paymentMode: 'CHEQUE' });
+            setProofFile(null);
+
             if (selectedRequest?.projectId) fetchInstallmentHistory(selectedRequest.projectId);
         } catch (error) {
             console.error('Disbursement failed:', error);
-            const msg = error.response?.data?.message || 'Disbursement failed. Balance check failed?';
+            const msg = error.response?.data?.message || 'Disbursement failed. Reconciliation mismatch?';
             toast.error(msg);
+        } finally {
+            setIsUploading(false);
         }
     };
 
@@ -239,8 +288,21 @@ const ApproveFundRequests = () => {
                 </div>
 
                 {/* Unified Filter Bar */}
-                <div className="mb-6 mt-8 flex flex-col xl:flex-row items-start xl:items-center justify-between bg-white dark:bg-slate-900 p-4 rounded-xl border border-gray-100 dark:border-slate-800 shadow-sm gap-4">
+                <div className="mb-6 mt-8 flex flex-col xl:flex-row items-start xl:items-center justify-between bg-lightCard dark:bg-darkCard p-4 rounded-xl border border-lightBorder dark:border-white/10 shadow-sm gap-4">
                     <div className="flex flex-wrap items-center gap-4 w-full">
+                        <div className="flex items-center space-x-2">
+                            <Calendar className="w-4 h-4 text-gray-500" />
+                            <span className="text-sm text-gray-500 dark:text-gray-400 font-medium">Financial Year:</span>
+                            <select 
+                                className="bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-lg px-3 py-1.5 text-xs focus:ring-2 focus:ring-indigo-500/20 outline-none"
+                                value={selectedFY}
+                                onChange={(e) => setSelectedFY(e.target.value)}
+                            >
+                                <option value={getCurrentFY()}>{getCurrentFY()} (Current)</option>
+                                <option value="2024-2025">2024-2025</option>
+                                <option value="2023-2024">2023-2024</option>
+                            </select>
+                        </div>
                         <div className="flex items-center space-x-2">
                             <span className="text-sm text-gray-500 dark:text-gray-400 font-medium">Source:</span>
                             <select 
@@ -296,8 +358,8 @@ const ApproveFundRequests = () => {
                 </div>
 
                 {/* Fund Requests Table */}
-                <Card className="border-0 shadow-lg dark:bg-slate-900">
-                    <CardHeader className="border-b dark:border-slate-800">
+                <Card className="border-0 shadow-lg">
+                    <CardHeader className="border-b dark:border-white/10">
                         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                             <div>
                                 <CardTitle className="text-xl dark:text-white">Fund Requests</CardTitle>
@@ -429,14 +491,21 @@ const ApproveFundRequests = () => {
                                 ))}
                             </TableBody>
                         </Table>
+                        {filteredRequests.length === 0 && (
+                            <div className="flex flex-col justify-center items-center h-64 text-gray-500">
+                                <FileText className="w-12 h-12 mb-4 opacity-20" />
+                                <p className="text-lg font-medium">No fund requests found</p>
+                                <p className="text-sm">Try adjusting your filters or date range</p>
+                            </div>
+                        )}
                     </CardContent>
                 </Card>
 
                 {/* Request Details Modal */}
                 {selectedRequest && (
                     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-                        <Card className="max-w-2xl w-full border-0 shadow-2xl dark:bg-slate-900">
-                            <CardHeader className="border-b dark:border-slate-800">
+                        <Card className="max-w-2xl w-full border-0 shadow-2xl">
+                            <CardHeader className="border-b dark:border-white/10">
                                 <div className="flex justify-between items-start">
                                     <div>
                                         <div className="flex items-center gap-2 mb-1">
@@ -534,10 +603,96 @@ const ApproveFundRequests = () => {
                                                 </Button>
                                             )}
                                             {selectedRequest.chequeStatus === 'Approved' && (
-                                                <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white" onClick={() => handleDisburseCheque(selectedRequest._id || selectedRequest.id)}>
-                                                    Confirm {disbursementMode} Payment
-                                                    <CheckCircle className="w-3 h-3 ml-2" />
-                                                </Button>
+                                                <div className="space-y-4 mt-6 animate-in slide-in-from-bottom-2 duration-300">
+                                                    <div className="grid grid-cols-2 gap-4">
+                                                        <div className="space-y-1.5 col-span-2">
+                                                            <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Payment Mode</label>
+                                                            <select 
+                                                                className="w-full h-10 bg-white dark:bg-slate-950 border border-gray-200 dark:border-slate-800 rounded-lg px-3 text-xs focus:ring-2 focus:ring-indigo-500/20 outline-none font-semibold"
+                                                                value={chequeDetails.paymentMode}
+                                                                onChange={(e) => setChequeDetails({...chequeDetails, paymentMode: e.target.value})}
+                                                            >
+                                                                <option value="CHEQUE">CHEQUE (Institutional)</option>
+                                                                <option value="NEFT">NEFT (Direct Bank)</option>
+                                                                <option value="RTGS">RTGS (High Value)</option>
+                                                                <option value="UPI">UPI (Quick Pay)</option>
+                                                            </select>
+                                                        </div>
+
+                                                        {chequeDetails.paymentMode === 'CHEQUE' ? (
+                                                            <>
+                                                                <div className="space-y-1.5">
+                                                                    <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Cheque Number</label>
+                                                                    <input 
+                                                                        type="text" 
+                                                                        className="w-full h-9 bg-white dark:bg-slate-950 border border-gray-200 dark:border-slate-800 rounded-lg px-3 text-xs focus:ring-2 focus:ring-indigo-500/20 outline-none"
+                                                                        placeholder="6-digit Number"
+                                                                        value={chequeDetails.chequeNumber}
+                                                                        onChange={(e) => setChequeDetails({...chequeDetails, chequeNumber: e.target.value})}
+                                                                    />
+                                                                </div>
+                                                                <div className="space-y-1.5">
+                                                                    <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Bank Name</label>
+                                                                    <input 
+                                                                        type="text" 
+                                                                        className="w-full h-9 bg-white dark:bg-slate-950 border border-gray-200 dark:border-slate-800 rounded-lg px-3 text-xs focus:ring-2 focus:ring-indigo-500/20 outline-none"
+                                                                        placeholder="Bank Name"
+                                                                        value={chequeDetails.bankName}
+                                                                        onChange={(e) => setChequeDetails({...chequeDetails, bankName: e.target.value})}
+                                                                    />
+                                                                </div>
+                                                            </>
+                                                        ) : (
+                                                            <div className="space-y-1.5 col-span-2">
+                                                                <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">UTR / Transaction ID</label>
+                                                                <input 
+                                                                    type="text" 
+                                                                    className="w-full h-9 bg-white dark:bg-slate-950 border border-gray-200 dark:border-slate-800 rounded-lg px-3 text-xs focus:ring-2 focus:ring-indigo-500/20 outline-none"
+                                                                    placeholder="Enter Transaction Reference"
+                                                                    value={chequeDetails.transactionId}
+                                                                    onChange={(e) => setChequeDetails({...chequeDetails, transactionId: e.target.value})}
+                                                                />
+                                                            </div>
+                                                        )}
+                                                    </div>
+
+                                                    <div className="space-y-1.5">
+                                                        <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Payment Proof (Scan/UTR)</label>
+                                                        <div className="flex items-center gap-3 p-3 bg-white dark:bg-slate-950 border border-dashed border-gray-200 dark:border-slate-800 rounded-xl hover:bg-gray-50 dark:hover:bg-slate-900 transition-colors cursor-pointer relative">
+                                                            <input 
+                                                                type="file" 
+                                                                className="absolute inset-0 opacity-0 cursor-pointer"
+                                                                onChange={(e) => setProofFile(e.target.files[0])}
+                                                            />
+                                                            <div className="w-10 h-10 rounded-lg bg-indigo-50 dark:bg-indigo-900/20 flex items-center justify-center text-indigo-500">
+                                                                <FileText className="w-5 h-5" />
+                                                            </div>
+                                                            <div>
+                                                                <p className="text-xs font-semibold dark:text-gray-200">{proofFile ? proofFile.name : 'Upload Payment Proof'}</p>
+                                                                <p className="text-[10px] text-gray-500">JPG, PNG or PDF (Max 5MB)</p>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+
+                                                    <Button 
+                                                        size="sm" 
+                                                        className="w-full bg-emerald-600 hover:bg-emerald-700 text-white shadow-lg shadow-emerald-500/20 h-11 rounded-xl text-sm font-bold" 
+                                                        onClick={() => handleDisburseCheque(selectedRequest._id || selectedRequest.id)}
+                                                        disabled={isUploading}
+                                                    >
+                                                        {isUploading ? (
+                                                            <span className="flex items-center gap-2">
+                                                                <RefreshCw className="w-4 h-4 animate-spin" />
+                                                                Processing Reconciliation...
+                                                            </span>
+                                                        ) : (
+                                                            <span className="flex items-center gap-2">
+                                                                <CheckCircle className="w-4 h-4" />
+                                                                Record {disbursementMode} Payment
+                                                            </span>
+                                                        )}
+                                                    </Button>
+                                                </div>
                                             )}
                                             {selectedRequest.chequeStatus === 'Disbursed' && (
                                                 <div className="text-sm font-medium text-emerald-600 flex items-center">

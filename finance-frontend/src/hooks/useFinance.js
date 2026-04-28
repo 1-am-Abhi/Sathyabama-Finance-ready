@@ -27,10 +27,10 @@ import {
 /**
  * Hook to fetch finance dashboard stats
  */
-export const useFinanceStats = () => {
+export const useFinanceStats = (fy) => {
     return useQuery({
-        queryKey: ['financeStats'],
-        queryFn: getFinanceStats,
+        queryKey: ['financeStats', fy],
+        queryFn: () => getFinanceStats(fy),
         staleTime: 0,
     });
 };
@@ -38,10 +38,10 @@ export const useFinanceStats = () => {
 /**
  * Hook to fetch fund flow projects
  */
-export const useFundFlowProjects = () => {
+export const useFundFlowProjects = (fy) => {
     return useQuery({
-        queryKey: ['fundFlowProjects'],
-        queryFn: getFundFlowProjects,
+        queryKey: ['fundFlowProjects', fy],
+        queryFn: () => getFundFlowProjects(fy),
         staleTime: 0,
     });
 };
@@ -49,10 +49,10 @@ export const useFundFlowProjects = () => {
 /**
  * Hook to fetch PFMS transactions
  */
-export const usePFMSTransactions = () => {
+export const usePFMSTransactions = (fy) => {
     return useQuery({
-        queryKey: ['pfmsTransactions'],
-        queryFn: getPFMSTransactions,
+        queryKey: ['pfmsTransactions', fy],
+        queryFn: () => getPFMSTransactions(fy),
         staleTime: 0,
     });
 };
@@ -74,10 +74,10 @@ export const useCreatePFMSTransaction = () => {
 /**
  * Hook to fetch internship fees
  */
-export const useInternshipFees = () => {
+export const useInternshipFees = (fy) => {
     return useQuery({
-        queryKey: ['internshipFees'],
-        queryFn: getInternshipFees,
+        queryKey: ['internshipFees', fy],
+        queryFn: () => getInternshipFees(fy),
         staleTime: 0,
     });
 };
@@ -99,10 +99,10 @@ export const useVerifyInternshipFee = () => {
 /**
  * Hook to fetch fund sources overview
  */
-export const useFundSourcesOverview = () => {
+export const useFundSourcesOverview = (fy) => {
     return useQuery({
-        queryKey: ['fundSourcesOverview'],
-        queryFn: getFundSourcesOverview,
+        queryKey: ['fundSourcesOverview', fy],
+        queryFn: () => getFundSourcesOverview(fy),
         staleTime: 0,
     });
 };
@@ -283,10 +283,10 @@ export const useFinancialReports = (params = {}) => {
 /**
  * Hook to fetch disbursal history
  */
-export const useDisbursalHistory = () => {
+export const useDisbursalHistory = (fy) => {
     return useQuery({
-        queryKey: ['disbursalHistory'],
-        queryFn: getDisbursalHistory,
+        queryKey: ['disbursalHistory', fy],
+        queryFn: () => getDisbursalHistory(fy),
         staleTime: 0,
     });
 };

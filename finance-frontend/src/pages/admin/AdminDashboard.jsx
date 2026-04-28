@@ -7,7 +7,7 @@ import { Button } from '../../components/ui/button';
 import {
     Banknote, CheckCircle, TrendingUp, Plus, FileText, Landmark,
     UserPlus, BarChart3, Filter, Wallet, Building2, Activity, CircleDollarSign,
-    Sparkles, AlertTriangle, Info, Clock, Users, Target
+    Sparkles, AlertTriangle, Info, Clock, Users, Target, Calendar, FileSpreadsheet
 } from 'lucide-react';
 import { io } from 'socket.io-client';
 import { toast } from 'sonner';
@@ -100,6 +100,10 @@ const AdminDashboard = () => {
     const [forecast, setForecast] = useState(null);
     const [insights, setInsights] = useState([]);
     const [isSocketConnected, setIsSocketConnected] = useState(true);
+    const [drillCentre, setDrillCentre] = useState(null);
+    const [drillData, setDrillData] = useState([]);
+    const [openModal, setOpenModal] = useState(false);
+    const [isDrillLoading, setIsDrillLoading] = useState(false);
     const [isDark] = useState(false);
 
 
@@ -263,18 +267,20 @@ const AdminDashboard = () => {
     }, [stats]);
 
     const centreData = React.useMemo(() => {
-        return (centresStats || []).map(c => {
-            const nameStr = String(c.name || c.centre || (typeof c === 'string' ? c : 'Unknown Centre'));
-            return {
-                _id: c._id || c.name || c.centre || Math.random().toString(),
-                centre: nameStr,
-                name: nameStr,
-                totalProjects: Number(c.totalProjects || c.projects || 0),
-                activeProjects: Number(c.activeProjects || 0),
-                totalBudget: Number(c.totalBudget || c.allocated || 0),
-                disbursed: Number(c.disbursed || c.released || 0)
-            };
-        });
+        return (centresStats || [])
+            .map(c => {
+                const nameStr = String(c.name || c.centre || (typeof c === 'string' ? c : 'Unknown Centre'));
+                return {
+                    _id: c._id || c.name || c.centre || Math.random().toString(),
+                    centre: nameStr,
+                    name: nameStr,
+                    totalProjects: Number(c.totalProjects || c.projects || 0),
+                    activeProjects: Number(c.activeProjects || 0),
+                    totalBudget: Number(c.totalBudget || c.allocated || 0),
+                    disbursed: Number(c.disbursed || c.released || 0)
+                };
+            })
+            .filter(c => c.name && c.name !== 'Others' && c.name !== 'N/A' && c.name !== 'Unassigned');
     }, [centresStats]);
 
     const filteredData = React.useMemo(
@@ -289,13 +295,35 @@ const AdminDashboard = () => {
         selectedCentre === 'ALL'
             ? centreData.map(c => ({
                 name: c.centre.split(' ').map(w => w[0]).join(''),
+                fullName: c.centre,
                 budget: (c.totalBudget ?? 0) / 1000000,
                 disbursed: (c.disbursed ?? 0) / 1000000
             }))
             : [
-                { name: 'Research', budget: (filteredData[0]?.totalBudget ?? 0) / 1000000, disbursed: (filteredData[0]?.disbursed ?? 0) / 1000000 },
+                {
+                    name: 'Research',
+                    fullName: filteredData[0]?.centre,
+                    budget: (filteredData[0]?.totalBudget ?? 0) / 1000000,
+                    disbursed: (filteredData[0]?.disbursed ?? 0) / 1000000
+                },
             ]
         , [centreData, filteredData, selectedCentre]);
+
+    const handleBarClick = async (data) => {
+        if (!data || !data.fullName) return;
+        try {
+            setIsDrillLoading(true);
+            setDrillCentre(data.fullName);
+            setOpenModal(true);
+            const res = await apiClient.get(`/analytics/centre/${encodeURIComponent(data.fullName)}`);
+            setDrillData(res.data?.data || []);
+        } catch (err) {
+            console.error("Drill-down failed:", err);
+            toast.error("Failed to fetch project breakdown");
+        } finally {
+            setIsDrillLoading(false);
+        }
+    };
 
     const chartConfig = { grid: '#E2E8F0', text: '#64748B', tooltip: '#FFFFFF', tooltipBorder: '#E2E8F0' };
     const quickActions = [
@@ -320,48 +348,74 @@ const AdminDashboard = () => {
     const centreList = stats?.centres ?? [];
 
     return (
-        <div className="flex-1 overflow-y-auto overflow-x-hidden p-6 bg-gray-50 dark:bg-slate-950">
+        <div className="flex-1 overflow-y-auto overflow-x-hidden p-6 bg-gradient-to-br from-[#0b1220] to-[#0f172a] min-h-screen text-white selection:bg-indigo-500/30">
+            {/* Real-time Connectivity Status */}
             {!isSocketConnected && (
-                <div className="mb-4 bg-amber-500 text-white text-[10px] font-bold text-center py-2 uppercase tracking-widest animate-pulse rounded-lg flex items-center justify-center gap-2">
-                    <AlertTriangle className="w-3 h-3" />
-                    Connection Lost - Reconnecting to Sathyabama Finance Engine...
+                <div className="mb-6 bg-red-500/10 backdrop-blur-md border border-red-500/20 text-red-400 text-[10px] font-bold text-center py-2.5 uppercase tracking-widest animate-pulse rounded-xl flex items-center justify-center gap-2">
+                    <AlertTriangle className="w-3.5 h-3.5" />
+                    System Latency Detected - Synchronizing Financial Ledger...
                 </div>
             )}
-            <div className="mb-4 flex items-center gap-2">
-                <div className={`w-2 h-2 rounded-full ${socketConnected ? 'bg-green-500' : 'bg-red-500'}`} />
-                <span className="text-[10px] font-black italic uppercase tracking-widest text-slate-400">
-                    {socketConnected ? 'Live Connection Active' : 'Real-time Sync Offline'}
-                </span>
+
+            <div className="mb-8 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                    <div className={`w-2.5 h-2.5 rounded-full shadow-[0_0_10px_rgba(34,197,94,0.5)] ${socketConnected ? 'bg-green-400' : 'bg-red-400'}`} />
+                    <span className="text-xs font-semibold tracking-wider text-gray-400 uppercase">
+                        {socketConnected ? 'Institutional Node: Active' : 'Offline Mode'}
+                    </span>
+                </div>
+                <div className="flex items-center gap-2 text-gray-400">
+                    <Clock className="w-4 h-4" />
+                    <span className="text-xs font-medium">{new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</span>
+                </div>
+            </div>
+
+            {/* Top Level KPIs */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                {[
+                    { label: 'Total Projects', value: totalStats.totalProjects, icon: Target, color: 'text-indigo-400' },
+                    { label: 'Active Pipeline', value: totalStats.activeProjects, icon: Activity, color: 'text-emerald-400' },
+                    { label: 'Total Disbursed', value: formatCurrency(totalStats.totalDisbursed), icon: Banknote, color: 'text-blue-400' },
+                    { label: 'Pending Approvals', value: totalStats.pendingApprovals, icon: Clock, color: 'text-amber-400' }
+                ].map((item, i) => (
+                    <div key={i} className="p-6 rounded-2xl bg-white/5 backdrop-blur-xl border border-white/10 hover:bg-white/10 transition-all duration-300 group">
+                        <div className="flex items-center justify-between mb-4">
+                            <p className="text-[10px] font-bold uppercase tracking-widest text-gray-500">{item.label}</p>
+                            <item.icon className={`w-4 h-4 ${item.color} opacity-50 group-hover:opacity-100 transition-opacity`} />
+                        </div>
+                        <h2 className="text-2xl font-semibold tracking-tight">{item.value}</h2>
+                    </div>
+                ))}
             </div>
 
             {fundSources.length > 0 && (
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
                     {(fundSources ?? []).map(fund => (
-                        <Card key={fund.name} className="border-0 shadow-lg bg-white dark:bg-slate-900 overflow-hidden relative group">
-                            <CardHeader className="p-4 border-b border-gray-100 dark:border-slate-800 flex flex-row items-center justify-between">
-                                <CardTitle className="text-[10px] font-black uppercase tracking-widest text-slate-500">
+                        <div key={fund.name} className="p-6 rounded-2xl bg-white/5 backdrop-blur-xl border border-white/10 hover:bg-white/[0.08] transition-all relative overflow-hidden group">
+                            <div className="flex items-center justify-between mb-6">
+                                <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500">
                                     {fund.displayName || getAdminFundSourceLabel(fund.name)}
-                                </CardTitle>
-                                <Wallet className="w-4 h-4 text-indigo-500" />
-                            </CardHeader>
-                            <CardContent className="p-4">
-                                <p className="text-2xl font-black italic tracking-tighter text-gray-800 dark:text-white">
-                                    ₹{(safeNumber(fund.totalAllocated) / 10000000).toFixed(2)} Cr
-                                </p>
-                                <p className="text-[9px] font-bold uppercase text-slate-400 mt-1 italic">Read-only source allocation</p>
-                                <div className="mt-4 grid grid-cols-2 gap-3 text-[10px] font-bold uppercase tracking-wide text-slate-500">
-                                    <div>
-                                        <p className="text-slate-400">Used</p>
-                                        <p className="mt-1 text-slate-700 dark:text-slate-200">{formatCurrency(safeNumber(fund.totalUsed))}</p>
-                                    </div>
-                                    <div>
-                                        <p className="text-slate-400">Remaining</p>
-                                        <p className="mt-1 text-slate-700 dark:text-slate-200">{formatCurrency(safeNumber(fund.remainingBalance))}</p>
-                                    </div>
+                                </span>
+                                <Wallet className="w-4 h-4 text-indigo-400 opacity-40" />
+                            </div>
+                            <div className="mb-6">
+                                <h3 className="text-3xl font-semibold tracking-tight">
+                                    ₹{(safeNumber(fund.totalAllocated) / 10000000).toFixed(2)}<span className="text-sm font-medium text-gray-500 ml-1">Cr</span>
+                                </h3>
+                                <p className="text-[10px] text-gray-500 font-medium uppercase mt-1">Authorized Allocation</p>
+                            </div>
+                            <div className="grid grid-cols-2 gap-4 pt-4 border-t border-white/5">
+                                <div>
+                                    <p className="text-[9px] font-bold text-gray-500 uppercase mb-1">Disbursed</p>
+                                    <p className="text-sm font-medium text-emerald-400">{formatCurrency(safeNumber(fund.totalUsed))}</p>
                                 </div>
-                            </CardContent>
-                            <div className="absolute bottom-0 left-0 h-1 bg-indigo-500 w-full transform scale-x-0 group-hover:scale-x-100 transition-transform origin-left"></div>
-                        </Card>
+                                <div>
+                                    <p className="text-[9px] font-bold text-gray-500 uppercase mb-1">Available</p>
+                                    <p className="text-sm font-medium text-indigo-400">{formatCurrency(safeNumber(fund.remainingBalance))}</p>
+                                </div>
+                            </div>
+                            <div className="absolute bottom-0 left-0 h-0.5 bg-indigo-500/50 w-full transform scale-x-0 group-hover:scale-x-100 transition-transform origin-left"></div>
+                        </div>
                     ))}
                 </div>
             )}
@@ -369,412 +423,511 @@ const AdminDashboard = () => {
 
 
             {monthlyData.length > 0 && (
-                <Card className="border-0 shadow-md mb-8 bg-white dark:bg-slate-900 overflow-hidden">
-                    <CardHeader className="border-b border-gray-100 dark:border-slate-800 p-4 sm:p-6 flex flex-row items-center justify-between">
+                <div className="p-8 rounded-2xl bg-white/5 backdrop-blur-xl border border-white/10 shadow-2xl mb-8 group">
+                    <div className="flex items-center justify-between mb-8">
                         <div>
-                            <CardTitle className="text-lg font-bold text-gray-800 dark:text-white">Financial Performance Trajectory</CardTitle>
-                            <CardDescription className="text-xs">Monthly disbursement trends for FY {selectedFY}</CardDescription>
+                            <h3 className="text-xl font-semibold tracking-tight">Financial Performance Trajectory</h3>
+                            <p className="text-xs text-gray-500 mt-1">Disbursement trends across fiscal cycles</p>
                         </div>
-                        <TrendingUp className="w-5 h-5 text-indigo-500" />
-                    </CardHeader>
-                    <CardContent className="p-4 sm:p-6 flex flex-col justify-center">
-                        <div className="w-full">
-                            <ResponsiveContainer width="100%" height={300}>
-                                <BarChart data={monthlyData}>
-                                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" />
-                                    <XAxis dataKey="month" axisLine={false} tickLine={false} fontSize={10} tick={{ fill: '#64748B' }} />
-                                    <YAxis axisLine={false} tickLine={false} fontSize={10} tick={{ fill: '#64748B' }} tickFormatter={(val) => `₹${(val / 100000).toFixed(0)}L`} />
-                                    <Tooltip
-                                        cursor={{ fill: 'rgba(99, 102, 241, 0.05)' }}
-                                        contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }}
-                                        formatter={(val) => [formatCurrency(val), 'Disbursed']}
-                                    />
-                                    <Bar dataKey="amount" fill="#6366F1" radius={[4, 4, 0, 0]} barSize={32} />
-                                </BarChart>
-                            </ResponsiveContainer>
+                        <div className="flex items-center gap-2 p-1 bg-white/5 rounded-lg border border-white/5">
+                           <TrendingUp className="w-5 h-5 text-indigo-400" />
                         </div>
-                    </CardContent>
-                </Card>
-            )}
-
-            <Card className="border-0 shadow-sm mb-8 dark:bg-slate-900">
-                <CardHeader className="border-b bg-gray-50 dark:bg-slate-800/50 dark:border-slate-800 px-4 sm:px-6 py-3 sm:py-4">
-                    <CardTitle className="text-base sm:text-lg font-semibold dark:text-white">Quick Actions</CardTitle>
-                </CardHeader>
-                <CardContent className="p-3 sm:p-6">
-                    <div className="flex gap-4 overflow-x-auto">
-                        {(quickActions ?? []).map((action, index) => {
-                            const Icon = action.icon;
-                            return (
-                                <button
-                                    key={index}
-                                    onClick={isEditable ? action.action : () => toast.error(`Actions are locked for past financial year ${selectedFY}`)}
-                                    disabled={!isEditable}
-                                    className={`min-w-[220px] flex-shrink-0 p-4 sm:p-6 rounded-lg ${action.color} dark:bg-opacity-10 dark:border-slate-800 transition-all text-left border border-gray-200 ${!isEditable ? 'opacity-50 grayscale cursor-not-allowed' : 'hover:shadow-md'}`}
-                                >
-                                    <div className="flex items-start justify-between mb-2 sm:mb-3">
-                                        <div className={`w-10 h-10 sm:w-12 sm:h-12 ${action.iconBg} dark:bg-opacity-20 rounded-lg flex items-center justify-center`}>
-                                            <Icon className="w-5 h-5 sm:w-6 sm:h-6" />
-                                        </div>
-                                        {!isEditable && <Clock className="w-4 h-4 text-gray-400" />}
-                                    </div>
-                                    <h3 className="font-bold text-sm sm:text-base mb-1 dark:text-white">{action.title}</h3>
-                                    <p className="text-xs sm:text-sm opacity-80 dark:text-gray-400 hidden sm:block">
-                                        {action.description}
-                                    </p>
-                                </button>
-                            );
-                        })}
                     </div>
-                </CardContent>
-            </Card>
-
-            <div className="mb-6 mt-8 flex flex-col sm:flex-row items-stretch sm:items-center justify-between bg-white dark:bg-slate-900 p-3 sm:p-4 rounded-xl border border-gray-100 dark:border-slate-800 shadow-sm gap-3">
-                <div className="flex flex-wrap items-center gap-2">
-                    <div className="flex items-center gap-2 bg-gray-50 dark:bg-slate-800 px-3 py-2 rounded-lg border border-gray-200 dark:border-slate-700">
-                        <span className="text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 whitespace-nowrap">Fin. Year</span>
-                        <select className="bg-transparent text-xs sm:text-sm font-bold text-gray-700 dark:text-gray-200 outline-none cursor-pointer" value={selectedFY} onChange={(e) => { setSelectedFY(e.target.value); setSelectedDate(null); }} disabled={!!selectedDate}>
-                            {fyOptions.map(fy => <option key={fy} value={fy} className="dark:bg-slate-800">{fy}</option>)}
-                        </select>
-                    </div>
-                    <div className="flex items-center gap-2 bg-gray-50 dark:bg-slate-800 px-3 py-2 rounded-lg border border-gray-200 dark:border-slate-700">
-                        <span className="text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 whitespace-nowrap">Centre</span>
-                        <select
-                            className="bg-transparent text-xs sm:text-sm font-bold text-gray-700 dark:text-gray-200 outline-none cursor-pointer max-w-[120px] sm:max-w-[180px]"
-                            value={selectedCentre}
-                            onChange={(e) => setSelectedCentre(e.target.value)}
-                        >
-                            <option value="ALL" className="dark:bg-slate-800">All Centres</option>
-                            {centresList.length > 0 ? (
-                                centresList.map(c => (
-                                    <option key={c._id} value={c._id} className="dark:bg-slate-800">
-                                        {c.name}
-                                    </option>
-                                ))
-                            ) : (
-                                <option disabled className="dark:bg-slate-800">No centres available</option>
-                            )}
-                        </select>
+                    <div className="w-full h-[300px]">
+                        <ResponsiveContainer width="100%" height="100%">
+                            <BarChart data={monthlyData}>
+                                <defs>
+                                    <linearGradient id="barGradient" x1="0" y1="0" x2="0" y2="1">
+                                        <stop offset="0%" stopColor="#6366f1" stopOpacity={0.8} />
+                                        <stop offset="100%" stopColor="#6366f1" stopOpacity={0.2} />
+                                    </linearGradient>
+                                </defs>
+                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.05)" />
+                                <XAxis 
+                                    dataKey="month" 
+                                    axisLine={false} 
+                                    tickLine={false} 
+                                    fontSize={10} 
+                                    tick={{ fill: '#94a3b8' }} 
+                                    dy={10}
+                                />
+                                <YAxis 
+                                    axisLine={false} 
+                                    tickLine={false} 
+                                    fontSize={10} 
+                                    tick={{ fill: '#94a3b8' }} 
+                                    tickFormatter={(val) => `₹${(val / 100000).toFixed(0)}L`}
+                                />
+                                <Tooltip
+                                    cursor={{ fill: 'rgba(255,255,255,0.03)' }}
+                                    contentStyle={{ 
+                                        backgroundColor: 'rgba(15, 23, 42, 0.9)', 
+                                        border: '1px solid rgba(255,255,255,0.1)', 
+                                        borderRadius: '12px',
+                                        backdropFilter: 'blur(8px)'
+                                    }}
+                                    itemStyle={{ color: '#fff', fontSize: '12px' }}
+                                />
+                                <Bar dataKey="amount" fill="url(#barGradient)" radius={[6, 6, 0, 0]} barSize={24} />
+                            </BarChart>
+                        </ResponsiveContainer>
                     </div>
                 </div>
-                <div className="flex items-center gap-3 flex-wrap">
-                    <button
-                        onClick={() => fetchDashboardData()}
-                        disabled={loading}
-                        className="p-2 bg-gray-50 dark:bg-slate-800 hover:bg-gray-100 dark:hover:bg-slate-700 rounded-lg border border-gray-200 dark:border-slate-700 text-gray-500 hover:text-maroon-600 transition-all flex items-center gap-2"
-                        title="Refresh Dashboard"
-                    >
-                        <Activity className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-                        <span className="text-xs font-bold uppercase tracking-wider hidden sm:inline">Refresh</span>
-                    </button>
-                    <div className="flex-1 min-w-[160px]"><DateFilter selectedDate={selectedDate} onChange={(date) => setSelectedDate(date)} placeholder="Filter by Date" /></div>
+            )}
 
-                    <div className="flex items-center gap-1">
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => window.open(`${apiClient.defaults.baseURL}/reports/export?fy=${selectedFY}&type=pdf`, '_blank')}
-                            className="h-9 text-[10px] sm:text-xs font-bold uppercase tracking-wider border-gray-200 dark:border-slate-700"
-                        >
-                            PDF
-                        </Button>
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => window.open(`${apiClient.defaults.baseURL}/reports/export?fy=${selectedFY}&type=excel`, '_blank')}
-                            className="h-9 text-[10px] sm:text-xs font-bold uppercase tracking-wider border-gray-200 dark:border-slate-700"
-                        >
-                            Excel
-                        </Button>
-                    </div>
-                    {selectedDate && <Badge variant="outline" className="border-blue-200 text-blue-600 bg-blue-50 dark:bg-blue-900/20 dark:text-blue-400 dark:border-blue-900 animate-pulse whitespace-nowrap">Daily View</Badge>}
-                    {(selectedDate || selectedFY !== getCurrentFY() || selectedCentre !== 'ALL') && (
-                        <button onClick={() => { setSelectedDate(null); setSelectedFY(getCurrentFY()); setSelectedCentre('ALL'); }} className="text-xs font-medium text-gray-400 hover:text-maroon-600 dark:hover:text-maroon-400 transition-colors flex items-center whitespace-nowrap">
-                            <Filter className="w-3 h-3 mr-1" /> Reset
-                        </button>
-                    )}
+            <div className="mb-8 overflow-x-auto pb-4 scrollbar-hide">
+                <div className="flex gap-4">
+                    {(quickActions ?? []).map((action, index) => {
+                        const Icon = action.icon;
+                        return (
+                            <button
+                                key={index}
+                                onClick={isEditable ? action.action : () => toast.error(`Actions are locked for past fiscal year`)}
+                                disabled={!isEditable}
+                                className={`min-w-[240px] p-6 rounded-2xl bg-white/5 backdrop-blur-xl border border-white/10 text-left transition-all duration-300 ${!isEditable ? 'opacity-40 grayscale cursor-not-allowed' : 'hover:bg-white/10 hover:translate-y-[-2px] hover:shadow-2xl hover:shadow-indigo-500/10'}`}
+                            >
+                                <div className="flex items-center justify-between mb-4">
+                                    <div className="w-12 h-12 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400">
+                                        <Icon className="w-6 h-6" />
+                                    </div>
+                                    {!isEditable && <Clock className="w-4 h-4 text-gray-500" />}
+                                </div>
+                                <h3 className="font-semibold text-sm mb-1">{action.title}</h3>
+                                <p className="text-xs text-gray-500 leading-relaxed">{action.description}</p>
+                            </button>
+                        );
+                    })}
                 </div>
             </div>
 
-            <Card className="border-0 shadow-sm mb-8 dark:bg-slate-900">
-                <CardHeader className="border-b bg-gray-50 dark:bg-slate-800/50 dark:border-slate-800 px-4 sm:px-6">
-                    <CardTitle className="text-base sm:text-lg font-semibold dark:text-white">Research Centre Insights</CardTitle>
-                </CardHeader>
-                <CardContent className="p-0">
-                    <div className="overflow-x-auto">
-                        <Table className="min-w-[600px]">
-                            <TableHeader><TableRow className="dark:border-slate-800">
-                                <TableHead className="pl-4 sm:pl-6">Centre</TableHead>
-                                <TableHead>Projects</TableHead>
-                                <TableHead>Active</TableHead>
-                                <TableHead>Budget</TableHead>
-                                <TableHead>Disbursed</TableHead>
-                                <TableHead className="text-right pr-4 sm:pr-6">Utilization</TableHead>
-                            </TableRow></TableHeader>
-                            <TableBody>
-                                {hasData && filteredData.length > 0 ? (
-                                    (filteredData ?? []).map((centre, index) => (
-                                        <TableRow
-                                            key={index}
-                                            className="hover:bg-gray-50/50 dark:hover:bg-slate-800/30 cursor-pointer transition-colors dark:border-slate-800"
-                                            onClick={() => { setSelectedCentreDetail(centre.centre); setDetailModalOpen(true); }}
-                                        >
-                                            <TableCell className="font-bold text-gray-700 dark:text-gray-200 pl-4 sm:pl-6">{centre.name || centre.centre || 'Unknown'}</TableCell>
-                                            <TableCell className="text-gray-500 font-medium">{centre.totalProjects || 0}</TableCell>
-                                            <TableCell><Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-900 font-bold">{centre.activeProjects || 0}</Badge></TableCell>
-                                            <TableCell className="text-gray-500 font-medium">{formatCurrency(centre.totalBudget || 0)}</TableCell>
-                                            <TableCell className="font-bold text-slate-800 dark:text-white">{formatCurrency(centre.disbursed || 0)}</TableCell>
-                                            <TableCell className="text-right pr-4 sm:pr-6">
-                                                <div className="flex items-center justify-end gap-3">
-                                                    <div className="w-16 sm:w-24 bg-gray-100 dark:bg-slate-800 h-1.5 rounded-full overflow-hidden">
-                                                        <div className="bg-maroon-600 h-full rounded-full" style={{ width: `${Math.min(100, (safeNumber(centre.disbursed) / (safeNumber(centre.totalBudget) || 1)) * 100)}%` }}></div>
-                                                    </div>
-                                                    <span className="text-[10px] font-black italic text-gray-500 w-8">
-                                                        {((safeNumber(centre.disbursed) / (safeNumber(centre.totalBudget) || 1)) * 100).toFixed(0)}%
-                                                    </span>
-                                                </div>
-                                            </TableCell>
-                                        </TableRow>
-                                    ))
-                                ) : (
-                                    <TableRow>
-                                        <TableCell colSpan={6} className="py-8">
-                                            <EmptyState message="No Centres Matched" description="Try adjusting your filters or adding a new centre." />
-                                        </TableCell>
-                                    </TableRow>
-                                )}
-                            </TableBody>
-                        </Table>
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-8 mb-8">
+                <div className="p-8 rounded-2xl bg-white/5 backdrop-blur-xl border border-white/10">
+                    <div className="flex items-center justify-between mb-8">
+                        <h3 className="text-lg font-medium">Budget Comparison</h3>
+                        <Badge variant="outline" className="text-[10px] border-white/10 text-gray-500 uppercase tracking-widest px-3">Centre Breakdown</Badge>
                     </div>
-                </CardContent>
-            </Card>
+                    <div className="w-full h-[300px]">
+                        <ResponsiveContainer width="100%" height="100%">
+                            <BarChart data={barChartData} margin={{ top: 10, right: 0, left: -20, bottom: 0 }}>
+                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.05)" />
+                                <XAxis dataKey="name" fontSize={10} tick={{ fill: '#64748b' }} axisLine={false} tickLine={false} />
+                                <YAxis fontSize={10} tick={{ fill: '#64748b' }} axisLine={false} tickLine={false} tickFormatter={(value) => `₹${value}M`} />
+                                <Tooltip
+                                    cursor={{ fill: 'rgba(255,255,255,0.03)' }}
+                                    contentStyle={{ 
+                                        backgroundColor: 'rgba(15, 23, 42, 0.95)', 
+                                        border: '1px solid rgba(255,255,255,0.1)', 
+                                        borderRadius: '12px',
+                                        fontSize: '11px'
+                                    }}
+                                />
+                                <Bar 
+                                    dataKey="budget" 
+                                    fill="#6366f1" 
+                                    radius={[4, 4, 0, 0]} 
+                                    name="Allocated" 
+                                    barSize={12} 
+                                    onClick={(data) => handleBarClick(data)}
+                                    className="cursor-pointer"
+                                />
+                                <Bar 
+                                    dataKey="disbursed" 
+                                    fill="#10b981" 
+                                    radius={[4, 4, 0, 0]} 
+                                    name="Disbursed" 
+                                    barSize={12} 
+                                    onClick={(data) => handleBarClick(data)}
+                                    className="cursor-pointer"
+                                />
+                            </BarChart>
+                        </ResponsiveContainer>
+                    </div>
+                </div>
 
-            <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 mb-8 items-stretch">
-                <Card className="border-0 shadow-sm dark:bg-slate-900 flex flex-col">
-                    <CardHeader className="border-b bg-gray-50 dark:bg-slate-800/50 dark:border-slate-800 flex-shrink-0 px-4 sm:px-6 flex flex-row items-center justify-between">
-                        <CardTitle className="text-base sm:text-lg font-semibold">Budget vs Disbursed Comparison</CardTitle>
-                        <Badge variant="outline" className="text-[10px] font-bold uppercase tracking-widest">Global Overview</Badge>
-                    </CardHeader>
-                    <CardContent className="p-3 sm:p-6 flex-1 flex flex-col justify-center">
-                        <div className="w-full">
-                            <ResponsiveContainer width="100%" height={300}>
-                                <BarChart data={barChartData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
-                                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={chartConfig.grid} />
-                                    <XAxis dataKey="name" fontSize={10} tick={{ fill: chartConfig.text }} axisLine={false} tickLine={false} />
-                                    <YAxis fontSize={10} width={40} tick={{ fill: chartConfig.text }} axisLine={false} tickLine={false} tickFormatter={(value) => `₹${value}M`} />
-                                    <Tooltip
-                                        cursor={{ fill: 'transparent' }}
-                                        contentStyle={{ backgroundColor: chartConfig.tooltip, border: `1px solid ${chartConfig.tooltipBorder}`, borderRadius: '8px', fontSize: '12px' }}
-                                        formatter={(value) => [formatCurrency(value * 1000000), 'Value']}
-                                    />
-                                    <Legend iconType="circle" />
-                                    <Bar dataKey="budget" fill="#6366f1" radius={[4, 4, 0, 0]} name="Allocated Budget" barSize={12} />
-                                    <Bar dataKey="disbursed" fill="#10b981" radius={[4, 4, 0, 0]} name="Total Disbursed" barSize={12} />
-                                </BarChart>
-                            </ResponsiveContainer>
-                        </div>
-                    </CardContent>
-                </Card>
-
-                <Card className="border-0 shadow-sm dark:bg-slate-900 flex flex-col">
-                    <CardHeader className="border-b bg-gray-50 dark:bg-slate-800/50 dark:border-slate-800 flex-shrink-0 px-4 sm:px-6">
-                        <CardTitle className="text-base sm:text-lg font-semibold">Fund Utilization Percentage</CardTitle>
-                    </CardHeader>
-                    <CardContent className="p-3 sm:p-6 flex-1 flex flex-col justify-center items-center">
-                        <div className="w-full relative">
-                            <ResponsiveContainer width="100%" height={280}>
+                <div className="p-8 rounded-2xl bg-white/5 backdrop-blur-xl border border-white/10 flex flex-col">
+                    <h3 className="text-lg font-medium mb-8">Fund Utilization</h3>
+                    <div className="flex-1 flex flex-col items-center justify-center relative">
+                        <div className="w-full h-[240px]">
+                            <ResponsiveContainer width="100%" height="100%">
                                 <RadialBarChart
                                     cx="50%"
                                     cy="50%"
-                                    innerRadius="60%"
+                                    innerRadius="70%"
                                     outerRadius="100%"
-                                    barSize={20}
+                                    barSize={24}
                                     data={[
                                         {
                                             name: 'Utilization',
                                             value: totalStats.totalAllocated > 0 ? (totalStats.totalDisbursed / totalStats.totalAllocated) * 100 : 0,
-                                            fill: totalStats.totalAllocated > 0 && (totalStats.totalDisbursed / totalStats.totalAllocated) > 0.8 ? '#e11d48' : '#6366f1'
+                                            fill: '#6366f1'
                                         }
                                     ]}
-                                    startAngle={180}
-                                    endAngle={0}
+                                    startAngle={225}
+                                    endAngle={-45}
                                 >
-                                    <RadialBar background dataKey="value" cornerRadius={10} />
-                                    <Tooltip />
+                                    <RadialBar background={{ fill: 'rgba(255,255,255,0.05)' }} dataKey="value" cornerRadius={12} />
                                 </RadialBarChart>
                             </ResponsiveContainer>
-                            <div className="absolute inset-0 flex flex-col items-center justify-center pt-10">
-                                <span className="text-4xl font-black italic text-slate-800 dark:text-white">
-                                    {totalStats.totalAllocated > 0 ? ((totalStats.totalDisbursed / totalStats.totalAllocated) * 100).toFixed(0) : 0}%
-                                </span>
-                                <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mt-1">Total Utilized</span>
-                            </div>
                         </div>
-                        <div className="w-full max-w-xs mt-4 grid grid-cols-2 gap-4">
-                            <div className="text-center">
-                                <p className="text-[10px] font-bold uppercase text-slate-400 mb-1">Allocated</p>
-                                <p className="text-sm font-black text-slate-700 dark:text-slate-200">{formatCurrency(totalStats.totalAllocated)}</p>
-                            </div>
-                            <div className="text-center">
-                                <p className="text-[10px] font-bold uppercase text-slate-400 mb-1">Spent</p>
-                                <p className="text-sm font-black text-slate-700 dark:text-slate-200">{formatCurrency(totalStats.totalDisbursed)}</p>
-                            </div>
+                        <div className="absolute flex flex-col items-center justify-center pt-2">
+                            <span className="text-5xl font-bold tracking-tighter text-white">
+                                {totalStats.totalAllocated > 0 ? ((totalStats.totalDisbursed / totalStats.totalAllocated) * 100).toFixed(0) : 0}<span className="text-xl text-gray-500">%</span>
+                            </span>
+                            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-gray-500 mt-2">Utilized</p>
                         </div>
-                    </CardContent>
-                </Card>
+                    </div>
+                    <div className="grid grid-cols-2 gap-8 mt-8 px-4">
+                        <div className="text-center">
+                            <p className="text-[10px] font-bold text-gray-500 uppercase mb-2">Total Grant</p>
+                            <p className="text-lg font-semibold tracking-tight">{formatCurrency(totalStats.totalAllocated)}</p>
+                        </div>
+                        <div className="text-center border-l border-white/5">
+                            <p className="text-[10px] font-bold text-gray-500 uppercase mb-2">Total Outflow</p>
+                            <p className="text-lg font-semibold tracking-tight text-emerald-400">{formatCurrency(totalStats.totalDisbursed)}</p>
+                        </div>
+                    </div>
+                </div>
             </div>
 
-            <Card className="border-0 shadow-sm mt-8 mb-8 dark:bg-slate-900">
-                <CardHeader className="border-b bg-gray-50 dark:bg-slate-800/50 dark:border-slate-800 flex flex-row items-center justify-between px-4 sm:px-6">
-                    <div>
-                        <CardTitle className="text-sm sm:text-lg font-black italic tracking-tighter uppercase">Administrative Audit Trail</CardTitle>
-                        <CardDescription className="text-[9px] sm:text-[10px] font-black uppercase tracking-widest italic">Successive state transformations and approval history</CardDescription>
-                    </div>
-                    <Badge variant="outline" className="border-indigo-200 text-indigo-600 font-bold uppercase italic text-[10px] hidden sm:flex">immutable logs</Badge>
-                </CardHeader>
-                <CardContent className="p-0">
-                    <div className="overflow-x-auto">
-                        <Table className="min-w-[500px]">
-                            <TableHeader>
-                                <TableRow className="text-[10px] uppercase font-black italic tracking-widest opacity-60">
-                                    <TableHead className="pl-4 sm:pl-8">Action Taken</TableHead>
-                                    <TableHead>Executor</TableHead>
-                                    <TableHead>Timestamp</TableHead>
-                                    <TableHead className="pr-4 sm:pr-8 text-right">Remarks</TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {(recentRequests || []).flatMap(req => (req.auditTrail || []).map((log, idx) => ({ ...log, project: req.projectTitle, id: `${req._id}-${idx}` }))).length > 0 ? (
-                                    (recentRequests || []).flatMap(req => (req.auditTrail || []).map((log, idx) => ({ ...log, project: req.projectTitle, id: `${req._id}-${idx}` })))
-                                        .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
-                                        .slice(0, 10)
-                                        .map((log) => (
-                                            <TableRow key={log.id} className="text-xs">
-                                                <TableCell className="pl-4 sm:pl-8 py-3 sm:py-4">
-                                                    <div className="flex flex-col">
-                                                        <span className="font-black italic uppercase text-slate-800 dark:text-white truncate max-w-[140px] sm:max-w-[200px]">{log.project}</span>
-                                                        <span className="text-[9px] font-bold text-indigo-500 uppercase italic mt-0.5">{log.stage}</span>
-                                                    </div>
-                                                </TableCell>
-                                                <TableCell className="font-bold italic uppercase text-slate-600 dark:text-slate-400">{log.updatedByName || 'SYSTEM'}</TableCell>
-                                                <TableCell className="text-[10px] font-bold text-gray-400 italic">
-                                                    {new Date(log.timestamp).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}
-                                                </TableCell>
-                                                <TableCell className="pr-4 sm:pr-8 text-right italic font-medium text-gray-500 truncate max-w-[160px] sm:max-w-[250px]">{log.remarks}</TableCell>
-                                            </TableRow>
-                                        ))
-                                ) : (
-                                    <TableRow>
-                                        <TableCell colSpan={4} className="py-12">
-                                            <EmptyState
-                                                message="Audit Trail Empty"
-                                                description="No administrative actions or state changes have been logged yet."
-                                            />
-                                        </TableCell>
-                                    </TableRow>
-                                )}
-                            </TableBody>
-                        </Table>
-                    </div>
-                </CardContent>
-            </Card>
-
-            <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 mb-8">
-                <Card className="border-0 shadow-lg bg-slate-900 overflow-hidden relative group">
-                    <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl -mr-32 -mt-32"></div>
-                    <CardHeader className="border-b border-white/5 bg-white/5 flex flex-row items-center justify-between">
-                        <div>
-                            <CardTitle className="text-lg font-black italic tracking-tighter uppercase text-white flex items-center gap-2">
-                                <Sparkles className="w-5 h-5 text-indigo-400" /> AI Financial Insights
-                            </CardTitle>
+            <div className="mb-8 p-6 rounded-2xl bg-white/5 backdrop-blur-xl border border-white/10 flex flex-col lg:flex-row items-center justify-between gap-6">
+                <div className="flex flex-wrap items-center gap-4">
+                    <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest px-1">Fiscal Cycle</label>
+                        <div className="bg-white/5 border border-white/10 rounded-xl px-4 py-2 flex items-center gap-3 hover:bg-white/10 transition-colors">
+                            <Calendar className="w-4 h-4 text-indigo-400" />
+                            <select 
+                                className="bg-transparent text-sm font-medium outline-none cursor-pointer appearance-none min-w-[80px]" 
+                                value={selectedFY} 
+                                onChange={(e) => { setSelectedFY(e.target.value); setSelectedDate(null); }}
+                            >
+                                {fyOptions.map(fy => <option key={fy} value={fy} className="bg-[#0f172a]">{fy}</option>)}
+                            </select>
                         </div>
-                    </CardHeader>
-                    <CardContent className="p-6 space-y-4">
+                    </div>
+
+                    <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest px-1">Research Hub</label>
+                        <div className="bg-white/5 border border-white/10 rounded-xl px-4 py-2 flex items-center gap-3 hover:bg-white/10 transition-colors">
+                            <Building2 className="w-4 h-4 text-indigo-400" />
+                            <select
+                                className="bg-transparent text-sm font-medium outline-none cursor-pointer max-w-[180px] appearance-none"
+                                value={selectedCentre}
+                                onChange={(e) => setSelectedCentre(e.target.value)}
+                            >
+                                <option value="ALL" className="bg-[#0f172a]">All Centres</option>
+                                {centresList.map(c => (
+                                    <option key={c._id} value={c._id} className="bg-[#0f172a]">{c.name}</option>
+                                ))}
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="flex items-center gap-4 w-full lg:w-auto">
+                    <div className="flex-1 lg:w-64">
+                         <DateFilter selectedDate={selectedDate} onChange={(date) => setSelectedDate(date)} placeholder="Daily Audit View" />
+                    </div>
+                    <div className="flex gap-2">
+                        <button
+                            onClick={() => window.open(`${apiClient.defaults.baseURL}/reports/export?fy=${selectedFY}&type=pdf`, '_blank')}
+                            className="px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-xs font-semibold hover:bg-white/10 transition-all flex items-center gap-2"
+                        >
+                            <FileText className="w-4 h-4 opacity-50" /> PDF
+                        </button>
+                        <button
+                            onClick={() => window.open(`${apiClient.defaults.baseURL}/reports/export?fy=${selectedFY}&type=excel`, '_blank')}
+                            className="px-4 py-2 rounded-xl bg-indigo-500 hover:bg-indigo-600 shadow-lg shadow-indigo-500/20 text-xs font-semibold transition-all flex items-center gap-2"
+                        >
+                            <FileSpreadsheet className="w-4 h-4" /> Excel
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div className="rounded-2xl bg-white/5 backdrop-blur-xl border border-white/10 overflow-hidden mb-8 shadow-2xl">
+                <div className="p-6 border-b border-white/10 flex items-center justify-between">
+                    <h3 className="text-lg font-medium tracking-tight">Research Hub Performance</h3>
+                    <div className="flex items-center gap-3">
+                         <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Sort by: Budget</span>
+                         <div className="w-8 h-8 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center cursor-pointer hover:bg-white/10 transition-colors">
+                            <Filter className="w-3.5 h-3.5 text-gray-400" />
+                         </div>
+                    </div>
+                </div>
+                <div className="overflow-x-auto">
+                    <table className="w-full text-left">
+                        <thead>
+                            <tr className="bg-white/[0.02] border-b border-white/5">
+                                <th className="px-8 py-5 text-[10px] font-bold text-gray-500 uppercase tracking-[0.2em]">Institutional Centre</th>
+                                <th className="px-6 py-5 text-[10px] font-bold text-gray-500 uppercase tracking-[0.2em]">Staffing</th>
+                                <th className="px-6 py-5 text-[10px] font-bold text-gray-500 uppercase tracking-[0.2em]">Active Load</th>
+                                <th className="px-6 py-5 text-[10px] font-bold text-gray-500 uppercase tracking-[0.2em]">Total Budget</th>
+                                <th className="px-6 py-5 text-[10px] font-bold text-gray-500 uppercase tracking-[0.2em]">Net Disbursed</th>
+                                <th className="px-8 py-5 text-[10px] font-bold text-gray-500 uppercase tracking-[0.2em] text-right">Execution</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-white/5">
+                            {hasData && filteredData.length > 0 ? (
+                                filteredData.map((centre, index) => (
+                                    <tr 
+                                        key={index} 
+                                        onClick={() => { setSelectedCentreDetail(centre.centre); setDetailModalOpen(true); }}
+                                        className="hover:bg-white/[0.03] transition-colors cursor-pointer group"
+                                    >
+                                        <td className="px-8 py-6 font-medium tracking-tight">{centre.name}</td>
+                                        <td className="px-6 py-6 text-sm text-gray-400">{centre.totalProjects} Projects</td>
+                                        <td className="px-6 py-6">
+                                            <span className="px-2 py-1 rounded-md bg-emerald-500/10 text-emerald-400 text-[10px] font-bold uppercase tracking-widest border border-emerald-500/20">
+                                                {centre.activeProjects} Active
+                                            </span>
+                                        </td>
+                                        <td className="px-6 py-6 text-sm text-gray-400 font-mono">{formatCurrency(centre.totalBudget)}</td>
+                                        <td className="px-6 py-6 text-sm font-semibold text-white font-mono">{formatCurrency(centre.disbursed)}</td>
+                                        <td className="px-8 py-6 text-right">
+                                            <div className="flex flex-col items-end gap-1.5">
+                                                <div className="w-32 bg-white/5 h-1.5 rounded-full overflow-hidden border border-white/5">
+                                                    <div 
+                                                        className="bg-indigo-500 h-full rounded-full transition-all duration-1000 shadow-[0_0_8px_rgba(99,102,241,0.5)]" 
+                                                        style={{ width: `${Math.min(100, (safeNumber(centre.disbursed) / (safeNumber(centre.totalBudget) || 1)) * 100)}%` }}
+                                                    ></div>
+                                                </div>
+                                                <span className="text-[10px] font-bold text-gray-500 font-mono">
+                                                    {((safeNumber(centre.disbursed) / (safeNumber(centre.totalBudget) || 1)) * 100).toFixed(1)}%
+                                                </span>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))
+                            ) : (
+                                <tr>
+                                    <td colSpan={6} className="py-20 text-center">
+                                        <EmptyState message="Registry Entry Not Found" description="Try adjusting fiscal filters." />
+                                    </td>
+                                </tr>
+                            )}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+
+
+            <div className="rounded-2xl bg-white/5 backdrop-blur-xl border border-white/10 overflow-hidden mb-12">
+                <div className="px-8 py-6 border-b border-white/10 flex items-center justify-between">
+                    <div>
+                        <h3 className="text-lg font-medium tracking-tight">Administrative Audit Trail</h3>
+                        <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mt-1">Immutable Immutable Security Ledger</p>
+                    </div>
+                    <div className="px-3 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-[10px] font-bold text-indigo-400 uppercase tracking-widest">
+                        Real-time Auditing
+                    </div>
+                </div>
+                <div className="overflow-x-auto">
+                    <table className="w-full text-left">
+                        <thead>
+                            <tr className="bg-white/[0.02] border-b border-white/5">
+                                <th className="px-8 py-4 text-[9px] font-bold text-gray-500 uppercase tracking-[0.2em]">State Change</th>
+                                <th className="px-6 py-4 text-[9px] font-bold text-gray-500 uppercase tracking-[0.2em]">Authorized By</th>
+                                <th className="px-6 py-4 text-[9px] font-bold text-gray-500 uppercase tracking-[0.2em]">Timestamp</th>
+                                <th className="px-8 py-4 text-[9px] font-bold text-gray-500 uppercase tracking-[0.2em] text-right">Verification</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-white/5">
+                            {(recentRequests || []).flatMap(req => (req.auditTrail || []).map((log, idx) => ({ ...log, project: req.projectTitle, id: `${req._id}-${idx}` }))).length > 0 ? (
+                                (recentRequests || []).flatMap(req => (req.auditTrail || []).map((log, idx) => ({ ...log, project: req.projectTitle, id: `${req._id}-${idx}` })))
+                                    .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
+                                    .slice(0, 8)
+                                    .map((log) => (
+                                        <tr key={log.id} className="hover:bg-white/[0.03] transition-colors group">
+                                            <td className="px-8 py-5">
+                                                <div className="flex flex-col">
+                                                    <span className="text-sm font-semibold tracking-tight group-hover:text-indigo-400 transition-colors">{log.project}</span>
+                                                    <span className="text-[9px] font-bold text-gray-500 uppercase tracking-widest mt-1">{log.stage}</span>
+                                                </div>
+                                            </td>
+                                            <td className="px-6 py-5">
+                                                <div className="flex items-center gap-2">
+                                                    <div className="w-6 h-6 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-[8px] font-bold">
+                                                        {log.updatedByName?.charAt(0) || 'S'}
+                                                    </div>
+                                                    <span className="text-xs font-medium text-gray-400">{log.updatedByName || 'SYSTEM'}</span>
+                                                </div>
+                                            </td>
+                                            <td className="px-6 py-5 text-[10px] text-gray-500 font-mono">
+                                                {new Date(log.timestamp).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}
+                                            </td>
+                                            <td className="px-8 py-5 text-right italic text-xs text-gray-500 max-w-[200px] truncate">
+                                                {log.remarks}
+                                            </td>
+                                        </tr>
+                                    ))
+                            ) : (
+                                <tr>
+                                    <td colSpan={4} className="py-20 text-center text-gray-500">
+                                        <Clock className="w-10 h-10 mx-auto mb-4 opacity-10" />
+                                        <p className="text-[10px] font-bold uppercase tracking-widest">No Recent Displacements</p>
+                                    </td>
+                                </tr>
+                            )}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-8 mb-12">
+                <div className="p-8 rounded-2xl bg-white/5 backdrop-blur-xl border border-white/10 relative overflow-hidden group">
+                    <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/5 rounded-full blur-3xl -mr-32 -mt-32"></div>
+                    <div className="flex items-center justify-between mb-8 relative z-10">
+                        <div className="flex items-center gap-3">
+                             <div className="w-10 h-10 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400">
+                                <Sparkles className="w-5 h-5" />
+                             </div>
+                             <div>
+                                <h3 className="text-lg font-medium">AI Financial Intelligence</h3>
+                                <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Autonomous Pattern Recognition</p>
+                             </div>
+                        </div>
+                    </div>
+                    <div className="space-y-4 relative z-10">
                         {insights.length > 0 ? (
-                            (insights ?? []).map((insight, i) => (
-                                <div key={i} className="flex items-start gap-3 p-3 bg-white/5 rounded-xl border border-white/5 group hover:bg-white/10 transition-all">
-                                    <div className="w-2 h-2 rounded-full bg-indigo-500 mt-1.5 flex-shrink-0 animate-pulse"></div>
-                                    <p className="text-xs text-slate-300 leading-relaxed italic">{insight}</p>
+                            insights.map((insight, i) => (
+                                <div key={i} className="p-4 bg-white/[0.03] rounded-xl border border-white/5 hover:bg-white/[0.06] transition-all group/insight">
+                                    <div className="flex gap-4">
+                                        <div className="w-1.5 h-1.5 rounded-full bg-indigo-500 mt-1.5 shadow-[0_0_8px_rgba(99,102,241,0.8)]" />
+                                        <p className="text-sm text-gray-300 leading-relaxed group-hover/insight:text-white transition-colors">{insight}</p>
+                                    </div>
                                 </div>
                             ))
                         ) : (
-                            <div className="flex flex-col items-center justify-center py-8 text-slate-500">
-                                <Landmark className="w-12 h-12 mb-3 opacity-20" />
-                                <p className="text-[10px] font-bold uppercase tracking-widest">Generating Pattern Analysis...</p>
+                            <div className="flex flex-col items-center justify-center py-12 opacity-30">
+                                <Activity className="w-12 h-12 mb-4 animate-pulse" />
+                                <p className="text-[10px] font-bold uppercase tracking-widest">Scanning Transactional Graph...</p>
                             </div>
                         )}
-                    </CardContent>
-                </Card>
+                    </div>
+                </div>
 
-                <Card className="border-0 shadow-lg bg-white dark:bg-slate-900 overflow-hidden relative border-l-4 border-l-indigo-500">
-                    <CardHeader className="border-b bg-gray-50/50 dark:bg-slate-800/50 dark:border-slate-800 flex flex-row items-center justify-between">
-                        <div>
-                            <CardTitle className="text-lg font-black italic tracking-tighter uppercase text-slate-900 dark:text-white flex items-center gap-2">
-                                <TrendingUp className="w-5 h-5 text-indigo-500" /> Spending Forecast
-                            </CardTitle>
-                            <CardDescription className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Based on last 30 days disbursement velocity</CardDescription>
+                <div className="p-8 rounded-2xl bg-white/5 backdrop-blur-xl border border-white/10">
+                    <div className="flex items-center justify-between mb-8">
+                        <div className="flex items-center gap-3">
+                             <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
+                                <TrendingUp className="w-5 h-5" />
+                             </div>
+                             <div>
+                                <h3 className="text-lg font-medium">Outflow Projections</h3>
+                                <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">30-Day Predictive Velocity</p>
+                             </div>
                         </div>
                         {forecast && (
-                            <Badge className={`${forecast.risk === 'HIGH' ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600'} font-black italic uppercase tracking-tighter`}>
-                                {forecast.risk} RISK
-                            </Badge>
+                            <div className={`px-3 py-1 rounded-full text-[9px] font-bold uppercase tracking-widest ${forecast.risk === 'HIGH' ? 'bg-red-500/10 text-red-400 border border-red-500/20' : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'}`}>
+                                {forecast.risk} RISK VECTOR
+                            </div>
                         )}
-                    </CardHeader>
-                    <CardContent className="p-6">
-                        <div className="grid grid-cols-2 gap-4">
-                            <div className="p-4 bg-gray-50 dark:bg-slate-800 rounded-xl border border-gray-100 dark:border-slate-700">
-                                <div className="flex items-center gap-2 mb-2 text-slate-500">
-                                    <Clock className="w-3 h-3" />
-                                    <p className="text-[9px] uppercase font-black italic tracking-wider">Avg Daily Spend</p>
-                                </div>
-                                <p className="text-lg font-black italic text-slate-900 dark:text-white">{formatCurrency(forecast?.avgDailySpend ?? 0)}</p>
-                            </div>
-                            <div className="p-4 bg-gray-50 dark:bg-slate-800 rounded-xl border border-gray-100 dark:border-slate-700">
-                                <div className="flex items-center gap-2 mb-2 text-slate-500">
-                                    <TrendingUp className="w-3 h-3" />
-                                    <p className="text-[9px] uppercase font-black italic tracking-wider">Projected (30 Days)</p>
-                                </div>
-                                <p className="text-lg font-black italic text-indigo-600 dark:text-indigo-400">{formatCurrency(forecast?.projectedUsage30Days ?? 0)}</p>
-                            </div>
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-4 mb-8">
+                        <div className="p-6 bg-white/[0.03] rounded-2xl border border-white/5">
+                            <p className="text-[9px] font-bold text-gray-500 uppercase tracking-widest mb-2">Daily Average Spend</p>
+                            <h4 className="text-xl font-semibold">{formatCurrency(forecast?.avgDailySpend ?? 0)}</h4>
                         </div>
+                        <div className="p-6 bg-white/[0.03] rounded-2xl border border-white/5">
+                            <p className="text-[9px] font-bold text-gray-500 uppercase tracking-widest mb-2">Projected 30-Day</p>
+                            <h4 className="text-xl font-semibold text-indigo-400">{formatCurrency(forecast?.projectedUsage30Days ?? 0)}</h4>
+                        </div>
+                    </div>
 
-                        <div className="mt-4 p-4 bg-indigo-50/50 dark:bg-indigo-900/10 rounded-xl border border-indigo-100/50 dark:border-indigo-900/20 flex items-center justify-between">
-                            <div className="space-y-4">
-                                {(centreList ?? []).slice(0, 5).map((centre, idx) => (
-                                    <div key={idx} className="group">
-                                        <div className="flex items-center justify-between mb-2">
-                                            <div className="flex items-center gap-2">
-                                                <div className="w-2 h-2 rounded-full bg-maroon-600"></div>
-                                                <span className="text-sm font-medium text-gray-700 dark:text-gray-300 truncate max-w-[150px]">
-                                                    {centre.name}
-                                                </span>
-                                            </div>
-                                            <span className="text-xs font-bold text-gray-900 dark:text-white">
-                                                {formatCurrency(centre.disbursed ?? 0)}
-                                            </span>
-                                        </div>
-                                        <div className="relative h-1.5 w-full bg-gray-100 dark:bg-slate-800 rounded-full overflow-hidden">
-                                            <div
-                                                className="absolute top-0 left-0 h-full bg-maroon-600 rounded-full transition-all duration-1000"
-                                                style={{ width: `${Math.min(100, (safeNumber(centre.disbursed) / (safeNumber(stats?.used) || 1)) * 100)}%` }}
-                                            ></div>
-                                        </div>
-                                    </div>
-                                ))}
+                    <div className="space-y-6">
+                        {(centreList ?? []).slice(0, 4).map((centre, idx) => (
+                            <div key={idx} className="space-y-2">
+                                <div className="flex items-center justify-between">
+                                    <span className="text-xs font-medium text-gray-400">{centre.name}</span>
+                                    <span className="text-xs font-semibold text-white">{formatCurrency(centre.disbursed ?? 0)}</span>
+                                </div>
+                                <div className="h-1 w-full bg-white/5 rounded-full overflow-hidden">
+                                    <div 
+                                        className="h-full bg-indigo-500 rounded-full shadow-[0_0_8px_rgba(99,102,241,0.4)]" 
+                                        style={{ width: `${Math.min(100, (safeNumber(centre.disbursed) / (safeNumber(stats?.used) || 1)) * 100)}%` }}
+                                    ></div>
+                                </div>
                             </div>
-                            <div className="flex items-center gap-2">
-                                <Info className="w-4 h-4 text-indigo-500" />
-                                <span className="text-[10px] font-bold italic text-indigo-700 dark:text-indigo-300 uppercase tracking-tight">Forecast Confidence</span>
-                            </div>
-                            <Badge variant="outline" className="border-indigo-300 text-indigo-600 dark:text-indigo-400 font-black italic uppercase text-[9px] tracking-widest">{forecast?.confidence ?? 'LOW'} CONFIDENCE</Badge>
-                        </div>
-                    </CardContent>
-                </Card>
+                        ))}
+                    </div>
+                </div>
             </div>
 
             <ResearchCentreDetail isOpen={detailModalOpen} onClose={() => setDetailModalOpen(false)} centreName={selectedCentreDetail} isDark={isDark} />
             <AIResultModal open={aiModal.open} loading={aiModal.loading} result={aiModal.result} onClose={() => setAiModal({ ...aiModal, open: false })} />
             <AddCentreModal isOpen={isAddCentreOpen} onClose={() => setIsAddCentreOpen(false)} onRefresh={refreshCentres} />
+
+            {/* Drill-down Modal */}
+            {openModal && (
+                <div className="fixed inset-0 bg-[#0b1220]/80 backdrop-blur-md flex items-center justify-center z-[100] p-4">
+                    <div className="bg-[#1e293b] border border-white/10 rounded-3xl w-full max-w-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
+                        <div className="p-6 border-b border-white/5 flex items-center justify-between bg-gradient-to-r from-indigo-500/10 to-transparent">
+                            <div>
+                                <h2 className="text-xl font-semibold text-white flex items-center gap-2">
+                                    <BarChart3 className="w-5 h-5 text-indigo-400" />
+                                    {drillCentre} Breakdown
+                                </h2>
+                                <p className="text-xs text-gray-400 mt-1">Project-level disbursement granularity</p>
+                            </div>
+                            <button 
+                                onClick={() => { setOpenModal(false); setDrillData([]); }}
+                                className="p-2 hover:bg-white/5 rounded-full transition-colors"
+                            >
+                                <Plus className="w-6 h-6 rotate-45 text-gray-400" />
+                            </button>
+                        </div>
+
+                        <div className="p-6 max-h-[60vh] overflow-y-auto">
+                            {isDrillLoading ? (
+                                <div className="py-20 flex flex-col items-center justify-center gap-4 text-gray-400">
+                                    <div className="w-8 h-8 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+                                    <p className="text-sm font-medium animate-pulse">Analyzing Financial Ledger...</p>
+                                </div>
+                            ) : drillData.length > 0 ? (
+                                <div className="space-y-3">
+                                    {drillData.map((p, idx) => (
+                                        <div 
+                                            key={idx}
+                                            className="flex items-center justify-between p-4 rounded-2xl bg-white/5 border border-white/5 hover:border-indigo-500/30 transition-all group"
+                                        >
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-8 h-8 rounded-lg bg-indigo-500/10 flex items-center justify-center text-indigo-400 font-bold text-xs">
+                                                    {idx + 1}
+                                                </div>
+                                                <span className="text-sm font-medium text-gray-200 group-hover:text-white transition-colors truncate max-w-[300px]">
+                                                    {p.projectTitle}
+                                                </span>
+                                            </div>
+                                            <div className="text-right">
+                                                <p className="text-sm font-bold text-emerald-400">
+                                                    ₹{Number(p.disbursed).toLocaleString()}
+                                                </p>
+                                                <p className="text-[10px] text-gray-500 uppercase tracking-wider">Released</p>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : (
+                                <div className="py-20 text-center">
+                                    <Activity className="w-12 h-12 text-gray-600 mx-auto mb-4 opacity-20" />
+                                    <p className="text-gray-400">No active projects found for this centre.</p>
+                                </div>
+                            )}
+                        </div>
+
+                        <div className="p-6 bg-white/5 border-t border-white/5 flex justify-end">
+                            <button 
+                                onClick={() => { setOpenModal(false); setDrillData([]); }}
+                                className="px-6 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-white text-sm font-semibold transition-all"
+                            >
+                                Close Analysis
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

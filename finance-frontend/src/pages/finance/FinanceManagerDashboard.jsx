@@ -9,11 +9,24 @@ import { useFundSourcesOverview, useDepartmentFunding, useUpdateFundSource } fro
 import { Building2, Landmark, AlertCircle, CircleDollarSign } from 'lucide-react';
 import { useLayout } from '../../contexts/LayoutContext';
 import { useCentres } from '../../hooks/useCentres';
+import { useSearchParams } from 'react-router-dom';
+import { getCurrentFY } from '../../utils/fyUtils';
 
 const FinanceManagerDashboard = () => {
     const { setLayout } = useLayout();
     const [selectedDepartmentId, setSelectedDepartmentId] = useState('');
     const { centres } = useCentres();
+    
+    const [searchParams, setSearchParams] = useSearchParams();
+    const selectedFY = searchParams.get('fy') || getCurrentFY();
+
+    const setSelectedFY = (fy) => {
+        setSearchParams(prev => {
+            const next = new URLSearchParams(prev);
+            next.set('fy', fy);
+            return next;
+        });
+    };
 
     useEffect(() => {
         setLayout("Finance Dashboard", "Overview of total funding, research center allocations, and financial analytics");
@@ -28,7 +41,7 @@ const FinanceManagerDashboard = () => {
         data: fundSourcesData,
         isLoading: isLoadingFundSources,
         isError: isErrorFundSources,
-    } = useFundSourcesOverview();
+    } = useFundSourcesOverview(selectedFY);
 
 
 
@@ -78,7 +91,21 @@ const FinanceManagerDashboard = () => {
         <div className="p-8">
             {/* Fund Sources Overview Section */}
             <div className="mb-8">
-                <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">Fund Sources Overview</h2>
+                <div className="flex items-center justify-between mb-6">
+                    <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Fund Sources Overview</h2>
+                    <div className="flex items-center gap-3 bg-white dark:bg-darkCard p-2 rounded-xl border border-lightBorder dark:border-white/10 shadow-sm">
+                        <span className="text-sm font-semibold text-gray-500">FY:</span>
+                        <select 
+                            value={selectedFY}
+                            onChange={(e) => setSelectedFY(e.target.value)}
+                            className="bg-transparent border-none text-sm font-bold focus:ring-0 outline-none cursor-pointer"
+                        >
+                            <option value={getCurrentFY()}>{getCurrentFY()} (Current)</option>
+                            <option value="2024-2025">2024-2025</option>
+                            <option value="2023-2024">2023-2024</option>
+                        </select>
+                    </div>
+                </div>
 
                 {isErrorFundSources ? (
                     <div className="bg-red-50 border border-red-200 rounded-lg p-6">
@@ -152,9 +179,9 @@ const FinanceManagerDashboard = () => {
 
             {/* Financial Analytics Charts */}
             <div className="mb-8">
-                <h2 className="text-2xl font-bold text-gray-900 mb-6">Financial Analytics</h2>
+                <h2 className="text-2xl font-bold text-lightText dark:text-darkText mb-6">Financial Analytics</h2>
                 {isLoadingFundSources ? (
-                    <div className="h-[300px] w-full bg-gray-200 animate-pulse rounded-lg"></div>
+                    <div className="h-[300px] w-full bg-lightBorder dark:bg-white/10 animate-pulse rounded-lg"></div>
                 ) : (
                     <FinancialAnalytics data={fundSourcesData} />
                 )}
@@ -162,7 +189,7 @@ const FinanceManagerDashboard = () => {
 
             {/* Research Center-wise Funding Management Section */}
             <div>
-                <h2 className="text-2xl font-bold text-gray-900 mb-6">
+                <h2 className="text-2xl font-bold text-lightText dark:text-darkText mb-6">
                     Research Center-wise Funding Management
                 </h2>
 
@@ -175,7 +202,7 @@ const FinanceManagerDashboard = () => {
                         id="department"
                         value={selectedDepartmentId}
                         onChange={handleDepartmentChange}
-                        className="mt-2 flex h-11 w-full max-w-md rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        className="mt-2 flex h-11 w-full max-w-md rounded-xl border border-lightBorder bg-lightCard dark:bg-darkCard dark:border-white/10 px-3 py-2 text-sm focus:ring-2 focus:ring-primary/20 outline-none transition-all"
                     >
                         <option value="">
                             Select a research center

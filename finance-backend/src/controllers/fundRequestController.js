@@ -325,6 +325,20 @@ const createFundRequest = asyncHandler(async (req, res) => {
             }, { transaction });
         }
 
+        if (!project) {
+            return res.status(404).json({ success: false, message: 'Target project not found' });
+        }
+
+        // --- HARD BLOCK: FROZEN PROJECTS ---
+        if (project.status === 'FROZEN') {
+            await transaction.rollback();
+            return res.status(403).json({
+                success: false,
+                message: 'This project has been FROZEN by Administration. Fund requests are temporarily suspended.',
+                status: 'FROZEN'
+            });
+        }
+
         const projectId = project._id || project.id;
 
         // ── 3. Budget enforcement ───────────────────────────────────────────
@@ -599,6 +613,9 @@ const disburseFund = asyncHandler(async (req, res) => {
     const payload = {
         transactionId: req.body.transactionId || null,
         bankName: req.body.bankName || null,
+        chequeNumber: req.body.chequeNumber || null,
+        paymentMode: req.body.paymentMode || 'CHEQUE',
+        proofUrl: req.file ? `/uploads/${req.file.filename}` : null,
         disbursementDate: req.body.disbursementDate || new Date(),
         remarks: req.body.remarks || null,
         amount: disbursementAmount

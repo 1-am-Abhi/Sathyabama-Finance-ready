@@ -4,6 +4,7 @@ const { Op } = require('sequelize');
 const { syncRevenueLedger } = require('../services/financePipelineService');
 const NotificationService = require('../services/notificationService');
 const { buildResearchCenterIncludeArray } = require('../utils/researchCenterSafety');
+const { getCurrentFY, getFYRange } = require('../utils/fyUtils');
 
 const createRevenueRecord = asyncHandler(async (req, res) => {
     const { year, revenueSource, amountGenerated, details } = req.body;
@@ -48,11 +49,16 @@ const getMyRevenueRecords = asyncHandler(async (req, res) => {
 
 const getRevenueSummary = asyncHandler(async (req, res) => {
     const userId = req.user.id;
-    const { year } = req.query;
+    const { year: queryYear, fy } = req.query;
+    const currentFY = fy || getCurrentFY();
+    const { startDate, endDate } = getFYRange(currentFY);
 
-    const whereClause = { userId };
-    if (year) {
-        whereClause.year = year;
+    const whereClause = { 
+        userId,
+        createdAt: { [Op.between]: [startDate, endDate] }
+    };
+    if (queryYear) {
+        whereClause.year = queryYear;
     }
 
     const records = await Revenue.findAll({ where: whereClause });
@@ -108,8 +114,14 @@ const updateFinanceMetrics = asyncHandler(async (req, res) => {
 });
 
 const getAllRevenueForVerification = asyncHandler(async (req, res) => {
+    const fy = req.query.fy || getCurrentFY();
+    const { startDate, endDate } = getFYRange(fy);
+
     const records = await Revenue.findAll({
-        where: { status: { [Op.in]: ['ADMIN_APPROVED', 'VERIFIED'] } },
+        where: { 
+            status: { [Op.in]: ['ADMIN_APPROVED', 'VERIFIED'] },
+            createdAt: { [Op.between]: [startDate, endDate] }
+        },
         include: [{ 
             model: User, 
             as: 'User',
@@ -144,7 +156,13 @@ const verifyRevenue = asyncHandler(async (req, res) => {
 });
 
 const getAdminRevenueApprovals = asyncHandler(async (req, res) => {
+    const fy = req.query.fy || getCurrentFY();
+    const { startDate, endDate } = getFYRange(fy);
+
     const records = await Revenue.findAll({
+        where: {
+            createdAt: { [Op.between]: [startDate, endDate] }
+        },
         include: [{ 
             model: User, 
             as: 'User',

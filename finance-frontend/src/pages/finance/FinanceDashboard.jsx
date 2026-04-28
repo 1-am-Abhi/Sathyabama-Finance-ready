@@ -7,11 +7,12 @@ import {
     DollarSign, FileText, Users, Clock, CheckCircle,
     AlertTriangle, ArrowRight, Calendar, Building
 } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { useLayout } from '../../contexts/LayoutContext';
 import { useFinanceStats, useFundFlowProjects, useInternshipFees, usePFMSTransactions } from '../../hooks/useFinance';
 import { getCentreName } from '../../constants/centreMap';
+import { getCurrentFY } from '../../utils/fyUtils';
 
 const FinanceDashboard = () => {
     const { setLayout } = useLayout();
@@ -19,11 +20,21 @@ const FinanceDashboard = () => {
     const { user } = useAuth();
     const userId = user?.id || user?._id;
     const queryClient = useQueryClient();
+    const [searchParams, setSearchParams] = useSearchParams();
+    const selectedFY = searchParams.get('fy') || getCurrentFY();
+
+    const setSelectedFY = (fy) => {
+        setSearchParams(prev => {
+            const next = new URLSearchParams(prev);
+            next.set('fy', fy);
+            return next;
+        });
+    };
     
-    const { data: financeStats = {}, isLoading: isLoadingStats } = useFinanceStats();
-    const { data: fundFlowProjects = [], isLoading: isLoadingFundFlow } = useFundFlowProjects();
-    const { data: internshipPayments = [], isLoading: isLoadingInternships } = useInternshipFees();
-    const { data: pfmsTransactions = [], isLoading: isLoadingPFMS } = usePFMSTransactions();
+    const { data: financeStats = {}, isLoading: isLoadingStats } = useFinanceStats(selectedFY);
+    const { data: fundFlowProjects = [], isLoading: isLoadingFundFlow } = useFundFlowProjects(selectedFY);
+    const { data: internshipPayments = [], isLoading: isLoadingInternships } = useInternshipFees(selectedFY);
+    const { data: pfmsTransactions = [], isLoading: isLoadingPFMS } = usePFMSTransactions(selectedFY);
 
     useEffect(() => {
         setLayout("Settlement & Activities", "Manage fund releases, PFMS tracking, and internship payments");
@@ -86,6 +97,26 @@ const FinanceDashboard = () => {
 
     return (
         <div className="p-8">
+            {/* FY Selector Bar */}
+            <div className="flex items-center justify-between mb-8 bg-white dark:bg-darkCard p-4 rounded-xl border border-lightBorder dark:border-white/10 shadow-sm">
+                <div className="flex items-center gap-2">
+                    <Calendar className="w-5 h-5 text-primary" />
+                    <span className="font-bold text-slate-700 dark:text-slate-300">Financial Year Activity</span>
+                </div>
+                <div className="flex items-center gap-3">
+                    <span className="text-sm font-semibold text-slate-500">Period:</span>
+                    <select 
+                        value={selectedFY}
+                        onChange={(e) => setSelectedFY(e.target.value)}
+                        className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg px-4 py-2 text-sm font-bold focus:ring-2 focus:ring-primary/20 outline-none cursor-pointer"
+                    >
+                        <option value={getCurrentFY()}>{getCurrentFY()} (Current)</option>
+                        <option value="2024-2025">2024-2025</option>
+                        <option value="2023-2024">2023-2024</option>
+                    </select>
+                </div>
+            </div>
+
             {/* Stats Cards */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
                 {stats.map((stat, index) => {
@@ -109,176 +140,176 @@ const FinanceDashboard = () => {
                 })}
             </div>
 
-                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                        {/* Fund Flow Actions */}
-                        <div className="lg:col-span-2">
-                            <Card className="border-0 shadow-sm">
-                                <CardHeader className="border-b bg-gray-50">
-                                    <div className="flex items-center justify-between">
-                                        <CardTitle className="text-lg font-semibold flex items-center">
-                                            <FileText className="w-5 h-5 mr-2 text-blue-600" />
-                                            Fund Flow Actions
-                                        </CardTitle>
-                                        <button 
-                                            className="text-sm text-blue-600 hover:text-blue-700 flex items-center"
-                                            onClick={() => navigate('/finance/disbursements')}
-                                        >
-                                            View All <ArrowRight className="w-4 h-4 ml-1" />
-                                        </button>
-                                    </div>
-                                    <p className="text-xs text-gray-500 mt-1">Projects requiring finance updates</p>
-                                </CardHeader>
-                                <CardContent className="p-6">
-                                    <div className="space-y-4">
-                                        {(Array.isArray(fundFlowProjects) ? fundFlowProjects : []).map((project) => (
-                                            <div key={project.id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
-                                                <div className="flex items-start justify-between mb-2">
-                                                    <div className="flex-1">
-                                                        <h3 className="font-semibold text-gray-900">{project.title}</h3>
-                                                        <p className="text-sm text-gray-600 mt-1">
-                                                            {project.pi} • {getCentreName(project.department)}
-                                                        </p>
-                                                    </div>
-                                                    <Badge className={`${project.status === 'AMOUNT_DISBURSED' ? 'bg-green-100 text-green-700' :
-                                                            project.status === 'FUND_RELEASED' ? 'bg-blue-100 text-blue-700' :
-                                                                'bg-purple-100 text-purple-700'
-                                                        }`}>
-                                                        {project.statusLabel}
-                                                    </Badge>
-                                                </div>
-                                                <div className="flex items-center justify-between mt-3 pt-3 border-t">
-                                                    <span className="text-sm font-semibold text-gray-700">{project.amount}</span>
-                                                </div>
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                {/* Fund Flow Actions */}
+                <div className="lg:col-span-2">
+                    <Card className="border-0 shadow-sm">
+                        <CardHeader className="border-b bg-gray-50">
+                            <div className="flex items-center justify-between">
+                                <CardTitle className="text-lg font-semibold flex items-center">
+                                    <FileText className="w-5 h-5 mr-2 text-blue-600" />
+                                    Fund Flow Actions
+                                </CardTitle>
+                                <button
+                                    className="text-sm text-blue-600 hover:text-blue-700 flex items-center"
+                                    onClick={() => navigate('/finance/disbursements')}
+                                >
+                                    View All <ArrowRight className="w-4 h-4 ml-1" />
+                                </button>
+                            </div>
+                            <p className="text-xs text-gray-500 mt-1">Projects requiring finance updates</p>
+                        </CardHeader>
+                        <CardContent className="p-6">
+                            <div className="space-y-4">
+                                {(Array.isArray(fundFlowProjects) ? fundFlowProjects : []).map((project) => (
+                                    <div key={project.id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+                                        <div className="flex items-start justify-between mb-2">
+                                            <div className="flex-1">
+                                                <h3 className="font-semibold text-gray-900">{project.title}</h3>
+                                                <p className="text-sm text-gray-600 mt-1">
+                                                    {project.pi} • {getCentreName(project.department)}
+                                                </p>
                                             </div>
-                                        ))}
+                                            <Badge className={`${project.status === 'AMOUNT_DISBURSED' ? 'bg-green-100 text-green-700' :
+                                                project.status === 'FUND_RELEASED' ? 'bg-blue-100 text-blue-700' :
+                                                    'bg-purple-100 text-purple-700'
+                                                }`}>
+                                                {project.statusLabel}
+                                            </Badge>
+                                        </div>
+                                        <div className="flex items-center justify-between mt-3 pt-3 border-t">
+                                            <span className="text-sm font-semibold text-gray-700">{project.amount}</span>
+                                        </div>
                                     </div>
-                                </CardContent>
-                            </Card>
+                                ))}
+                            </div>
+                        </CardContent>
+                    </Card>
 
-                            {/* Recent PFMS Transactions */}
-                            <Card className="border-0 shadow-sm mt-6">
-                                <CardHeader className="border-b bg-gray-50">
-                                    <div className="flex items-center justify-between">
-                                        <CardTitle className="text-lg font-semibold flex items-center">
-                                            <FileText className="w-5 h-5 mr-2 text-blue-600" />
-                                            Recent PFMS Transactions
-                                        </CardTitle>
-                                        <button 
-                                            className="text-sm text-blue-600 hover:text-blue-700 flex items-center"
-                                            onClick={() => navigate('/finance/pfms')}
-                                        >
-                                            View All <ArrowRight className="w-4 h-4 ml-1" />
-                                        </button>
-                                    </div>
-                                </CardHeader>
-                                <CardContent className="p-6">
-                                    <div className="mb-4 flex items-center space-x-2 text-sm text-gray-600">
-                                        <Calendar className="w-4 h-4" />
-                                        <span>Financial Year 2024-25</span>
-                                    </div>
-                                    <div className="space-y-6">
-                                        {(Array.isArray(pfmsTransactions) ? pfmsTransactions : []).map((transaction, index) => (
-                                            <div key={index} className="border border-gray-200 rounded-lg p-4">
-                                                <div className="flex items-start justify-between mb-3">
-                                                    <div>
-                                                        <p className="text-xs text-gray-500">PFMS Project ID</p>
-                                                        <p className="font-bold text-gray-900">{transaction.id}</p>
-                                                    </div>
-                                                    <Badge className={transaction.status === 'Submitted' ? 'bg-blue-100 text-blue-700' : 'bg-yellow-100 text-yellow-700'}>
-                                                        {transaction.status}
-                                                    </Badge>
-                                                </div>
-
-                                                <div className="grid grid-cols-3 gap-4 text-sm">
-                                                    <div>
-                                                        <p className="text-gray-500 text-xs flex items-center">
-                                                            <Building className="w-3 h-3 mr-1" /> Organization
-                                                        </p>
-                                                        <p className="font-medium text-gray-900 mt-1">{transaction.organization}</p>
-                                                    </div>
-                                                    <div>
-                                                        <p className="text-gray-500 text-xs">Sanction Order</p>
-                                                        <p className="font-medium text-gray-900 mt-1">{transaction.sanctionOrder}</p>
-                                                    </div>
-                                                    <div>
-                                                        <p className="text-gray-500 text-xs">Sanction Date</p>
-                                                        <p className="font-medium text-gray-900 mt-1">{transaction.sanctionDate}</p>
-                                                    </div>
-                                                </div>
-
-                                                <div className="grid grid-cols-3 gap-4 text-sm mt-3">
-                                                    <div>
-                                                        <p className="text-gray-500 text-xs">Installment No.</p>
-                                                        <p className="font-medium text-gray-900 mt-1">{transaction.installment}</p>
-                                                    </div>
-                                                    <div>
-                                                        <p className="text-gray-500 text-xs">Amount Released</p>
-                                                        <p className="font-bold text-green-600 mt-1">{transaction.amount}</p>
-                                                    </div>
-                                                    <div>
-                                                        <p className="text-gray-500 text-xs">Credit Date</p>
-                                                        <p className="font-medium text-gray-900 mt-1">{transaction.creditDate}</p>
-                                                    </div>
-                                                </div>
-
-                                                <div className="grid grid-cols-2 gap-4 text-sm mt-3">
-                                                    <div>
-                                                        <p className="text-gray-500 text-xs">UTR Number</p>
-                                                        <p className="font-mono text-xs text-gray-900 mt-1">{transaction.utr}</p>
-                                                    </div>
-                                                    <div>
-                                                        <p className="text-gray-500 text-xs">Transaction ID</p>
-                                                        <p className="font-mono text-xs text-gray-900 mt-1">{transaction.transactionId}</p>
-                                                    </div>
-                                                </div>
+                    {/* Recent PFMS Transactions */}
+                    <Card className="border-0 shadow-sm mt-6">
+                        <CardHeader className="border-b bg-gray-50">
+                            <div className="flex items-center justify-between">
+                                <CardTitle className="text-lg font-semibold flex items-center">
+                                    <FileText className="w-5 h-5 mr-2 text-blue-600" />
+                                    Recent PFMS Transactions
+                                </CardTitle>
+                                <button
+                                    className="text-sm text-blue-600 hover:text-blue-700 flex items-center"
+                                    onClick={() => navigate('/finance/pfms')}
+                                >
+                                    View All <ArrowRight className="w-4 h-4 ml-1" />
+                                </button>
+                            </div>
+                        </CardHeader>
+                        <CardContent className="p-6">
+                            <div className="mb-4 flex items-center space-x-2 text-sm text-gray-600">
+                                <Calendar className="w-4 h-4" />
+                                <span>Financial Year {selectedFY}</span>
+                            </div>
+                            <div className="space-y-6">
+                                {(Array.isArray(pfmsTransactions) ? pfmsTransactions : []).map((transaction, index) => (
+                                    <div key={index} className="border border-gray-200 rounded-lg p-4">
+                                        <div className="flex items-start justify-between mb-3">
+                                            <div>
+                                                <p className="text-xs text-gray-500">PFMS Project ID</p>
+                                                <p className="font-bold text-gray-900">{transaction.id}</p>
                                             </div>
-                                        ))}
-                                    </div>
-                                </CardContent>
-                            </Card>
-                        </div>
+                                            <Badge className={transaction.status === 'Submitted' ? 'bg-blue-100 text-blue-700' : 'bg-yellow-100 text-yellow-700'}>
+                                                {transaction.status}
+                                            </Badge>
+                                        </div>
 
-                        {/* Internship Payments Sidebar */}
-                        <div>
-                            <Card className="border-0 shadow-sm">
-                                <CardHeader className="border-b bg-orange-50">
-                                    <CardTitle className="text-lg font-semibold flex items-center">
-                                        <Users className="w-5 h-5 mr-2 text-orange-600" />
-                                        Internship Payments
-                                    </CardTitle>
-                                    <p className="text-xs text-gray-600 mt-1 flex items-center">
-                                        <AlertTriangle className="w-3 h-3 mr-1 text-orange-500" />
-                                        Blocked internships shown with ⚠️
-                                    </p>
-                                </CardHeader>
-                                <CardContent className="p-4">
-                                    <div className="space-y-3">
-                                        {(Array.isArray(internshipPayments) ? internshipPayments : []).map((payment) => (
-                                            <div key={payment.id} className="border border-gray-200 rounded-lg p-3">
-                                                <div className="flex items-start justify-between mb-2">
-                                                    <div className="flex-1">
-                                                        <p className="font-semibold text-sm text-gray-900">{payment.name}</p>
-                                                        <p className="text-xs text-gray-600 mt-1">{payment.internship}</p>
-                                                        <p className="text-sm font-bold text-gray-900 mt-1">{payment.amount}</p>
-                                                    </div>
-                                                    {payment.status === 'paid' ? (
-                                                        <CheckCircle className="w-5 h-5 text-green-500" />
-                                                    ) : (
-                                                        <AlertTriangle className="w-5 h-5 text-orange-500" />
-                                                    )}
-                                                </div>
-                                                {payment.status === 'pending' && (
-                                                    <Button size="sm" className="w-full mt-2 bg-blue-600 hover:bg-blue-700" onClick={() => navigate('/finance/internships')}>
-                                                        Verify
-                                                    </Button>
-                                                )}
+                                        <div className="grid grid-cols-3 gap-4 text-sm">
+                                            <div>
+                                                <p className="text-gray-500 text-xs flex items-center">
+                                                    <Building className="w-3 h-3 mr-1" /> Organization
+                                                </p>
+                                                <p className="font-medium text-gray-900 mt-1">{transaction.organization}</p>
                                             </div>
-                                        ))}
+                                            <div>
+                                                <p className="text-gray-500 text-xs">Sanction Order</p>
+                                                <p className="font-medium text-gray-900 mt-1">{transaction.sanctionOrder}</p>
+                                            </div>
+                                            <div>
+                                                <p className="text-gray-500 text-xs">Sanction Date</p>
+                                                <p className="font-medium text-gray-900 mt-1">{transaction.sanctionDate}</p>
+                                            </div>
+                                        </div>
+
+                                        <div className="grid grid-cols-3 gap-4 text-sm mt-3">
+                                            <div>
+                                                <p className="text-gray-500 text-xs">Installment No.</p>
+                                                <p className="font-medium text-gray-900 mt-1">{transaction.installment}</p>
+                                            </div>
+                                            <div>
+                                                <p className="text-gray-500 text-xs">Amount Released</p>
+                                                <p className="font-bold text-green-600 mt-1">{transaction.amount}</p>
+                                            </div>
+                                            <div>
+                                                <p className="text-gray-500 text-xs">Credit Date</p>
+                                                <p className="font-medium text-gray-900 mt-1">{transaction.creditDate}</p>
+                                            </div>
+                                        </div>
+
+                                        <div className="grid grid-cols-2 gap-4 text-sm mt-3">
+                                            <div>
+                                                <p className="text-gray-500 text-xs">UTR Number</p>
+                                                <p className="font-mono text-xs text-gray-900 mt-1">{transaction.utr}</p>
+                                            </div>
+                                            <div>
+                                                <p className="text-gray-500 text-xs">Transaction ID</p>
+                                                <p className="font-mono text-xs text-gray-900 mt-1">{transaction.transactionId}</p>
+                                            </div>
+                                        </div>
                                     </div>
-                                </CardContent>
-                            </Card>
-                        </div>
-                    </div>
+                                ))}
+                            </div>
+                        </CardContent>
+                    </Card>
+                </div>
+
+                {/* Internship Payments Sidebar */}
+                <div>
+                    <Card className="border-0 shadow-sm">
+                        <CardHeader className="border-b bg-orange-50">
+                            <CardTitle className="text-lg font-semibold flex items-center">
+                                <Users className="w-5 h-5 mr-2 text-orange-600" />
+                                Internship Payments
+                            </CardTitle>
+                            <p className="text-xs text-gray-600 mt-1 flex items-center">
+                                <AlertTriangle className="w-3 h-3 mr-1 text-orange-500" />
+                                Blocked internships shown with ⚠️
+                            </p>
+                        </CardHeader>
+                        <CardContent className="p-4">
+                            <div className="space-y-3">
+                                {(Array.isArray(internshipPayments) ? internshipPayments : []).map((payment) => (
+                                    <div key={payment.id} className="border border-gray-200 rounded-lg p-3">
+                                        <div className="flex items-start justify-between mb-2">
+                                            <div className="flex-1">
+                                                <p className="font-semibold text-sm text-gray-900">{payment.name}</p>
+                                                <p className="text-xs text-gray-600 mt-1">{payment.internship}</p>
+                                                <p className="text-sm font-bold text-gray-900 mt-1">{payment.amount}</p>
+                                            </div>
+                                            {payment.status === 'paid' ? (
+                                                <CheckCircle className="w-5 h-5 text-green-500" />
+                                            ) : (
+                                                <AlertTriangle className="w-5 h-5 text-orange-500" />
+                                            )}
+                                        </div>
+                                        {payment.status === 'pending' && (
+                                            <Button size="sm" className="w-full mt-2 bg-blue-600 hover:bg-blue-700" onClick={() => navigate('/finance/internships')}>
+                                                Verify
+                                            </Button>
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+                        </CardContent>
+                    </Card>
+                </div>
+            </div>
         </div>
     );
 };

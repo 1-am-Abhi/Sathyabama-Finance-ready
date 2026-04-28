@@ -75,6 +75,13 @@ module.exports = {
           800: '#92400e',
           900: '#78350f',
         },
+        lightBg: "#f8fafc",
+        lightCard: "#ffffff",
+        lightBorder: "#e2e8f0",
+        lightText: "#0f172a",
+        darkBg: "#0f172a",
+        darkCard: "#1e293b",
+        darkText: "#ffffff"
       },
       borderRadius: {
         lg: "var(--radius)",

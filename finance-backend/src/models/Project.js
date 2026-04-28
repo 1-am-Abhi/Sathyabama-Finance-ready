@@ -11,6 +11,10 @@ const Project = sequelize.define('Project', {
         type: DataTypes.STRING,
         allowNull: false
     },
+    organizationId: {
+        type: DataTypes.INTEGER,
+        allowNull: true,
+    },
     userId: {
         type: DataTypes.UUID,
         allowNull: true // Allow true for legacy data
@@ -35,6 +39,11 @@ const Project = sequelize.define('Project', {
         type: DataTypes.STRING, // Keep for legacy
         allowNull: true
     },
+    researchCentre: {
+        type: DataTypes.STRING,
+        allowNull: false, // 🔴 prevent future bugs
+        defaultValue: 'General'
+    },
     centreId: {
         type: DataTypes.UUID,
         allowNull: true
@@ -56,7 +65,7 @@ const Project = sequelize.define('Project', {
         defaultValue: 0
     },
     status: {
-        type: DataTypes.ENUM('ACTIVE', 'APPROVED', 'COMPLETED', 'PENDING', 'REJECTED', 'PUBLISHED', 'SUBMITTED'),
+        type: DataTypes.ENUM('ACTIVE', 'APPROVED', 'COMPLETED', 'PENDING', 'REJECTED', 'PUBLISHED', 'SUBMITTED', 'FROZEN'),
         defaultValue: 'PENDING'
     },
     projectType: {

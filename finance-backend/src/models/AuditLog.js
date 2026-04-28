@@ -23,9 +23,18 @@ const AuditLog = sequelize.define('AuditLog', {
         type: DataTypes.STRING,
         allowNull: false
     },
+    organizationId: {
+        type: DataTypes.INTEGER,
+        allowNull: true,
+    },
     metadata: {
         type: DataTypes.JSONB,
         allowNull: true
+    },
+    hash: {
+        type: DataTypes.STRING,
+        allowNull: true,
+        comment: 'SHA256 hash for tamper detection'
     }
 }, {
     timestamps: true,

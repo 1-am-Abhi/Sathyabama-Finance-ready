@@ -16,6 +16,10 @@ const Disbursement = sequelize.define('Disbursement', {
         type: DataTypes.UUID,
         allowNull: false
     },
+    organizationId: {
+        type: DataTypes.INTEGER,
+        allowNull: true,
+    },
     amount: {
         type: DataTypes.DECIMAL(15, 2),
         allowNull: false,
@@ -67,6 +71,28 @@ const Disbursement = sequelize.define('Disbursement', {
     remarks: {
         type: DataTypes.TEXT,
         allowNull: true
+    },
+    chequeNumber: {
+        type: DataTypes.STRING,
+        allowNull: true,
+        unique: true
+    },
+    bankName: {
+        type: DataTypes.STRING,
+        allowNull: true
+    },
+    transactionId: {
+        type: DataTypes.STRING,
+        allowNull: true,
+        unique: true
+    },
+    proofUrl: {
+        type: DataTypes.STRING,
+        allowNull: true
+    },
+    paymentMode: {
+        type: DataTypes.ENUM('CHEQUE', 'UPI', 'NEFT', 'RTGS'),
+        defaultValue: 'CHEQUE'
     },
     // TASK 1 — Idempotency Key
     idempotencyKey: {
