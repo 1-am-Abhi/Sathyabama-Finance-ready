@@ -16,7 +16,6 @@ const VALID_STATUSES = [
     'PENDING_APPROVAL',
     'APPROVED',
     'PENDING_DISBURSAL',
-    'PARTIALLY_DISBURSED',
     'DISBURSED',
     'REJECTED',
     'CANCELLED'
@@ -91,6 +90,11 @@ FundRequest.init({
         allowNull: false,
         defaultValue: 1,
         comment: 'Sequential installment number per project (1, 2, 3…)'
+    },
+    type: {
+        type: DataTypes.STRING,
+        defaultValue: 'INSTALLMENT',
+        allowNull: false
     },
     purpose: {
         type: DataTypes.TEXT,

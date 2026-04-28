@@ -9,7 +9,8 @@ const Disbursement = sequelize.define('Disbursement', {
     },
     fundRequestId: {
         type: DataTypes.UUID,
-        allowNull: false
+        allowNull: false,
+        unique: true  // ONE Disbursement per FundRequest
     },
     projectId: {
         type: DataTypes.UUID,
@@ -28,7 +29,7 @@ const Disbursement = sequelize.define('Disbursement', {
     },
     isInstallment: {
         type: DataTypes.BOOLEAN,
-        defaultValue: false
+        defaultValue: true
     },
     approvedBy: {
         type: DataTypes.UUID,
@@ -77,14 +78,11 @@ const Disbursement = sequelize.define('Disbursement', {
     timestamps: true,
     indexes: [
         {
-            unique: true,
-            fields: ['fundRequestId', 'installmentNumber']
-        },
-        {
             fields: ['projectId']
         },
         {
-            fields: ['fundRequestId']
+            fields: ['fundRequestId'],
+            unique: true
         }
     ]
 });

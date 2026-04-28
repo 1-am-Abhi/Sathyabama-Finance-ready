@@ -530,7 +530,7 @@ const getSharedPipelineData = async () => {
                     include: [
                         buildCentreInclude(), 
                         buildProjectInclude(),
-                        { model: Disbursement, as: 'Disbursements', required: false }
+                        { model: Disbursement, as: 'Disbursement', required: false }
                     ].filter(Boolean),
                     order: [['createdAt', 'DESC']],
                 }),
@@ -558,7 +558,7 @@ const getSharedPipelineData = async () => {
                     ],
                     include: [
                         buildProjectInclude({ includeResearchCenter: false }),
-                        { model: Disbursement, as: 'Disbursements', required: false }
+                        { model: Disbursement, as: 'Disbursement', required: false }
                     ].filter(Boolean),
                     order: [['createdAt', 'DESC']],
                 }),

@@ -478,7 +478,7 @@ const getFundFlowData = asyncHandler(async (req, res) => {
     try {
         requests = await FundRequest.findAll({
             where: {
-                status: { [Op.in]: ['PENDING_DISBURSAL', 'PARTIALLY_DISBURSED', 'DISBURSED'] },
+                status: { [Op.in]: ['APPROVED', 'PENDING_DISBURSAL', 'DISBURSED'] },
                 currentStage: {
                     [Op.in]: [
                         'FUND_APPROVED', 'FUND_RELEASED', 'BILLS_UPLOADED',

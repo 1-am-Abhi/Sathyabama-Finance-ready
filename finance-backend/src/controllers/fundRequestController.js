@@ -143,7 +143,7 @@ const getFundRequests = asyncHandler(async (req, res) => {
         }
         options.include.push({
             model: Disbursement,
-            as: 'Disbursements',
+            as: 'Disbursement',
             required: false,
         });
     } catch (incErr) {
@@ -242,7 +242,7 @@ const getFundRequest = asyncHandler(async (req, res) => {
             include: [
                 buildCentreInclude(), 
                 buildProjectInclude(),
-                { model: Disbursement, as: 'Disbursements', required: false }
+                { model: Disbursement, as: 'Disbursement', required: false }
             ].filter(Boolean),
         });
     } catch (error) {
@@ -369,6 +369,7 @@ const createFundRequest = asyncHandler(async (req, res) => {
         userId: facultyId,
         requestedAmount: amount,
         installmentNumber,
+        type: 'INSTALLMENT',
         purpose,
         department: req.user.department || 'RESEARCH',
         centre: centreAssignment.centre,
@@ -508,12 +509,11 @@ const disburseFund = asyncHandler(async (req, res) => {
     const request = await FundRequest.findByPk(req.params.id);
     if (!request) return res.status(404).json({ success: false, message: 'Request not found' });
 
-    const allowedStatuses = ['PENDING_DISBURSAL', 'PARTIALLY_DISBURSED'];
-    if (!allowedStatuses.includes(request.status)) {
-        // Idempotency check: If already disbursed, check if it was this transaction
+    // Only PENDING_DISBURSAL is valid — no partial flow
+    if (request.status !== 'PENDING_DISBURSAL') {
         if (request.status === 'DISBURSED' && req.body.transactionId) {
             const existing = await Disbursement.findOne({
-                where: { 
+                where: {
                     fundRequestId: request._id || request.id,
                     bankReference: req.body.transactionId
                 }
@@ -521,16 +521,16 @@ const disburseFund = asyncHandler(async (req, res) => {
             if (existing) {
                 return res.status(200).json({
                     success: true,
-                    message: 'Disbursement already processed successfully (Idempotent)',
+                    message: 'Disbursement already processed (Idempotent)',
                     data: request,
                     disbursement: existing
                 });
             }
         }
-
         return res.status(400).json({
             success: false,
-            message: `Cannot disburse a request with status '${request.status}'. Only PENDING_DISBURSAL or PARTIALLY_DISBURSED requests can be disbursed.`,
+            message: `Cannot disburse a request in '${request.status}' status. Only PENDING_DISBURSAL requests can be disbursed.`,
+            correlationId: req.correlationId
         });
     }
 
@@ -567,26 +567,12 @@ const disburseFund = asyncHandler(async (req, res) => {
         }
     }
 
-    // TASK 8 — Strict amount validation from DB SUM
-    const disbursementAmount = Number(req.body.amount || request.requestedAmount);
+    // Amount is ALWAYS the full requestedAmount — no partial override
+    const disbursementAmount = Number(request.requestedAmount);
     if (!Number.isFinite(disbursementAmount) || disbursementAmount <= 0) {
         return res.status(400).json({
             success: false,
-            message: 'Disbursement amount must be a positive number.',
-            correlationId: req.correlationId
-        });
-    }
-
-    const alreadyDisbursed = Number(await Disbursement.sum('amount', {
-        where: { fundRequestId: request._id || request.id }
-    }) || 0);
-    const requestedAmount = Number(request.requestedAmount);
-    const remainingAmount = requestedAmount - alreadyDisbursed;
-
-    if (disbursementAmount > remainingAmount) {
-        return res.status(400).json({
-            success: false,
-            message: `Amount ₹${disbursementAmount.toLocaleString()} exceeds remaining balance ₹${remainingAmount.toLocaleString()} (requested: ₹${requestedAmount.toLocaleString()}, already disbursed: ₹${alreadyDisbursed.toLocaleString()}).`,
+            message: 'Request has invalid requestedAmount.',
             correlationId: req.correlationId
         });
     }
@@ -596,10 +582,6 @@ const disburseFund = asyncHandler(async (req, res) => {
         bankName: req.body.bankName || null,
         disbursementDate: req.body.disbursementDate || new Date(),
         remarks: req.body.remarks || null,
-        mode: req.body.mode || 'FULL',
-        installmentNo: req.body.installmentNo || request.installmentNumber,
-        isInstallment: req.body.isInstallment || req.body.mode === 'INSTALLMENT',
-        amount: disbursementAmount
     };
 
     const { request: updatedRequest, disbursement } = await executeDisbursementPipeline(
@@ -789,7 +771,7 @@ const getProjectWithInstallments = asyncHandler(async (req, res) => {
 
     const installments = await FundRequest.findAll({
         where: { projectId: project._id || project.id },
-        include: [{ model: Disbursement, as: 'Disbursements', required: false }],
+        include: [{ model: Disbursement, as: 'Disbursement', required: false }],
         order: [['installmentNumber', 'ASC'], ['createdAt', 'ASC']],
     });
 

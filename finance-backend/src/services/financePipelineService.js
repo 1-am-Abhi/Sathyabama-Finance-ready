@@ -270,42 +270,48 @@ const approveFundRequestPipeline = async (request, actor, remarks, options = {})
 
 const executeDisbursementPipeline = async (request, payload, actor, options = {}) => {
     const correlationId = options.correlationId || `INTERNAL-${Date.now()}`;
-    // 1. STRICT AUTHORITATIVE VALIDATION (No trust in frontend)
-    if (!payload.amount || toNumber(payload.amount) <= 0) {
-        throw new Error('Disbursement amount is mandatory and must be greater than zero');
-    }
+
     if (!payload.transactionId) {
         throw new Error('Bank Reference (UTR) is mandatory to prevent duplicate payouts');
     }
 
-    const amount = toNumber(payload.amount);
+    const amount = toNumber(request.requestedAmount);
+    if (amount <= 0) {
+        throw new Error('Disbursement amount must be greater than zero');
+    }
+
     const disbursementDate = payload.disbursementDate || new Date();
     const bankReference = payload.transactionId;
-    const isInstallment = payload.mode === 'INSTALLMENT' || payload.isInstallment === true;
 
     return sequelize.transaction(async (transaction) => {
-        // TASK 1 — ROW-LEVEL LOCK on FundRequest (blocks concurrent disbursements on same request)
+        // ROW-LEVEL LOCK on FundRequest
         const lockedRequest = await FundRequest.findByPk(request._id || request.id, {
             transaction,
             lock: transaction.LOCK.UPDATE
         });
 
         if (!lockedRequest) {
-            throw new Error(`FundRequest ${request._id || request.id} not found — possible race condition`);
+            throw new Error(`FundRequest ${request._id || request.id} not found`);
         }
 
-        // Re-validate status after acquiring lock (state may have changed)
-        // TASK 4 — FINAL STATE GUARD
+        // FINAL STATE GUARD — only one disbursement ever
         if (lockedRequest.status === 'DISBURSED') {
-            throw new Error("Already fully disbursed");
-        }
-        
-        const allowedStatuses = ['PENDING_DISBURSAL', 'PARTIALLY_DISBURSED'];
-        if (!allowedStatuses.includes(lockedRequest.status)) {
-            throw new Error(`[CONCURRENCY] Request status changed to '${lockedRequest.status}' before lock was acquired. Disbursement rejected.`);
+            const existing = await Disbursement.findOne({
+                where: { fundRequestId: lockedRequest._id || lockedRequest.id },
+                transaction
+            });
+            if (existing) {
+                console.log(`[${correlationId}] [Pipeline:DISBURSE] Idempotent replay — already DISBURSED`);
+                return { request: lockedRequest, disbursement: existing, idempotent: true };
+            }
+            throw new Error('Already fully disbursed but no disbursement record found — data inconsistency');
         }
 
-        // ELITE-LEVEL CONCURRENCY LOCK on Project (serializes all project payments)
+        if (lockedRequest.status !== 'PENDING_DISBURSAL') {
+            throw new Error(`Cannot disburse request in status '${lockedRequest.status}'. Only PENDING_DISBURSAL is allowed.`);
+        }
+
+        // ROW-LEVEL LOCK on Project
         const project = await Project.findOne({
             where: { _id: lockedRequest.projectId },
             transaction,
@@ -316,50 +322,40 @@ const executeDisbursementPipeline = async (request, payload, actor, options = {}
             throw new Error(`Target project status [${project?.status || 'UNKNOWN'}] is invalid for disbursement`);
         }
 
-        // 3. SEQUENTIAL INSTALLMENT CALCULATION — scoped to this FundRequest (not project)
-        const lastDisbursement = await Disbursement.findOne({
-            where: { fundRequestId: lockedRequest._id || lockedRequest.id },
-            order: [['installmentNumber', 'DESC']],
-            transaction
-        });
-
-        const nextInstallmentNumber = (lastDisbursement?.installmentNumber || 0) + 1;
-
-        // 4. ATOMIC OVERPAYMENT PROTECTION — request-level SUM inside transaction
-        const currentProjectSum = await Disbursement.sum('amount', {
+        // BUDGET VALIDATION — project-level SUM within transaction
+        const totalReleased = toNumber(await Disbursement.sum('amount', {
             where: { projectId: lockedRequest.projectId },
             transaction
-        }) || 0;
+        }) || 0);
+        const remaining = toNumber(project.sanctionedBudget) - totalReleased;
 
-        const currentRequestSum = await Disbursement.sum('amount', {
-            where: { fundRequestId: lockedRequest._id || lockedRequest.id },
-            transaction
-        }) || 0;
-
-        const sanctionedBudget = toNumber(project.sanctionedBudget);
-        if (toNumber(currentProjectSum) + amount > sanctionedBudget) {
-            throw new Error(`Overpayment protection: Sanctioned budget ₹${sanctionedBudget.toLocaleString()} exceeded by current transaction`);
-        }
-        
-        const requestTotal = toNumber(lockedRequest.requestedAmount);
-        const requestReleasedAmount = currentRequestSum + amount;
-        const requestRemainingAmount = requestTotal - requestReleasedAmount;
-
-        if (amount <= 0 || requestRemainingAmount < 0) {
-            throw new Error(`Invalid disbursement: Amount ₹${amount} exceeds remaining request balance ₹${requestTotal - currentRequestSum}.`);
+        if (amount > remaining) {
+            throw new Error(`Overpayment protection: Remaining budget ₹${remaining.toLocaleString()} is less than request amount ₹${amount.toLocaleString()}`);
         }
 
+        // FUND SOURCE CHECK
         const sourceTotals = await getFundSourceAllocationState(lockedRequest.source, transaction);
         if (sourceTotals.used + amount > sourceTotals.allocated) {
             throw new Error('Disbursement exceeds available fund source allocation limits');
         }
 
-        let financeRemarks = (payload.remarks || '').trim();
-        financeRemarks = `[INSTALLMENT #${nextInstallmentNumber}] ${financeRemarks}`.trim();
-
-        // TASK 10 — REMOVE AUDIT FALLBACK
         const requestId = lockedRequest._id || lockedRequest.id;
-        let approvedBy = null, approvedByName = 'Institutional Admin', approvedAt = lockedRequest.createdAt;
+
+        // IDEMPOTENCY CHECK
+        const sysActor = actor?.id || actor?._id || 'sys';
+        const idempotencyKey = `disburse_${requestId}*${Number(amount).toFixed(2)}*${Number(lockedRequest.installmentNumber)}_${sysActor}`;
+
+        const existingByKey = await Disbursement.findOne({
+            where: { idempotencyKey },
+            transaction,
+            lock: transaction.LOCK.UPDATE
+        });
+        if (existingByKey) {
+            console.log(`[${correlationId}] [Pipeline:DISBURSE] Idempotent replay via key`);
+            return { request: lockedRequest, disbursement: existingByKey, idempotent: true };
+        }
+
+        // FETCH APPROVAL RECORD
         const { AuditLog } = require('../models');
         const { Op: SeqOp } = require('sequelize');
         const approvalLog = await AuditLog.findOne({
@@ -370,29 +366,25 @@ const executeDisbursementPipeline = async (request, payload, actor, options = {}
             order: [['createdAt', 'DESC']],
             transaction
         });
-        
-        if (approvalLog) {
-            approvedBy = approvalLog.userId || null;
-            approvedByName = approvalLog.performedByName || approvalLog.metadata?.updatedByName || 'Admin';
-            approvedAt = approvalLog.createdAt;
-        } else {
-            throw new Error(`[Audit] No formal approval record found for request ${requestId}. Disbursement blocked.`);
+
+        if (!approvalLog) {
+            throw new Error(`No formal approval record found for request ${requestId}. Disbursement blocked.`);
         }
 
-        // TASK 4.6 — High-Value Threshold Detection
+        const approvedBy = approvalLog.userId || null;
+        const approvedByName = approvalLog.performedByName || approvalLog.metadata?.updatedByName || 'Admin';
+        const approvedAt = approvalLog.createdAt;
+
         const threshold = toNumber(process.env.HIGH_VALUE_THRESHOLD || 100000);
         const isHighValue = amount >= threshold;
+        let financeRemarks = (payload.remarks || '').trim();
+        financeRemarks = `[INSTALLMENT #${lockedRequest.installmentNumber}]${isHighValue ? ' [HIGH-VALUE]' : ''} ${financeRemarks}`.trim();
 
-        if (isHighValue && !financeRemarks.includes('[HIGH-VALUE]')) {
-            financeRemarks = `[HIGH-VALUE] ${financeRemarks}`.trim();
-        }
+        console.log(`[${correlationId}] [Pipeline:DISBURSE] Start — request=${requestId} amount=${amount} installment=${lockedRequest.installmentNumber} isHighValue=${isHighValue}`);
 
-        console.log(`[${correlationId}] [Pipeline:DISBURSE] Start — request=${requestId} amount=${amount} installment=${nextInstallmentNumber} isHighValue=${isHighValue}`);
-
-        // 5. ATOMIC STATE UPDATES
-        const newStatus = requestRemainingAmount > 0 ? 'PARTIALLY_DISBURSED' : 'DISBURSED';
+        // SET STATUS TO DISBURSED (always — one request, one disbursement)
         await lockedRequest.update({
-            status: newStatus,
+            status: 'DISBURSED',
             currentStage: 'AMOUNT_DISBURSED',
             transactionId: bankReference,
             bankName: payload.bankName || lockedRequest.bankName,
@@ -402,40 +394,15 @@ const executeDisbursementPipeline = async (request, payload, actor, options = {}
             financeProcessedBy: actor?.id || actor?._id || null,
         }, { transaction });
 
-        // TASK 2 — ENFORCE INSTALLMENT SEQUENCE (APP LEVEL)
-        const maxInstallment = await Disbursement.max('installmentNumber', {
-            where: { fundRequestId: requestId },
-            transaction
-        }) || 0;
-        
-        if (Number(nextInstallmentNumber) !== maxInstallment + 1) {
-            throw new Error(`Invalid installment sequence. Expected ${maxInstallment + 1}, got ${nextInstallmentNumber}`);
-        }
-
-        // TASK 2 — ENFORCE IDEMPOTENCY IN CONTROLLER (Pipeline)
-        // Ensure idempotency Key (TASK 1: Normalize idempotency key format)
-        const sysActor = actor?.id || actor?._id || 'sys';
-        const idempotencyKey = payload.idempotencyKey || `disburse_${requestId}*${Number(amount).toFixed(2)}*${Number(nextInstallmentNumber)}_${sysActor}`;
-
-        let disbursement = await Disbursement.findOne({
-            where: { idempotencyKey },
-            transaction,
-            lock: transaction.LOCK.UPDATE
-        });
-
-        if (disbursement) {
-            console.log(`[${correlationId}] [Pipeline:DISBURSE] Idempotent replay: returning existing disbursement ${disbursement._id}`);
-            return { request: lockedRequest, disbursement, idempotent: true };
-        }
-
+        // CREATE THE SINGLE DISBURSEMENT
+        let disbursement;
         try {
-            // TASK 2 — Insert FIRST, then compute authoritative SUM
             disbursement = await Disbursement.create({
                 fundRequestId: requestId,
                 projectId: lockedRequest.projectId,
                 amount,
-                installmentNumber: nextInstallmentNumber,
-                isInstallment,
+                installmentNumber: lockedRequest.installmentNumber,
+                isInstallment: true,
                 approvedBy,
                 approvedByName,
                 approvedAt,
@@ -449,20 +416,20 @@ const executeDisbursementPipeline = async (request, payload, actor, options = {}
             }, { transaction });
         } catch (err) {
             if (err.name === 'SequelizeUniqueConstraintError') {
-                throw new Error('Concurrent disbursement conflict detected (Installment #, UTR, or Idempotency Key already exists). Please retry.');
+                throw new Error('Duplicate disbursement detected (UTR or idempotency key already exists). Disbursement rejected.');
             }
-            console.error(`[${correlationId}] [Pipeline:DISBURSE] Disbursement create failed for ${requestId}:`, err.message);
+            console.error(`[${correlationId}] [Pipeline:DISBURSE] Disbursement create failed:`, err.message);
             throw err;
         }
 
-        // TASK 2 — Authoritative SUM computed AFTER insert (within same transaction)
-        const authoritativeProjectSum = await Disbursement.sum('amount', {
+        // RECOMPUTE AUTHORITATIVE SUM AFTER INSERT
+        const authoritativeProjectSum = toNumber(await Disbursement.sum('amount', {
             where: { projectId: lockedRequest.projectId },
             transaction
-        }) || 0;
+        }) || 0);
+
         await project.update({
-            releasedBudget: toNumber(authoritativeProjectSum),
-            utilizedBudget: toNumber(project.utilizedBudget),
+            releasedBudget: authoritativeProjectSum,
         }, { transaction });
 
         await ensureFundSourceSeed(lockedRequest.source, transaction);
@@ -488,17 +455,17 @@ const executeDisbursementPipeline = async (request, payload, actor, options = {}
         await logDisbursementAudit({
             projectId: lockedRequest.projectId,
             amount,
-            previousTotalUsed: toNumber(currentProjectSum),
-            newTotalUsed: toNumber(authoritativeProjectSum),
-            remainingBudget: sanctionedBudget - toNumber(authoritativeProjectSum),
-            isInstallment,
+            previousTotalUsed: totalReleased,
+            newTotalUsed: authoritativeProjectSum,
+            remainingBudget: toNumber(project.sanctionedBudget) - authoritativeProjectSum,
+            isInstallment: true,
             isHighValue,
             userId: actor?.id || actor?._id,
             entityId: requestId,
             metadata: {
                 transactionId: bankReference,
                 projectTitle: lockedRequest.projectTitle,
-                financeRemarks: financeRemarks,
+                financeRemarks,
                 approvedBy,
                 approvedByName,
                 anomaly: anomalyCheck.anomaly,
@@ -506,9 +473,11 @@ const executeDisbursementPipeline = async (request, payload, actor, options = {}
             }
         });
 
-        console.log(`[${correlationId}] [Pipeline:DISBURSE] Committed — request=${requestId} disbursement=${disbursement._id} newStatus=${newStatus} authSum=${authoritativeProjectSum}`);
+        console.log(`[${correlationId}] [Pipeline:DISBURSE] Committed — request=${requestId} disbursement=${disbursement._id} status=DISBURSED authSum=${authoritativeProjectSum}`);
 
-        verifyFinancialParity('DISBURSEMENT_PIPELINE').catch(err => console.error(`[${correlationId}] Watchdog failed:`, err));
+        verifyFinancialParity('DISBURSEMENT_PIPELINE').catch(err =>
+            console.error(`[${correlationId}] Watchdog failed:`, err)
+        );
 
         return { request: lockedRequest, disbursement };
     });
