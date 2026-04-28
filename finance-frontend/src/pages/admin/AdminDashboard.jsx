@@ -29,6 +29,7 @@ import EmptyState from '../../components/shared/EmptyState';
 import { normalizeFundSource } from '../../constants/fundSources';
 import { safeApiObj } from '../../api/safeApi';
 import { useCentres } from '../../hooks/useCentres';
+import { useDashboard } from '../../hooks/useDashboard';
 
 const safeNumber = (val) => {
     const num = Number(val || 0);
@@ -98,7 +99,7 @@ const AdminDashboard = () => {
     const [isAddCentreOpen, setIsAddCentreOpen] = useState(false);
     const [aiModal, setAiModal] = useState({ open: false, loading: false, result: null });
     const [forecast, setForecast] = useState(null);
-    const [insights, setInsights] = useState([]);
+    const { data: dashboardData, isLoading: dashboardLoading } = useDashboard(selectedFY);
     const [isSocketConnected, setIsSocketConnected] = useState(true);
     const [drillCentre, setDrillCentre] = useState(null);
     const [drillData, setDrillData] = useState([]);
@@ -257,36 +258,28 @@ const AdminDashboard = () => {
     }, [centresList]);
 
     const totalStats = React.useMemo(() => {
-        if (!stats) return { totalProjects: 0, activeProjects: 0, pendingApprovals: 0, totalBudget: 0, totalAllocated: 0, used: 0, remaining: 0, totalFaculty: 0, totalDisbursed: 0 };
+        if (!dashboardData) return { totalProjects: 0, activeProjects: 0, pendingApprovals: 0, totalBudget: 0, totalAllocated: 0, used: 0, remaining: 0, totalFaculty: 0, totalDisbursed: 0 };
         return {
-            totalProjects: safeNumber(stats.totalProjects),
-            activeProjects: safeNumber(stats.activeProjects),
-            pendingApprovals: safeNumber(stats.pendingApprovals),
-            totalBudget: safeNumber(stats.totalBudget),
-            totalAllocated: safeNumber(stats.totalAllocated),
-            used: safeNumber(stats.used),
-            remaining: safeNumber(stats.remaining),
-            totalFaculty: safeNumber(stats.totalFaculty),
-            totalDisbursed: safeNumber(stats.totalDisbursed ?? stats.used)
+            totalProjects: safeNumber(dashboardData.totalProjects),
+            activeProjects: safeNumber(dashboardData.approvedRequests),
+            pendingApprovals: safeNumber(dashboardData.pendingApprovals),
+            totalDisbursed: safeNumber(dashboardData.totalDisbursed)
         };
-    }, [stats]);
+    }, [dashboardData]);
 
     const centreData = React.useMemo(() => {
-        return (centresStats || [])
-            .map(c => {
-                const nameStr = String(c.name || c.centre || (typeof c === 'string' ? c : 'Unknown Centre'));
-                return {
-                    _id: c._id || c.name || c.centre || Math.random().toString(),
-                    centre: nameStr,
-                    name: nameStr,
-                    totalProjects: Number(c.totalProjects || c.projects || 0),
-                    activeProjects: Number(c.activeProjects || 0),
-                    totalBudget: Number(c.totalBudget || c.allocated || 0),
-                    disbursed: Number(c.disbursed || c.released || 0)
-                };
-            })
+        return (dashboardData?.centres || [])
+            .map(c => ({
+                _id: c.name || Math.random().toString(),
+                centre: c.name,
+                name: c.name,
+                totalProjects: Number(c.projectCount || 0),
+                activeProjects: 0,
+                totalBudget: 0,
+                disbursed: 0
+            }))
             .filter(c => c.name && c.name !== 'Others' && c.name !== 'N/A' && c.name !== 'Unassigned');
-    }, [centresStats]);
+    }, [dashboardData]);
 
     const filteredData = React.useMemo(
         () =>
@@ -296,23 +289,7 @@ const AdminDashboard = () => {
         [centreData, selectedCentre]
     );
 
-    const barChartData = React.useMemo(() =>
-        selectedCentre === 'ALL'
-            ? centreData.map(c => ({
-                name: c.centre.split(' ').map(w => w[0]).join(''),
-                fullName: c.centre,
-                budget: (c.totalBudget ?? 0) / 1000000,
-                disbursed: (c.disbursed ?? 0) / 1000000
-            }))
-            : [
-                {
-                    name: 'Research',
-                    fullName: filteredData[0]?.centre,
-                    budget: (filteredData[0]?.totalBudget ?? 0) / 1000000,
-                    disbursed: (filteredData[0]?.disbursed ?? 0) / 1000000
-                },
-            ]
-        , [centreData, filteredData, selectedCentre]);
+    const barChartData = React.useMemo(() => dashboardData?.trend || [], [dashboardData]);
 
     const handleBarClick = async (data) => {
         if (!data || !data.fullName) return;
@@ -346,11 +323,11 @@ const AdminDashboard = () => {
     }, [setLayout]);
 
     if (!userId) return null;
-    if (loading) return <Loader message="Analyzing financial metrics..." />;
+    if (dashboardLoading || loading) return <Loader message="Analyzing financial metrics..." />;
 
-    const hasData = (stats?.totalAllocated ?? 0) > 0 || safeNumber(stats?.used) > 0;
-    const monthlyData = stats?.monthlyData ?? [];
-    const centreList = stats?.centres ?? [];
+    const hasData = (dashboardData?.totalProjects ?? 0) > 0 || safeNumber(dashboardData?.totalDisbursed) > 0;
+    const monthlyData = dashboardData?.trend ?? [];
+    const centreList = dashboardData?.centres ?? [];
 
     if (!loading && !hasData && (!centreList || !centreList.length)) {
         return <EmptyState message="No Financial Data Available" description="There are no records for the selected financial year." />;
@@ -609,7 +586,7 @@ const AdminDashboard = () => {
                         <div className="w-full h-[240px]">
                             <ResponsiveContainer width="100%" height="100%">
                                 <RadialBarChart cx="50%" cy="50%" innerRadius="70%" outerRadius="100%" barSize={24}
-                                    data={[{ name: 'Utilization', value: totalStats.totalAllocated > 0 ? (totalStats.totalDisbursed / totalStats.totalAllocated) * 100 : 0, fill: '#6366f1' }]}
+                                    data={[{ name: 'Utilization', value: totalStats.totalBudget > 0 ? (totalStats.totalDisbursed / totalStats.totalBudget) * 100 : 0, fill: '#6366f1' }]}
                                     startAngle={225} endAngle={-45}
                                 >
                                     <RadialBar background={{ fill: 'rgba(255,255,255,0.05)' }} dataKey="value" cornerRadius={12} />
@@ -618,7 +595,7 @@ const AdminDashboard = () => {
                         </div>
                         <div className="absolute flex flex-col items-center justify-center pt-2">
                             <span className="text-5xl font-bold tracking-tighter text-white">
-                                {totalStats.totalAllocated > 0 ? ((totalStats.totalDisbursed / totalStats.totalAllocated) * 100).toFixed(0) : 0}<span className="text-xl text-gray-500">%</span>
+                                {totalStats.totalBudget > 0 ? ((totalStats.totalDisbursed / totalStats.totalBudget) * 100).toFixed(0) : 0}<span className="text-xl text-gray-500">%</span>
                             </span>
                             <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-gray-500 mt-2">Utilized</p>
                         </div>
@@ -626,7 +603,7 @@ const AdminDashboard = () => {
                     <div className="grid grid-cols-2 gap-8 mt-8 px-4">
                         <div className="text-center">
                             <p className="text-[10px] font-bold text-gray-500 uppercase mb-2">Total Grant</p>
-                            <p className="text-lg font-semibold tracking-tight">{formatCurrency(totalStats.totalAllocated)}</p>
+                            <p className="text-lg font-semibold tracking-tight">{formatCurrency(totalStats.totalBudget)}</p>
                         </div>
                         <div className="text-center border-l border-white/5">
                             <p className="text-[10px] font-bold text-gray-500 uppercase mb-2">Total Outflow</p>
@@ -660,7 +637,7 @@ const AdminDashboard = () => {
                                 <XAxis dataKey="month" axisLine={false} tickLine={false} fontSize={10} tick={{ fill: '#94a3b8' }} dy={10} />
                                 <YAxis axisLine={false} tickLine={false} fontSize={10} tick={{ fill: '#94a3b8' }} tickFormatter={(val) => `₹${(val / 100000).toFixed(0)}L`} />
                                 <Tooltip cursor={{ fill: 'rgba(255,255,255,0.03)' }} contentStyle={{ backgroundColor: 'rgba(15, 23, 42, 0.9)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', backdropFilter: 'blur(8px)' }} itemStyle={{ color: '#fff', fontSize: '12px' }} />
-                                <Bar dataKey="amount" fill="url(#barGradient2)" radius={[6, 6, 0, 0]} barSize={24} />
+                                <Bar dataKey="total" fill="url(#barGradient2)" radius={[6, 6, 0, 0]} barSize={24} />
                             </BarChart>
                         </ResponsiveContainer>
                     </div>

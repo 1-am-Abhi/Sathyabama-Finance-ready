@@ -133,15 +133,14 @@ router.get('/centre/:name', protect, authorize('ADMIN', 'FINANCE_OFFICER'), asyn
     });
 }));
 
-router.get('/insights', (req, res) => {
-  res.json({
-    success: true,
-    data: {
-      totalProjects: 0,
-      totalDisbursed: 0,
-      utilization: 0
-    }
+const { getDashboardMetrics } = require('../services/dashboardService');
+
+router.get('/insights', async (req, res) => {
+  const data = await getDashboardMetrics({
+    fy: req.query.fy,
+    organizationId: req.user?.organizationId
   });
+  res.json({ success: true, data });
 });
 
 router.get('/forecast-base', (req, res) => {
