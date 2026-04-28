@@ -65,9 +65,12 @@ const resolveCentreAssignment = async (project, user) => {
     return { centreId: null, centre: project?.centre || user?.centre || 'Research Centre' };
 };
 
-const computeRemaining = (project) => {
+const computeRemaining = async (project) => {
     const total = Number(project.sanctionedBudget || 0);
-    const disbursed = Number(project.releasedBudget || 0);
+    const projectId = project._id || project.id;
+    const disbursed = Number(await Disbursement.sum('amount', {
+        where: { projectId }
+    }) || 0);
     return Math.max(0, total - disbursed);
 };
 
@@ -338,14 +341,16 @@ const createFundRequest = asyncHandler(async (req, res) => {
     const projectId = project._id || project.id;
 
     // ── 3. Budget enforcement ───────────────────────────────────────────
-    const remaining = computeRemaining(project);
+    const remaining = await computeRemaining(project);
     if (amount > remaining) {
+        const totalAmount = Number(project.sanctionedBudget);
+        const disbursedAmount = totalAmount - remaining;
         return res.status(400).json({
             success: false,
             message: `Requested amount ₹${amount.toLocaleString()} exceeds remaining project budget ₹${remaining.toLocaleString()}.`,
             data: {
-                totalAmount: Number(project.sanctionedBudget),
-                disbursedAmount: Number(project.releasedBudget),
+                totalAmount,
+                disbursedAmount,
                 remainingAmount: remaining,
             },
         });
@@ -502,7 +507,7 @@ const disburseFund = asyncHandler(async (req, res) => {
     const request = await FundRequest.findByPk(req.params.id);
     if (!request) return res.status(404).json({ success: false, message: 'Request not found' });
 
-    const allowedStatuses = ['PENDING_DISBURSAL', 'APPROVED', 'PARTIALLY_DISBURSED'];
+    const allowedStatuses = ['PENDING_DISBURSAL', 'PARTIALLY_DISBURSED'];
     if (!allowedStatuses.includes(request.status)) {
         // Idempotency check: If already disbursed, check if it was this transaction
         if (request.status === 'DISBURSED' && req.body.transactionId) {
@@ -524,15 +529,26 @@ const disburseFund = asyncHandler(async (req, res) => {
 
         return res.status(400).json({
             success: false,
-            message: `Cannot disburse a request with status '${request.status}'. Only PENDING_DISBURSAL, APPROVED, or PARTIALLY_DISBURSED requests can be disbursed.`,
+            message: `Cannot disburse a request with status '${request.status}'. Only PENDING_DISBURSAL or PARTIALLY_DISBURSED requests can be disbursed.`,
         });
     }
 
-    const hasApproval = (request.auditTrail || []).some(entry => entry.stage === 'FUND_APPROVED');
-    if (!hasApproval) {
+    // TASK 11 — Strengthen approval check: auditTrail JSON + AuditLog DB fallback
+    const hasApprovalInTrail = (request.auditTrail || []).some(entry => entry.stage === 'FUND_APPROVED');
+    let hasApprovalInDB = false;
+    if (!hasApprovalInTrail) {
+        const approvalLog = await AuditLog.findOne({
+            where: {
+                entityId: String(request._id || request.id),
+                action: { [Op.in]: ['FUND_REQUEST_APPROVED', 'FUND_APPROVED'] }
+            }
+        });
+        hasApprovalInDB = !!approvalLog;
+    }
+    if (!hasApprovalInTrail && !hasApprovalInDB) {
         return res.status(400).json({
             success: false,
-            message: 'No valid approval record found for disbursement',
+            message: 'No valid approval record found. This request must be approved before disbursement.',
         });
     }
 
@@ -548,6 +564,28 @@ const disburseFund = asyncHandler(async (req, res) => {
         }
     }
 
+    // TASK 8 — Strict amount validation from DB SUM
+    const disbursementAmount = Number(req.body.amount || request.requestedAmount);
+    if (!Number.isFinite(disbursementAmount) || disbursementAmount <= 0) {
+        return res.status(400).json({
+            success: false,
+            message: 'Disbursement amount must be a positive number.',
+        });
+    }
+
+    const alreadyDisbursed = Number(await Disbursement.sum('amount', {
+        where: { fundRequestId: request._id || request.id }
+    }) || 0);
+    const requestedAmount = Number(request.requestedAmount);
+    const remainingAmount = requestedAmount - alreadyDisbursed;
+
+    if (disbursementAmount > remainingAmount) {
+        return res.status(400).json({
+            success: false,
+            message: `Amount ₹${disbursementAmount.toLocaleString()} exceeds remaining balance ₹${remainingAmount.toLocaleString()} (requested: ₹${requestedAmount.toLocaleString()}, already disbursed: ₹${alreadyDisbursed.toLocaleString()}).`,
+        });
+    }
+
     const payload = {
         transactionId: req.body.transactionId || null,
         bankName: req.body.bankName || null,
@@ -556,7 +594,7 @@ const disburseFund = asyncHandler(async (req, res) => {
         mode: req.body.mode || 'FULL',
         installmentNo: req.body.installmentNo || request.installmentNumber,
         isInstallment: req.body.isInstallment || req.body.mode === 'INSTALLMENT',
-        amount: req.body.amount || request.requestedAmount
+        amount: disbursementAmount
     };
 
     const { request: updatedRequest, disbursement } = await executeDisbursementPipeline(
@@ -569,7 +607,9 @@ const disburseFund = asyncHandler(async (req, res) => {
     if (updatedRequest.projectId) {
         const project = await Project.findByPk(updatedRequest.projectId);
         if (project) {
-            const disbursedAmount = Number(project.releasedBudget || 0);
+            const disbursedAmount = Number(await Disbursement.sum('amount', {
+                where: { projectId: updatedRequest.projectId }
+            }) || 0);
             const totalAmount = Number(project.sanctionedBudget || 0);
             budgetSummary = {
                 totalAmount,
@@ -712,7 +752,9 @@ const getProjectWithInstallments = asyncHandler(async (req, res) => {
     });
 
     const totalAmount = Number(project.sanctionedBudget || 0);
-    const disbursedAmount = Number(project.releasedBudget || 0);
+    const disbursedAmount = Number(await Disbursement.sum('amount', {
+        where: { projectId: project._id || project.id }
+    }) || 0);
     const remainingAmount = Math.max(0, totalAmount - disbursedAmount);
 
     return res.status(200).json({

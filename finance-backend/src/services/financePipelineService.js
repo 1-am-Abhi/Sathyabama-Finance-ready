@@ -400,10 +400,13 @@ const executeDisbursementPipeline = async (request, payload, actor) => {
             throw err;
         }
 
-        // Update project releasedBudget using fresh transaction sum
-        const updatedFreshSum = toNumber(currentProjectSum) + amount;
+        // Update project releasedBudget using AUTHORITATIVE SUM (not incremental)
+        const authoritativeProjectSum = await Disbursement.sum('amount', {
+            where: { projectId: request.projectId },
+            transaction
+        }) || 0;
         await project.update({
-            releasedBudget: updatedFreshSum,
+            releasedBudget: toNumber(authoritativeProjectSum),
             utilizedBudget: toNumber(project.utilizedBudget),
         }, { transaction });
 
@@ -431,8 +434,8 @@ const executeDisbursementPipeline = async (request, payload, actor) => {
             projectId: request.projectId,
             amount,
             previousTotalUsed: toNumber(currentProjectSum),
-            newTotalUsed: updatedFreshSum,
-            remainingBudget: sanctionedBudget - updatedFreshSum,
+            newTotalUsed: toNumber(authoritativeProjectSum),
+            remainingBudget: sanctionedBudget - toNumber(authoritativeProjectSum),
             isInstallment,
             isHighValue,
             userId: actor?.id || actor?._id,

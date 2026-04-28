@@ -11,6 +11,17 @@ const FUND_FLOW_STAGES = [
     'SETTLEMENT_CLOSED'
 ];
 
+const VALID_STATUSES = [
+    'PENDING',
+    'PENDING_APPROVAL',
+    'APPROVED',
+    'PENDING_DISBURSAL',
+    'PARTIALLY_DISBURSED',
+    'DISBURSED',
+    'REJECTED',
+    'CANCELLED'
+];
+
 class FundRequest extends Model {
     async advanceStage(nextStage, updatedBy, remarks) {
         const currentIndex = FUND_FLOW_STAGES.indexOf(this.currentStage);
@@ -87,7 +98,13 @@ FundRequest.init({
     },
     status: {
         type: DataTypes.STRING,
-        defaultValue: 'PENDING'
+        defaultValue: 'PENDING',
+        validate: {
+            isIn: {
+                args: [VALID_STATUSES],
+                msg: `Status must be one of: ${VALID_STATUSES.join(', ')}`
+            }
+        }
     },
     currentStage: {
         type: DataTypes.ENUM(...FUND_FLOW_STAGES),
@@ -140,4 +157,4 @@ FundRequest.init({
 });
 
 
-module.exports = { FundRequest, FUND_FLOW_STAGES };
+module.exports = { FundRequest, FUND_FLOW_STAGES, VALID_STATUSES };

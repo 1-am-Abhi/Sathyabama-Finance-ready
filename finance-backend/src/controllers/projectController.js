@@ -4,6 +4,7 @@ const {
     User, 
     ProjectMember, 
     FundRequest: FR, 
+    Disbursement,
     ResearchCenter,
     Centre
 } = require('../models');
@@ -191,7 +192,9 @@ const getProject = asyncHandler(async (req, res) => {
     });
 
     const totalAmount = Number(project.sanctionedBudget || 0);
-    const disbursedAmount = Number(project.releasedBudget || 0);
+    const disbursedAmount = Number(await Disbursement.sum('amount', {
+        where: { projectId: project._id || project.id }
+    }) || 0);
     const remainingAmount = Math.max(0, totalAmount - disbursedAmount);
 
     return res.status(200).json({

@@ -37,7 +37,8 @@ router.get('/departments/:id/funding-history', async (req, res) => {
         });
         res.json({ success: true, data: history || [] });
     } catch (err) {
-        res.json({ success: true, data: [] });
+        console.error('[departments/:id/funding-history] DB Error:', err.message);
+        res.status(500).json({ success: false, message: 'Failed to fetch funding history' });
     }
 });
 
@@ -67,7 +68,7 @@ router.get('/projects/:id/history', async (req, res) => {
 router.get('/disbursements', (req, res, next) => {
     req.query = {
         ...req.query,
-        status: req.query.status || 'PENDING_DISBURSAL,APPROVED,PARTIALLY_DISBURSED',
+        status: req.query.status || 'PENDING_DISBURSAL,PARTIALLY_DISBURSED',
         limit: req.query.limit || '200',
     };
     return fundRequestController.getFundRequests(req, res, next);
@@ -102,7 +103,8 @@ router.get('/equipment-disbursements', async (req, res) => {
         });
         res.json({ success: true, data: eqReqs || [] });
     } catch (err) {
-        res.json({ success: true, data: [] });
+        console.error('[equipment-disbursements] DB Error:', err.message);
+        res.status(500).json({ success: false, message: 'Failed to fetch equipment disbursements' });
     }
 });
 
@@ -125,7 +127,8 @@ router.get('/function-requests', async (req, res) => {
         });
         res.json({ success: true, data: fnReqs || [] });
     } catch (err) {
-        res.json({ success: true, data: [] });
+        console.error('[function-requests] DB Error:', err.message);
+        res.status(500).json({ success: false, message: 'Failed to fetch function requests' });
     }
 });
 
