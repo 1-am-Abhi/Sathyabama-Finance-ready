@@ -619,45 +619,80 @@ const disburseFund = asyncHandler(async (req, res) => {
         }
     }
 
-    await NotificationService.notifyFaculty(
-        updatedRequest,
-        'Funds Disbursed',
-        `Installment #${updatedRequest.installmentNumber || 1} (₹${updatedRequest.requestedAmount?.toLocaleString()}) for '${updatedRequest.projectTitle}' has been disbursed to your account.`,
-        'SUCCESS',
-        '/faculty/request-funds'
-    );
-    await NotificationService.notifyRole(
-        'ADMIN',
-        'Disbursement Completed',
-        `Finance disbursed installment #${updatedRequest.installmentNumber || 1} for '${updatedRequest.projectTitle}'.`,
-        'INFO',
-        '/admin/fund-requests'
-    );
-    await NotificationService.notifyRole(
-        'FINANCE_OFFICER',
-        'Disbursement Completed',
-        `Installment #${updatedRequest.installmentNumber || 1} for '${updatedRequest.projectTitle}' was marked as ${payload.mode}.`,
-        'INFO',
-        '/finance/disbursal-history'
-    );
+    // TASK 6 — Notifications: DB insert is guaranteed, socket emit is best-effort
+    // Each notification is isolated — one failure cannot block others
+    const notifyFacultyMsg = `Installment #${disbursement?.installmentNumber || 1} (₹${Number(payload.amount).toLocaleString()}) for '${updatedRequest.projectTitle}' has been disbursed.`;
+    try {
+        console.log(`[Notify] Sending faculty disbursement notification for ${updatedRequest.projectTitle}`);
+        await NotificationService.notifyFaculty(
+            updatedRequest,
+            'Funds Disbursed',
+            notifyFacultyMsg,
+            'SUCCESS',
+            '/faculty/request-funds'
+        );
+    } catch (notifyErr) {
+        console.error('[Notify] Faculty notification failed (non-blocking):', notifyErr.message);
+    }
 
-    await AuditLog.create({
-        userId: req.user.id || req.user._id,
-        action: 'FUND_REQUEST_DISBURSED',
-        entityType: 'FundRequest',
-        entityId: String(updatedRequest.id),
-        metadata: { transactionId: payload.transactionId, amount: Number(updatedRequest.requestedAmount) }
-    });
+    try {
+        await NotificationService.notifyRole(
+            'ADMIN',
+            'Disbursement Completed',
+            `Finance disbursed installment #${disbursement?.installmentNumber || 1} for '${updatedRequest.projectTitle}'.`,
+            'INFO',
+            '/admin/fund-requests'
+        );
+    } catch (notifyErr) {
+        console.error('[Notify] Admin notification failed (non-blocking):', notifyErr.message);
+    }
 
-    if (global.io) {
-        console.log(`[Socket.io] Broadcasting finance:update for ${updatedRequest.projectTitle}`);
-        global.io.emit('finance:update', { 
-            type: 'DISBURSEMENT',
-            subType: payload.mode,
-            projectTitle: updatedRequest.projectTitle, 
-            amount: Number(updatedRequest.requestedAmount),
-            updatedBy: req.user?.name 
+    try {
+        await NotificationService.notifyRole(
+            'FINANCE_OFFICER',
+            'Disbursement Completed',
+            `Installment #${disbursement?.installmentNumber || 1} for '${updatedRequest.projectTitle}' was processed (${payload.mode || 'FULL'}).`,
+            'INFO',
+            '/finance/disbursal-history'
+        );
+    } catch (notifyErr) {
+        console.error('[Notify] Finance notification failed (non-blocking):', notifyErr.message);
+    }
+
+    // Audit log — also non-blocking
+    try {
+        await AuditLog.create({
+            userId: req.user.id || req.user._id,
+            action: 'FUND_REQUEST_DISBURSED',
+            entityType: 'FundRequest',
+            entityId: String(updatedRequest._id || updatedRequest.id),
+            metadata: {
+                transactionId: payload.transactionId,
+                amount: Number(payload.amount),
+                installmentNumber: disbursement?.installmentNumber,
+                newStatus: updatedRequest.status,
+            }
         });
+    } catch (auditErr) {
+        console.error('[Audit] AuditLog create failed (non-blocking):', auditErr.message);
+    }
+
+    // Socket emit — best-effort, never throws
+    try {
+        if (global.io) {
+            console.log(`[Socket] Broadcasting finance:update for ${updatedRequest.projectTitle}`);
+            global.io.emit('finance:update', {
+                type: 'DISBURSEMENT',
+                subType: payload.mode || 'FULL',
+                projectTitle: updatedRequest.projectTitle,
+                amount: Number(payload.amount),
+                installmentNumber: disbursement?.installmentNumber,
+                updatedBy: req.user?.name,
+                newStatus: updatedRequest.status,
+            });
+        }
+    } catch (socketErr) {
+        console.error('[Socket] finance:update emit failed (non-blocking):', socketErr.message);
     }
 
     return res.status(200).json({

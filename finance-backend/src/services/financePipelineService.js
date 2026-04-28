@@ -283,34 +283,50 @@ const executeDisbursementPipeline = async (request, payload, actor) => {
     const isInstallment = payload.mode === 'INSTALLMENT' || payload.isInstallment === true;
 
     return sequelize.transaction(async (transaction) => {
-        // 2. ELITE-LEVEL CONCURRENCY LOCK (Lock Project to serialize all payments for it)
+        // TASK 1 — ROW-LEVEL LOCK on FundRequest (blocks concurrent disbursements on same request)
+        const lockedRequest = await FundRequest.findByPk(request._id || request.id, {
+            transaction,
+            lock: transaction.LOCK.UPDATE
+        });
+
+        if (!lockedRequest) {
+            throw new Error(`FundRequest ${request._id || request.id} not found — possible race condition`);
+        }
+
+        // Re-validate status after acquiring lock (state may have changed)
+        const allowedStatuses = ['PENDING_DISBURSAL', 'PARTIALLY_DISBURSED'];
+        if (!allowedStatuses.includes(lockedRequest.status)) {
+            throw new Error(`[CONCURRENCY] Request status changed to '${lockedRequest.status}' before lock was acquired. Disbursement rejected.`);
+        }
+
+        // ELITE-LEVEL CONCURRENCY LOCK on Project (serializes all project payments)
         const project = await Project.findOne({
-            where: { _id: request.projectId },
+            where: { _id: lockedRequest.projectId },
             transaction,
             lock: transaction.LOCK.UPDATE
         });
 
         if (!project || !isValidProjectStatus(project.status)) {
-            throw new Error(`Target project status [${project.status || 'UNKNOWN'}] is invalid for disbursement`);
+            throw new Error(`Target project status [${project?.status || 'UNKNOWN'}] is invalid for disbursement`);
         }
 
-        // 3. SEQUENTIAL INSTALLMENT CALCULATION
+        // 3. SEQUENTIAL INSTALLMENT CALCULATION — scoped to this FundRequest (not project)
         const lastDisbursement = await Disbursement.findOne({
-            where: { projectId: request.projectId },
+            where: { fundRequestId: lockedRequest._id || lockedRequest.id },
             order: [['installmentNumber', 'DESC']],
             transaction
         });
 
         const nextInstallmentNumber = (lastDisbursement?.installmentNumber || 0) + 1;
 
-        // 4. ATOMIC OVERPAYMENT PROTECTION
+        // 4. ATOMIC OVERPAYMENT PROTECTION — request-level SUM inside transaction
         const currentProjectSum = await Disbursement.sum('amount', {
-            where: { projectId: request.projectId },
+            where: { projectId: lockedRequest.projectId },
             transaction
         }) || 0;
 
         const currentRequestSum = await Disbursement.sum('amount', {
-            where: { fundRequestId: getRecordId(request) },
+            where: { fundRequestId: lockedRequest._id || lockedRequest.id },
             transaction
         }) || 0;
 
@@ -319,7 +335,7 @@ const executeDisbursementPipeline = async (request, payload, actor) => {
             throw new Error(`Overpayment protection: Sanctioned budget ₹${sanctionedBudget.toLocaleString()} exceeded by current transaction`);
         }
         
-        const requestTotal = toNumber(request.requestedAmount);
+        const requestTotal = toNumber(lockedRequest.requestedAmount);
         const requestReleasedAmount = currentRequestSum + amount;
         const requestRemainingAmount = requestTotal - requestReleasedAmount;
 
@@ -327,7 +343,7 @@ const executeDisbursementPipeline = async (request, payload, actor) => {
             throw new Error(`Invalid disbursement: Amount ₹${amount} exceeds remaining request balance ₹${requestTotal - currentRequestSum}.`);
         }
 
-        const sourceTotals = await getFundSourceAllocationState(request.source, transaction);
+        const sourceTotals = await getFundSourceAllocationState(lockedRequest.source, transaction);
         if (sourceTotals.used + amount > sourceTotals.allocated) {
             throw new Error('Disbursement exceeds available fund source allocation limits');
         }
@@ -335,25 +351,40 @@ const executeDisbursementPipeline = async (request, payload, actor) => {
         let financeRemarks = (payload.remarks || '').trim();
         financeRemarks = `[INSTALLMENT #${nextInstallmentNumber}] ${financeRemarks}`.trim();
 
-        let approvalEntry = (request.auditTrail || [])
-            .filter(entry => entry.stage === 'FUND_APPROVED')
-            .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))[0];
-
-        // Fallback for legacy data or missing audit trail
-        if (!approvalEntry) {
-            console.warn(`[DisbursementPipeline] No FUND_APPROVED audit entry for request ${request._id || request.id}. Using fallback.`);
-            approvalEntry = {
-                updatedBy: null,
-                updatedByName: 'Institutional Admin',
-                timestamp: request.createdAt || new Date()
-            };
+        // TASK 7 — Use AuditLog DB as single source of truth for approval
+        const requestId = lockedRequest._id || lockedRequest.id;
+        let approvedBy = null, approvedByName = 'Institutional Admin', approvedAt = lockedRequest.createdAt;
+        try {
+            const { AuditLog } = require('../models');
+            const { Op: SeqOp } = require('sequelize');
+            const approvalLog = await AuditLog.findOne({
+                where: {
+                    entityId: String(requestId),
+                    action: { [SeqOp.in]: ['FUND_REQUEST_APPROVED', 'FUND_APPROVED'] }
+                },
+                order: [['createdAt', 'DESC']],
+                transaction
+            });
+            if (approvalLog) {
+                approvedBy = approvalLog.userId || null;
+                approvedByName = approvalLog.performedByName || approvalLog.metadata?.updatedByName || 'Admin';
+                approvedAt = approvalLog.createdAt;
+            } else {
+                // Fallback: auditTrail JSON for legacy data
+                const auditEntry = (lockedRequest.auditTrail || [])
+                    .filter(e => e.stage === 'FUND_APPROVED')
+                    .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))[0];
+                if (auditEntry) {
+                    approvedBy = auditEntry.updatedBy;
+                    approvedByName = auditEntry.updatedByName || 'Admin';
+                    approvedAt = auditEntry.timestamp;
+                }
+            }
+        } catch (auditErr) {
+            console.warn(`[DisbursementPipeline] Could not fetch AuditLog for ${requestId}:`, auditErr.message);
         }
 
-        const approvedBy = approvalEntry.updatedBy;
-        const approvedByName = approvalEntry.updatedByName;
-        const approvedAt = approvalEntry.timestamp;
-
-        // 4.6. OBSERVABILITY: High-Value Threshold Detection
+        // TASK 4.6 — High-Value Threshold Detection
         const threshold = toNumber(process.env.HIGH_VALUE_THRESHOLD || 100000);
         const isHighValue = amount >= threshold;
 
@@ -361,13 +392,15 @@ const executeDisbursementPipeline = async (request, payload, actor) => {
             financeRemarks = `[HIGH-VALUE] ${financeRemarks}`.trim();
         }
 
+        console.log(`[Pipeline:DISBURSE] Start — request=${requestId} amount=${amount} installment=${nextInstallmentNumber} isHighValue=${isHighValue}`);
+
         // 5. ATOMIC STATE UPDATES
         const newStatus = requestRemainingAmount > 0 ? 'PARTIALLY_DISBURSED' : 'DISBURSED';
-        await request.update({
+        await lockedRequest.update({
             status: newStatus,
             currentStage: 'AMOUNT_DISBURSED',
             transactionId: bankReference,
-            bankName: payload.bankName || request.bankName,
+            bankName: payload.bankName || lockedRequest.bankName,
             disbursementDate,
             financeRemarks,
             financeProcessedAt: new Date(),
@@ -376,10 +409,10 @@ const executeDisbursementPipeline = async (request, payload, actor) => {
 
         let disbursement;
         try {
-            // ALWAYS CREATE New record - Strict Append Model
+            // TASK 2 — Insert FIRST, then compute authoritative SUM
             disbursement = await Disbursement.create({
-                fundRequestId: getRecordId(request),
-                projectId: request.projectId,
+                fundRequestId: requestId,
+                projectId: lockedRequest.projectId,
                 amount,
                 installmentNumber: nextInstallmentNumber,
                 isInstallment,
@@ -397,12 +430,13 @@ const executeDisbursementPipeline = async (request, payload, actor) => {
             if (err.name === 'SequelizeUniqueConstraintError') {
                 throw new Error('Concurrent disbursement conflict detected (Installment # or UTR already exists). Please retry.');
             }
+            console.error(`[Pipeline:DISBURSE] Disbursement create failed for ${requestId}:`, err.message);
             throw err;
         }
 
-        // Update project releasedBudget using AUTHORITATIVE SUM (not incremental)
+        // TASK 2 — Authoritative SUM computed AFTER insert (within same transaction)
         const authoritativeProjectSum = await Disbursement.sum('amount', {
-            where: { projectId: request.projectId },
+            where: { projectId: lockedRequest.projectId },
             transaction
         }) || 0;
         await project.update({
@@ -410,17 +444,17 @@ const executeDisbursementPipeline = async (request, payload, actor) => {
             utilizedBudget: toNumber(project.utilizedBudget),
         }, { transaction });
 
-        await ensureFundSourceSeed(request.source, transaction);
+        await ensureFundSourceSeed(lockedRequest.source, transaction);
 
         await safeCreateLedgerEntry({
             entryType: 'OUTFLOW',
-            category: request.source || 'GENERAL',
+            category: lockedRequest.source || 'GENERAL',
             amount,
-            projectId: request.projectId,
-            fundRequestId: getRecordId(request),
+            projectId: lockedRequest.projectId,
+            fundRequestId: requestId,
             disbursementId: getRecordId(disbursement),
             referenceId: bankReference,
-            description: `Fund disbursement for ${request.projectTitle}`,
+            description: `Fund disbursement for ${lockedRequest.projectTitle}`,
             financialYear: getFinancialYear(disbursementDate),
             entryDate: disbursementDate,
             createdByUserId: actor?.id || actor?._id || null,
@@ -428,10 +462,10 @@ const executeDisbursementPipeline = async (request, payload, actor) => {
             isHighValue,
         }, { transaction });
 
-        const anomalyCheck = await detectAnomalies({ projectId: request.projectId, amount });
+        const anomalyCheck = await detectAnomalies({ projectId: lockedRequest.projectId, amount });
 
         await logDisbursementAudit({
-            projectId: request.projectId,
+            projectId: lockedRequest.projectId,
             amount,
             previousTotalUsed: toNumber(currentProjectSum),
             newTotalUsed: toNumber(authoritativeProjectSum),
@@ -439,10 +473,10 @@ const executeDisbursementPipeline = async (request, payload, actor) => {
             isInstallment,
             isHighValue,
             userId: actor?.id || actor?._id,
-            entityId: getRecordId(request),
+            entityId: requestId,
             metadata: {
                 transactionId: bankReference,
-                projectTitle: request.projectTitle,
+                projectTitle: lockedRequest.projectTitle,
                 financeRemarks: financeRemarks,
                 approvedBy,
                 approvedByName,
@@ -451,9 +485,11 @@ const executeDisbursementPipeline = async (request, payload, actor) => {
             }
         });
 
+        console.log(`[Pipeline:DISBURSE] Committed — request=${requestId} disbursement=${disbursement._id} newStatus=${newStatus} authSum=${authoritativeProjectSum}`);
+
         verifyFinancialParity('DISBURSEMENT_PIPELINE').catch(err => console.error('Watchdog failed:', err));
 
-        return { request, disbursement };
+        return { request: lockedRequest, disbursement };
     });
 };
 
