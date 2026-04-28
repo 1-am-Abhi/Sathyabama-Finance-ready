@@ -53,12 +53,17 @@ const FacultyRequestFunds = () => {
   // DATA CORRECTNESS (CRITICAL) - Task 1
   const sanctionedAmount = Number(selectedProject?.sanctionedBudget || 0);
   const releasedAmount =
-    Number(selectedProject?.releasedBudget ?? 0) ||
-    (selectedProject?.Disbursements || []).reduce(
-      (sum, d) => sum + Number(d.amount || 0),
-      0
-    );
-  const remainingAmount = sanctionedAmount - releasedAmount;
+    selectedProject?.releasedBudget !== undefined &&
+    selectedProject?.releasedBudget !== null
+      ? Number(selectedProject.releasedBudget)
+      : (selectedProject?.Disbursements || []).reduce(
+          (sum, d) => sum + Number(d.amount || 0),
+          0
+        );
+  const remainingAmount = Math.max(
+    sanctionedAmount - releasedAmount,
+    0
+  );
 
   // BUTTON LOGIC (FINAL) - Task 4
   const canRequest = isPI && remainingAmount > 0;
@@ -195,7 +200,11 @@ const FacultyRequestFunds = () => {
                 type="number"
                 placeholder="Amount"
                 value={amount}
-                onChange={(e) => setAmount(e.target.value)}
+                onChange={(e) => {
+                  const value = Number(e.target.value);
+                  if (value > remainingAmount) return;
+                  setAmount(value);
+                }}
                 className="w-full border p-2 rounded mt-1"
                 max={remainingAmount}
               />
@@ -227,12 +236,18 @@ const FacultyRequestFunds = () => {
         <h3 className="font-bold text-lg mb-4">Request History</h3>
         <div className="space-y-2">
           {requestHistory
-            .filter(r => (r.projectId || r.projectRef) === selectedProject?._id || (r.projectId || r.projectRef) === selectedProject?.id)
+            .filter(r => {
+              const pid = r.projectId || r.projectRef;
+              return pid === selectedProject?._id || pid === selectedProject?.id;
+            })
             .length === 0 ? (
               <p className="text-gray-500 italic">No request history for this project.</p>
           ) : (
             requestHistory
-              .filter(r => (r.projectId || r.projectRef) === selectedProject?._id || (r.projectId || r.projectRef) === selectedProject?.id)
+              .filter(r => {
+                const pid = r.projectId || r.projectRef;
+                return pid === selectedProject?._id || pid === selectedProject?.id;
+              })
               .map((r) => (
                 <div key={r._id || r.id} className="p-3 border rounded flex justify-between items-center bg-gray-50">
                   <div>
