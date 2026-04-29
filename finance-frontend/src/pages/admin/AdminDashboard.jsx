@@ -36,6 +36,33 @@ const safeNumber = (val) => {
     return isFinite(num) ? num : 0;
 };
 
+const formatINR = (val) => {
+    const num = safeNumber(val);
+    return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(num);
+};
+
+/**
+ * Pure function — converts a raw analytics metrics object into an array of
+ * human-readable insight strings. Guaranteed to return string[].
+ */
+const buildInsightsFromMetrics = (raw) => {
+    if (!raw || typeof raw !== 'object') return [];
+
+    const projects     = safeNumber(raw.totalProjects);
+    const disbursed    = safeNumber(raw.totalDisbursed);
+    const utilization  = safeNumber(raw.utilization);
+    const pending      = safeNumber(raw.pendingApprovals);
+    const centres      = Array.isArray(raw.centres) ? raw.centres : [];
+
+    const lines = [];
+    if (projects > 0)     lines.push(`${projects} research projects tracked across all centres.`);
+    if (disbursed > 0)    lines.push(`Total disbursed: ${formatINR(disbursed)}.`);
+    if (utilization > 0)  lines.push(`Budget utilization is at ${utilization.toFixed(1)}%.`);
+    if (pending > 0)      lines.push(`${pending} fund requests are pending approval.`);
+    if (centres.length > 0) lines.push(`${centres.length} research centres are active.`);
+    return lines;
+};
+
 const getAdminFundSourceLabel = (value) => {
     const normalized = normalizeFundSource(value);
     if (normalized === 'INSTITUTIONAL') return 'Innovation Fund';
@@ -194,26 +221,19 @@ const AdminDashboard = () => {
                     apiClient.get('/analytics/forecast-base?days=30')
                 ]);
 
-                if (insightsRes.data?.success) {
-                    const metrics = insightsRes.data.data || {};
-                    const generatedInsights = [];
-                    if (metrics.totalProjects > 0) generatedInsights.push(`${metrics.totalProjects} research projects tracked across all centres.`);
-                    if (metrics.totalDisbursed > 0) generatedInsights.push(`Total disbursed: ₹${Number(metrics.totalDisbursed).toLocaleString('en-IN')}.`);
-                    if (metrics.utilization > 0) generatedInsights.push(`Budget utilization is at ${metrics.utilization}%.`);
-                    if (metrics.pendingApprovals > 0) generatedInsights.push(`${metrics.pendingApprovals} fund requests are pending approval.`);
-                    if ((metrics.centres || []).length > 0) generatedInsights.push(`${metrics.centres.length} research centres are active.`);
-                    setInsights(generatedInsights);
+                const metrics = insightsRes?.data?.success ? (insightsRes.data.data ?? {}) : {};
+                setInsights(buildInsightsFromMetrics(metrics));
 
-                    const avgDaily = Number(metrics.totalDisbursed || 0) / 365;
-                    setForecast({
-                        avgDailySpend: avgDaily,
-                        projectedUsage30Days: avgDaily * 30,
-                        confidence: avgDaily > 0 ? 'HIGH' : 'LOW',
-                        risk: 'LOW'
-                    });
-                }
+                const avgDaily = safeNumber(metrics.totalDisbursed) / 365;
+                setForecast({
+                    avgDailySpend: avgDaily,
+                    projectedUsage30Days: avgDaily * 30,
+                    confidence: avgDaily > 0 ? 'HIGH' : 'LOW',
+                    risk: 'LOW'
+                });
             } catch (err) {
-                console.warn("Failed to fetch analytics:", err);
+                console.warn('Failed to fetch analytics:', err);
+                setInsights([]);
             }
         };
         fetchInsights();
