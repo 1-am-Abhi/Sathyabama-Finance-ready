@@ -145,7 +145,7 @@ export const AuthProvider = ({ children }) => {
             setToken(userToken);
             setUser(normalizedUser);
 
-            return { success: true };
+            return { success: true, user: normalizedUser, token: userToken };
         } catch (error) {
             console.error('Login error:', error);
             return {

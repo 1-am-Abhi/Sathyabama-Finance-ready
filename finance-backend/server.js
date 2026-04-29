@@ -203,7 +203,7 @@ require('./src/jobs/reportScheduler');
 
 connectDB().then(async () => {
     // 🔴 DB SAFETY
-    await sequelize.sync(); // ONLY THIS
+    // await sequelize.sync(); // ONLY THIS - REMOVED FOR PRODUCTION STABILITY
 
     // Seed standard chart of accounts
     const seedAccounts = require('./src/utils/accountSeeder');

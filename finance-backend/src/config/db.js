@@ -46,7 +46,7 @@ const connectDB = async () => {
         logger.info('Models and associations initialized.');
         
         if (shouldSyncDatabase) {
-            await sequelize.sync({ alter: shouldAlterSchema });
+            // await sequelize.sync({ alter: shouldAlterSchema }); // REMOVED FOR STABILITY
             logger.warn(`WARNING: Database synced (alter=${shouldAlterSchema}). This should not happen in production!`);
         } else {
             logger.info('Database sync skipped natively. Migrations should manage the schemas moving forward.');

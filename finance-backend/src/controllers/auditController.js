@@ -123,7 +123,12 @@ const verifyAuditLog = asyncHandler(async (req, res) => {
     });
 });
 
-const topSpendProjects = getTopSpendProjects;
+const safe = require('../utils/safeController');
+
+const topSpendProjects = safe(async (req, res) => {
+  const results = await getTopSpendProjects(req.organizationId);
+  return results;
+});
 
 module.exports = {
   getAuditTimeline,

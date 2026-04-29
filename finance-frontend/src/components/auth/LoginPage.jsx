@@ -34,9 +34,11 @@ const LoginPage = () => {
             const result = await login(email, password, selectedRole);
             
             if (result.success) {
-                // Get the user from local storage or context (AuthContext already sets it)
-                const storedUser = JSON.parse(localStorage.getItem('user'));
-                const role = storedUser.role;
+                const user = result.user;
+                const role = user?.role;
+                if (!role) {
+                    throw new Error("Invalid user data");
+                }
 
                 const dashboardPaths = {
                     [ROLES.ADMIN]: '/admin/dashboard',

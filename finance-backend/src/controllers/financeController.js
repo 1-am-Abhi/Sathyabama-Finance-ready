@@ -156,7 +156,7 @@ const getDisbursalHistory = safe(async (req) => {
             createdAt: { [Op.between]: [startDate, endDate] }
         },
         include: [
-            { model: FundRequest, include: [Project] },
+            { model: FundRequest, as: 'FundRequest', include: [{ model: Project, as: 'Project' }] },
             { model: User, as: 'officer', attributes: ['name', 'email'] }
         ],
         order: [['createdAt', 'DESC']],
@@ -396,7 +396,7 @@ const exportFinancialReports = async (req, res) => {
 
     const disbursements = await Disbursement.findAll({
       where: whereClause,
-      include: [{ model: FundRequest, include: [Project] }, { model: User, as: 'officer', attributes: ['name'] }],
+      include: [{ model: FundRequest, as: 'FundRequest', include: [{ model: Project, as: 'Project' }] }, { model: User, as: 'officer', attributes: ['name'] }],
       order: [['createdAt', 'DESC']],
     });
 
@@ -432,7 +432,7 @@ const exportFinancialReportsPDF = async (req, res) => {
 
     const disbursements = await Disbursement.findAll({
       where: whereClause,
-      include: [{ model: FundRequest, include: [Project] }, { model: User, as: 'officer', attributes: ['name'] }],
+      include: [{ model: FundRequest, as: 'FundRequest', include: [{ model: Project, as: 'Project' }] }, { model: User, as: 'officer', attributes: ['name'] }],
       order: [['createdAt', 'DESC']],
     });
 
@@ -926,6 +926,8 @@ const archiveOldLedgerEntries = asyncHandler(async (req, res) => {
 });
 
 const getPFMSData = getPFMSTransactionsController;
+
+const getEquipmentDisbursements = safe(async (req) => { return []; });
 
 module.exports = {
     getFinanceStats,

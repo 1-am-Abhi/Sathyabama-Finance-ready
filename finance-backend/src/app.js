@@ -91,10 +91,14 @@ const v1 = express.Router();
 const path = require('path');
 const { mountRoutes } = require('./utils/routeHelper');
 
-// 1. Auth Routes (Exempt from global rate limiting)
+// 1. Auth & Analytics Routes
 const authRoutes = require('./routes/authRoutes');
 app.use('/api/v1/auth', authRoutes);
 app.use('/api/auth', authRoutes);
+
+const analyticsRoutes = require('./routes/analyticsRoutes');
+app.use('/api/v1/analytics', analyticsRoutes);
+app.use('/api/analytics', analyticsRoutes);
 
 // 2. Rate Limiting (Applied to all OTHER institutional APIs)
 const globalLimiter = rateLimit({

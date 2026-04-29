@@ -103,7 +103,7 @@ const safe = require('../utils/safeController');
 
 const getProjects = safe(async (req, res) => {
   const projects = await Project.findAll({
-    attributes: ['_id', 'id', 'title', 'researchCentre', 'sanctionedBudget', 'status', 'pi', 'department', 'createdAt'],
+    attributes: ['_id', 'title', 'researchCentre', 'sanctionedBudget', 'status', 'pi', 'department', 'createdAt'],
     include: []
   });
 
