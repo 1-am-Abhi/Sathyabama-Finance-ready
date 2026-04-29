@@ -36,29 +36,35 @@ const safeNumber = (val) => {
     return isFinite(num) ? num : 0;
 };
 
-const formatINR = (val) => {
-    const num = safeNumber(val);
-    return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(num);
-};
+// Hoisted — single instance, never recreated
+const inrFormatter = new Intl.NumberFormat('en-IN', {
+    style: 'currency',
+    currency: 'INR',
+    maximumFractionDigits: 0
+});
+
+const formatINR = (val) => inrFormatter.format(safeNumber(val));
 
 /**
  * Pure function — converts a raw analytics metrics object into an array of
- * human-readable insight strings. Guaranteed to return string[].
+ * human-readable insight strings.  Guaranteed to return string[].
+ *
+ * Rejects: null, undefined, arrays, primitives.
  */
 const buildInsightsFromMetrics = (raw) => {
-    if (!raw || typeof raw !== 'object') return [];
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return [];
 
-    const projects     = safeNumber(raw.totalProjects);
-    const disbursed    = safeNumber(raw.totalDisbursed);
-    const utilization  = safeNumber(raw.utilization);
-    const pending      = safeNumber(raw.pendingApprovals);
-    const centres      = Array.isArray(raw.centres) ? raw.centres : [];
+    const projects    = safeNumber(raw.totalProjects);
+    const disbursed   = safeNumber(raw.totalDisbursed);
+    const utilization = safeNumber(raw.utilization);
+    const pending     = safeNumber(raw.pendingApprovals);
+    const centres     = Array.isArray(raw.centres) ? raw.centres : [];
 
     const lines = [];
-    if (projects > 0)     lines.push(`${projects} research projects tracked across all centres.`);
-    if (disbursed > 0)    lines.push(`Total disbursed: ${formatINR(disbursed)}.`);
-    if (utilization > 0)  lines.push(`Budget utilization is at ${utilization.toFixed(1)}%.`);
-    if (pending > 0)      lines.push(`${pending} fund requests are pending approval.`);
+    if (projects > 0)      lines.push(`${projects} research projects tracked across all centres.`);
+    if (disbursed > 0)     lines.push(`Total disbursed: ${formatINR(disbursed)}.`);
+    if (utilization > 0)   lines.push(`Budget utilization is at ${utilization.toFixed(1)}%.`);
+    if (pending > 0)       lines.push(`${pending} fund requests are pending approval.`);
     if (centres.length > 0) lines.push(`${centres.length} research centres are active.`);
     return lines;
 };
@@ -232,8 +238,8 @@ const AdminDashboard = () => {
                     risk: 'LOW'
                 });
             } catch (err) {
+                // Preserve previous insights on transient failure — no UI flicker
                 console.warn('Failed to fetch analytics:', err);
-                setInsights([]);
             }
         };
         fetchInsights();
