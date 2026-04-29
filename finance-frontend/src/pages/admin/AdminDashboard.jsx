@@ -106,6 +106,7 @@ const AdminDashboard = () => {
     const [openModal, setOpenModal] = useState(false);
     const [isDrillLoading, setIsDrillLoading] = useState(false);
     const [isDark] = useState(false);
+    const [insights, setInsights] = useState([]);
 
 
     const [stats, setStats] = useState(null);
@@ -721,7 +722,7 @@ const AdminDashboard = () => {
                         </div>
                     </div>
                     <div className="space-y-4 relative z-10">
-                        {insights.length > 0 ? (
+                        {(insights?.length ?? 0) > 0 ? (
                             insights.map((insight, i) => (
                                 <div key={i} className="p-4 bg-white/[0.03] rounded-xl border border-gray-200 hover:bg-white/[0.06] transition-all group/insight">
                                     <div className="flex gap-4">

@@ -33,11 +33,11 @@ const LoginPage = () => {
         try {
             const result = await login(email, password, selectedRole);
             
-            if (result.success) {
+            if (result?.success) {
                 const user = result.user;
                 const role = user?.role;
                 if (!role) {
-                    throw new Error("Invalid user data");
+                    throw new Error("Invalid user data received");
                 }
 
                 const dashboardPaths = {
@@ -49,11 +49,11 @@ const LoginPage = () => {
                 // Use window.location.href for a full refresh to ensure all contexts are clean
                 window.location.href = dashboardPaths[role] || '/login';
             } else {
-                setError(result.error || 'Login failed. Please check your credentials.');
+                setError(result?.error || 'Login failed. Please check your credentials.');
             }
         } catch (err) {
             console.error('Login submission error:', err);
-            setError('Login failed. Please try again.');
+            setError(err.message || 'Login failed. Please try again.');
         } finally {
             setLoading(false);
         }
