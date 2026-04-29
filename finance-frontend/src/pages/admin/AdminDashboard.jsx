@@ -195,13 +195,21 @@ const AdminDashboard = () => {
                 ]);
 
                 if (insightsRes.data?.success) {
-                    setInsights(insightsRes.data.data?.insights ?? []);
-                    const avgDaily = Number(insightsRes.data.data?.avgDailySpend || 0);
+                    const metrics = insightsRes.data.data || {};
+                    const generatedInsights = [];
+                    if (metrics.totalProjects > 0) generatedInsights.push(`${metrics.totalProjects} research projects tracked across all centres.`);
+                    if (metrics.totalDisbursed > 0) generatedInsights.push(`Total disbursed: ₹${Number(metrics.totalDisbursed).toLocaleString('en-IN')}.`);
+                    if (metrics.utilization > 0) generatedInsights.push(`Budget utilization is at ${metrics.utilization}%.`);
+                    if (metrics.pendingApprovals > 0) generatedInsights.push(`${metrics.pendingApprovals} fund requests are pending approval.`);
+                    if ((metrics.centres || []).length > 0) generatedInsights.push(`${metrics.centres.length} research centres are active.`);
+                    setInsights(generatedInsights);
+
+                    const avgDaily = Number(metrics.totalDisbursed || 0) / 365;
                     setForecast({
                         avgDailySpend: avgDaily,
                         projectedUsage30Days: avgDaily * 30,
                         confidence: avgDaily > 0 ? 'HIGH' : 'LOW',
-                        risk: (avgDaily * 30) > (Number(totalStats?.totalAllocated || 0) / 12) ? 'HIGH' : 'LOW'
+                        risk: 'LOW'
                     });
                 }
             } catch (err) {
@@ -722,7 +730,7 @@ const AdminDashboard = () => {
                         </div>
                     </div>
                     <div className="space-y-4 relative z-10">
-                        {(insights?.length ?? 0) > 0 ? (
+                        {Array.isArray(insights) && insights.length > 0 ? (
                             insights.map((insight, i) => (
                                 <div key={i} className="p-4 bg-white/[0.03] rounded-xl border border-gray-200 hover:bg-white/[0.06] transition-all group/insight">
                                     <div className="flex gap-4">
