@@ -1,10 +1,11 @@
+const logger = require('../utils/logger');
 const asyncHandler = require('../utils/asyncHandler');
 const { ODRequest, AcademicMetric } = require('../models');
 const { Op } = require('sequelize');
 
 const createODRequest = asyncHandler(async (req, res) => {
-    console.log('Creating OD Request. User:', req.user?.name, 'Dept:', req.user?.department);
-    console.log('Payload:', req.body);
+    logger.info('Creating OD Request. User:', req.user?.name, 'Dept:', req.user?.department);
+    logger.info('Payload:', req.body);
     
     const tomorrow = new Date();
     tomorrow.setDate(tomorrow.getDate() + 1);

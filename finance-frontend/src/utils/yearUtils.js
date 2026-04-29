@@ -55,7 +55,7 @@ export const extractYearsFromArray = (dataArray) => {
  */
 export const formatAcademicYear = (year) => {
     const yearNum = typeof year === 'string' ? parseInt(year) : year;
-    const nextYear = (yearNum + 1).toString().slice(-2);
+    const nextYear = yearNum + 1;
     return `${yearNum}-${nextYear}`;
 };
 

@@ -1,3 +1,4 @@
+const logger = require('../utils/logger');
 const express = require('express');
 const router = express.Router();
 const { protect, authorize } = require('../middleware/authMiddleware');
@@ -54,7 +55,7 @@ router.get('/departments/:id/funding-history', async (req, res) => {
         });
         res.json({ success: true, data: history || [] });
     } catch (err) {
-        console.error('[departments/:id/funding-history] DB Error:', err.message);
+        logger.error('[departments/:id/funding-history] DB Error:', err.message);
         res.status(500).json({ success: false, message: 'Failed to fetch funding history' });
     }
 });
@@ -138,7 +139,7 @@ router.get('/equipment-disbursements', async (req, res) => {
         });
         res.json({ success: true, data: eqReqs || [] });
     } catch (err) {
-        console.error('[equipment-disbursements] DB Error:', err.message);
+        logger.error('[equipment-disbursements] DB Error:', err.message);
         res.status(500).json({ success: false, message: 'Failed to fetch equipment disbursements' });
     }
 });
@@ -162,7 +163,7 @@ router.get('/function-requests', async (req, res) => {
         });
         res.json({ success: true, data: fnReqs || [] });
     } catch (err) {
-        console.error('[function-requests] DB Error:', err.message);
+        logger.error('[function-requests] DB Error:', err.message);
         res.status(500).json({ success: false, message: 'Failed to fetch function requests' });
     }
 });

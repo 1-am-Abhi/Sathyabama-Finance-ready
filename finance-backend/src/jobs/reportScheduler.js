@@ -1,10 +1,11 @@
+const logger = require('../utils/logger');
 const cron = require('node-cron');
 const { Disbursement, FundRequest, Project } = require('../models');
 const { Op } = require('sequelize');
 const { sendReport } = require('../utils/sendEmail');
 
 cron.schedule('0 9 * * 1', async () => {
-  console.log('[CRON] Running weekly financial report...');
+  logger.info('[CRON] Running weekly financial report...');
 
   try {
     const lastWeek = new Date();
@@ -30,10 +31,10 @@ cron.schedule('0 9 * * 1', async () => {
       total += Number(d.amount);
     });
 
-    console.log(`[CRON REPORT] Weekly Disbursed: ₹${total}`);
+    logger.info(`[CRON REPORT] Weekly Disbursed: ₹${total}`);
 
     await sendReport(`Weekly Disbursed Amount: ₹${total}`);
   } catch (err) {
-    console.error('[CRON ERROR]', err);
+    logger.error('[CRON ERROR]', err);
   }
 });

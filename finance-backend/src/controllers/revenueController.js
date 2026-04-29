@@ -123,8 +123,7 @@ const getAllRevenueForVerification = asyncHandler(async (req, res) => {
             status: { [Op.in]: ['ADMIN_APPROVED', 'VERIFIED'] },
             createdAt: { [Op.between]: [startDate, endDate] }
         },
-        include: [{ 
-            model: User, 
+        include: [{ required: false, model: User, 
             as: 'User',
             attributes: ['name', 'department'],
             include: buildResearchCenterIncludeArray({ attributes: ['name'], required: false })
@@ -169,8 +168,7 @@ const getAdminRevenueApprovals = asyncHandler(async (req, res) => {
         where: {
             createdAt: { [Op.between]: [startDate, endDate] }
         },
-        include: [{ 
-            model: User, 
+        include: [{ required: false, model: User, 
             as: 'User',
             attributes: ['name', 'department'],
             include: buildResearchCenterIncludeArray({ attributes: ['name'], required: false })

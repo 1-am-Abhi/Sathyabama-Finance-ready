@@ -66,8 +66,8 @@ const getCurrentFY = () => {
     const month = today.getMonth(); // 0-based: Apr is 3
 
     return month >= 3
-        ? `${year}-${(year + 1).toString().slice(-2)}`
-        : `${year - 1}-${year.toString().slice(-2)}`;
+        ? `${year}-${year + 1}`
+        : `${year - 1}-${year}`;
 };
 
 const generateFYOptions = (pastYears = 5) => {
@@ -76,7 +76,7 @@ const generateFYOptions = (pastYears = 5) => {
     const options = [];
     for (let i = pastYears; i >= 0; i--) {
         const startYear = currentStartYear - i;
-        const endYearShort = (startYear + 1).toString().slice(-2);
+        const endYearShort = startYear + 1;
         options.push(`${startYear}-${endYearShort}`);
     }
     return options;

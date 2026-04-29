@@ -1,3 +1,4 @@
+const logger = require('../utils/logger');
 const asyncHandler = require('../utils/asyncHandler');
 const { 
     Project, 
@@ -55,7 +56,7 @@ const resolveCentreAssignment = async (centreInput, centreIdInput) => {
             return { centreId: null, centre: centreInput };
         }
     } catch (error) {
-        console.warn('[ProjectController] ResearchCenter lookup failed:', error.message);
+        logger.warn('[ProjectController] ResearchCenter lookup failed:', error.message);
     }
 
     return { centreId: centreIdInput || null, centre: centreInput || null };
@@ -77,7 +78,7 @@ const getAdminStats = asyncHandler(async (req, res) => {
             }
         });
     } catch (error) {
-        console.error('[ProjectController] getAdminStats failed:', error.message);
+        logger.error('[ProjectController] getAdminStats failed:', error.message);
         return res.status(500).json({
             success: false,
             message: 'Failed to retrieve admin stats',
@@ -114,7 +115,7 @@ const getProject = asyncHandler(async (req, res) => {
     const membersInclude = {
         model: ProjectMember,
         as: 'members',
-        include: [{ model: User, as: 'user', attributes: ['_id', 'name', 'email', 'department', 'centre'] }]
+        include: [{ required: false, model: User, as: 'user', attributes: ['_id', 'name', 'email', 'department', 'centre'] }]
     };
 
     let project;
@@ -126,7 +127,7 @@ const getProject = asyncHandler(async (req, res) => {
             ]
         });
     } catch (error) {
-        console.warn('[ProjectController] getProject include failed:', error.message);
+        logger.warn('[ProjectController] getProject include failed:', error.message);
         project = await Project.findByPk(req.params.id, {
             include: [membersInclude]
         });
@@ -288,7 +289,7 @@ const deleteProject = asyncHandler(async (req, res) => {
     const projectTitle = project.title;
     await project.destroy();
     
-    console.log(`[PROJECT DELETED] ${projectTitle} (ID: ${req.params.id}) by Admin ${req.user.email}`);
+    logger.info(`[PROJECT DELETED] ${projectTitle} (ID: ${req.params.id}) by Admin ${req.user.email}`);
     
     res.status(200).json({ 
         success: true, 
@@ -300,7 +301,7 @@ const deleteProject = asyncHandler(async (req, res) => {
 const getProjectMembers = asyncHandler(async (req, res) => {
     const members = await ProjectMember.findAll({
         where: { projectId: req.params.id },
-        include: [{ model: User, as: 'user', attributes: ['_id', 'name', 'email', 'centre', 'department'] }]
+        include: [{ required: false, model: User, as: 'user', attributes: ['_id', 'name', 'email', 'centre', 'department'] }]
     });
     res.status(200).json({ success: true, data: members || [] });
 });
@@ -336,7 +337,7 @@ const updateProjectMembers = asyncHandler(async (req, res) => {
 
     const updatedMembers = await ProjectMember.findAll({
         where: { projectId },
-        include: [{ model: User, as: 'user', attributes: ['_id', 'name', 'email', 'centre', 'department'] }]
+        include: [{ required: false, model: User, as: 'user', attributes: ['_id', 'name', 'email', 'centre', 'department'] }]
     });
 
     res.status(200).json({ success: true, data: updatedMembers || [] });

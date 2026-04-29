@@ -1,3 +1,4 @@
+const logger = require('../utils/logger');
 const axios = require('axios');
 const AcademicMetric = require('../models/AcademicMetric');
 const User = require('../models/User');
@@ -6,7 +7,7 @@ const syncScopusData = async (facultyId, scopusId) => {
     try {
         const apiKey = process.env.SCOPUS_API_KEY;
         if (!apiKey) {
-            console.log('Scopus API key not configured. Skipping sync.');
+            logger.info('Scopus API key not configured. Skipping sync.');
             return { success: false, message: 'Scopus API Key missing' };
         }
 
@@ -58,7 +59,7 @@ const syncScopusData = async (facultyId, scopusId) => {
 
         return { success: true, data: { journals, proceedings, books, bookChapters } };
     } catch (error) {
-        console.error('Error syncing with Scopus API:', error.message);
+        logger.error('Error syncing with Scopus API:', error.message);
         return { success: false, message: error.message };
     }
 };

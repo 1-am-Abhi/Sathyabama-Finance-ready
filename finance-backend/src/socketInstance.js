@@ -1,3 +1,4 @@
+const logger = require('./utils/logger');
 let io;
 
 /**
@@ -19,7 +20,7 @@ module.exports = {
      */
     getIO: () => {
         if (!io) {
-            console.warn('[SocketInstance] Attempted to getIO before initialization.');
+            logger.warn('[SocketInstance] Attempted to getIO before initialization.');
         }
         return io;
     },
@@ -33,7 +34,7 @@ module.exports = {
         try {
             io.to(room).emit(event, payload);
         } catch (err) {
-            console.error(`[SocketInstance] Failed to emit to room ${room}:`, err.message);
+            logger.error(`[SocketInstance] Failed to emit to room ${room}:`, err.message);
         }
     }
 };

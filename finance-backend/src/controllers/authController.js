@@ -1,3 +1,4 @@
+const logger = require('../utils/logger');
 const asyncHandler = require('../utils/asyncHandler');
 const { User, Centre } = require("../models");
 const jwt = require("jsonwebtoken");
@@ -15,7 +16,7 @@ const generateToken = (user) => {
 const login = async (req, res) => {
   try {
     const { email, password } = req.body;
-    console.log('LOGIN ATTEMPT:', { email });
+    logger.info('LOGIN ATTEMPT:', { email });
 
     // 🔴 Step 1: Validate input
     if (!email || !password) {
@@ -73,7 +74,7 @@ const login = async (req, res) => {
     });
 
   } catch (err) {
-    console.error('🔥 LOGIN ERROR FULL:', err);
+    logger.error('🔥 LOGIN ERROR FULL:', err);
 
     return res.status(500).json({
       success: false,
@@ -99,7 +100,7 @@ const checkAuthHealth = async (req, res) => {
       }
     });
   } catch (err) {
-    console.error('🚨 AUTH HEALTH FAILED:', err);
+    logger.error('🚨 AUTH HEALTH FAILED:', err);
     return res.status(503).json({
       success: false,
       status: 'DOWN',
@@ -128,7 +129,7 @@ const register = asyncHandler(async (req, res) => {
     centre 
   });
   
-  console.log(`[USER CREATED] ${user.email} - ${user.role}`);
+  logger.info(`[USER CREATED] ${user.email} - ${user.role}`);
 
   const token = generateToken(user);
   

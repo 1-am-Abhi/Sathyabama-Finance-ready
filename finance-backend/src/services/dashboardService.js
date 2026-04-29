@@ -79,12 +79,19 @@ exports.getDashboardMetrics = async ({ fy, organizationId }) => {
     total
   }));
 
+  // 🔹 Utilization %
+  const totalSanctionedSum = await Project.sum('sanctionedBudget', {
+    where: { ...orgFilter }
+  });
+  const utilization = totalSanctionedSum > 0 ? ((disbursedSum || 0) / totalSanctionedSum) * 100 : 0;
+
   return {
     totalProjects,
     pendingApprovals,
     approvedRequests,
     totalDisbursed: disbursedSum || 0,
     totalRevenue: revenueSum || 0,
+    utilization: Number(utilization.toFixed(2)),
     centres,
     trend
   };

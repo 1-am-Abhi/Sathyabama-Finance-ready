@@ -2,6 +2,7 @@ const { Disbursement, FundRequest, Project, PFMSTransaction, Revenue, User, Audi
 const { Op } = require('sequelize');
 const { ACCOUNTS } = require('../constants/accounts');
 const asyncHandler = require('../utils/asyncHandler');
+const safe = require('../utils/safeController');
 const { getCurrentFY, getFYRange } = require('../utils/fyUtils');
 const { safeEmit } = require('../socketInstance');
 const logger = require('../utils/logger');
@@ -155,8 +156,7 @@ const getDisbursalHistory = safe(async (req) => {
         where: {
             createdAt: { [Op.between]: [startDate, endDate] }
         },
-        include: [
-            { model: FundRequest, as: 'FundRequest', include: [{ model: Project, as: 'Project' }] },
+        include: [{ required: false, model: FundRequest, as: 'FundRequest', include: [{ required: false, model: Project, as: 'Project' }] },
             { model: User, as: 'officer', attributes: ['name', 'email'] }
         ],
         order: [['createdAt', 'DESC']],
@@ -231,7 +231,7 @@ const getAuditReplay = asyncHandler(async (req, res) => {
     const logs = await AuditLog.findAll({
         order: [['createdAt', 'DESC']],
         limit: 100,
-        include: [{ model: User, as: 'user', attributes: ['name', 'email'] }]
+        include: [{ required: false, model: User, as: 'user', attributes: ['name', 'email'] }]
     });
     res.json({ success: true, data: logs || [] });
 });
@@ -337,7 +337,7 @@ const getFundFlowData = asyncHandler(async (req, res) => {
                     ]
                 }
             },
-            include: [{ model: Disbursement, as: 'Disbursement', attributes: ['_id', 'id'] }],
+            include: [{ required: false, model: Disbursement, as: 'Disbursement', attributes: ['_id', 'id'] }],
             order: [['updatedAt', 'DESC']],
             limit: 10,
         });
@@ -372,7 +372,6 @@ const getFundFlowData = asyncHandler(async (req, res) => {
  * GET /finance/financial-reports
  * Returns data for Financial Reports Dashboard.
  */
-const safe = require('../utils/safeController');
 
 const getFinancialReports = safe(async (req) => {
   const { startDate, endDate } = req.query;
@@ -396,7 +395,7 @@ const exportFinancialReports = async (req, res) => {
 
     const disbursements = await Disbursement.findAll({
       where: whereClause,
-      include: [{ model: FundRequest, as: 'FundRequest', include: [{ model: Project, as: 'Project' }] }, { model: User, as: 'officer', attributes: ['name'] }],
+      include: [{ required: false, model: FundRequest, as: 'FundRequest', include: [{ required: false, model: Project, as: 'Project' }] }, { model: User, as: 'officer', attributes: ['name'] }],
       order: [['createdAt', 'DESC']],
     });
 
@@ -432,7 +431,7 @@ const exportFinancialReportsPDF = async (req, res) => {
 
     const disbursements = await Disbursement.findAll({
       where: whereClause,
-      include: [{ model: FundRequest, as: 'FundRequest', include: [{ model: Project, as: 'Project' }] }, { model: User, as: 'officer', attributes: ['name'] }],
+      include: [{ required: false, model: FundRequest, as: 'FundRequest', include: [{ required: false, model: Project, as: 'Project' }] }, { model: User, as: 'officer', attributes: ['name'] }],
       order: [['createdAt', 'DESC']],
     });
 
@@ -553,8 +552,7 @@ const rollbackDisbursement = asyncHandler(async (req, res) => {
  */
 const getTrialBalance = asyncHandler(async (req, res) => {
     const accounts = await Account.findAll({
-        include: [{ 
-            model: Ledger, 
+        include: [{ required: false, model: Ledger, 
             as: 'ledgerEntries',
             attributes: ['debit', 'credit']
         }]
@@ -600,7 +598,7 @@ const getTrialBalance = asyncHandler(async (req, res) => {
 const getProfitAndLoss = asyncHandler(async (req, res) => {
     const accounts = await Account.findAll({
         where: { type: { [Op.in]: ['REVENUE', 'EXPENSE'] } },
-        include: [{ model: Ledger, as: 'ledgerEntries' }]
+        include: [{ required: false, model: Ledger, as: 'ledgerEntries' }]
     });
 
     let totalRevenue = 0;
@@ -641,7 +639,7 @@ const getProfitAndLoss = asyncHandler(async (req, res) => {
 const getBalanceSheet = asyncHandler(async (req, res) => {
     const accounts = await Account.findAll({
         where: { type: { [Op.in]: ['ASSET', 'LIABILITY', 'EQUITY'] } },
-        include: [{ model: Ledger, as: 'ledgerEntries' }]
+        include: [{ required: false, model: Ledger, as: 'ledgerEntries' }]
     });
 
     const items = accounts.map(acc => {
@@ -758,8 +756,7 @@ const exportLedger = asyncHandler(async (req, res) => {
 
     while (hasMore) {
         const batch = await Ledger.findAll({
-            include: [
-                { model: Account, as: 'Account', attributes: ['name', 'code'] },
+            include: [{ required: false, model: Account, as: 'Account', attributes: ['name', 'code'] },
                 { model: JournalEntry, as: 'JournalEntry', attributes: ['description', 'referenceId'] }
             ],
             order: [['createdAt', 'ASC']],

@@ -1,3 +1,4 @@
+const logger = require('../utils/logger');
 const analyticsService = require('../services/analyticsService');
 
 /**
@@ -14,7 +15,7 @@ exports.getForecastBase = async (req, res) => {
             data
         });
     } catch (error) {
-        console.error('[AnalyticsController] getForecastBase failed:', error.message);
+        logger.error('[AnalyticsController] getForecastBase failed:', error.message);
         res.status(500).json({
             success: false,
             message: 'Failed to generate forecast dataset',
@@ -35,7 +36,7 @@ exports.getInsights = async (req, res) => {
             data: insights
         });
     } catch (error) {
-        console.error('[AnalyticsController] getInsights failed:', error.message);
+        logger.error('[AnalyticsController] getInsights failed:', error.message);
         res.status(500).json({
             success: false,
             message: 'Failed to compute insights',
@@ -75,7 +76,7 @@ exports.getFacultyStats = async (req, res) => {
             }
         });
     } catch (error) {
-        console.error('getFacultyStats error:', error);
+        logger.error('getFacultyStats error:', error);
         res.status(500).json({ success: false, message: 'Server error' });
     }
 };

@@ -10,7 +10,7 @@ let logger;
 try {
     logger = require('./utils/logger');
 } catch (e) {
-    console.warn("Logger not found, using console fallback");
+    logger.warn("Logger not found, using console fallback");
     logger = console;
 }
 
@@ -25,11 +25,17 @@ app.set('trust proxy', 1);
 app.disable('x-powered-by');
 
 app.use(cors({
-    origin: process.env.FRONTEND_URL,
+    origin: function (origin, callback) {
+        if (!origin || origin === process.env.FRONTEND_URL) {
+            callback(null, true);
+        } else {
+            callback(new Error('Not allowed by CORS'));
+        }
+    },
     credentials: true
 }));
 
-app.options('*', cors());
+
 
 // Request Tracing
 app.use((req, res, next) => {
@@ -119,7 +125,7 @@ app.use('/api', v1); // Fallback for backward compatibility
 
 // Global Error Handler
 app.use((err, req, res, next) => {
-  console.error('GLOBAL ERROR:', err);
+  logger.error('GLOBAL ERROR:', err);
   res.status(500).json({
     success: false,
     message: err.message || 'Internal server error'

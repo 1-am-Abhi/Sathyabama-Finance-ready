@@ -1,3 +1,4 @@
+const logger = require('../utils/logger');
 const models = require('../models');
 
 const getEmptyAdminStatsData = () => ({
@@ -68,7 +69,7 @@ const buildResearchCenterInclude = (options = {}) => {
             required,
         };
     } catch (error) {
-        console.warn('[ResearchCenter] Failed to build include:', error.message);
+        logger.warn('[ResearchCenter] Failed to build include:', error.message);
         return null;
     }
 };

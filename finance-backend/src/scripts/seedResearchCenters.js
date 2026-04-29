@@ -1,9 +1,10 @@
+const logger = require('../utils/logger');
 const { ResearchCenter } = require('../models');
 const { sequelize } = require('../config/db');
 
 const seedResearchCenters = async () => {
     try {
-        console.log('--- SEEDING RESEARCH CENTERS ---');
+        logger.info('--- SEEDING RESEARCH CENTERS ---');
         
         const centers = [
             { name: 'Centre for Molecular and Nanomedical Sciences', code: 'CMNS' },
@@ -18,15 +19,15 @@ const seedResearchCenters = async () => {
             });
 
             if (created) {
-                console.log(`[SEED] Created center: ${centerData.name}`);
+                logger.info(`[SEED] Created center: ${centerData.name}`);
             } else {
-                console.log(`[SEED] Center already exists: ${centerData.name}`);
+                logger.info(`[SEED] Center already exists: ${centerData.name}`);
             }
         }
 
-        console.log('--- SEEDING COMPLETE ---');
+        logger.info('--- SEEDING COMPLETE ---');
     } catch (error) {
-        console.error('[SEED ERROR]', error);
+        logger.error('[SEED ERROR]', error);
     } finally {
         // Only process exit if run directly
         if (require.main === module) {

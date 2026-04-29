@@ -1,3 +1,4 @@
+const logger = require('../utils/logger');
 const fs = require('fs');
 const path = require('path');
 const { AuditLog } = require('../models');
@@ -65,10 +66,10 @@ const logDisbursementAudit = async (data) => {
         const logLine = JSON.stringify(auditEntry) + '\n';
         fs.appendFileSync(LOG_FILE_PATH, logLine, 'utf8');
 
-        console.log(`[AuditService] Disbursement log successfully recorded for Entity: ${entityId}`);
+        logger.info(`[AuditService] Disbursement log successfully recorded for Entity: ${entityId}`);
         return true;
     } catch (error) {
-        console.error('[AuditService] Failed to record audit log:', error.message);
+        logger.error('[AuditService] Failed to record audit log:', error.message);
         // We do not throw to avoid breaking the core transaction if logging fails, 
         // but in high-integrity systems, we might want to block.
         return false;

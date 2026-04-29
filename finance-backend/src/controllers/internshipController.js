@@ -17,7 +17,7 @@ const getInternshipFees = asyncHandler(async (req, res) => {
         where: {
             createdAt: { [Op.between]: [startDate, endDate] }
         },
-        include: [{ model: User, as: 'verifier', attributes: ['name', 'email'] }],
+        include: [{ required: false, model: User, as: 'verifier', attributes: ['name', 'email'] }],
         order: [['createdAt', 'DESC']]
     });
 
@@ -41,7 +41,7 @@ const getAdminInternships = asyncHandler(async (req, res) => {
             paymentStatus: 'PAID',
             createdAt: { [Op.between]: [startDate, endDate] }
         },
-        include: [{ model: User, as: 'verifier', attributes: ['name', 'email'] }],
+        include: [{ required: false, model: User, as: 'verifier', attributes: ['name', 'email'] }],
         order: [['createdAt', 'DESC']]
     });
 

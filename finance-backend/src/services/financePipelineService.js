@@ -1,3 +1,4 @@
+const logger = require('../utils/logger');
 const { Op } = require('sequelize');
 const models = require('../models');
 const NotificationService = require('./notificationService');
@@ -54,7 +55,7 @@ const getFinancialYear = (input = new Date()) => {
     const year = value.getFullYear();
     const month = value.getMonth();
     const startYear = month >= 3 ? year : year - 1;
-    const endYear = String(startYear + 1).slice(-2);
+    const endYear = startYear + 1;
     return `${startYear}-${endYear}`;
 };
 
@@ -151,10 +152,10 @@ const safeCreateLedgerEntry = async (payload, options = {}) => {
         return await Ledger.create(ledgerPayload, { transaction });
     } catch (error) {
         if (isMissingTableError(error)) {
-            console.warn('[Ledger] Table missing, skipping ledger write until schema is synced.');
+            logger.warn('[Ledger] Table missing, skipping ledger write until schema is synced.');
             return null;
         }
-        console.error('[safeCreateLedgerEntry] Error:', error.message);
+        logger.error('[safeCreateLedgerEntry] Error:', error.message);
         throw error;
     }
 };
@@ -310,8 +311,8 @@ const getFundSourceAllocationState = async (source, transaction) => {
     `;
     const replacements = { source: normalizeSource(source) };
 
-    console.log(`[getFundSourceAllocationState] Executing Raw SQL:`, query);
-    console.log(`[getFundSourceAllocationState] Replacements:`, replacements);
+    logger.info(`[getFundSourceAllocationState] Executing Raw SQL:`, query);
+    logger.info(`[getFundSourceAllocationState] Replacements:`, replacements);
 
     const [rows] = await sequelize.query(query, {
         replacements,
@@ -416,7 +417,7 @@ const executeDisbursementPipeline = async (request, payload, actor, options = {}
                 transaction
             });
             if (existing) {
-                console.log(`[${correlationId}] [Pipeline:DISBURSE] Idempotent replay — already DISBURSED`);
+                logger.info(`[${correlationId}] [Pipeline:DISBURSE] Idempotent replay — already DISBURSED`);
                 return { request: lockedRequest, disbursement: existing, idempotent: true };
             }
             throw new Error('Already fully disbursed but no disbursement record found — data inconsistency');
@@ -466,7 +467,7 @@ const executeDisbursementPipeline = async (request, payload, actor, options = {}
             lock: transaction.LOCK.UPDATE
         });
         if (existingByKey) {
-            console.log(`[${correlationId}] [Pipeline:DISBURSE] Idempotent replay via key`);
+            logger.info(`[${correlationId}] [Pipeline:DISBURSE] Idempotent replay via key`);
             return { request: lockedRequest, disbursement: existingByKey, idempotent: true };
         }
 
@@ -495,7 +496,7 @@ const executeDisbursementPipeline = async (request, payload, actor, options = {}
         let financeRemarks = (payload.remarks || '').trim();
         financeRemarks = `[INSTALLMENT #${lockedRequest.installmentNumber}]${isHighValue ? ' [HIGH-VALUE]' : ''} ${financeRemarks}`.trim();
 
-        console.log(`[${correlationId}] [Pipeline:DISBURSE] Start — request=${requestId} amount=${amount} installment=${lockedRequest.installmentNumber} isHighValue=${isHighValue}`);
+        logger.info(`[${correlationId}] [Pipeline:DISBURSE] Start — request=${requestId} amount=${amount} installment=${lockedRequest.installmentNumber} isHighValue=${isHighValue}`);
 
         // SET STATUS TO DISBURSED (always — one request, one disbursement)
         await lockedRequest.update({
@@ -538,7 +539,7 @@ const executeDisbursementPipeline = async (request, payload, actor, options = {}
             if (err.name === 'SequelizeUniqueConstraintError') {
                 throw new Error('Duplicate disbursement detected (UTR or idempotency key already exists). Disbursement rejected.');
             }
-            console.error(`[${correlationId}] [Pipeline:DISBURSE] Disbursement create failed:`, err.message);
+            logger.error(`[${correlationId}] [Pipeline:DISBURSE] Disbursement create failed:`, err.message);
             throw err;
         }
 
@@ -613,7 +614,7 @@ const executeDisbursementPipeline = async (request, payload, actor, options = {}
             }
         });
 
-        console.log(`[${correlationId}] [Pipeline:DISBURSE] Committed — request=${requestId} disbursement=${disbursement._id} status=DISBURSED authSum=${authoritativeProjectSum}`);
+        logger.info(`[${correlationId}] [Pipeline:DISBURSE] Committed — request=${requestId} disbursement=${disbursement._id} status=DISBURSED authSum=${authoritativeProjectSum}`);
 
         // --- REAL-TIME STREAMING ---
         safeEmit('finance', 'finance:update', {
@@ -654,7 +655,7 @@ const executeDisbursementPipeline = async (request, payload, actor, options = {}
         );
 
         verifyFinancialParity('DISBURSEMENT_PIPELINE').catch(err =>
-            console.error(`[${correlationId}] Watchdog failed:`, err)
+            logger.error(`[${correlationId}] Watchdog failed:`, err)
         );
 
         return { request: lockedRequest, disbursement };
@@ -671,7 +672,7 @@ const syncRevenueLedger = async (revenue, actor, options = {}) => {
     ]);
 
     if (!bankAcc || !revenueAcc) {
-        console.error('[syncRevenueLedger] Chart of Accounts missing');
+        logger.error('[syncRevenueLedger] Chart of Accounts missing');
         return null;
     }
 

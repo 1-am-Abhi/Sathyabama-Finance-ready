@@ -1,3 +1,4 @@
+const logger = require('../utils/logger');
 const asyncHandler = require('../utils/asyncHandler');
 const { Centre, ResearchCenter, Project } = require('../models');
 const { Sequelize } = require('sequelize');
@@ -47,12 +48,12 @@ exports.getResearchCenters = asyncHandler(async (req, res) => {
         if (!isResearchCenterFailure(error)) {
             throw error;
         }
-        console.warn('[ResearchCenterController] ResearchCenters table unavailable, falling back to project discovery.');
+        logger.warn('[ResearchCenterController] ResearchCenters table unavailable, falling back to project discovery.');
         centres = [];
     }
 
     if (centres.length === 0) {
-        console.log("ResearchCenterController: No centres in database, discovering from Projects...");
+        logger.info("ResearchCenterController: No centres in database, discovering from Projects...");
         centres = await discoverProjectCentres();
     }
 

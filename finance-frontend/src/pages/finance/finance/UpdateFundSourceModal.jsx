@@ -22,12 +22,12 @@ const UpdateFundSourceModal = ({ isOpen, onClose, fundSource, onSubmit, isLoadin
         const currentYear = new Date().getFullYear();
         const years = [];
         for (let y = currentYear - 2; y <= currentYear + 2; y++) {
-            years.push(`${y}-${String(y + 1).slice(-2)}`);
+            years.push(`${y}-${y + 1}`);
         }
         return years;
     };
     const financialYears = generateFinancialYears();
-    const currentFY = `${new Date().getFullYear()}-${String(new Date().getFullYear() + 1).slice(-2)}`;
+    const currentFY = `${new Date().getFullYear()}-${new Date().getFullYear() + 1}`;
     const [financialYear, setFinancialYear] = useState(currentFY);
     const normalizedFundSource = normalizeFundSource(fundSource?.type);
 

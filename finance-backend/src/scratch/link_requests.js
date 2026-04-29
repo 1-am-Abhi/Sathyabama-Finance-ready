@@ -1,3 +1,4 @@
+const logger = require('../utils/logger');
 const { sequelize } = require('../config/db');
 const { FundRequest } = require('../models/FundRequest');
 const Project = require('../models/Project');
@@ -5,16 +6,16 @@ const { Op } = require('sequelize');
 
 async function repairLinks() {
     try {
-        console.log('Starting data repair V2: Robust Linking of FundRequests to Projects...');
+        logger.info('Starting data repair V2: Robust Linking of FundRequests to Projects...');
         
         const requests = await FundRequest.findAll({
             where: { projectId: null }
         });
         
-        console.log(`Found ${requests.length} unlinked FundRequests.`);
+        logger.info(`Found ${requests.length} unlinked FundRequests.`);
         
         const allProjects = await Project.findAll();
-        console.log(`Available Projects: ${allProjects.length}`);
+        logger.info(`Available Projects: ${allProjects.length}`);
 
         let linkedCount = 0;
         for (const req of requests) {
@@ -33,16 +34,16 @@ async function repairLinks() {
                     projectTitle: project.title 
                 });
                 linkedCount++;
-                console.log(`Linked Request ${req._id} (${req.projectTitle}) to Project "${project.title}"`);
+                logger.info(`Linked Request ${req._id} (${req.projectTitle}) to Project "${project.title}"`);
             } else {
-                console.warn(`Could not find project matching "${req.projectTitle}" (Cleaned: "${reqTitle}")`);
+                logger.warn(`Could not find project matching "${req.projectTitle}" (Cleaned: "${reqTitle}")`);
             }
         }
         
-        console.log(`Successfully linked ${linkedCount} requests.`);
+        logger.info(`Successfully linked ${linkedCount} requests.`);
         process.exit(0);
     } catch (error) {
-        console.error('Data repair failed:', error);
+        logger.error('Data repair failed:', error);
         process.exit(1);
     }
 }

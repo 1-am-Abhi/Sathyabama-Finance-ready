@@ -1,3 +1,4 @@
+const logger = require('../utils/logger');
 const asyncHandler = require('../utils/asyncHandler');
 const { Notification } = require('../models');
 const NotificationService = require('../services/notificationService');
@@ -12,10 +13,10 @@ const canAccessUserNotifications = (req, userId) =>
 
 const createNotification = asyncHandler(async (req, res) => {
     const { title, message, type, role, targetUserId, relatedId, actionUrl } = req.body;
-    console.log(`[NotificationController] Request to create notification:`, { title, role, targetUserId });
+    logger.info(`[NotificationController] Request to create notification:`, { title, role, targetUserId });
 
     if (!targetUserId && role) {
-        console.log(`[NotificationController] Broadcasting to role: ${role}`);
+        logger.info(`[NotificationController] Broadcasting to role: ${role}`);
         let notifications;
         try {
             notifications = await NotificationService.notifyRole(
@@ -40,7 +41,7 @@ const createNotification = asyncHandler(async (req, res) => {
     }
 
     const target = targetUserId || req.user?.id || req.user?._id;
-    console.log(`[NotificationController] Creating for single user: ${target}`);
+    logger.info(`[NotificationController] Creating for single user: ${target}`);
     
     const notification = await NotificationService.create(
         target,

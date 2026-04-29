@@ -1,3 +1,4 @@
+const logger = require('../utils/logger');
 const { Disbursement, Project, Centre } = require('../models');
 const { Op } = require('sequelize');
 const fs = require('fs');
@@ -25,7 +26,7 @@ const verifyFinancialParity = async (context = 'AUTO_WATCHDOG') => {
         if (discrepancy > 0.01) {
             const errorMsg = `[CRITICAL PARITY ERROR] ${new Date().toISOString()} | Context: ${context} | Global Used: ${globalUsed} | Centres Sum: ${sumCentresUsed} | Discrepancy: ${discrepancy}\n`;
             
-            console.error(errorMsg);
+            logger.error(errorMsg);
             
             // Log to dedicated reconciliation error file
             fs.appendFileSync(RECON_LOG_PATH, errorMsg, 'utf8');
@@ -38,10 +39,10 @@ const verifyFinancialParity = async (context = 'AUTO_WATCHDOG') => {
             };
         }
 
-        console.log(`[Watchdog] Financial parity verified perfectly for ${context}. Delta: ${discrepancy}`);
+        logger.info(`[Watchdog] Financial parity verified perfectly for ${context}. Delta: ${discrepancy}`);
         return { parity: true, discrepancy };
     } catch (error) {
-        console.error('[Watchdog] Reciliation check failed:', error.message);
+        logger.error('[Watchdog] Reciliation check failed:', error.message);
         return { parity: false, error: error.message };
     }
 };

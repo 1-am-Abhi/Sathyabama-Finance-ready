@@ -1,3 +1,5 @@
+const logger = require('./logger');
+
 const safeController = (fn) => async (req, res) => {
   try {
     const result = await fn(req, res);
@@ -10,12 +12,13 @@ const safeController = (fn) => async (req, res) => {
     }
 
   } catch (err) {
-    console.error("🔥 API ERROR:", err);
+    logger.error("API ERROR:", err);
 
     if (!res.headersSent) {
       res.status(500).json({
         success: false,
-        message: err.message
+        message: err.message,
+        data: []
       });
     }
   }

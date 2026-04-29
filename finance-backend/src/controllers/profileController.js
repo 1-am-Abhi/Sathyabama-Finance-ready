@@ -1,10 +1,11 @@
+const logger = require('../utils/logger');
 const asyncHandler = require('../utils/asyncHandler');
 const { User } = require('../models');
 const { syncScopusData } = require('../services/scopusService');
 
 const updateProfile = asyncHandler(async (req, res) => {
-    console.log('Profile Update Request Received for User:', req.user.id);
-    console.log('Payload:', JSON.stringify(req.body, null, 2));
+    logger.info('Profile Update Request Received for User:', req.user.id);
+    logger.info('Payload:', JSON.stringify(req.body, null, 2));
 
     const { 
         name, designation, employeeId, joiningDate, phone, 

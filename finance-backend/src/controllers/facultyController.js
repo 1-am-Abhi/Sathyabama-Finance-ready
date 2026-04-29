@@ -1,3 +1,4 @@
+const logger = require('../utils/logger');
 const xlsx = require('xlsx');
 const { User } = require('../models');
 const { Op } = require('sequelize');
@@ -72,7 +73,7 @@ exports.previewFaculties = async (req, res) => {
 
         res.json({ success: true, data: previewData });
     } catch (error) {
-        console.error('Preview error:', error);
+        logger.error('Preview error:', error);
         res.status(500).json({ success: false, message: 'Error processing excel file' });
     }
 };
@@ -120,7 +121,7 @@ exports.uploadFacultiesFinal = async (req, res) => {
             skippedCount
         });
     } catch (error) {
-        console.error('Final upload error:', error);
+        logger.error('Final upload error:', error);
         res.status(500).json({ success: false, message: 'Error saving faculties' });
     }
 };

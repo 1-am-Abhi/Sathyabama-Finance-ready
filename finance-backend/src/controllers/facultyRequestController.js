@@ -43,7 +43,7 @@ const createRequest = asyncHandler(async (req, res) => {
 const getAdminRequests = asyncHandler(async (req, res) => {
     const requests = await FacultyRequest.findAll({
         where: { currentStage: 'ADMIN', status: 'PENDING' },
-        include: [{ model: User, as: 'user', attributes: ['name', 'department'] }],
+        include: [{ required: false, model: User, as: 'user', attributes: ['name', 'department'] }],
         order: [['createdAt', 'DESC']]
     });
     res.status(200).json({ success: true, data: requests || [] });
@@ -99,7 +99,7 @@ const rejectAdminRequest = asyncHandler(async (req, res) => {
 const getFinanceRequests = asyncHandler(async (req, res) => {
      const requests = await FacultyRequest.findAll({
         where: { currentStage: 'FINANCE', status: 'APPROVED' },
-        include: [{ model: User, as: 'user', attributes: ['name', 'department'] }],
+        include: [{ required: false, model: User, as: 'user', attributes: ['name', 'department'] }],
         order: [['createdAt', 'DESC']]
     });
     res.status(200).json({ success: true, data: requests || [] });

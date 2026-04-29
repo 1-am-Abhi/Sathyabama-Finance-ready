@@ -1,3 +1,4 @@
+const logger = require('../utils/logger');
 const { sequelize } = require('../config/db');
 const Centre = require('../models/Centre');
 const User = require('../models/User');
@@ -20,18 +21,18 @@ const initialCentres = [
 async function migrate() {
     try {
         await sequelize.authenticate();
-        console.log('Connected to DB');
+        logger.info('Connected to DB');
         
         // Ensure tables exist
         await sequelize.sync({ alter: true });
-        console.log('Database synced');
+        logger.info('Database synced');
         
         // 1. Seed Centres
         const centreMap = {};
         for (const name of initialCentres) {
             const [centre] = await Centre.findOrCreate({ where: { name } });
             centreMap[name] = centre._id;
-            console.log(`Synced Centre: ${name} (${centre._id})`);
+            logger.info(`Synced Centre: ${name} (${centre._id})`);
         }
 
         // 2. Update Users
@@ -41,7 +42,7 @@ async function migrate() {
                 await user.update({ centreId: centreMap[user.centre] });
             }
         }
-        console.log(`Updated ${users.length} users`);
+        logger.info(`Updated ${users.length} users`);
 
         // 3. Update Projects
         const projects = await Project.findAll();
@@ -50,7 +51,7 @@ async function migrate() {
                 await project.update({ centreId: centreMap[project.centre] });
             }
         }
-        console.log(`Updated ${projects.length} projects`);
+        logger.info(`Updated ${projects.length} projects`);
 
         // 4. Update FundRequests
         const requests = await FundRequest.findAll();
@@ -59,12 +60,12 @@ async function migrate() {
                 await req.update({ centreId: centreMap[req.centre] });
             }
         }
-        console.log(`Updated ${requests.length} requests`);
+        logger.info(`Updated ${requests.length} requests`);
 
-        console.log('Migration completed successfully');
+        logger.info('Migration completed successfully');
         process.exit(0);
     } catch (error) {
-        console.error('Migration failed:', error);
+        logger.error('Migration failed:', error);
         process.exit(1);
     }
 }

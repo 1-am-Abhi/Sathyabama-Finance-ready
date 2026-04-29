@@ -1,3 +1,4 @@
+const logger = require('../utils/logger');
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 
@@ -22,7 +23,7 @@ const protect = async (req, res, next) => {
             ...user.toJSON(),
             id: user._id
         };
-        console.log('Auth Middleware - User identified:', req.user.name, 'Role:', req.user.role, 'Dept:', req.user.department);
+        logger.info('Auth Middleware - User identified:', req.user.name, 'Role:', req.user.role, 'Dept:', req.user.department);
         next();
     } catch (error) {
         return res.status(401).json({ success: false, message: 'Not authorized, token failed' });
@@ -38,10 +39,10 @@ const authorize = (...roles) => {
         const userRole = req.user.role.toLowerCase();
         const requiredRoles = roles.map(r => r.toLowerCase());
         
-        console.log(`[RBAC] Authorizing role: "${userRole}" against [${requiredRoles.join(', ')}]`);
+        logger.info(`[RBAC] Authorizing role: "${userRole}" against [${requiredRoles.join(', ')}]`);
 
         if (!requiredRoles.includes(userRole)) {
-            console.warn(`[RBAC] Access Denied: User "${req.user.name}" with role "${userRole}" attempted to access restricted route.`);
+            logger.warn(`[RBAC] Access Denied: User "${req.user.name}" with role "${userRole}" attempted to access restricted route.`);
             return res.status(403).json({ 
                 success: false, 
                 message: 'Not authorized for this role'

@@ -1,10 +1,11 @@
+const logger = require('./utils/logger');
 const { sequelize } = require('./config/db');
 const Project = require('./models/Project');
 const ProjectMember = require('./models/ProjectMember');
 
 async function syncProjectMembers() {
     try {
-        console.log('Starting PI member synchronization...');
+        logger.info('Starting PI member synchronization...');
         const projects = await Project.findAll();
         
         for (const project of projects) {
@@ -12,7 +13,7 @@ async function syncProjectMembers() {
             const projectId = project._id || project.id;
             
             if (!userId || !projectId) {
-                console.log(`Skipping project ${project.id || project._id}: No userId or projectId`);
+                logger.info(`Skipping project ${project.id || project._id}: No userId or projectId`);
                 continue;
             }
 
@@ -25,7 +26,7 @@ async function syncProjectMembers() {
             });
 
             if (!existingPi) {
-                console.log(`Adding PI for project ${projectId} (Faculty: ${userId})`);
+                logger.info(`Adding PI for project ${projectId} (Faculty: ${userId})`);
                 await ProjectMember.create({
                     projectId: projectId,
                     userId: userId,
@@ -33,9 +34,9 @@ async function syncProjectMembers() {
                 });
             }
         }
-        console.log('Synchronization complete.');
+        logger.info('Synchronization complete.');
     } catch (error) {
-        console.error('Sync failed:', error);
+        logger.error('Sync failed:', error);
     } finally {
         process.exit();
     }

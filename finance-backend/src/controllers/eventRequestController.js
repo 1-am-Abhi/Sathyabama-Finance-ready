@@ -1,3 +1,4 @@
+const logger = require('../utils/logger');
 const asyncHandler = require('../utils/asyncHandler');
 const { EventRequest } = require('../models');
 const { Op } = require('sequelize');
@@ -11,8 +12,8 @@ const {
 } = require('../services/financePipelineService');
 
 const createEventRequest = asyncHandler(async (req, res) => {
-    console.log('Creating Event Request. User:', req.user?.name, 'Dept:', req.user?.department);
-    console.log('Payload:', req.body);
+    logger.info('Creating Event Request. User:', req.user?.name, 'Dept:', req.user?.department);
+    logger.info('Payload:', req.body);
 
     const payload = {
         ...req.body,
@@ -52,7 +53,7 @@ const getEventRequests = asyncHandler(async (req, res) => {
             { model: Centre, required: false }
         ];
     } catch (assocErr) {
-        console.warn('Associations not found for EventRequest, continuing without include.');
+        logger.warn('Associations not found for EventRequest, continuing without include.');
     }
 
     let events = [];

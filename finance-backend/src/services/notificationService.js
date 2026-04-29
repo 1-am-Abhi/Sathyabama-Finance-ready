@@ -1,3 +1,4 @@
+const logger = require('../utils/logger');
 const { Op, Sequelize } = require('sequelize');
 const Notification = require('../models/Notification');
 const User = require('../models/User');
@@ -15,7 +16,7 @@ const emitNotification = (notification) => {
             notificationId: payload._id || payload.id,
         });
     } catch (err) {
-        console.error('[Socket Error]', err);
+        logger.error('[Socket Error]', err);
     }
 };
 
@@ -30,7 +31,7 @@ class NotificationService {
         if (!userId) {
             throw new Error('userId is required for notification');
         }
-        console.log(`[NotificationService] Creating ${type} for user ${userId}: ${title}`);
+        logger.info(`[NotificationService] Creating ${type} for user ${userId}: ${title}`);
         const notification = await Notification.create({
             userId,
             role: null,
@@ -41,7 +42,7 @@ class NotificationService {
             isRead: false
         });
         emitNotification(notification);
-        console.log(`[NotificationService] SUCCESS: Created notification ${notification._id}`);
+        logger.info(`[NotificationService] SUCCESS: Created notification ${notification._id}`);
         return notification;
     }
 
@@ -58,7 +59,7 @@ class NotificationService {
      *     compare against a lowercased literal — works on both PG and SQLite.
      */
     static async notifyRole(role, title, message, type = 'INFO', relatedId = null) {
-        console.log(`[NotificationService] Broadcasting ${type} to role ${role}: ${title}`);
+        logger.info(`[NotificationService] Broadcasting ${type} to role ${role}: ${title}`);
 
         const roleLower = (role || '').toLowerCase();
 
@@ -71,11 +72,11 @@ class NotificationService {
         });
 
         if (!users.length) {
-            console.warn(`[NotificationService] No users found with role "${role}" — skipping notification`);
+            logger.warn(`[NotificationService] No users found with role "${role}" — skipping notification`);
             return [];
         }
 
-        console.log(`[NotificationService] Creating ${users.length} notifications for role ${role}`);
+        logger.info(`[NotificationService] Creating ${users.length} notifications for role ${role}`);
 
         const notificationEntries = users.map((user) => ({
             userId: user._id || user.id,
@@ -89,7 +90,7 @@ class NotificationService {
 
         const created = await Notification.bulkCreate(notificationEntries);
         created.forEach((notification) => emitNotification(notification));
-        console.log(`[NotificationService] SUCCESS: Bulk created ${created.length} notifications`);
+        logger.info(`[NotificationService] SUCCESS: Bulk created ${created.length} notifications`);
         return created;
     }
     /**

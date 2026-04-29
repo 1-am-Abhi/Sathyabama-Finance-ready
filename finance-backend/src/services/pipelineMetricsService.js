@@ -1,3 +1,4 @@
+const logger = require('../utils/logger');
 const { Op } = require('sequelize');
 const models = require('../models');
 const { VALID_PROJECT_STATUSES } = require('../constants/financeConstants');
@@ -47,8 +48,8 @@ const getCurrentFY = () => {
     // FY 2024-25 starts April 1, 2024.
     // If month is Jan/Feb/Mar (0,1,2), it belongs to previous year's FY.
     return month >= 3 
-        ? `${year}-${(year + 1).toString().slice(-2)}`
-        : `${year - 1}-${year.toString().slice(-2)}`;
+        ? `${year}-${year + 1}`
+        : `${year - 1}-${year}`;
 };
 
 const getFYDateRange = (financialYear) => {
@@ -83,7 +84,7 @@ const getFundingTotals = async (dateRange = null) => {
     const used = toNumber(usedAmount);
     const remaining = totalAllocated - used;
 
-    console.log("FINAL TOTALS:", { totalAllocated, used, remaining });
+    logger.info("FINAL TOTALS:", { totalAllocated, used, remaining });
 
     return {
         totalAllocated,
@@ -102,7 +103,7 @@ const runWithResearchCenterFallback = async (primaryQuery, fallbackQuery, fallba
             throw error;
         }
 
-        console.warn('[PipelineMetrics] ResearchCenter include failed, retrying without it:', error.message);
+        logger.warn('[PipelineMetrics] ResearchCenter include failed, retrying without it:', error.message);
 
         if (!fallbackQuery) {
             return fallbackValue;
@@ -111,7 +112,7 @@ const runWithResearchCenterFallback = async (primaryQuery, fallbackQuery, fallba
         try {
             return await fallbackQuery();
         } catch (fallbackError) {
-            console.warn('[PipelineMetrics] ResearchCenter fallback failed:', fallbackError.message);
+            logger.warn('[PipelineMetrics] ResearchCenter fallback failed:', fallbackError.message);
             return fallbackValue;
         }
     }
@@ -141,7 +142,7 @@ const getMonthlyAnalytics = async (dateRange) => {
             amount: toNumber(d.get('total'))
         }));
     } catch (err) {
-        console.error("Monthly analytics error:", err);
+        logger.error("Monthly analytics error:", err);
         return [];
     }
 };
@@ -150,7 +151,7 @@ const getYoYGrowth = async (financialYear, currentUsed) => {
     try {
         const [startPart] = financialYear.split('-');
         const startYearInt = parseInt(startPart);
-        const prevFY = `${startYearInt - 1}-${startYearInt.toString().slice(-2)}`;
+        const prevFY = `${startYearInt - 1}-${startYearInt}`;
         const prevRange = getFYDateRange(prevFY);
         
         if (!prevRange) return 0;
@@ -645,7 +646,7 @@ const buildCentreBreakdown = ({ centres, projects, fundRequests, disbursements }
     projects.forEach((project) => {
         const identity = resolveCentreIdentity(project, context);
         if (!identity) {
-            console.warn('[DATA ISSUE] Project missing researchCentre:', project._id || project.id);
+            logger.warn('[DATA ISSUE] Project missing researchCentre:', project._id || project.id);
             return; // 🔴 DO NOT GROUP INTO "Others"
         }
         const centre = ensureCentreEntry(identity, context);
@@ -717,7 +718,7 @@ const getAdminDashboardData = async (financialYear = null) => {
     // FINAL VALIDATION: global.used === SUM(centres.used)
     const sumCentresUsed = centresBreakdown.reduce((sum, c) => sum + c.disbursed, 0);
     if (Math.abs(globalUsed - sumCentresUsed) > 0.01) {
-        console.error(`[MATHEMATICAL INCONSISTENCY] Global: ${globalUsed}, Centres Sum: ${sumCentresUsed}`);
+        logger.error(`[MATHEMATICAL INCONSISTENCY] Global: ${globalUsed}, Centres Sum: ${sumCentresUsed}`);
     }
 
     return {

@@ -1,3 +1,4 @@
+const logger = require('../utils/logger');
 const nodemailer = require('nodemailer');
 
 const transporter = nodemailer.createTransport({
@@ -16,8 +17,8 @@ exports.sendReport = async (text) => {
       subject: 'Weekly Financial Report',
       text,
     });
-    console.log('[EMAIL] Weekly report sent successfully');
+    logger.info('[EMAIL] Weekly report sent successfully');
   } catch (err) {
-    console.error('[EMAIL ERROR]', err);
+    logger.error('[EMAIL ERROR]', err);
   }
 };

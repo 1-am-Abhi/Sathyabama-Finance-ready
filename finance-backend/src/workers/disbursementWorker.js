@@ -1,3 +1,4 @@
+const logger = require('../utils/logger');
 const { Worker } = require("bullmq");
 const { redisConnection } = require("../config/redis");
 const { executeDisbursementPipeline } = require("../services/financePipelineService");
@@ -11,7 +12,7 @@ const disbursementWorker = new Worker(
   "disbursement",
   async (job) => {
     const { requestId, userId, payload, correlationId } = job.data;
-    console.log(`[Worker:disbursement] Processing job ${job.id} for request ${requestId}`);
+    logger.info(`[Worker:disbursement] Processing job ${job.id} for request ${requestId}`);
 
     const request = await FundRequest.findByPk(requestId);
     if (!request) throw new Error(`FundRequest not found: ${requestId}`);
@@ -37,7 +38,7 @@ const disbursementWorker = new Worker(
             '/faculty/request-funds'
         );
     } catch (notifyErr) {
-        console.error(`[Worker:disbursement] Faculty notification failed:`, notifyErr.message);
+        logger.error(`[Worker:disbursement] Faculty notification failed:`, notifyErr.message);
     }
 
     try {
@@ -49,7 +50,7 @@ const disbursementWorker = new Worker(
             '/admin/fund-requests'
         );
     } catch (adminNotifyErr) {
-        console.error(`[Worker:disbursement] Admin notification failed:`, adminNotifyErr.message);
+        logger.error(`[Worker:disbursement] Admin notification failed:`, adminNotifyErr.message);
     }
 
     // Force websocket update
@@ -67,7 +68,7 @@ const disbursementWorker = new Worker(
 );
 
 disbursementWorker.on('failed', (job, err) => {
-    console.error(`[CRITICAL] Job ${job?.id} failed in disbursementWorker:`, err);
+    logger.error(`[CRITICAL] Job ${job?.id} failed in disbursementWorker:`, err);
 });
 
 module.exports = { disbursementWorker };

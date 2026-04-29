@@ -1,3 +1,4 @@
+const logger = require('../utils/logger');
 const asyncHandler = require('../utils/asyncHandler');
 const { disbursementQueue } = require('../queues/disbursementQueue');
 const { 
@@ -61,7 +62,7 @@ const resolveCentreAssignment = async (project, user) => {
             return { centreId: null, centre: user.centre };
         }
     } catch (error) {
-        console.warn('[FundRequestController] ResearchCenter lookup failed:', error.message);
+        logger.warn('[FundRequestController] ResearchCenter lookup failed:', error.message);
     }
 
     return { centreId: null, centre: project?.centre || user?.centre || 'Research Centre' };
@@ -108,7 +109,7 @@ const getFundRequest = asyncHandler(async (req, res) => {
             ].filter(Boolean),
         });
     } catch (error) {
-        console.warn('[FundRequestController] getFundRequest include failed:', error.message);
+        logger.warn('[FundRequestController] getFundRequest include failed:', error.message);
         request = await FundRequest.findByPk(req.params.id, {
             include: [buildProjectInclude({ includeResearchCenter: false })],
         });
@@ -280,7 +281,7 @@ const createFundRequest = asyncHandler(async (req, res) => {
                 `/admin/fund-requests`
             );
         } catch (err) {
-            console.error('[Notification Failed]', err);
+            logger.error('[Notification Failed]', err);
         }
 
         // Fetch full request to return properly populated object
@@ -299,7 +300,7 @@ const createFundRequest = asyncHandler(async (req, res) => {
         return res.status(201).json({ success: true, data: normalizeResearchCenterResponse(normalizeFundRequest(fullRequest)) || fullRequest || {} });
     } catch (error) {
         await transaction.rollback();
-        console.error('[FundRequestController] createFundRequest Error:', error);
+        logger.error('[FundRequestController] createFundRequest Error:', error);
         return res.status(500).json({
             success: false,
             message: 'Failed to create fund request',
@@ -564,7 +565,7 @@ const getProjectWithInstallments = asyncHandler(async (req, res) => {
             include: [buildCentreInclude()].filter(Boolean),
         });
     } catch (error) {
-        console.warn('[FundRequestController] getProjectWithInstallments include failed:', error.message);
+        logger.warn('[FundRequestController] getProjectWithInstallments include failed:', error.message);
         project = await Project.findByPk(req.params.projectId);
     }
     if (!project) return res.status(404).json({ success: false, message: 'Project not found' });
@@ -579,7 +580,7 @@ const getProjectWithInstallments = asyncHandler(async (req, res) => {
 
     const installments = await FundRequest.findAll({
         where: { projectId: project._id || project.id },
-        include: [{ model: Disbursement, as: 'Disbursement', required: false }],
+        include: [{ required: false, model: Disbursement, as: 'Disbursement', required: false }],
         order: [['installmentNumber', 'ASC'], ['createdAt', 'ASC']],
     });
 

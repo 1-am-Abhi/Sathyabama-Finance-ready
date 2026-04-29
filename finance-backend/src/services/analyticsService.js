@@ -1,3 +1,4 @@
+const logger = require('../utils/logger');
 const { Disbursement, Project, FundRequest, Centre, ResearchCenter } = require('../models');
 const { Op } = require('sequelize');
 const { toNumber } = require('./pipelineMetricsService');
@@ -82,7 +83,7 @@ const computeHeuristicInsights = async () => {
         if (!isResearchCenterFailure(error)) {
             throw error;
         }
-        console.warn('[AnalyticsService] ResearchCenters unavailable, continuing with empty centre set.');
+        logger.warn('[AnalyticsService] ResearchCenters unavailable, continuing with empty centre set.');
         centres = [];
     }
     const insights = [];

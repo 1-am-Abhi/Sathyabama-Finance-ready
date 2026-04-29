@@ -1,3 +1,4 @@
+const logger = require('../utils/logger');
 const express = require('express');
 const router = express.Router();
 const { Project, Disbursement, FundRequest } = require('../models');
@@ -102,7 +103,7 @@ router.get('/centre/:name', protect, authorize('ADMIN', 'FINANCE_OFFICER'), asyn
             });
         }
     } catch (err) {
-        console.warn('[Redis Cache Error]', err.message);
+        logger.warn('[Redis Cache Error]', err.message);
     }
 
     const { Project, Disbursement } = require('../models');
@@ -123,7 +124,7 @@ router.get('/centre/:name', protect, authorize('ADMIN', 'FINANCE_OFFICER'), asyn
     try {
         await redisConnection.set(cacheKey, JSON.stringify(result), 'EX', 60);
     } catch (err) {
-        console.warn('[Redis Cache Error]', err.message);
+        logger.warn('[Redis Cache Error]', err.message);
     }
 
     res.json({
