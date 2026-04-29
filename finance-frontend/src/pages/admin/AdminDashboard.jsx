@@ -227,16 +227,24 @@ const AdminDashboard = () => {
                     apiClient.get('/analytics/forecast-base?days=30')
                 ]);
 
-                const metrics = insightsRes?.data?.success ? (insightsRes.data.data ?? {}) : {};
-                setInsights(buildInsightsFromMetrics(metrics));
+                if (insightsRes?.data?.success) {
+                    const metrics = insightsRes.data.data ?? {};
 
-                const avgDaily = safeNumber(metrics.totalDisbursed) / 365;
-                setForecast({
-                    avgDailySpend: avgDaily,
-                    projectedUsage30Days: avgDaily * 30,
-                    confidence: avgDaily > 0 ? 'HIGH' : 'LOW',
-                    risk: 'LOW'
-                });
+                    if (!metrics || Object.keys(metrics).length === 0) {
+                        console.warn('Insights API returned empty metrics');
+                    }
+
+                    const nextInsights = buildInsightsFromMetrics(metrics);
+                    setInsights(nextInsights);
+
+                    const avgDaily = safeNumber(metrics.totalDisbursed) / 365;
+                    setForecast({
+                        avgDailySpend: avgDaily,
+                        projectedUsage30Days: avgDaily * 30,
+                        confidence: avgDaily > 0 ? 'HIGH' : 'LOW',
+                        risk: 'LOW'
+                    });
+                }
             } catch (err) {
                 // Preserve previous insights on transient failure — no UI flicker
                 console.warn('Failed to fetch analytics:', err);
