@@ -3,20 +3,31 @@ import apiClient from '../api/client';
 
 const AuthContext = createContext(null);
 
-// Inactivity threshold: 1 hour
-const INACTIVITY_LIMIT_MS = 60 * 60 * 1000;
-
-// Local-storage key to track last activity timestamp across tabs
+// Inactivity threshold: 30 minutes
+const INACTIVITY_LIMIT_MS = 30 * 60 * 1000;
 const LAST_ACTIVITY_KEY = 'lastActivityAt';
+
+/**
+ * Checks if a JWT token is expired by decoding its payload.
+ */
+const isTokenExpired = (token) => {
+    try {
+        if (!token) return true;
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        const now = Date.now();
+        const exp = payload.exp * 1000;
+        return exp < now;
+    } catch (e) {
+        return true;
+    }
+};
 
 export const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(null);
     const [token, setToken] = useState(null);
     const [loading, setLoading] = useState(true);
-    // Use a ref for the timeout so we can clear it without re-running effects
     const inactivityTimerRef = useRef(null);
 
-    // Normalize user data to prevent rendering objects in JSX (React Error #31)
     const normalizeUser = useCallback((u) => {
         if (!u) return null;
         return {
@@ -27,8 +38,6 @@ export const AuthProvider = ({ children }) => {
         };
     }, []);
 
-    // ── Logout ──────────────────────────────────────────────────────────────
-    // useCallback so its identity is stable and doesn't cause effect re-runs
     const logout = useCallback((reason = null) => {
         if (inactivityTimerRef.current) clearTimeout(inactivityTimerRef.current);
         localStorage.removeItem('token');
@@ -42,38 +51,33 @@ export const AuthProvider = ({ children }) => {
         }
     }, []);
 
-    // ── Restore session on mount ─────────────────────────────────────────────
     useEffect(() => {
         const storedToken = localStorage.getItem('token');
         const storedUser = localStorage.getItem('user');
 
         if (storedToken && storedUser) {
             try {
-                // Check if the session went stale while the tab was closed
-                const lastActivity = Number(localStorage.getItem(LAST_ACTIVITY_KEY) || Date.now());
-                const elapsed = Date.now() - lastActivity;
-
-                if (elapsed >= INACTIVITY_LIMIT_MS) {
-                    // User was inactive for more than 1 hour before reopening the tab
+                if (isTokenExpired(storedToken)) {
                     logout('session_expired');
                 } else {
-                    const parsedUser = JSON.parse(storedUser);
-                    const normalizedUser = normalizeUser(parsedUser);
-                    setToken(storedToken);
-                    setUser(normalizedUser);
-                    // Update localStorage with normalized version if it changed
-                    if (JSON.stringify(parsedUser) !== JSON.stringify(normalizedUser)) {
-                        localStorage.setItem('user', JSON.stringify(normalizedUser));
+                    const lastActivity = Number(localStorage.getItem(LAST_ACTIVITY_KEY) || Date.now());
+                    const elapsed = Date.now() - lastActivity;
+
+                    if (elapsed >= INACTIVITY_LIMIT_MS) {
+                        logout('session_expired');
+                    } else {
+                        const parsedUser = JSON.parse(storedUser);
+                        const normalizedUser = normalizeUser(parsedUser);
+                        setToken(storedToken);
+                        setUser(normalizedUser);
                     }
                 }
             } catch (error) {
-                console.error('Failed to restore session:', error);
                 logout();
             }
         }
         setLoading(false);
 
-        // ── Cross-tab sync: Logout if token is removed in another tab ──
         const syncLogout = (e) => {
             if (e.key === 'token' && !e.newValue) {
                 logout();
@@ -81,11 +85,9 @@ export const AuthProvider = ({ children }) => {
         };
         window.addEventListener('storage', syncLogout);
         return () => window.removeEventListener('storage', syncLogout);
-    }, [logout]);
+    }, [logout, normalizeUser]);
 
-    // ── Inactivity timer ────────────────────────────────────────────────────
     useEffect(() => {
-        // Only run when logged in
         if (!user) return;
 
         const stamp = () => localStorage.setItem(LAST_ACTIVITY_KEY, String(Date.now()));
@@ -94,19 +96,16 @@ export const AuthProvider = ({ children }) => {
             if (inactivityTimerRef.current) clearTimeout(inactivityTimerRef.current);
             stamp();
             inactivityTimerRef.current = setTimeout(() => {
-                console.warn('[AuthContext] Logging out due to 1 hour of inactivity.');
                 logout('session_expired');
             }, INACTIVITY_LIMIT_MS);
         };
 
-        // Activity events — use passive listeners for performance
-        const ACTIVITY_EVENTS = ['mousedown', 'mousemove', 'keydown', 'keypress', 'scroll', 'touchstart', 'click'];
+        const ACTIVITY_EVENTS = ['mousedown', 'mousemove', 'keydown', 'scroll', 'touchstart', 'click'];
 
         ACTIVITY_EVENTS.forEach(evt =>
             window.addEventListener(evt, scheduleLogout, { passive: true })
         );
 
-        // Start the first countdown
         scheduleLogout();
 
         return () => {
@@ -115,25 +114,31 @@ export const AuthProvider = ({ children }) => {
                 window.removeEventListener(evt, scheduleLogout)
             );
         };
-        // NOTE: `logout` is stable (useCallback), so this only runs when `user` changes
     }, [user, logout]);
 
-    // ── Login ────────────────────────────────────────────────────────────────
+    // Keep-Alive Ping every 10 minutes
+    useEffect(() => {
+        if (!user || !token) return;
+
+        const pingInterval = setInterval(() => {
+            apiClient.get('/auth/me').catch(err => {
+                if (err.response?.status === 401 && isTokenExpired(token)) {
+                    logout('session_expired');
+                }
+            });
+        }, 10 * 60 * 1000);
+
+        return () => clearInterval(pingInterval);
+    }, [user, token, logout]);
+
     const login = async (email, password, role) => {
         try {
             const response = await apiClient.post('/auth/login', { email, password, role });
-            
             const responseData = response.data;
             const userData = responseData?.user || responseData?.data?.user;
             const userToken = responseData?.token || responseData?.data?.token;
 
-            if (!userData) {
-                throw new Error('Login succeeded but user data is missing');
-            }
-
-            if (!userData.role) {
-                throw new Error('User role is missing');
-            }
+            if (!userData || !userToken) throw new Error('Invalid login response');
 
             const normalizedUser = normalizeUser(userData);
 
@@ -147,10 +152,9 @@ export const AuthProvider = ({ children }) => {
 
             return { success: true, user: normalizedUser, token: userToken };
         } catch (error) {
-            console.error('Login error:', error);
             return {
                 success: false,
-                error: error.message || error.response?.data?.message || 'Login failed. Please check your credentials.'
+                error: error.message || error.response?.data?.message || 'Login failed'
             };
         }
     };
@@ -163,10 +167,6 @@ export const AuthProvider = ({ children }) => {
         return { success: true };
     };
 
-    const hasRole = (role) => user?.role === role;
-
-    const hasAnyRole = (roles) => roles.includes(user?.role);
-
     const value = {
         user,
         token,
@@ -174,18 +174,12 @@ export const AuthProvider = ({ children }) => {
         login,
         logout,
         updateUser,
-        hasRole,
-        hasAnyRole,
+        hasRole: (role) => user?.role === role,
+        hasAnyRole: (roles) => roles.includes(user?.role),
         isAuthenticated: !!user && !!token
     };
 
     return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
 
-export const useAuth = () => {
-    const context = useContext(AuthContext);
-    if (!context) {
-        throw new Error('useAuth must be used within an AuthProvider');
-    }
-    return context;
-};
+export const useAuth = () => useContext(AuthContext);

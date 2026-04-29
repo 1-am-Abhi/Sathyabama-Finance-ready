@@ -6,7 +6,18 @@ if (!process.env.REACT_APP_API_URL) {
 }
 const API_BASE_URL = process.env.REACT_APP_API_URL;
 
-
+/**
+ * Checks if a JWT token is expired.
+ */
+const isTokenExpired = (token) => {
+    try {
+        if (!token) return true;
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        return payload.exp * 1000 < Date.now();
+    } catch (e) {
+        return true;
+    }
+};
 
 const apiClient = axios.create({
     baseURL: API_BASE_URL,
@@ -35,7 +46,6 @@ apiClient.interceptors.response.use(
             throw new Error(response.data.message || 'API failed');
         }
         
-        // Success toasts for mutations (POST/PUT/DELETE)
         if (['post', 'put', 'delete'].includes(response.config.method)) {
             const message = response.data?.message || 'Action completed successfully';
             if (!response.config.url?.includes('/auth/login')) {
@@ -47,29 +57,35 @@ apiClient.interceptors.response.use(
     async (error) => {
         const { config, response } = error;
         
-        // --- Render Cold Start Retry Logic ---
-        // If it's a 503 (Service Unavailable) or a network error and we haven't retried yet
+        // Cold Start Retry Logic
         if (config && (!response || response.status === 503) && !config._retry) {
             config._retry = true;
-            console.log('Detected potential cold start, retrying request...');
-            // Wait 2 seconds before retrying
             await new Promise(resolve => setTimeout(resolve, 2000));
             return apiClient(config);
         }
 
         const isAuthRequest = config?.url?.includes('/auth/login');
-        const errorMessage = response?.data?.message || error.message || 'Something went wrong';
+        const token = localStorage.getItem('token');
 
         if (response?.status === 401 && !isAuthRequest) {
-            toast.error('Session expired. Please login again.');
-            localStorage.removeItem('token');
-            localStorage.removeItem('user');
-            window.location.href = '/login?reason=session_expired';
+            // ONLY logout if the token is actually expired.
+            // This prevents random logouts from transient server 401s.
+            if (isTokenExpired(token)) {
+                toast.error('Session expired. Please login again.');
+                localStorage.removeItem('token');
+                localStorage.removeItem('user');
+                window.location.href = '/login?reason=session_expired';
+            } else {
+                console.warn('[API] 401 Unauthorized received, but token is still valid. Ignoring random logout trigger.');
+            }
         } else if (response?.status === 400 && response?.data?.errors) {
-            // Handle validation errors from Zod/Sequelize
             response.data.errors.forEach(err => toast.error(err.message));
         } else {
-            toast.error(errorMessage);
+            // Generic error handling
+            const errorMessage = response?.data?.message || error.message || 'Something went wrong';
+            if (response?.status !== 401) {
+                toast.error(errorMessage);
+            }
         }
         
         return Promise.reject(error);
