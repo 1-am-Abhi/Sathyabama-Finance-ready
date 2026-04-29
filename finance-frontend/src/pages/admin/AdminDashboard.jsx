@@ -45,14 +45,17 @@ const inrFormatter = new Intl.NumberFormat('en-IN', {
 
 const formatINR = (val) => inrFormatter.format(safeNumber(val));
 
+/** Shape guard — only plain objects pass; arrays, nulls, primitives are rejected. */
+const isValidMetrics = (m) => m && typeof m === 'object' && !Array.isArray(m);
+
 /**
  * Pure function — converts a raw analytics metrics object into an array of
  * human-readable insight strings.  Guaranteed to return string[].
  *
- * Rejects: null, undefined, arrays, primitives.
+ * Rejects: null, undefined, arrays, primitives (via isValidMetrics).
  */
 const buildInsightsFromMetrics = (raw) => {
-    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return [];
+    if (!isValidMetrics(raw)) return [];
 
     const projects    = safeNumber(raw.totalProjects);
     const disbursed   = safeNumber(raw.totalDisbursed);
@@ -140,6 +143,7 @@ const AdminDashboard = () => {
     const [isDrillLoading, setIsDrillLoading] = useState(false);
     const [isDark] = useState(false);
     const [insights, setInsights] = useState([]);
+    const [loadingInsights, setLoadingInsights] = useState(false);
 
 
     const [stats, setStats] = useState(null);
@@ -218,19 +222,22 @@ const AdminDashboard = () => {
     };
 
     React.useEffect(() => {
+        let cancelled = false;
         fetchDashboardData();
 
         const fetchInsights = async () => {
+            setLoadingInsights(true);
             try {
                 const [insightsRes, forecastRes] = await Promise.all([
                     apiClient.get('/analytics/insights'),
                     apiClient.get('/analytics/forecast-base?days=30')
                 ]);
 
-                if (insightsRes?.data?.success) {
-                    const metrics = insightsRes.data.data ?? {};
+                if (!cancelled && insightsRes?.data?.success) {
+                    const raw = insightsRes.data.data;
+                    const metrics = isValidMetrics(raw) ? raw : {};
 
-                    if (!metrics || Object.keys(metrics).length === 0) {
+                    if (Object.keys(metrics).length === 0) {
                         console.warn('Insights API returned empty metrics');
                     }
 
@@ -248,6 +255,8 @@ const AdminDashboard = () => {
             } catch (err) {
                 // Preserve previous insights on transient failure — no UI flicker
                 console.warn('Failed to fetch analytics:', err);
+            } finally {
+                if (!cancelled) setLoadingInsights(false);
             }
         };
         fetchInsights();
@@ -283,6 +292,7 @@ const AdminDashboard = () => {
         socket.on('finance:update', handleFinanceUpdate);
 
         return () => {
+            cancelled = true;
             if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);
             socket.off('connect', handleConnect);
             socket.off('disconnect', handleDisconnect);
@@ -763,6 +773,7 @@ const AdminDashboard = () => {
                              </div>
                         </div>
                     </div>
+                    {loadingInsights && <span className="text-xs text-gray-400 ml-auto">Updating…</span>}
                     <div className="space-y-4 relative z-10">
                         {Array.isArray(insights) && insights.length > 0 ? (
                             insights.map((insight, i) => (
