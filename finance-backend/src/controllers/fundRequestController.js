@@ -23,6 +23,8 @@ const { safeEmit } = require('../socketInstance');
 const { safeNumber, parseFY, safeArray } = require('../utils/safeUtils');
 
 const ResearchCenterModel = ResearchCenter || Centre;
+const PAYMENT_MODES = ['CHEQUE', 'NEFT', 'RTGS', 'UPI'];
+const ROUNDING_TOLERANCE = 1;
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -89,11 +91,24 @@ const getFundRequests = asyncHandler(async (req, res) => {
         where.facultyId = userId;
     }
 
+    if (req.query.status) {
+        const statuses = String(req.query.status)
+            .split(',')
+            .map((status) => status.trim())
+            .filter(Boolean);
+        if (statuses.length === 1) {
+            where.status = statuses[0];
+        } else if (statuses.length > 1) {
+            where.status = { [Op.in]: statuses };
+        }
+    }
+
     const rawRequests = await FundRequest.findAll({
         where,
         include: [
             { model: Project, as: 'Project', required: false },
-            { model: User, as: 'FacultyUser', attributes: ['name', 'department'], required: false }
+            { model: User, as: 'FacultyUser', attributes: ['name', 'department'], required: false },
+            { model: Disbursement, as: 'Disbursements', required: false }
         ],
         order: [['createdAt', 'DESC']],
     });
@@ -109,7 +124,7 @@ const getFundRequest = asyncHandler(async (req, res) => {
         include: [
             { model: Project, as: 'Project', required: false },
             { model: User, as: 'FacultyUser', attributes: ['name', 'email'], required: false },
-            { model: Disbursement, as: 'Disbursement', required: false }
+            { model: Disbursement, as: 'Disbursements', required: false }
         ],
     });
 
@@ -252,23 +267,75 @@ const disburseFund = asyncHandler(async (req, res) => {
     const request = await FundRequest.findByPk(req.params.id);
     if (!request) return res.status(200).json({ success: false, message: 'Request not found', data: [] });
 
-    if (request.status !== 'APPROVED') {
+    if (!['APPROVED', 'PARTIALLY_DISBURSED'].includes(request.status)) {
         return res.status(200).json({ success: false, message: 'Request must be approved first', data: [] });
     }
 
+    const totalDisbursed = safeNumber(await Disbursement.sum('amount', {
+        where: { fundRequestId: request._id || request.id }
+    }));
+    const remainingAmount = Math.max(0, safeNumber(request.requestedAmount) - totalDisbursed);
+    const installmentAmount = safeNumber(req.body.amount || req.body.disbursementAmount || remainingAmount);
+    const paymentMode = String(req.body.paymentMode || 'NEFT').trim().toUpperCase();
+    const chequeNumber = req.body.chequeNumber ? String(req.body.chequeNumber).trim() : null;
+    const transactionId = req.body.transactionId ? String(req.body.transactionId).trim() : null;
+    const bankName = req.body.bankName ? String(req.body.bankName).trim() : null;
+    const referenceId = req.body.referenceId
+        ? String(req.body.referenceId).trim()
+        : (paymentMode === 'CHEQUE' ? chequeNumber : transactionId);
+
+    if (installmentAmount <= 0 || installmentAmount - remainingAmount >= ROUNDING_TOLERANCE) {
+        return res.status(200).json({
+            success: false,
+            message: `Disbursement amount must be between ₹1 and ₹${remainingAmount.toLocaleString()}`,
+            data: []
+        });
+    }
+
+    if (!PAYMENT_MODES.includes(paymentMode)) {
+        return res.status(200).json({ success: false, message: 'Invalid payment mode', data: [] });
+    }
+
+    if (paymentMode === 'CHEQUE' && (!chequeNumber || !bankName)) {
+        return res.status(200).json({ success: false, message: 'Cheque number and bank name are required for CHEQUE payments', data: [] });
+    }
+
+    if (paymentMode !== 'CHEQUE' && !transactionId) {
+        return res.status(200).json({ success: false, message: 'UTR / transaction ID is required for digital payments', data: [] });
+    }
+
+    if (!referenceId) {
+        return res.status(200).json({ success: false, message: 'Missing referenceId for idempotency', data: [] });
+    }
+
     const payload = {
-        transactionId: req.body.transactionId || null,
-        paymentMode: req.body.paymentMode || 'CHEQUE',
-        amount: safeNumber(request.requestedAmount)
+        referenceId,
+        transactionId,
+        chequeNumber,
+        bankName,
+        proofUrl: req.file?.path || req.body.proofUrl || null,
+        paymentMode,
+        disbursementDate: req.body.disbursementDate || null,
+        remarks: req.body.remarks || '',
+        amount: installmentAmount > remainingAmount ? remainingAmount : installmentAmount
     };
 
-    await disbursementQueue.add("disburse", {
+    const job = await disbursementQueue.add("disburse", {
         requestId: request.id || request._id,
         userId: req.user?.id || req.user?._id,
         payload
     });
 
-    return res.status(202).json({ success: true, message: 'Disbursement queued' });
+    return res.status(202).json({
+        success: true,
+        message: job.returnvalue ? 'Disbursement executed' : 'Disbursement queued',
+        data: job.returnvalue?.disbursement || [],
+        totals: job.returnvalue?.totals || {
+            requestedAmount: safeNumber(request.requestedAmount),
+            totalDisbursed,
+            remainingAmount
+        }
+    });
 });
 
 const getProjectWithInstallments = asyncHandler(async (req, res) => {
@@ -277,7 +344,7 @@ const getProjectWithInstallments = asyncHandler(async (req, res) => {
 
     const installments = safeArray(await FundRequest.findAll({
         where: { projectId: project.id || project._id },
-        include: [{ model: Disbursement, as: 'Disbursement', required: false }],
+        include: [{ model: Disbursement, as: 'Disbursements', required: false }],
         order: [['installmentNumber', 'ASC']],
     }));
 
@@ -297,6 +364,19 @@ const getProjectWithInstallments = asyncHandler(async (req, res) => {
     });
 });
 
+const advanceStage = asyncHandler(async (req, res) => {
+    const request = await FundRequest.findByPk(req.params.id);
+    if (!request) return res.status(200).json({ success: false, message: 'Request not found', data: [] });
+
+    const { nextStage, remarks } = req.body;
+    if (!nextStage) {
+        return res.status(200).json({ success: false, message: 'Next stage is required', data: [] });
+    }
+
+    const updated = await request.advanceStage(nextStage, req.user || {}, remarks || '');
+    return res.json({ success: true, data: updated });
+});
+
 module.exports = {
     getFundRequests,
     getFundRequest,
@@ -305,5 +385,6 @@ module.exports = {
     approveFundRequest,
     rejectFundRequest,
     disburseFund,
-    getProjectWithInstallments
+    getProjectWithInstallments,
+    advanceStage
 };

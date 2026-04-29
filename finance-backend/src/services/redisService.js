@@ -2,6 +2,40 @@ const Redis = require('ioredis');
 const logger = require('../utils/logger');
 
 const redisUrl = process.env.REDIS_URL || 'redis://localhost:6379';
+const redisDisabled = process.env.NODE_ENV !== 'production';
+
+if (redisDisabled) {
+    const disabledClient = {
+        status: 'disabled',
+        duplicate: () => disabledClient,
+        on: () => disabledClient,
+        get: async () => null,
+        set: async () => null,
+        incr: async () => 1,
+        del: async () => 0,
+        keys: async () => [],
+        ping: async () => 'DISABLED',
+        quit: async () => undefined,
+    };
+
+    const cache = {
+        async get() { return null; },
+        async set() { return false; },
+        async invalidate() { return false; },
+        async lock() { return null; }
+    };
+
+    module.exports = {
+        redis: disabledClient,
+        pubClient: disabledClient,
+        subClient: disabledClient,
+        cache,
+        isHealthy: () => false,
+        redlock: null,
+        redisDisabled: true
+    };
+    return;
+}
 
 const createClient = () => {
     return new Redis(redisUrl, {

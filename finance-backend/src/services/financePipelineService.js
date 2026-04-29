@@ -18,6 +18,7 @@ const {
     Project,
     ProjectMember,
     User,
+    AuditLog,
 } = models;
 const {
     ensureCanonicalFundSources,
@@ -34,10 +35,35 @@ const {
 const { ACCOUNTS } = require('../constants/accounts');
 
 const EVENT_SOURCE_LABEL = 'College Funded';
+const PAYMENT_MODES = ['CHEQUE', 'NEFT', 'RTGS', 'UPI'];
+const ROUNDING_TOLERANCE = 1;
 
 const toNumber = (value) => {
     const numeric = Number(value);
     return Number.isFinite(numeric) ? numeric : 0;
+};
+
+const toMoney = (value) => Math.round(toNumber(value) * 100) / 100;
+
+const sumAmounts = (rows = []) =>
+    rows.reduce((sum, row) => sum + toMoney(row.amount), 0);
+
+const sanitizeLogPayload = (payload = {}) => ({
+    amount: payload.amount,
+    paymentMode: payload.paymentMode,
+    referenceId: payload.referenceId,
+    hasTransactionId: Boolean(payload.transactionId),
+    hasChequeNumber: Boolean(payload.chequeNumber),
+    hasProof: Boolean(payload.proofUrl),
+});
+
+const logFinancialError = (event, err, context = {}) => {
+    logger.error(event, {
+        message: err.message,
+        stack: err.stack,
+        ...context,
+        payload: sanitizeLogPayload(context.payload)
+    });
 };
 
 const getRecordId = (record) => record?._id || record?.id || null;
@@ -66,6 +92,13 @@ const getFinancialYear = (input = new Date()) => {
 const postJournalTransaction = async (params, options = {}) => {
     const { description, entries, referenceId, metadata, actor, transactionDate = new Date() } = params;
     const transaction = options.transaction;
+
+    if (metadata?.financialOperation === 'DISBURSEMENT') {
+        const missingLink = entries.some((entry) => !entry.disbursementId);
+        if (missingLink) {
+            throw new Error('LEDGER_INTEGRITY_ERROR: Disbursement ledger entries require disbursementId.');
+        }
+    }
 
     // 1. Period Lock Guard (Pipeline Layer)
     const closedPeriod = await AccountingPeriod.findOne({
@@ -106,14 +139,15 @@ const postJournalTransaction = async (params, options = {}) => {
         accountId: entry.accountId,
         projectId: entry.projectId || null,
         fundRequestId: entry.fundRequestId || null,
+        disbursementId: entry.disbursementId || null,
         debit: entry.debit || 0,
         credit: entry.credit || 0,
         referenceId: referenceId || null,
         description: entry.description || description,
-        metadata: entry.metadata || {}
+        metadata: { ...metadata, ...(entry.metadata || {}) }
     }));
 
-    await Ledger.bulkCreate(ledgerLines, { transaction });
+    await Ledger.bulkCreate(ledgerLines, { transaction, validate: true, individualHooks: true });
     return journal;
 };
 
@@ -121,7 +155,7 @@ const safeCreateLedgerEntry = async (payload, options = {}) => {
     const transaction = options.transaction;
     try {
         const { entryType, amount, projectId, fundRequestId, referenceId, description, createdByUserId } = payload;
-        
+
         // 1. Calculate current balance for the context (Institutional vs Project)
         const where = projectId ? { projectId } : {};
         const ledgerEntries = await Ledger.findAll({ where, transaction });
@@ -326,340 +360,497 @@ const getFundSourceAllocationState = async (source, transaction) => {
 };
 
 const approveFundRequestPipeline = async (request, actor, remarks, options = {}) => {
+    if (!options.transaction) {
+        return sequelize.transaction((transaction) =>
+            approveFundRequestPipeline(request, actor, remarks, { ...options, transaction })
+        );
+    }
+
     const transaction = options.transaction;
-    await request.update({
+    const lockedRequest = await FundRequest.findByPk(request._id || request.id, {
+        transaction,
+        lock: transaction.LOCK.UPDATE
+    });
+    if (!lockedRequest) {
+        throw new Error(`FundRequest ${request._id || request.id} not found`);
+    }
+
+    await lockedRequest.update({
         status: 'APPROVED',
         currentStage: 'FUND_APPROVED'
     }, { transaction });
 
-    return request;
+    if (actor?.id || actor?._id) {
+        await AuditLog.create({
+            userId: actor.id || actor._id,
+            action: 'FUND_REQUEST_APPROVED',
+            entityType: 'FundRequest',
+            entityId: String(lockedRequest._id || lockedRequest.id),
+            organizationId: lockedRequest.organizationId || actor.organizationId || null,
+            metadata: {
+                updatedByName: actor.name || 'Admin',
+                remarks: remarks || '',
+                requestedAmount: toMoney(lockedRequest.requestedAmount)
+            }
+        }, { transaction });
+    }
+
+    return lockedRequest;
 };
 
 const executeDisbursementPipeline = async (request, payload, actor, options = {}) => {
     const correlationId = options.correlationId || `INTERNAL-${Date.now()}`;
+    const fundRequestId = request?._id || request?.id;
 
-    if (!payload.transactionId) {
-        throw new Error('Bank Reference (UTR) is mandatory to prevent duplicate payouts');
-    }
-
-    const amount = toNumber(request.requestedAmount);
+    let amount = toMoney(payload.amount);
     if (amount <= 0) {
         throw new Error('Disbursement amount must be greater than zero');
     }
 
     const disbursementDate = payload.disbursementDate || new Date();
-    const bankReference = payload.transactionId;
+    const paymentMode = String(payload.paymentMode || '').trim().toUpperCase();
+    const chequeNumber = payload.chequeNumber ? String(payload.chequeNumber).trim() : null;
+    const transactionId = payload.transactionId ? String(payload.transactionId).trim() : null;
+    const bankName = payload.bankName ? String(payload.bankName).trim() : null;
+    const referenceId = payload.referenceId ? String(payload.referenceId).trim() : null;
+    const bankReference = referenceId || (paymentMode === 'CHEQUE' ? chequeNumber : transactionId);
+
+    if (!referenceId) {
+        throw new Error('Missing referenceId for idempotency');
+    }
 
     // --- RECONCILIATION ENGINE: SMART MULTI-MODE CHECKS ---
-    if (!payload.paymentMode) {
+    if (!PAYMENT_MODES.includes(paymentMode)) {
         throw new Error('Institutional Compliance: Payment mode is required.');
     }
 
-    if (payload.paymentMode === 'CHEQUE') {
-        if (!payload.chequeNumber || !payload.bankName) {
+    if (paymentMode === 'CHEQUE') {
+        if (!chequeNumber || !bankName) {
             throw new Error('Institutional Compliance: Cheque number and Bank name are mandatory for CHEQUE disbursement.');
         }
     }
 
-    if (['UPI', 'NEFT', 'RTGS'].includes(payload.paymentMode)) {
-        if (!payload.transactionId) {
+    if (['UPI', 'NEFT', 'RTGS'].includes(paymentMode)) {
+        if (!transactionId) {
             throw new Error('Institutional Compliance: Transaction ID / UTR is mandatory for digital disbursement.');
         }
     }
 
-    return sequelize.transaction(async (transaction) => {
-        // Reconciliation: Duplicate Cheque Detection
-        if (payload.chequeNumber) {
-            const duplicateCheque = await Disbursement.findOne({
-                where: { chequeNumber: payload.chequeNumber },
-                transaction
+    if (!bankReference) {
+        throw new Error('Bank reference, UTR, or cheque number is mandatory to prevent duplicate payouts');
+    }
+
+    try {
+        return await sequelize.transaction(async (transaction) => {
+            const existingByReference = await Disbursement.findOne({
+                where: { referenceId },
+                transaction,
+                lock: transaction.LOCK.UPDATE
             });
-            if (duplicateCheque) {
-                throw new Error(`Reconciliation Error: Cheque Number ${payload.chequeNumber} has already been recorded.`);
+            if (existingByReference) {
+                const [existingRequest, totalDisbursed] = await Promise.all([
+                    FundRequest.findByPk(existingByReference.fundRequestId, { transaction }),
+                    Disbursement.sum('amount', {
+                        where: { fundRequestId: existingByReference.fundRequestId },
+                        transaction
+                    })
+                ]);
+                const requestedAmount = toMoney(existingRequest?.requestedAmount);
+                const totalDisbursedValue = toMoney(totalDisbursed);
+                return {
+                    request: existingRequest,
+                    disbursement: existingByReference,
+                    idempotent: true,
+                    totals: {
+                        requestedAmount,
+                        totalDisbursed: totalDisbursedValue,
+                        remainingAmount: Math.max(0, toMoney(requestedAmount - totalDisbursedValue))
+                    }
+                };
             }
-        }
 
-        // Reconciliation: Duplicate Transaction Detection
-        if (payload.transactionId) {
-            const duplicateTxn = await Disbursement.findOne({
-                where: { transactionId: payload.transactionId },
-                transaction
+            // Reconciliation: Duplicate Cheque Detection
+            if (chequeNumber) {
+                const duplicateCheque = await Disbursement.findOne({
+                    where: { chequeNumber },
+                    transaction,
+                    lock: transaction.LOCK.UPDATE
+                });
+                if (duplicateCheque) {
+                    throw new Error(`Reconciliation Error: Cheque Number ${chequeNumber} has already been recorded.`);
+                }
+            }
+
+            // Reconciliation: Duplicate Transaction Detection
+            if (transactionId) {
+                const duplicateTxn = await Disbursement.findOne({
+                    where: { transactionId },
+                    transaction,
+                    lock: transaction.LOCK.UPDATE
+                });
+                if (duplicateTxn) {
+                    throw new Error(`Reconciliation Error: Transaction ID ${transactionId} has already been recorded.`);
+                }
+            }
+
+            // ROW-LEVEL LOCK on FundRequest
+            const lockedRequest = await FundRequest.findByPk(request._id || request.id, {
+                transaction,
+                lock: transaction.LOCK.UPDATE
             });
-            if (duplicateTxn) {
-                throw new Error(`Reconciliation Error: Transaction ID ${payload.transactionId} has already been recorded.`);
+
+            if (!lockedRequest) {
+                throw new Error(`FundRequest ${request._id || request.id} not found`);
             }
-        }
 
-        // --- HARD IDEMPOTENCY CHECK ---
-        const existingDisbursement = await Disbursement.findOne({
-            where: { fundRequestId: request._id || request.id },
-            transaction
-        });
+            if (!['APPROVED', 'PARTIALLY_DISBURSED'].includes(lockedRequest.status)) {
+                throw new Error(`Cannot disburse request in status '${lockedRequest.status}'. Only APPROVED or PARTIALLY_DISBURSED is allowed.`);
+            }
 
-        if (existingDisbursement) {
-            throw new Error('Disbursement already exists for this fund request. Double payout prevented.');
-        }
+            // ROW-LEVEL LOCK on Project
+            const project = await Project.findOne({
+                where: { _id: lockedRequest.projectId },
+                transaction,
+                lock: transaction.LOCK.UPDATE
+            });
 
-        // ROW-LEVEL LOCK on FundRequest
-        const lockedRequest = await FundRequest.findByPk(request._id || request.id, {
-            transaction,
-            lock: transaction.LOCK.UPDATE
-        });
+            if (!project || !isValidProjectStatus(project.status)) {
+                throw new Error(`Target project status [${project?.status || 'UNKNOWN'}] is invalid for disbursement`);
+            }
 
-        if (!lockedRequest) {
-            throw new Error(`FundRequest ${request._id || request.id} not found`);
-        }
+            // BUDGET VALIDATION — project-level and request-level SUM within transaction
+            const projectDisbursements = await Disbursement.findAll({
+                where: { projectId: lockedRequest.projectId },
+                attributes: ['amount'],
+                transaction,
+                lock: transaction.LOCK.UPDATE
+            });
+            const totalReleased = toMoney(sumAmounts(projectDisbursements));
+            const remaining = toNumber(project.sanctionedBudget) - totalReleased;
 
-        // FINAL STATE GUARD — only one disbursement ever
-        if (lockedRequest.status === 'DISBURSED') {
-            const existing = await Disbursement.findOne({
+            if (amount - remaining >= ROUNDING_TOLERANCE) {
+                throw new Error(`Overpayment protection: Remaining budget ₹${remaining.toLocaleString()} is less than request amount ₹${amount.toLocaleString()}`);
+            }
+            if (amount > remaining) amount = toMoney(remaining);
+
+            const requestDisbursements = await Disbursement.findAll({
                 where: { fundRequestId: lockedRequest._id || lockedRequest.id },
+                attributes: ['amount'],
+                transaction,
+                lock: transaction.LOCK.UPDATE
+            });
+            const requestDisbursedBefore = toMoney(sumAmounts(requestDisbursements));
+            const requestRemaining = toMoney(toNumber(lockedRequest.requestedAmount) - requestDisbursedBefore);
+
+            if (amount - requestRemaining >= ROUNDING_TOLERANCE) {
+                throw new Error(`Overpayment protection: Remaining request amount ₹${requestRemaining.toLocaleString()} is less than installment amount ₹${amount.toLocaleString()}`);
+            }
+            if (amount > requestRemaining) amount = toMoney(requestRemaining);
+
+            // FUND SOURCE CHECK
+            const sourceTotals = await getFundSourceAllocationState(lockedRequest.source, transaction);
+            if ((sourceTotals.used + amount) - sourceTotals.allocated >= ROUNDING_TOLERANCE) {
+                throw new Error('Disbursement exceeds available fund source allocation limits');
+            }
+
+            const requestId = lockedRequest._id || lockedRequest.id;
+
+            // IDEMPOTENCY CHECK
+            const sysActor = actor?.id || actor?._id || 'sys';
+            const idempotencyKey = payload.idempotencyKey || `disburse_${requestId}_${bankReference}_${sysActor}`;
+
+            const existingByKey = await Disbursement.findOne({
+                where: { idempotencyKey },
+                transaction,
+                lock: transaction.LOCK.UPDATE
+            });
+            if (existingByKey) {
+                logger.info(`[${correlationId}] [Pipeline:DISBURSE] Idempotent replay via key`);
+                const totalDisbursedValue = toMoney(await Disbursement.sum('amount', {
+                    where: { fundRequestId: requestId },
+                    transaction
+                }));
+                const requestedAmount = toMoney(lockedRequest.requestedAmount);
+                return {
+                    request: lockedRequest,
+                    disbursement: existingByKey,
+                    idempotent: true,
+                    totals: {
+                        requestedAmount,
+                        totalDisbursed: totalDisbursedValue,
+                        remainingAmount: Math.max(0, toMoney(requestedAmount - totalDisbursedValue))
+                    }
+                };
+            }
+
+            // FETCH APPROVAL RECORD
+            const { AuditLog } = require('../models');
+            const { Op: SeqOp } = require('sequelize');
+            const approvalLog = await AuditLog.findOne({
+                where: {
+                    entityId: String(requestId),
+                    action: { [SeqOp.in]: ['FUND_REQUEST_APPROVED', 'FUND_APPROVED'] }
+                },
+                order: [['createdAt', 'DESC']],
                 transaction
             });
-            if (existing) {
-                logger.info(`[${correlationId}] [Pipeline:DISBURSE] Idempotent replay — already DISBURSED`);
-                return { request: lockedRequest, disbursement: existing, idempotent: true };
+
+            if (!approvalLog) {
+                throw new Error(`No formal approval record found for request ${requestId}. Disbursement blocked.`);
             }
-            throw new Error('Already fully disbursed but no disbursement record found — data inconsistency');
-        }
 
-        if (lockedRequest.status !== 'APPROVED') {
-            throw new Error(`Cannot disburse request in status '${lockedRequest.status}'. Only APPROVED is allowed.`);
-        }
+            const approvedBy = approvalLog.userId || null;
+            const approvedByName = approvalLog.performedByName || approvalLog.metadata?.updatedByName || 'Admin';
+            const approvedAt = approvalLog.createdAt;
 
-        // ROW-LEVEL LOCK on Project
-        const project = await Project.findOne({
-            where: { _id: lockedRequest.projectId },
-            transaction,
-            lock: transaction.LOCK.UPDATE
-        });
+            const threshold = toNumber(process.env.HIGH_VALUE_THRESHOLD || 100000);
+            const isHighValue = amount >= threshold;
+            const installmentNumber = requestDisbursements.length + 1;
 
-        if (!project || !isValidProjectStatus(project.status)) {
-            throw new Error(`Target project status [${project?.status || 'UNKNOWN'}] is invalid for disbursement`);
-        }
+            let financeRemarks = (payload.remarks || '').trim();
+            financeRemarks = `[INSTALLMENT #${installmentNumber}]${isHighValue ? ' [HIGH-VALUE]' : ''} ${financeRemarks}`.trim();
 
-        // BUDGET VALIDATION — project-level SUM within transaction
-        const totalReleased = toNumber(await Disbursement.sum('amount', {
-            where: { projectId: lockedRequest.projectId },
-            transaction
-        }) || 0);
-        const remaining = toNumber(project.sanctionedBudget) - totalReleased;
+            logger.info(`[${correlationId}] [Pipeline:DISBURSE] Start — request=${requestId} amount=${amount} installment=${installmentNumber} isHighValue=${isHighValue}`);
 
-        if (amount > remaining) {
-            throw new Error(`Overpayment protection: Remaining budget ₹${remaining.toLocaleString()} is less than request amount ₹${amount.toLocaleString()}`);
-        }
+            // CREATE INSTALLMENT DISBURSEMENT
+            let disbursement;
+            try {
+                disbursement = await Disbursement.create({
+                    fundRequestId: requestId,
+                    projectId: lockedRequest.projectId,
+                    amount,
+                    installmentNumber,
+                    isInstallment: true,
+                    approvedBy,
+                    approvedByName,
+                    approvedAt,
+                    isHighValue,
+                    disbursedBy: actor?.id || actor?._id,
+                    disbursedByName: actor?.name || 'Finance Officer',
+                    disbursedAt: disbursementDate,
+                    bankReference,
+                    referenceId,
+                    chequeNumber,
+                    bankName,
+                    transactionId: paymentMode === 'CHEQUE' ? null : transactionId,
+                    proofUrl: payload.proofUrl || null,
+                    paymentMode,
+                    remarks: financeRemarks,
+                    idempotencyKey
+                }, { transaction });
+            } catch (err) {
+                if (err.name === 'SequelizeUniqueConstraintError') {
+                    throw new Error('Duplicate disbursement detected (UTR or idempotency key already exists). Disbursement rejected.');
+                }
+                logFinancialError('DISBURSEMENT_CREATE_ERROR', err, {
+                    correlationId,
+                    fundRequestId: requestId,
+                    amount,
+                    userId: actor?.id || actor?._id,
+                    payload
+                });
+                throw err;
+            }
 
-        // FUND SOURCE CHECK
-        const sourceTotals = await getFundSourceAllocationState(lockedRequest.source, transaction);
-        if (sourceTotals.used + amount > sourceTotals.allocated) {
-            throw new Error('Disbursement exceeds available fund source allocation limits');
-        }
+            // RECOMPUTE AUTHORITATIVE SUM AFTER INSERT
+            const authoritativeProjectRows = await Disbursement.findAll({
+                where: { projectId: lockedRequest.projectId },
+                attributes: ['amount'],
+                transaction,
+                lock: transaction.LOCK.UPDATE
+            });
+            const authoritativeProjectSum = toMoney(sumAmounts(authoritativeProjectRows));
+            const authoritativeRequestRows = await Disbursement.findAll({
+                where: { fundRequestId: requestId },
+                attributes: ['amount'],
+                transaction,
+                lock: transaction.LOCK.UPDATE
+            });
+            const authoritativeRequestSum = toMoney(sumAmounts(authoritativeRequestRows));
+            const requestedAmount = toMoney(lockedRequest.requestedAmount);
+            const remainingAmountRaw = toMoney(requestedAmount - authoritativeRequestSum);
+            const remainingAmount = Math.max(0, remainingAmountRaw < ROUNDING_TOLERANCE ? 0 : remainingAmountRaw);
+            const requestStatus = authoritativeRequestSum === 0
+                ? 'APPROVED'
+                : remainingAmount >= ROUNDING_TOLERANCE
+                    ? 'PARTIALLY_DISBURSED'
+                    : 'COMPLETED';
 
-        const requestId = lockedRequest._id || lockedRequest.id;
+            await lockedRequest.update({
+                status: requestStatus,
+                currentStage: requestStatus === 'APPROVED' ? 'FUND_APPROVED' : 'AMOUNT_DISBURSED',
+                transactionId: bankReference,
+                bankName: payload.bankName || lockedRequest.bankName,
+                disbursementDate,
+                financeRemarks,
+                financeProcessedAt: new Date(),
+                financeProcessedBy: actor?.id || actor?._id || null,
+            }, { transaction });
 
-        // IDEMPOTENCY CHECK
-        const sysActor = actor?.id || actor?._id || 'sys';
-        const idempotencyKey = `disburse_${requestId}*${Number(amount).toFixed(2)}*${Number(lockedRequest.installmentNumber)}_${sysActor}`;
+            // --- DOUBLE-ENTRY ACCOUNTING INTEGRATION ---
+            const [bankAcc, expenseAcc] = await Promise.all([
+                Account.findOne({ where: { code: ACCOUNTS.BANK.code }, transaction }),
+                Account.findOne({ where: { code: ACCOUNTS.PROJECT_EXPENSE.code }, transaction })
+            ]);
 
-        const existingByKey = await Disbursement.findOne({
-            where: { idempotencyKey },
-            transaction,
-            lock: transaction.LOCK.UPDATE
-        });
-        if (existingByKey) {
-            logger.info(`[${correlationId}] [Pipeline:DISBURSE] Idempotent replay via key`);
-            return { request: lockedRequest, disbursement: existingByKey, idempotent: true };
-        }
+            if (!bankAcc || !expenseAcc) {
+                throw new Error('CRITICAL: Chart of Accounts not properly initialized. Aborting disbursement.');
+            }
 
-        // FETCH APPROVAL RECORD
-        const { AuditLog } = require('../models');
-        const { Op: SeqOp } = require('sequelize');
-        const approvalLog = await AuditLog.findOne({
-            where: {
-                entityId: String(requestId),
-                action: { [SeqOp.in]: ['FUND_REQUEST_APPROVED', 'FUND_APPROVED'] }
-            },
-            order: [['createdAt', 'DESC']],
-            transaction
-        });
+            await postJournalTransaction({
+                description: `Fund disbursement for: ${lockedRequest.projectTitle}`,
+                referenceId: bankReference,
+                metadata: {
+                    financialOperation: 'DISBURSEMENT',
+                    disbursementId: disbursement._id || disbursement.id,
+                    fundRequestId: requestId,
+                },
+                actor,
+                entries: [
+                    {
+                        accountId: expenseAcc.id,
+                        projectId: lockedRequest.projectId,
+                        fundRequestId: requestId,
+                        disbursementId: disbursement._id || disbursement.id,
+                        debit: amount,
+                        credit: 0,
+                        description: `Research Expense: ${lockedRequest.purpose}`
+                    },
+                    {
+                        accountId: bankAcc.id,
+                        projectId: null, // Bank account is institutional level
+                        fundRequestId: requestId,
+                        disbursementId: disbursement._id || disbursement.id,
+                        debit: 0,
+                        credit: amount,
+                        description: `Cash outflow from Institutional Bank`
+                    }
+                ]
+            }, { transaction });
 
-        if (!approvalLog) {
-            throw new Error(`No formal approval record found for request ${requestId}. Disbursement blocked.`);
-        }
+            // Update Project aggregated metrics (Caching Layer)
+            await project.update({
+                releasedBudget: authoritativeProjectSum,
+                status: 'ACTIVE'
+            }, { transaction });
 
-        const approvedBy = approvalLog.userId || null;
-        const approvedByName = approvalLog.performedByName || approvalLog.metadata?.updatedByName || 'Admin';
-        const approvedAt = approvalLog.createdAt;
+            const anomalyCheck = await detectAnomalies({ projectId: lockedRequest.projectId, amount });
 
-        const threshold = toNumber(process.env.HIGH_VALUE_THRESHOLD || 100000);
-        const isHighValue = amount >= threshold;
-        let financeRemarks = (payload.remarks || '').trim();
-        financeRemarks = `[INSTALLMENT #${lockedRequest.installmentNumber}]${isHighValue ? ' [HIGH-VALUE]' : ''} ${financeRemarks}`.trim();
-
-        logger.info(`[${correlationId}] [Pipeline:DISBURSE] Start — request=${requestId} amount=${amount} installment=${lockedRequest.installmentNumber} isHighValue=${isHighValue}`);
-
-        // SET STATUS TO DISBURSED (always — one request, one disbursement)
-        await lockedRequest.update({
-            status: 'DISBURSED',
-            currentStage: 'AMOUNT_DISBURSED',
-            transactionId: bankReference,
-            bankName: payload.bankName || lockedRequest.bankName,
-            disbursementDate,
-            financeRemarks,
-            financeProcessedAt: new Date(),
-            financeProcessedBy: actor?.id || actor?._id || null,
-        }, { transaction });
-
-        // CREATE THE SINGLE DISBURSEMENT
-        let disbursement;
-        try {
-            disbursement = await Disbursement.create({
-                fundRequestId: requestId,
+            await logDisbursementAudit({
                 projectId: lockedRequest.projectId,
                 amount,
-                installmentNumber: lockedRequest.installmentNumber,
+                previousTotalUsed: totalReleased,
+                newTotalUsed: authoritativeProjectSum,
+                remainingBudget: toNumber(project.sanctionedBudget) - authoritativeProjectSum,
+                remainingAmount,
                 isInstallment: true,
-                approvedBy,
-                approvedByName,
-                approvedAt,
                 isHighValue,
-                disbursedBy: actor?.id || actor?._id,
-                disbursedByName: actor?.name || 'Finance Officer',
-                disbursedAt: disbursementDate,
-                bankReference,
-                chequeNumber: payload.chequeNumber,
-                bankName: payload.bankName,
-                transactionId: bankReference,
-                proofUrl: payload.proofUrl || null,
-                paymentMode: payload.paymentMode || 'CHEQUE',
-                remarks: financeRemarks,
-                idempotencyKey
-            }, { transaction });
-        } catch (err) {
-            if (err.name === 'SequelizeUniqueConstraintError') {
-                throw new Error('Duplicate disbursement detected (UTR or idempotency key already exists). Disbursement rejected.');
-            }
-            logger.error(`[${correlationId}] [Pipeline:DISBURSE] Disbursement create failed:`, err.message);
-            throw err;
-        }
-
-        // RECOMPUTE AUTHORITATIVE SUM AFTER INSERT
-        const authoritativeProjectSum = toNumber(await Disbursement.sum('amount', {
-            where: { projectId: lockedRequest.projectId },
-            transaction
-        }) || 0);
-
-        // --- DOUBLE-ENTRY ACCOUNTING INTEGRATION ---
-        const [bankAcc, expenseAcc] = await Promise.all([
-            Account.findOne({ where: { code: ACCOUNTS.BANK.code }, transaction }),
-            Account.findOne({ where: { code: ACCOUNTS.PROJECT_EXPENSE.code }, transaction })
-        ]);
-
-        if (!bankAcc || !expenseAcc) {
-            throw new Error('CRITICAL: Chart of Accounts not properly initialized. Aborting disbursement.');
-        }
-
-        await postJournalTransaction({
-            description: `Fund disbursement for: ${lockedRequest.projectTitle}`,
-            referenceId: bankReference,
-            actor,
-            entries: [
-                {
-                    accountId: expenseAcc.id,
-                    projectId: lockedRequest.projectId,
-                    fundRequestId: requestId,
-                    debit: amount,
-                    credit: 0,
-                    description: `Research Expense: ${lockedRequest.purpose}`
-                },
-                {
-                    accountId: bankAcc.id,
-                    projectId: null, // Bank account is institutional level
-                    fundRequestId: requestId,
-                    debit: 0,
-                    credit: amount,
-                    description: `Cash outflow from Institutional Bank`
+                userId: actor?.id || actor?._id,
+                entityId: requestId,
+                metadata: {
+                    transactionId: bankReference,
+                    chequeNumber,
+                    bankName,
+                    projectTitle: lockedRequest.projectTitle,
+                    financeRemarks,
+                    installmentNumber,
+                    approvedBy,
+                    approvedByName,
+                    anomaly: anomalyCheck.anomaly,
+                    anomalyReason: anomalyCheck.reason
                 }
-            ]
-        }, { transaction });
+            });
 
-        // Update Project aggregated metrics (Caching Layer)
-        await project.update({
-            releasedBudget: authoritativeProjectSum,
-            status: 'ACTIVE'
-        }, { transaction });
+            await AuditLog.create({
+                userId: actor?.id || actor?._id,
+                action: 'INSTALLMENT_DISBURSED',
+                entityType: 'Disbursement',
+                entityId: String(disbursement._id || disbursement.id),
+                organizationId: lockedRequest.organizationId || actor?.organizationId || null,
+                metadata: {
+                    fundRequestId: requestId,
+                    projectId: lockedRequest.projectId,
+                    amount,
+                    installmentNumber,
+                    paymentMode,
+                    bankReference,
+                    referenceId,
+                    requestedAmount,
+                    totalDisbursed: authoritativeRequestSum,
+                    remainingAmount
+                }
+            }, { transaction });
 
-        const anomalyCheck = await detectAnomalies({ projectId: lockedRequest.projectId, amount });
+            logger.info(`[${correlationId}] [Pipeline:DISBURSE] Committed — request=${requestId} disbursement=${disbursement._id} status=${requestStatus} requestSum=${authoritativeRequestSum} authSum=${authoritativeProjectSum}`);
 
-        await logDisbursementAudit({
-            projectId: lockedRequest.projectId,
-            amount,
-            previousTotalUsed: totalReleased,
-            newTotalUsed: authoritativeProjectSum,
-            remainingBudget: toNumber(project.sanctionedBudget) - authoritativeProjectSum,
-            isInstallment: true,
-            isHighValue,
-            userId: actor?.id || actor?._id,
-            entityId: requestId,
-            metadata: {
-                transactionId: bankReference,
-                chequeNumber: payload.chequeNumber,
-                bankName: payload.bankName,
-                projectTitle: lockedRequest.projectTitle,
-                financeRemarks,
-                approvedBy,
-                approvedByName,
-                anomaly: anomalyCheck.anomaly,
-                anomalyReason: anomalyCheck.reason
+            // --- REAL-TIME STREAMING ---
+            safeEmit('finance', 'finance:update', {
+                type: 'DISBURSEMENT',
+                projectId: lockedRequest.projectId,
+                amount,
+                timestamp: Date.now()
+            });
+
+            // --- REAL-TIME BUDGET ALERTS ---
+            const sanctioned = toNumber(project.sanctionedBudget);
+            const finalRemaining = sanctioned - authoritativeProjectSum;
+
+            if (finalRemaining < sanctioned * 0.1 && sanctioned > 0) {
+                await NotificationService.create(
+                    project.facultyId || project.userId,
+                    'Budget Threshold Alert',
+                    `⚠ Project '${project.title}' has less than 10% budget remaining (₹${finalRemaining.toLocaleString()}).`,
+                    'ALERT',
+                    `/faculty/projects/${project._id || project.id}`
+                );
+                await NotificationService.notifyRole(
+                    'ADMIN',
+                    'Low Project Budget',
+                    `Institutional Warning: '${project.title}' is at critical budget levels (<10%).`,
+                    'ALERT',
+                    '/admin/projects'
+                );
             }
-        });
 
-        logger.info(`[${correlationId}] [Pipeline:DISBURSE] Committed — request=${requestId} disbursement=${disbursement._id} status=DISBURSED authSum=${authoritativeProjectSum}`);
-
-        // --- REAL-TIME STREAMING ---
-        safeEmit('finance', 'finance:update', {
-            type: 'DISBURSEMENT',
-            projectId: lockedRequest.projectId,
-            amount,
-            timestamp: Date.now()
-        });
-
-        // --- REAL-TIME BUDGET ALERTS ---
-        const sanctioned = toNumber(project.sanctionedBudget);
-        const finalRemaining = sanctioned - authoritativeProjectSum;
-        
-        if (finalRemaining < sanctioned * 0.1 && sanctioned > 0) {
+            // --- DISBURSEMENT NOTIFICATION ---
             await NotificationService.create(
                 project.facultyId || project.userId,
-                'Budget Threshold Alert',
-                `⚠ Project '${project.title}' has less than 10% budget remaining (₹${finalRemaining.toLocaleString()}).`,
-                'ALERT',
-                `/faculty/projects/${project._id || project.id}`
+                'Funds Disbursed',
+                `✅ ₹${amount.toLocaleString()} has been credited for '${project.title}'. UTR: ${bankReference}`,
+                'SUCCESS',
+                '/faculty/request-funds'
             );
-            await NotificationService.notifyRole(
-                'ADMIN',
-                'Low Project Budget',
-                `Institutional Warning: '${project.title}' is at critical budget levels (<10%).`,
-                'ALERT',
-                '/admin/projects'
+
+            verifyFinancialParity('DISBURSEMENT_PIPELINE').catch(err =>
+                logFinancialError('DISBURSEMENT_WATCHDOG_ERROR', err, {
+                    correlationId,
+                    fundRequestId: requestId,
+                    amount,
+                    userId: actor?.id || actor?._id,
+                    payload
+                })
             );
-        }
 
-        // --- DISBURSEMENT NOTIFICATION ---
-        await NotificationService.create(
-            project.facultyId || project.userId,
-            'Funds Disbursed',
-            `✅ ₹${amount.toLocaleString()} has been credited for '${project.title}'. UTR: ${bankReference}`,
-            'SUCCESS',
-            '/faculty/request-funds'
-        );
-
-        verifyFinancialParity('DISBURSEMENT_PIPELINE').catch(err =>
-            logger.error(`[${correlationId}] Watchdog failed:`, err)
-        );
-
-        return { request: lockedRequest, disbursement };
-    });
+            return {
+                request: lockedRequest,
+                disbursement,
+                totals: {
+                    requestedAmount,
+                    totalDisbursed: authoritativeRequestSum,
+                    remainingAmount
+                }
+            };
+        });
+    } catch (err) {
+        logFinancialError('DISBURSEMENT_ERROR', err, {
+            correlationId,
+            fundRequestId,
+            amount,
+            userId: actor?.id || actor?._id,
+            payload
+        });
+        throw err;
+    }
 };
 
 const syncRevenueLedger = async (revenue, actor, options = {}) => {

@@ -4,6 +4,25 @@ const SystemJob = require('../models/SystemJob');
 const AlertService = require('./alertService');
 
 const redisUrl = process.env.REDIS_URL || 'redis://localhost:6379';
+const queuesDisabled = process.env.NODE_ENV !== 'production';
+
+if (queuesDisabled) {
+    const queues = {
+        notifications: {
+            async add(type, payload, requestId) {
+                logger.info('[Queue] Redis disabled outside production; notification job handled inline.', {
+                    type,
+                    requestId
+                });
+                return { id: `local-${requestId || Date.now()}`, data: { type, payload, requestId } };
+            }
+        },
+        setupRepeatableJobs: async () => undefined
+    };
+
+    module.exports = queues;
+    return;
+}
 
 const createQueue = (name) => new Queue(name, redisUrl, {
     settings: { lockDuration: 30000, stalledInterval: 30000 }

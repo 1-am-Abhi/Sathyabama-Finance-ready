@@ -33,8 +33,7 @@ const getFinanceStats = asyncHandler(async (req, res) => {
     const pendingDisbursements = safeNumber(await FundRequest.count({
         where: { 
             ...whereClause, 
-            status: 'APPROVED',
-            currentStage: 'FUND_APPROVED'
+            status: { [Op.in]: ['APPROVED', 'PARTIALLY_DISBURSED'] }
         }
     }));
 

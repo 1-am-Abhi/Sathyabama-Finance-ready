@@ -46,27 +46,26 @@ module.exports = {
                 WHERE fr."_id" = sub."_id"
             `, { transaction });
 
-            // 5. Delete duplicate disbursements — keep only the LATEST per fundRequestId
-            await queryInterface.sequelize.query(`
-                DELETE FROM "Disbursements"
-                WHERE "_id" NOT IN (
-                    SELECT DISTINCT ON ("fundRequestId") "_id"
-                    FROM "Disbursements"
-                    ORDER BY "fundRequestId", "createdAt" DESC
-                )
-            `, { transaction });
-
-            // 6. Drop old composite unique index (fundRequestId, installmentNumber) if exists
+            // 5. Keep every disbursement row. Each row is a real installment.
+            // 6. Drop old unique indexes that enforced a single payment per request.
             await queryInterface.sequelize.query(
                 `DROP INDEX IF EXISTS "disbursements_fund_request_id_installment_number"`,
                 { transaction }
             );
-
-            // 7. Add UNIQUE constraint on Disbursements(fundRequestId) — 1 disbursement per request
             await queryInterface.sequelize.query(
-                `CREATE UNIQUE INDEX IF NOT EXISTS "uq_disbursements_fund_request_id" ON "Disbursements" ("fundRequestId")`,
+                `DROP INDEX IF EXISTS "uq_disbursements_fund_request_id"`,
                 { transaction }
             );
+            await queryInterface.sequelize.query(
+                `DROP INDEX IF EXISTS "Disbursements_fundRequestId_key"`,
+                { transaction }
+            );
+
+            // 7. Add non-unique lookup index for fast installment sums.
+            await queryInterface.addIndex('Disbursements', ['fundRequestId'], {
+                name: 'idx_disbursements_fund_request_installments',
+                transaction
+            }).catch(() => {});
 
             await transaction.commit();
             console.log('[Migration] 20260428140000-installment-model-refactor completed successfully.');
@@ -80,7 +79,7 @@ module.exports = {
         const transaction = await queryInterface.sequelize.transaction();
         try {
             await queryInterface.sequelize.query(
-                `DROP INDEX IF EXISTS "uq_disbursements_fund_request_id"`,
+                `DROP INDEX IF EXISTS "idx_disbursements_fund_request_installments"`,
                 { transaction }
             );
             await queryInterface.removeColumn('FundRequests', 'type', { transaction }).catch(() => {});

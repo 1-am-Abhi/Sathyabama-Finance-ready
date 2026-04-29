@@ -68,8 +68,8 @@ const getAllProjects = asyncHandler(async (req, res) => {
     const projects = safeArray(await Project.findAll({
         where,
         include: [
-            { model: User, as: 'FacultyUser', attributes: ['name', 'department'], required: false },
-            { model: ResearchCenterModel, as: 'ResearchCenter', required: false }
+            { model: User, as: 'facultyOwner', attributes: ['name', 'department'], required: false },
+            { model: ResearchCenterModel, as: 'researchCenter', required: false }
         ],
         order: [['createdAt', 'DESC']]
     }));
@@ -81,9 +81,9 @@ const getProjectDetails = asyncHandler(async (req, res) => {
     const { id } = req.params;
     const project = await Project.findByPk(id, {
         include: [
-            { model: User, as: 'FacultyUser', attributes: ['name', 'email', 'department'], required: false },
-            { model: ProjectMember, as: 'Members', required: false },
-            { model: FundRequest, as: 'FundRequests', required: false },
+            { model: User, as: 'facultyOwner', attributes: ['name', 'email', 'department'], required: false },
+            { model: ProjectMember, as: 'members', required: false },
+            { model: FundRequest, as: 'fundRequests', required: false },
             { model: Disbursement, as: 'Disbursements', required: false }
         ]
     });
@@ -150,12 +150,48 @@ const deleteProject = asyncHandler(async (req, res) => {
     return res.status(200).json({ success: true, message: 'Project deleted' });
 });
 
+const freezeProject = asyncHandler(async (req, res) => {
+    req.body.status = 'FROZEN';
+    return updateProject(req, res);
+});
+
+const unfreezeProject = asyncHandler(async (req, res) => {
+    req.body.status = 'ACTIVE';
+    return updateProject(req, res);
+});
+
+const getProjectMembers = asyncHandler(async (req, res) => {
+    const members = safeArray(await ProjectMember.findAll({
+        where: { projectId: req.params.id },
+        include: [{ model: User, as: 'user', attributes: ['name', 'email', 'department'], required: false }]
+    }));
+    return res.status(200).json({ success: true, data: members });
+});
+
+const updateProjectMembers = asyncHandler(async (req, res) => {
+    const members = safeArray(req.body.members || req.body.userIds).map((member) => ({
+        projectId: req.params.id,
+        userId: typeof member === 'string' ? member : member.userId,
+        role: typeof member === 'object' ? (member.role || 'MEMBER') : 'MEMBER'
+    })).filter((member) => member.userId);
+
+    await ProjectMember.destroy({ where: { projectId: req.params.id } });
+    const created = members.length ? await ProjectMember.bulkCreate(members) : [];
+    return res.status(200).json({ success: true, data: created });
+});
+
 module.exports = {
     getAdminStats,
     getFacultyStats,
     getAllProjects,
+    getProjects: getAllProjects,
     getProjectDetails,
+    getProject: getProjectDetails,
     createProject,
     updateProject,
-    deleteProject
+    deleteProject,
+    freezeProject,
+    unfreezeProject,
+    getProjectMembers,
+    updateProjectMembers
 };

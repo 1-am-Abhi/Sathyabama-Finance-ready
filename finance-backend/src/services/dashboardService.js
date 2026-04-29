@@ -1,9 +1,19 @@
 const { Op } = require('sequelize');
-const { Project, FundRequest, Disbursement, Revenue, User } = require('../models');
+const { Project, FundRequest, Disbursement, Revenue, User, Sequelize } = require('../models');
 const { getFYRange } = require('../utils/fyUtils');
 const { safeNumber, safeArray } = require('../utils/safeUtils');
+const logger = require('../utils/logger');
+
+const dashboardCache = new Map();
+const CACHE_TTL_MS = 20000;
 
 exports.getDashboardMetrics = async ({ fy, organizationId }) => {
+  const cacheKey = JSON.stringify({ fy: fy || null, organizationId: organizationId || null });
+  const cached = dashboardCache.get(cacheKey);
+  if (cached && Date.now() - cached.createdAt < CACHE_TTL_MS) {
+    return cached.data;
+  }
+
   try {
     const range = getFYRange(fy);
 
@@ -26,10 +36,7 @@ exports.getDashboardMetrics = async ({ fy, organizationId }) => {
       where: { ...orgFilter, status: 'APPROVED', ...whereDate }
     }));
 
-    // 🔹 Disbursements
-    const disbursedSum = safeNumber(await Disbursement.sum('amount', {
-      where: { ...orgFilter, ...whereDate }
-    }));
+    const disbursementWhere = { ...orgFilter, ...whereDate };
 
     // 🔹 Revenue
     let revenueSum = 0;
@@ -57,22 +64,28 @@ exports.getDashboardMetrics = async ({ fy, organizationId }) => {
       projectCount: count
     }));
 
-    // 🔹 Monthly trend (for charts)
-    const rawDisbursements = await Disbursement.findAll({
-      attributes: ['amount', 'createdAt'],
-      where: { ...orgFilter, ...whereDate }
-    });
-    const disbursements = safeArray(rawDisbursements);
+    const [disbursementAggregate, rawMonthlyTrend] = await Promise.all([
+      Disbursement.findOne({
+        attributes: [[Sequelize.fn('COALESCE', Sequelize.fn('SUM', Sequelize.col('amount')), 0), 'totalDisbursed']],
+        where: disbursementWhere,
+        raw: true
+      }),
+      Disbursement.findAll({
+        attributes: [
+          [Sequelize.fn('DATE_TRUNC', 'month', Sequelize.col('createdAt')), 'month'],
+          [Sequelize.fn('SUM', Sequelize.col('amount')), 'total']
+        ],
+        where: disbursementWhere,
+        group: [Sequelize.fn('DATE_TRUNC', 'month', Sequelize.col('createdAt'))],
+        order: [[Sequelize.fn('DATE_TRUNC', 'month', Sequelize.col('createdAt')), 'ASC']],
+        raw: true
+      })
+    ]);
 
-    const monthly = {};
-    disbursements.forEach(d => {
-      const m = new Date(d.createdAt).toISOString().slice(0, 7); // YYYY-MM
-      monthly[m] = (monthly[m] || 0) + safeNumber(d.amount);
-    });
-
-    const trend = Object.entries(monthly).map(([month, total]) => ({
-      month,
-      total
+    const disbursedSum = safeNumber(disbursementAggregate?.totalDisbursed);
+    const trend = safeArray(rawMonthlyTrend).map((row) => ({
+      month: new Date(row.month).toISOString().slice(0, 7),
+      total: safeNumber(row.total)
     }));
 
     // 🔹 Utilization %
@@ -81,7 +94,7 @@ exports.getDashboardMetrics = async ({ fy, organizationId }) => {
     }));
     const utilization = totalSanctionedSum > 0 ? (disbursedSum / totalSanctionedSum) * 100 : 0;
 
-    return {
+    const data = {
       totalProjects,
       pendingApprovals,
       approvedRequests,
@@ -91,8 +104,15 @@ exports.getDashboardMetrics = async ({ fy, organizationId }) => {
       centres: safeArray(centres),
       trend: safeArray(trend)
     };
+    dashboardCache.set(cacheKey, { createdAt: Date.now(), data });
+    return data;
   } catch (err) {
-    console.error("[DashboardService Error]", err);
+    logger.error('DASHBOARD_METRICS_ERROR', {
+      message: err.message,
+      stack: err.stack,
+      fy,
+      organizationId
+    });
     return {
       totalProjects: 0,
       pendingApprovals: 0,
@@ -104,4 +124,13 @@ exports.getDashboardMetrics = async ({ fy, organizationId }) => {
       trend: []
     };
   }
+};
+
+/**
+ * Institutional Cache Invalidation.
+ * Clears the dashboard metrics cache to force re-fetch after financial state changes.
+ */
+exports.clearDashboardCache = () => {
+  logger.info('[DashboardService] Invalidating global metrics cache');
+  dashboardCache.clear();
 };

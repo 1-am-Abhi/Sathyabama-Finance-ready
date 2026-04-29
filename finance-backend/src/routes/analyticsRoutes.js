@@ -7,12 +7,12 @@ const asyncHandler = require('../utils/asyncHandler');
 const { redisConnection } = require('../config/redis');
 
 // Faculty Analytics
-router.get('/faculty', protect, authorize('FACULTY', 'PI'), asyncHandler(async (req, res) => {
+router.get('/faculty', protect, authorize('FACULTY'), asyncHandler(async (req, res) => {
   const userId = req.user.id || req.user._id;
 
   const projects = await Project.findAll({
     where: { userId },
-    include: [Disbursement],
+    include: [{ model: Disbursement, as: 'Disbursements', required: false }],
   });
 
   let totalBudget = 0;
@@ -48,7 +48,8 @@ router.get('/advanced', protect, authorize('ADMIN', 'FINANCE_OFFICER'), asyncHan
     include: [
       {
         model: FundRequest,
-        include: [Project],
+        as: 'FundRequest',
+        include: [{ model: Project, as: 'Project', required: false }],
       },
     ],
   });
@@ -112,6 +113,7 @@ router.get('/centre/:name', protect, authorize('ADMIN', 'FINANCE_OFFICER'), asyn
         where: { researchCentre: name },
         include: [{
             model: Disbursement,
+            as: 'Disbursements',
             attributes: ['amount']
         }],
     });

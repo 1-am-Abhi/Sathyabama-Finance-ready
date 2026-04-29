@@ -1,12 +1,18 @@
 const logger = require('../utils/logger');
 const { Worker } = require("bullmq");
-const { redisConnection } = require("../config/redis");
+const { redisConnection, redisDisabled } = require("../config/redis");
 const { executeDisbursementPipeline } = require("../services/financePipelineService");
 const { FundRequest } = require("../models/FundRequest");
 const User = require("../models/User");
 const NotificationService = require("../services/notificationService");
 const Project = require("../models/Project");
 const Disbursement = require("../models/Disbursement");
+
+if (redisDisabled) {
+    logger.info('[Worker:disbursement] Redis disabled outside production; BullMQ worker not started.');
+    module.exports = { disbursementWorker: null };
+    return;
+}
 
 const disbursementWorker = new Worker(
   "disbursement",

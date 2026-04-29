@@ -17,8 +17,7 @@ const parseFY = (fy) => {
     const parts = fy.split("-");
     if (parts.length !== 2) return null;
 
-    const start = Number(parts[0]);
-    const end = Number(parts[1]);
+    const [start, end] = parts.map(Number);
 
     if (!start || !end) return null;
 
@@ -34,8 +33,21 @@ const parseFY = (fy) => {
  */
 const safeArray = (arr) => (Array.isArray(arr) ? arr : []);
 
+/**
+ * EPS Tolerance for financial comparisons.
+ * Uses 0.5 as the institutional rounding limit.
+ */
+const EPS_TOLERANCE = 0.5;
+
+/**
+ * Rounds a number to standard financial precision (2 decimals).
+ */
+const toMoney = (val) => Math.round(safeNumber(val) * 100) / 100;
+
 module.exports = {
     safeNumber,
     parseFY,
-    safeArray
+    safeArray,
+    EPS_TOLERANCE,
+    toMoney
 };

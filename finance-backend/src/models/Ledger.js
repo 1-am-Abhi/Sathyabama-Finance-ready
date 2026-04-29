@@ -1,5 +1,6 @@
 const { DataTypes } = require('sequelize');
 const { sequelize } = require('../config/db');
+const { Op } = require('sequelize');
 const crypto = require('crypto');
 
 /**
@@ -28,6 +29,10 @@ const Ledger = sequelize.define('Ledger', {
         allowNull: true
     },
     fundRequestId: {
+        type: DataTypes.UUID,
+        allowNull: true
+    },
+    disbursementId: {
         type: DataTypes.UUID,
         allowNull: true
     },
@@ -83,6 +88,7 @@ const Ledger = sequelize.define('Ledger', {
     indexes: [
         { fields: ['projectId'] },
         { fields: ['fundRequestId'] },
+        { fields: ['disbursementId'] },
         { fields: ['accountId'] },
         { fields: ['journalId'] },
         { fields: ['hash'] },

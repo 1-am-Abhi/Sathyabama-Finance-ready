@@ -34,13 +34,15 @@ export const updateFundSourceAmount = async (data) => {
 // Get all departments
 export const getDepartments = async () => {
     const response = await api.get('/finance/departments');
-    return response.data?.data || response.data || [];
+    const data = response.data?.data || response.data;
+    return Array.isArray(data) ? data : [];
 };
 
 // Get department funding details
 export const getDepartmentFunding = async (departmentId) => {
     const response = await api.get(`/finance/departments/${departmentId}/funding`);
-    return response.data?.data || response.data || [];
+    const data = response.data?.data || response.data;
+    return Array.isArray(data) ? data : [];
 };
 
 // Update department funding
@@ -52,7 +54,8 @@ export const updateDepartmentFunding = async (data) => {
 // Get funding history for a department
 export const getFundingHistory = async (departmentId) => {
     const response = await api.get(`/finance/departments/${departmentId}/funding-history`);
-    return response.data?.data || response.data || [];
+    const data = response.data?.data || response.data;
+    return Array.isArray(data) ? data : [];
 };
 
 // ── Projects ──────────────────────────────────────────────────────────────────
@@ -61,7 +64,8 @@ export const getFundingHistory = async (departmentId) => {
 export const getProjects = async (filters = {}) => {
     const params = new URLSearchParams(filters);
     const response = await api.get(`/finance/projects?${params}`);
-    return response.data?.data || response.data || [];
+    const data = response.data?.data || response.data;
+    return Array.isArray(data) ? data : [];
 };
 
 // Get project details
@@ -79,7 +83,8 @@ export const updateProjectStatus = async (projectId, statusData) => {
 // Get project status history
 export const getProjectStatusHistory = async (projectId) => {
     const response = await api.get(`/finance/projects/${projectId}/history`);
-    return response.data?.data || response.data || [];
+    const data = response.data?.data || response.data;
+    return Array.isArray(data) ? data : [];
 };
 
 // ── Disbursements ─────────────────────────────────────────────────────────────
@@ -87,7 +92,8 @@ export const getProjectStatusHistory = async (projectId) => {
 // Get disbursement queue (Approved by Admin)
 export const getDisbursementQueue = async () => {
     const response = await api.get('/finance/disbursements');
-    return response.data?.data || response.data || [];
+    const data = response.data?.data || response.data;
+    return Array.isArray(data) ? data : [];
 };
 
 // Execute fund disbursement
@@ -101,7 +107,8 @@ export const executeDisbursement = async (requestId, data) => {
 // Get revenue verification queue
 export const getRevenueVerificationQueue = async () => {
     const response = await api.get('/revenue/verification-queue');
-    return response.data?.data || response.data || [];
+    const data = response.data?.data || response.data;
+    return Array.isArray(data) ? data : [];
 };
 
 // Verify consultancy revenue inflow
@@ -123,7 +130,7 @@ export const getFinanceStats = async (fy) => {
 // Get fund flow projects
 export const getFundFlow = async (fy) => {
     const response = await api.get('/finance/fund-flow', { params: { fy } });
-    return response.data?.data || response.data || [];
+    return response.data?.data || response.data || {};
 };
 
 // ── PFMS ──────────────────────────────────────────────────────────────────────
@@ -131,7 +138,8 @@ export const getFundFlow = async (fy) => {
 // Get PFMS transactions
 export const getPFMS = async (fy) => {
     const response = await api.get('/finance/pfms', { params: { fy } });
-    return response.data?.data || response.data || [];
+    const data = response.data?.data || response.data;
+    return Array.isArray(data) ? data : [];
 };
 
 // Create PFMS transaction
@@ -145,7 +153,8 @@ export const createPFMSTransaction = async (data) => {
 // Get internship fees
 export const getInternships = async (fy) => {
     const response = await api.get('/finance/internship-fees', { params: { fy } });
-    return response.data?.data || response.data || [];
+    const data = response.data?.data || response.data;
+    return Array.isArray(data) ? data : [];
 };
 
 // Verify internship fee
@@ -168,14 +177,16 @@ export const getFinancialReports = async (params = {}) => {
 // Get disbursal history
 export const getDisbursalHistory = async (fy) => {
     const response = await api.get('/finance/disbursal-history', { params: { fy } });
-    return response.data?.data || response.data || [];
+    const data = response.data?.data || response.data;
+    return Array.isArray(data) ? data : [];
 };
 
 // ── Function Requests ─────────────────────────────────────────────────────────
 
 export const getFunctionRequests = async () => {
     const response = await api.get('/finance/function-requests');
-    return response.data?.data || response.data || [];
+    const data = response.data?.data || response.data;
+    return Array.isArray(data) ? data : [];
 };
 
 export const releaseFunctionFunds = async (fundRequestId, data) => {

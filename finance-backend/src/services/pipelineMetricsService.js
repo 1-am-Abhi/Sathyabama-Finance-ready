@@ -23,7 +23,7 @@ const {
     normalizeFundSourceType,
 } = require('./fundSourceCatalogService');
 
-const ALLOCATED_STATUSES = ['APPROVED', 'DISBURSED'];
+const ALLOCATED_STATUSES = ['APPROVED', 'PARTIALLY_DISBURSED', 'COMPLETED', 'DISBURSED'];
 const ACTIVE_PROJECT_STATUSES = VALID_PROJECT_STATUSES;
 const FUND_SOURCE_LABELS = {
     PFMS: 'PFMS Funds',
@@ -236,15 +236,23 @@ const normalizeFundRequest = (request) => {
     const raw = request.toJSON ? request.toJSON() : request;
     const project = normalizeProject(raw.Project);
     const requestedAmount = toNumber(raw.requestedAmount ?? raw.amount);
-    const releasedAmount = (raw.Disbursements || []).reduce((sum, d) => sum + toNumber(d.amount), 0);
-    const remainingAmount = Math.max(0, requestedAmount - releasedAmount);
+    const disbursementRows = Array.isArray(raw.Disbursements)
+        ? raw.Disbursements
+        : Array.isArray(raw.Disbursement)
+            ? raw.Disbursement
+            : raw.Disbursement
+                ? [raw.Disbursement]
+                : [];
+    const totalDisbursed = disbursementRows.reduce((sum, d) => sum + toNumber(d.amount), 0);
+    const remainingAmount = Math.max(0, requestedAmount - totalDisbursed);
 
     return {
         ...raw,
         id: getRecordId(raw),
         amount: requestedAmount,
         requestedAmount,
-        releasedAmount,
+        releasedAmount: totalDisbursed,
+        totalDisbursed,
         remainingAmount,
         Project: project,
         projectTitle: project?.title || raw.projectTitle || null,
@@ -531,7 +539,7 @@ const getSharedPipelineData = async () => {
                     include: [
                         buildCentreInclude(), 
                         buildProjectInclude(),
-                        { model: Disbursement, as: 'Disbursement', required: false }
+                        { model: Disbursement, as: 'Disbursements', required: false }
                     ].filter(Boolean),
                     order: [['createdAt', 'DESC']],
                 }),
@@ -559,7 +567,7 @@ const getSharedPipelineData = async () => {
                     ],
                     include: [
                         buildProjectInclude({ includeResearchCenter: false }),
-                        { model: Disbursement, as: 'Disbursement', required: false }
+                        { model: Disbursement, as: 'Disbursements', required: false }
                     ].filter(Boolean),
                     order: [['createdAt', 'DESC']],
                 }),

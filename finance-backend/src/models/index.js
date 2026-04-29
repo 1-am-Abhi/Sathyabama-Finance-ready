@@ -109,10 +109,14 @@ Project.hasMany(FundRequest, { foreignKey: 'projectId', as: 'fundRequests' });
 FundRequest.belongsTo(Project, { foreignKey: 'projectId', as: 'Project' });
 User.hasMany(FundRequest, { foreignKey: 'userId', as: 'fundRequests' });
 FundRequest.belongsTo(User, { foreignKey: 'userId', as: 'requester' });
+User.hasMany(FundRequest, { foreignKey: 'facultyId', as: 'facultyFundRequests' });
+FundRequest.belongsTo(User, { foreignKey: 'facultyId', as: 'FacultyUser' });
 
-FundRequest.hasOne(Disbursement, { foreignKey: 'fundRequestId', as: 'Disbursement' });
+FundRequest.hasMany(Disbursement, { foreignKey: 'fundRequestId', as: 'Disbursements' });
+FundRequest.hasMany(Disbursement, { foreignKey: 'fundRequestId', as: 'Disbursement' });
 Disbursement.belongsTo(FundRequest, { foreignKey: 'fundRequestId', as: 'FundRequest' });
 Project.hasMany(Disbursement, { foreignKey: 'projectId', as: 'disbursements' });
+Project.hasMany(Disbursement, { foreignKey: 'projectId', as: 'Disbursements' });
 Disbursement.belongsTo(Project, { foreignKey: 'projectId', as: 'Project' });
 User.hasMany(Disbursement, { foreignKey: 'disbursedBy', as: 'processedDisbursements' });
 Disbursement.belongsTo(User, { foreignKey: 'disbursedBy', as: 'officer' });

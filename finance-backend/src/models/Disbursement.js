@@ -9,8 +9,7 @@ const Disbursement = sequelize.define('Disbursement', {
     },
     fundRequestId: {
         type: DataTypes.UUID,
-        allowNull: false,
-        unique: true  // ONE Disbursement per FundRequest
+        allowNull: false
     },
     projectId: {
         type: DataTypes.UUID,
@@ -68,6 +67,11 @@ const Disbursement = sequelize.define('Disbursement', {
         allowNull: true,
         unique: true // Prevent duplicate UTRs
     },
+    referenceId: {
+        type: DataTypes.STRING,
+        allowNull: false,
+        unique: true
+    },
     remarks: {
         type: DataTypes.TEXT,
         allowNull: true
@@ -107,7 +111,13 @@ const Disbursement = sequelize.define('Disbursement', {
             fields: ['projectId']
         },
         {
-            fields: ['fundRequestId'],
+            fields: ['fundRequestId']
+        },
+        {
+            fields: ['fundRequestId', 'installmentNumber']
+        },
+        {
+            fields: ['referenceId'],
             unique: true
         }
     ]

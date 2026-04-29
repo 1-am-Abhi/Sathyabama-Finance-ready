@@ -4,7 +4,16 @@ const asyncHandler = (fn) => async (req, res, next) => {
   try {
     await fn(req, res, next);
   } catch (err) {
-    logger.error("[CRITICAL API ERROR]", err);
+    logger.error("API_CONTROLLER_ERROR", {
+      message: err.message,
+      stack: err.stack,
+      method: req.method,
+      path: req.originalUrl,
+      userId: req.user?.id || req.user?._id || null,
+      role: req.user?.role || null,
+      params: req.params,
+      query: req.query
+    });
 
     // If headers already sent, don't try to send again
     if (res.headersSent) {

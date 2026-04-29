@@ -26,7 +26,10 @@ const DisbursementQueue = () => {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [selectedRequest, setSelectedRequest] = useState(null);
     const [formData, setFormData] = useState({
+        amount: '',
+        paymentMode: 'NEFT',
         transactionId: '',
+        chequeNumber: '',
         bankName: '',
         disbursementDate: new Date().toISOString().split('T')[0],
         remarks: '',
@@ -46,9 +49,13 @@ const DisbursementQueue = () => {
     }, [isModalOpen]);
 
     const handleExecuteClick = (request) => {
+        const pendingAmount = safeNumber(request.remainingAmount || request.requestedAmount);
         setSelectedRequest(request);
         setFormData({
+            amount: String(pendingAmount),
+            paymentMode: 'NEFT',
             transactionId: '',
+            chequeNumber: '',
             bankName: '',
             disbursementDate: new Date().toISOString().split('T')[0],
             remarks: '',
@@ -58,35 +65,47 @@ const DisbursementQueue = () => {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        if (!formData.transactionId.trim()) {
+        const amount = safeNumber(formData.amount);
+        const remainingAmount = safeNumber(selectedRequest?.remainingAmount || selectedRequest?.requestedAmount);
+        
+        if (amount <= 0 || amount > remainingAmount + 0.5) { // EPS tolerance on frontend too
+            showToast(`Installment amount must be between ₹1 and ${formatCurrency(remainingAmount)}`, 'error');
+            return;
+        }
+        if (formData.paymentMode === 'CHEQUE' && !formData.chequeNumber.trim()) {
+            showToast('Cheque number is required', 'error');
+            return;
+        }
+        if (formData.paymentMode !== 'CHEQUE' && !formData.transactionId.trim()) {
             showToast('UTR / Transaction ID is required', 'error');
             return;
         }
+
         setIsSubmitting(true);
         try {
-            await executeDisbursement.mutateAsync({
+            const response = await executeDisbursement.mutateAsync({
                 requestId: selectedRequest.id || selectedRequest._id,
-                data: { ...formData },
+                data: { ...formData, amount },
             });
-            showToast(`Disbursement of ${formatCurrency(selectedRequest?.requestedAmount)} executed successfully`);
+
+            // Render canonical totals from backend
+            const totals = response?.totals || response?.data?.totals;
+            const remainingMsg = totals ? ` (Remaining: ${formatCurrency(totals.remainingAmount)})` : '';
+            
+            showToast(`Installment of ${formatCurrency(amount)} executed successfully${remainingMsg}`, 'success');
             setIsModalOpen(false);
+            
             window.dispatchEvent(new Event('fund-sources-updated'));
             localStorage.setItem('fundSourcesUpdatedAt', Date.now());
             navigate('/finance/dashboard');
         } catch (error) {
-            showToast(error.response?.data?.message || 'Failed to execute disbursement', 'error');
+            showToast(error.response?.data?.message || error.message || 'Failed to execute disbursement', 'error');
         } finally {
             setIsSubmitting(false);
         }
     };
 
     const safeRequests = Array.isArray(requests) ? requests : [];
-    const uniqueProjects = Array.from(new Map(
-        safeRequests
-            .map((r) => [r?.Project?._id || r?.Project?.id || r?.projectId, r?.Project])
-            .filter(([key, project]) => Boolean(key && project))
-    ).values());
-
     const filteredRequests = safeRequests.filter(req => {
         const search = searchTerm.toLowerCase();
         const title = req.Project?.title?.toLowerCase() || '';
@@ -95,13 +114,11 @@ const DisbursementQueue = () => {
         return title.includes(search) || pi.includes(search) || id.includes(search);
     });
 
-    const totalPendingAmount = safeRequests.reduce((sum, req) => sum + safeNumber(req.requestedAmount), 0);
-    const totalReleasedSoFar = uniqueProjects.reduce((sum, p) => sum + safeNumber(p?.releasedBudget), 0);
-    const totalSanctionedBudget = uniqueProjects.reduce((sum, p) => sum + safeNumber(p?.sanctionedBudget), 0);
-    const releaseCoverage = totalSanctionedBudget > 0
-        ? Math.round((totalReleasedSoFar / totalSanctionedBudget) * 100) : 0;
+    const totalPendingAmount = safeRequests.reduce((sum, req) => sum + safeNumber(req.remainingAmount || req.requestedAmount), 0);
 
     const selectedRequestedAmount = safeNumber(selectedRequest?.requestedAmount);
+    const selectedReleasedAmount = safeNumber(selectedRequest?.releasedAmount);
+    const selectedRemainingAmount = safeNumber(selectedRequest?.remainingAmount || selectedRequest?.requestedAmount);
     const selectedInstallmentNumber = Number(selectedRequest?.installmentNumber || 1);
 
     return (
@@ -129,9 +146,9 @@ const DisbursementQueue = () => {
                     <CardContent className="pt-6">
                         <div className="flex items-center justify-between">
                             <div>
-                                <p className="text-sm font-medium text-amber-600 dark:text-amber-400">Released</p>
-                                <p className="text-2xl font-bold mt-1 tracking-tight">{formatCompactLakhs(totalReleasedSoFar)}</p>
-                                <span className="text-green-500 text-xs font-semibold">▲ {releaseCoverage}% of sanctioned</span>
+                                <p className="text-sm font-medium text-amber-600 dark:text-amber-400">Project Focus</p>
+                                <p className="text-2xl font-bold mt-1 tracking-tight">{safeRequests.length > 0 ? 'Active Queue' : 'Idle'}</p>
+                                <span className="text-green-500 text-xs font-semibold">▲ Institutional Pipeline</span>
                             </div>
                             <div className="p-2 bg-amber-100 dark:bg-amber-900/30 rounded-lg">
                                 <IndianRupee className="w-5 h-5 text-amber-600 dark:text-amber-400" />
@@ -177,12 +194,6 @@ const DisbursementQueue = () => {
                 </Button>
             </div>
 
-            {showFilters && (
-                <div className="p-4 bg-slate-50 dark:bg-slate-900/50 rounded-lg border border-dashed border-slate-200 dark:border-slate-800 animate-in slide-in-from-top-2 duration-200">
-                    <p className="text-xs text-slate-500 italic font-medium">Advanced filters coming soon.</p>
-                </div>
-            )}
-
             {/* Queue Table */}
             <Card>
                 <CardHeader>
@@ -204,13 +215,7 @@ const DisbursementQueue = () => {
                             <tbody>
                                 {isLoading ? (
                                     <tr>
-                                        <td colSpan="5" className="px-4 py-6">
-                                            <div className="space-y-3">
-                                                {[0, 1, 2].map((row) => (
-                                                    <div key={row} className="animate-pulse h-20 bg-gray-200 dark:bg-gray-700 rounded" />
-                                                ))}
-                                            </div>
-                                        </td>
+                                        <td colSpan="5" className="px-4 py-6 text-center">Loading queue...</td>
                                     </tr>
                                 ) : filteredRequests.length === 0 ? (
                                     <tr>
@@ -239,39 +244,24 @@ const DisbursementQueue = () => {
                                                             REQ #{String(req.id || req._id || '').slice(-8).toUpperCase()}
                                                         </span>
                                                     </div>
-                                                    <div className="flex flex-wrap gap-2 pt-1">
-                                                        <span className="bg-blue-500 text-white px-2 py-0.5 rounded text-xs font-bold">
-                                                            Installment #{req.installmentNumber || 1}
-                                                        </span>
-                                                        {safeNumber(req.requestedAmount) >= HIGH_VALUE_THRESHOLD && (
-                                                            <span className="bg-red-500 px-2 py-0.5 text-xs rounded text-white font-bold">HIGH VALUE</span>
-                                                        )}
-                                                    </div>
                                                 </div>
                                             </td>
                                             <td className="px-4 py-4">
                                                 <div className="space-y-2">
-                                                    {req.source === 'PFMS' ? (
-                                                        <span className="text-[10px] font-black text-amber-600 bg-amber-50 px-2 py-0.5 rounded border border-amber-100 italic">PFMS FUNDED</span>
-                                                    ) : req.source === 'OTHERS' ? (
-                                                        <span className="text-[10px] font-black text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100 italic">OTHER'S FUND</span>
-                                                    ) : (
-                                                        <span className="text-[10px] font-black text-blue-600 bg-blue-50 px-2 py-0.5 rounded border border-blue-100 italic">INSTITUTIONAL</span>
-                                                    )}
+                                                    <Badge className="bg-blue-50 text-blue-700 text-[10px] font-black">{req.source || 'INSTITUTIONAL'}</Badge>
                                                     <div>
                                                         <Badge className="bg-green-100 text-green-700 text-[10px] font-black">{req.status}</Badge>
                                                     </div>
                                                 </div>
                                             </td>
                                             <td className="px-4 py-4">
-                                                <p className="font-bold text-slate-900 dark:text-white">{formatCurrency(req.requestedAmount)}</p>
-                                                {req.documents?.length > 0 && (
-                                                    <span className="text-[9px] text-slate-400 font-bold uppercase">{req.documents.length} Bills attached</span>
-                                                )}
+                                                <p className="font-bold text-slate-900 dark:text-white">{formatCurrency(req.remainingAmount || req.requestedAmount)}</p>
+                                                <span className="text-[9px] text-slate-400 font-bold uppercase tracking-tight">
+                                                    Request Total: {formatCurrency(req.requestedAmount)}
+                                                </span>
                                             </td>
-                                            <td className="px-4 py-4">
-                                                <p className="text-sm text-slate-600 dark:text-slate-400">{new Date(req.updatedAt).toLocaleDateString()}</p>
-                                                <p className="text-xs text-slate-400 mt-0.5">Approved by Admin</p>
+                                            <td className="px-4 py-4 text-sm text-slate-600 dark:text-slate-400">
+                                                {new Date(req.createdAt).toLocaleDateString()}
                                             </td>
                                             <td className="px-4 py-4">
                                                 <Button
@@ -291,86 +281,80 @@ const DisbursementQueue = () => {
                 </CardContent>
             </Card>
 
-            {/* Execution Modal — UTR only, amount is fixed */}
+            {/* Execution Modal */}
             {isModalOpen && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-                    <div className="bg-white dark:bg-slate-900 w-full max-w-lg flex flex-col rounded-xl shadow-2xl animate-in fade-in zoom-in duration-200 border border-slate-200 dark:border-slate-800">
-                        <div className="border-b border-slate-100 dark:border-slate-800 bg-gradient-to-r from-slate-950 to-maroon-800 text-white p-6 rounded-t-xl">
-                            <div className="space-y-1">
-                                <Badge className="bg-white/10 text-white border-0 w-fit">
-                                    Installment #{selectedInstallmentNumber}
-                                </Badge>
-                                <h3 className="text-xl font-bold text-white">Execute Disbursement</h3>
-                                <p className="text-sm text-slate-200">Enter the bank reference number to finalize payment.</p>
-                            </div>
+                    <div className="bg-white dark:bg-slate-900 w-full max-w-lg flex flex-col rounded-xl shadow-2xl border border-slate-200 dark:border-slate-800">
+                        <div className="bg-gradient-to-r from-slate-950 to-maroon-800 text-white p-6 rounded-t-xl">
+                            <Badge className="bg-white/10 text-white border-0 mb-2">
+                                Installment #{selectedInstallmentNumber}
+                            </Badge>
+                            <h3 className="text-xl font-bold">Execute Disbursement</h3>
+                            <p className="text-sm text-slate-200">Institutional financial transfer protocol.</p>
                         </div>
-                        <form onSubmit={handleSubmit} className="flex flex-col">
-                            <div className="p-6 space-y-4">
-                                {/* Fixed Amount Display */}
-                                <div className="p-4 bg-maroon-50 dark:bg-maroon-900/20 rounded-lg border border-maroon-100 dark:border-maroon-800">
-                                    <p className="text-xs text-maroon-600 dark:text-maroon-400 font-bold uppercase tracking-wider mb-1">Disbursement Amount (Fixed)</p>
-                                    <p className="text-2xl font-black text-maroon-700 dark:text-maroon-300">{formatCurrency(selectedRequestedAmount)}</p>
-                                    <p className="text-xs text-slate-500 mt-1">
-                                        {selectedRequest?.Project?.pi || selectedRequest?.faculty} — {selectedRequest?.Project?.title || selectedRequest?.projectTitle}
-                                    </p>
-                                </div>
+                        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+                            <div className="p-4 bg-maroon-50 dark:bg-maroon-900/20 rounded-lg border border-maroon-100 dark:border-maroon-800">
+                                <p className="text-xs text-maroon-600 dark:text-maroon-400 font-bold uppercase tracking-wider mb-1">Request Balance</p>
+                                <p className="text-2xl font-black text-maroon-700 dark:text-maroon-300">{formatCurrency(selectedRemainingAmount)}</p>
+                            </div>
 
-                                {/* UTR */}
+                            <div className="grid grid-cols-2 gap-4">
                                 <div className="space-y-2">
-                                    <label className="text-xs font-black uppercase text-slate-500 flex items-center gap-2">
-                                        <Hash className="w-3 h-3" /> Transaction ID / UTR <span className="text-red-500">*</span>
-                                    </label>
+                                    <label className="text-[10px] font-black uppercase text-slate-500">Installment Amount</label>
                                     <input
-                                        type="text"
+                                        type="number"
+                                        min="1"
+                                        max={selectedRemainingAmount + 0.5}
+                                        step="0.01"
                                         required
-                                        className="w-full p-3 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl focus:ring-2 focus:ring-maroon-500 outline-none transition-all font-mono"
-                                        placeholder="Enter Bank Ref / UTR Number"
-                                        value={formData.transactionId}
-                                        onChange={(e) => setFormData({ ...formData, transactionId: e.target.value })}
+                                        className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none font-mono text-sm"
+                                        value={formData.amount}
+                                        onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
                                     />
                                 </div>
-
-                                {/* Bank Name */}
                                 <div className="space-y-2">
-                                    <label className="text-xs font-black uppercase text-slate-500 flex items-center gap-2">
-                                        <Building2 className="w-3 h-3" /> Bank Name
-                                    </label>
-                                    <input
-                                        type="text"
-                                        className="w-full p-3 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl focus:ring-2 focus:ring-maroon-500 outline-none transition-all"
-                                        placeholder="e.g. Indian Bank, HDFC"
-                                        value={formData.bankName}
-                                        onChange={(e) => setFormData({ ...formData, bankName: e.target.value })}
-                                    />
-                                </div>
-
-                                {/* Disbursement Date */}
-                                <div className="space-y-2">
-                                    <label className="text-xs font-black uppercase text-slate-500 flex items-center gap-2">
-                                        <Calendar className="w-3 h-3" /> Disbursement Date
-                                    </label>
-                                    <input
-                                        type="date"
-                                        required
-                                        className="w-full p-3 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl focus:ring-2 focus:ring-maroon-500 outline-none transition-all"
-                                        value={formData.disbursementDate}
-                                        onChange={(e) => setFormData({ ...formData, disbursementDate: e.target.value })}
-                                    />
-                                </div>
-
-                                {/* Remarks */}
-                                <div className="space-y-2">
-                                    <label className="text-xs font-black uppercase text-slate-500">Remarks</label>
-                                    <textarea
-                                        className="w-full p-3 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl focus:ring-2 focus:ring-maroon-500 outline-none transition-all resize-none"
-                                        rows="2"
-                                        placeholder="Optional remarks..."
-                                        value={formData.remarks}
-                                        onChange={(e) => setFormData({ ...formData, remarks: e.target.value })}
-                                    />
+                                    <label className="text-[10px] font-black uppercase text-slate-500">Payment Mode</label>
+                                    <select
+                                        className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none text-sm"
+                                        value={formData.paymentMode}
+                                        onChange={(e) => setFormData({ ...formData, paymentMode: e.target.value })}
+                                    >
+                                        <option value="NEFT">NEFT</option>
+                                        <option value="RTGS">RTGS</option>
+                                        <option value="UPI">UPI</option>
+                                        <option value="CHEQUE">CHEQUE</option>
+                                    </select>
                                 </div>
                             </div>
-                            <div className="p-6 border-t border-slate-100 dark:border-slate-800 flex gap-3">
+
+                            <div className="space-y-2">
+                                <label className="text-[10px] font-black uppercase text-slate-500">{formData.paymentMode === 'CHEQUE' ? 'Cheque Number' : 'Transaction ID / UTR'}</label>
+                                <input
+                                    type="text"
+                                    required
+                                    className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none font-mono text-sm"
+                                    placeholder="Enter reference number"
+                                    value={formData.paymentMode === 'CHEQUE' ? formData.chequeNumber : formData.transactionId}
+                                    onChange={(e) => setFormData({
+                                        ...formData,
+                                        [formData.paymentMode === 'CHEQUE' ? 'chequeNumber' : 'transactionId']: e.target.value
+                                    })}
+                                />
+                            </div>
+
+                            <div className="space-y-2">
+                                <label className="text-[10px] font-black uppercase text-slate-500">Bank Name</label>
+                                <input
+                                    type="text"
+                                    required={formData.paymentMode === 'CHEQUE'}
+                                    className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none text-sm"
+                                    placeholder="e.g. Indian Bank"
+                                    value={formData.bankName}
+                                    onChange={(e) => setFormData({ ...formData, bankName: e.target.value })}
+                                />
+                            </div>
+
+                            <div className="flex gap-3 pt-4">
                                 <Button
                                     type="button"
                                     variant="outline"
@@ -382,8 +366,8 @@ const DisbursementQueue = () => {
                                 </Button>
                                 <Button
                                     type="submit"
-                                    disabled={isSubmitting || !formData.transactionId.trim()}
-                                    className="flex-1 bg-gradient-to-r from-pink-500 to-red-500 hover:scale-105 transition text-white rounded-xl font-bold shadow-lg shadow-maroon-500/20 disabled:opacity-50"
+                                    disabled={isSubmitting}
+                                    className="flex-1 bg-gradient-to-r from-pink-500 to-red-500 text-white rounded-xl font-bold shadow-lg shadow-maroon-500/20"
                                 >
                                     {isSubmitting ? 'Processing...' : 'Finalize Payment'}
                                 </Button>

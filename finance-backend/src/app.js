@@ -106,6 +106,13 @@ const analyticsRoutes = require('./routes/analyticsRoutes');
 app.use('/api/v1/analytics', analyticsRoutes);
 app.use('/api/analytics', analyticsRoutes);
 
+const projectRoutes = require('./routes/projectRoutes');
+const fundRequestRoutes = require('./routes/fundRequestRoutes');
+const financeRoutes = require('./routes/financeRoutes');
+app.use('/api/projects', projectRoutes);
+app.use('/api/fund-requests', fundRequestRoutes);
+app.use('/api/finance', financeRoutes);
+
 // 2. Rate Limiting (Applied to all OTHER institutional APIs)
 const globalLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
