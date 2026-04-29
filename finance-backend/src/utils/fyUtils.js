@@ -19,12 +19,10 @@ function getFYRange(fy) {
     if (!fy || !fy.includes('-')) {
         fy = getCurrentFY();
     }
-    const [startYear, endYear] = fy.split('-').map(y => parseInt(y.trim()));
+    const [startYear, endYear] = fy.split('-').map(Number);
 
-    // Start: April 1st 00:00:00
-    const startDate = new Date(startYear, 3, 1, 0, 0, 0);
-    // End: March 31st 23:59:59 of endYear
-    const endDate = new Date(endYear, 2, 31, 23, 59, 59);
+    const startDate = new Date(`${startYear}-04-01T00:00:00.000Z`);
+    const endDate = new Date(`${endYear}-03-31T23:59:59.999Z`);
 
     return { startDate, endDate };
 }

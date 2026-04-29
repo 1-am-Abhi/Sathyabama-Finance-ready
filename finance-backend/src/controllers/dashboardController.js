@@ -1,10 +1,27 @@
-const safe = require('../utils/safeController');
+const asyncHandler = require('../utils/asyncHandler');
 const { getDashboardMetrics } = require('../services/dashboardService');
 
-exports.getDashboard = safe(async (req) => {
-  const fy = req.query.fy;
-  const organizationId = req.user?.organizationId;
+/**
+ * GET /api/dashboard
+ * Returns the main dashboard metrics with organization scoping.
+ */
+exports.getDashboard = asyncHandler(async (req, res) => {
+  const fy = req.query.fy || null;
+  const orgId = req.user?.organizationId || null;
 
-  const data = await getDashboardMetrics({ fy, organizationId });
-  return data;
+  const data = await getDashboardMetrics({ fy, organizationId: orgId });
+  
+  return res.json({
+    success: true,
+    data: data || {
+      totalProjects: 0,
+      pendingApprovals: 0,
+      approvedRequests: 0,
+      totalDisbursed: 0,
+      totalRevenue: 0,
+      utilization: 0,
+      centres: [],
+      trend: []
+    }
+  });
 });

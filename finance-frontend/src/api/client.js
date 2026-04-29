@@ -31,6 +31,10 @@ apiClient.interceptors.request.use(
 // Response interceptor for error handling and retry logic
 apiClient.interceptors.response.use(
     (response) => {
+        if (response.data && response.data.success === false) {
+            throw new Error(response.data.message || 'API failed');
+        }
+        
         // Success toasts for mutations (POST/PUT/DELETE)
         if (['post', 'put', 'delete'].includes(response.config.method)) {
             const message = response.data?.message || 'Action completed successfully';
