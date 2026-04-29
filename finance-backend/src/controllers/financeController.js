@@ -2,7 +2,6 @@ const { Disbursement, FundRequest, Project, PFMSTransaction, Revenue, User, Audi
 const { Op } = require('sequelize');
 const { ACCOUNTS } = require('../constants/accounts');
 const asyncHandler = require('../utils/asyncHandler');
-const safe = require('../utils/safeController');
 const { getCurrentFY, getFYRange } = require('../utils/fyUtils');
 const { safeEmit } = require('../socketInstance');
 const logger = require('../utils/logger');
@@ -148,29 +147,36 @@ const updateDepartmentFunding = asyncHandler(async (req, res) => {
  * GET /finance/disbursal-history
  * Returns detailed history of disbursements.
  */
-const getDisbursalHistory = safe(async (req) => {
+const getDisbursalHistory = asyncHandler(async (req, res) => {
     const fy = req.query.fy || getCurrentFY();
     const { startDate, endDate } = getFYRange(fy);
 
-    const history = await Disbursement.findAll({
-        where: {
-            createdAt: { [Op.between]: [startDate, endDate] }
-        },
-        include: [{ required: false, model: FundRequest, as: 'FundRequest', include: [{ required: false, model: Project, as: 'Project' }] },
-            { model: User, as: 'officer', attributes: ['name', 'email'] }
-        ],
-        order: [['createdAt', 'DESC']],
-        limit: 50
-    });
+    try {
+        const history = await Disbursement.findAll({
+            where: {
+                createdAt: { [Op.between]: [startDate, endDate] }
+            },
+            include: [{ required: false, model: FundRequest, as: 'FundRequest', include: [{ required: false, model: Project, as: 'Project' }] },
+                { model: User, as: 'officer', attributes: ['name', 'email'], required: false }
+            ],
+            order: [['createdAt', 'DESC']],
+            limit: 50
+        });
 
-    return history.map(d => ({
-        id: d.id || d._id,
-        amount: d.amount,
-        projectTitle: d.FundRequest?.Project?.title || 'Unknown',
-        date: d.createdAt,
-        status: d.status || 'COMPLETED',
-        officer: d.officer?.name || 'System'
-    }));
+        const data = history.map(d => ({
+            id: d.id || d._id,
+            amount: d.amount,
+            projectTitle: d.FundRequest?.Project?.title || 'Unknown',
+            date: d.createdAt,
+            status: d.status || 'COMPLETED',
+            officer: d.officer?.name || 'System'
+        }));
+
+        return res.json({ success: true, data });
+    } catch (err) {
+        logger.error('[FinanceController] getDisbursalHistory error:', err);
+        return res.status(500).json({ success: false, message: err.message });
+    }
 });
 
 /**
@@ -373,14 +379,22 @@ const getFundFlowData = asyncHandler(async (req, res) => {
  * Returns data for Financial Reports Dashboard.
  */
 
-const getFinancialReports = safe(async (req) => {
-  const { startDate, endDate } = req.query;
+const getFinancialReports = asyncHandler(async (req, res) => {
+    const { startDate, endDate } = req.query;
 
-  if (!startDate || !endDate) return [];
+    if (!startDate || !endDate) {
+        return res.json({ success: true, data: [] });
+    }
 
-  return await Disbursement.findAll({
-    attributes: ['amount', 'createdAt']
-  });
+    try {
+        const data = await Disbursement.findAll({
+            attributes: ['amount', 'createdAt']
+        });
+        return res.json({ success: true, data: data || [] });
+    } catch (err) {
+        logger.error('[FinanceController] getFinancialReports error:', err);
+        return res.status(500).json({ success: false, message: err.message });
+    }
 });
 
 /**
@@ -924,7 +938,9 @@ const archiveOldLedgerEntries = asyncHandler(async (req, res) => {
 
 const getPFMSData = getPFMSTransactionsController;
 
-const getEquipmentDisbursements = safe(async (req) => { return []; });
+const getEquipmentDisbursements = asyncHandler(async (req, res) => {
+    return res.json({ success: true, data: [] });
+});
 
 module.exports = {
     getFinanceStats,

@@ -90,12 +90,33 @@ const nextInstallmentNumber = async (projectId) => {
 
 // ─── READ ──────────────────────────────────────────────────────────────────────
 
-const safe = require('../utils/safeController');
+const getFundRequests = asyncHandler(async (req, res) => {
+    if (!req.user) {
+        return res.status(401).json({ success: false, message: 'Unauthorized' });
+    }
 
-const getFundRequests = safe(async () => {
-  return await FundRequest.findAll({
-    include: []
-  });
+    const where = {};
+
+    // Role-based filtering: faculty sees only their own requests
+    if (req.user.role === 'FACULTY') {
+        where.facultyId = req.user.id || req.user._id;
+    }
+
+    try {
+        const requests = await FundRequest.findAll({
+            where,
+            include: [
+                { model: Project, as: 'Project', required: false },
+                { model: Disbursement, as: 'Disbursement', required: false }
+            ],
+            order: [['createdAt', 'DESC']]
+        });
+
+        return res.json({ success: true, data: requests || [] });
+    } catch (err) {
+        logger.error('[FundRequestController] getFundRequests error:', err);
+        return res.status(500).json({ success: false, message: err.message });
+    }
 });
 
 const getFundRequest = asyncHandler(async (req, res) => {

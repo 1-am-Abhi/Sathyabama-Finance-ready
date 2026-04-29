@@ -21,7 +21,8 @@ const protect = async (req, res, next) => {
         }
         req.user = {
             ...user.toJSON(),
-            id: user._id
+            id: user._id || user.id,
+            _id: user._id || user.id
         };
         logger.info('Auth Middleware - User identified:', req.user.name, 'Role:', req.user.role, 'Dept:', req.user.department);
         next();

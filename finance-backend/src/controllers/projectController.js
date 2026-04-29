@@ -100,15 +100,22 @@ const getFacultyStats = asyncHandler(async (req, res) => {
     });
 });
 
-const safe = require('../utils/safeController');
+const getProjects = asyncHandler(async (req, res) => {
+    if (!req.user) {
+        return res.status(401).json({ success: false, message: 'Unauthorized' });
+    }
 
-const getProjects = safe(async (req, res) => {
-  const projects = await Project.findAll({
-    attributes: ['_id', 'title', 'researchCentre', 'sanctionedBudget', 'status', 'pi', 'department', 'createdAt'],
-    include: []
-  });
+    try {
+        const projects = await Project.findAll({
+            attributes: ['_id', 'title', 'researchCentre', 'sanctionedBudget', 'status', 'pi', 'department', 'createdAt'],
+            order: [['createdAt', 'DESC']]
+        });
 
-  return projects;
+        return res.json({ success: true, data: projects || [] });
+    } catch (err) {
+        logger.error('[ProjectController] getProjects error:', err);
+        return res.status(500).json({ success: false, message: err.message });
+    }
 });
 
 const getProject = asyncHandler(async (req, res) => {
