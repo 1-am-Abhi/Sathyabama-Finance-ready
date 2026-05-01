@@ -1,19 +1,25 @@
 require('dotenv').config();
-const { makeSequelizeOptions } = require('./sequelizeOptions');
-
-const sequelizeOptions = makeSequelizeOptions();
 
 module.exports = {
+  production: {
+    use_env_variable: 'DATABASE_URL',
+    dialect: 'postgres',
+    dialectOptions: {
+      ssl: {
+        require: true,
+        rejectUnauthorized: false
+      }
+    },
+    logging: false
+  },
   development: {
     use_env_variable: 'DATABASE_URL',
-    ...sequelizeOptions
+    dialect: 'postgres',
+    logging: console.log
   },
   test: {
     use_env_variable: 'DATABASE_URL',
-    ...sequelizeOptions
-  },
-  production: {
-    use_env_variable: 'DATABASE_URL',
-    ...sequelizeOptions
+    dialect: 'postgres',
+    logging: false
   }
 };
