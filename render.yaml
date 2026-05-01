@@ -5,13 +5,17 @@ services:
     runtime: node
     region: singapore
     rootDir: finance-backend
-    buildCommand: npm ci && npm run migrate
-    startCommand: npm start
+
+    buildCommand: npm ci
+    startCommand: npm run migrate && npm start
+
     healthCheckPath: /api/health
+
     buildFilter:
       paths:
         - finance-backend/**
         - render.yaml
+
     envVars:
       - key: DATABASE_URL
         sync: false
@@ -40,13 +44,17 @@ services:
     runtime: node
     region: singapore
     rootDir: finance-frontend
+
     buildCommand: npm ci && npm run build
     startCommand: npm start
+
     healthCheckPath: /
+
     buildFilter:
       paths:
         - finance-frontend/**
         - render.yaml
+
     envVars:
       - key: REACT_APP_API_URL
         value: https://finance-api-x1ig.onrender.com/api
