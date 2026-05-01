@@ -1,4 +1,5 @@
 const logger = require('../utils/logger');
+const { Op } = require('sequelize');
 const { Account } = require('../models');
 const { ACCOUNTS } = require('../constants/accounts');
 
@@ -8,9 +9,28 @@ const seedAccounts = async () => {
     for (const key in ACCOUNTS) {
         const accountData = ACCOUNTS[key];
         try {
-            await Account.findOrCreate({
-                where: { code: accountData.code },
-                defaults: accountData
+            const existing = await Account.findOne({
+                where: {
+                    [Op.or]: [
+                        { code: accountData.code },
+                        { name: accountData.name }
+                    ]
+                }
+            });
+
+            if (existing) {
+                await existing.update({
+                    name: accountData.name,
+                    code: accountData.code,
+                    type: accountData.type,
+                    isActive: true
+                });
+                continue;
+            }
+
+            await Account.create({
+                ...accountData,
+                isActive: true
             });
         } catch (err) {
             logger.error(`[AccountSeed] Failed to seed ${accountData.name}:`, err.message);
