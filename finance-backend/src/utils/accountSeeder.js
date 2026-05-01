@@ -5,9 +5,10 @@ const { ACCOUNTS } = require('../constants/accounts');
 
 const seedAccounts = async () => {
     logger.info('[AccountSeed] Synchronizing Chart of Accounts...');
-    
+
     for (const key in ACCOUNTS) {
         const accountData = ACCOUNTS[key];
+
         try {
             const existing = await Account.findOne({
                 where: {
@@ -20,23 +21,33 @@ const seedAccounts = async () => {
 
             if (existing) {
                 await existing.update({
-                    name: accountData.name,
                     code: accountData.code,
+                    name: accountData.name,
                     type: accountData.type,
-                    isActive: true
+                    isActive: true,
+                    organizationId: existing.organizationId || 'ORG_1'
                 });
+
+                logger.info(`[AccountSeed] Updated: ${accountData.name}`);
                 continue;
             }
 
             await Account.create({
                 ...accountData,
-                isActive: true
+                isActive: true,
+                organizationId: accountData.organizationId || 'ORG_1'
             });
+
+            logger.info(`[AccountSeed] Created: ${accountData.name}`);
+
         } catch (err) {
-            logger.error(`[AccountSeed] Failed to seed ${accountData.name}:`, err.message);
+            logger.error(
+                `[AccountSeed] Failed for ${accountData.name}`,
+                err.message
+            );
         }
     }
-    
+
     logger.info('[AccountSeed] Chart of Accounts synchronization complete.');
 };
 

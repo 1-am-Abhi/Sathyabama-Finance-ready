@@ -1,6 +1,15 @@
 const dotenv = require('dotenv');
 dotenv.config();
+const { execSync } = require('child_process');
 
+// 🔥 FORCE MIGRATION BEFORE ANYTHING
+try {
+    console.log('🚀 Running DB migrations...');
+    execSync('npx sequelize-cli db:migrate', { stdio: 'inherit' });
+    console.log('✅ Migrations completed');
+} catch (err) {
+    console.error('❌ Migration failed:', err);
+}
 const { connectDB, sequelize, isDbReady } = require('./src/config/db');
 const http = require('http');
 const socketIo = require('socket.io');
@@ -56,12 +65,12 @@ app.use('/api/notifications', disbursementLimiter);
 app.use((req, res, next) => {
     req.correlationId = `REQ-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
     res.setHeader('X-Correlation-Id', req.correlationId);
-    
+
     // 🔴 ISOLATE AUTH ROUTES (TASK 1)
     if (req.path.startsWith('/api/auth') || req.path.startsWith('/api/v1/auth')) {
         return next(); // Skip all institutional finance logic
     }
-    
+
     next();
 });
 
@@ -233,7 +242,7 @@ const startDbServices = async () => {
         const columns = results.map(c => c.column_name);
         const ledgerTableName = results[0]?.table_name || 'Ledgers';
         logger.info(`[System] Ledger columns verified on ${ledgerTableName}: ${columns.join(', ')}`);
-        
+
         if (!columns.includes('accountId') || !columns.includes('journalId') || !columns.includes('disbursementId')) {
             logger.error('🚨 CRITICAL SCHEMA DRIFT: Core columns missing from Ledgers table!');
         }
