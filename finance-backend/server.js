@@ -223,14 +223,18 @@ const startDbServices = async () => {
 
         // 🔴 STARTUP SCHEMA CHECK (FOR STABILITY)
         const [results] = await sequelize.query(`
-            SELECT column_name 
-            FROM information_schema.columns 
-            WHERE table_name = 'Ledgers'
+            SELECT table_schema, table_name, column_name
+            FROM information_schema.columns
+            WHERE table_schema = 'public'
+              AND lower(table_name) = 'ledgers'
+            ORDER BY ordinal_position
         `);
+        logger.info(`[DEBUG] Ledger columns raw: ${JSON.stringify(results)}`);
         const columns = results.map(c => c.column_name);
-        logger.info(`[System] Ledger columns verified: ${columns.join(', ')}`);
+        const ledgerTableName = results[0]?.table_name || 'Ledgers';
+        logger.info(`[System] Ledger columns verified on ${ledgerTableName}: ${columns.join(', ')}`);
         
-        if (!columns.includes('accountId') || !columns.includes('journalId')) {
+        if (!columns.includes('accountId') || !columns.includes('journalId') || !columns.includes('disbursementId')) {
             logger.error('🚨 CRITICAL SCHEMA DRIFT: Core columns missing from Ledgers table!');
         }
     } catch (err) {
