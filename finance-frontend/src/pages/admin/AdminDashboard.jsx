@@ -27,8 +27,6 @@ import AddCentreModal from '../../components/shared/AddCentreModal';
 import Loader from '../../components/shared/Loader';
 import EmptyState from '../../components/shared/EmptyState';
 import { normalizeFundSource } from '../../constants/fundSources';
-import { safeApiObj } from '../../api/safeApi';
-import { useCentres } from '../../hooks/useCentres';
 import { useDashboard } from '../../hooks/useDashboard';
 
 const safeNumber = (val) => {
@@ -152,7 +150,6 @@ const AdminDashboard = () => {
     const [loading, setLoading] = useState(true);
     const [socketConnected, setSocketConnected] = useState(false);
     const refreshTimerRef = React.useRef(null);
-    const { centres: dynamicCentres } = useCentres();
 
     const normalizeCentre = (c) => {
         if (!c) return { _id: Math.random().toString(), name: 'Unknown', centre: 'Unknown' };
@@ -180,21 +177,17 @@ const AdminDashboard = () => {
             }
 
             if (!stats) setLoading(true);
-            const fetchedData = await safeApiObj(
-                () =>
-                    apiClient.get('/projects/stats', {
-                        params: { financialYear: selectedFY }
-                    }),
-                EMPTY_ADMIN_DASHBOARD
-            );
+            const response = await apiClient.get('/projects/stats', {
+                params: { financialYear: selectedFY }
+            });
+            const fetchedData = response.data?.data;
 
             const statsCentres = (Array.isArray(fetchedData?.centres) ? fetchedData.centres : []).map(normalizeCentre);
-            const fallbackCentres = statsCentres.length === 0 ? dynamicCentres.map(normalizeCentre) : [];
             
             const normalizedData = {
                 ...EMPTY_ADMIN_DASHBOARD,
                 ...(fetchedData || {}),
-                centres: statsCentres.length > 0 ? statsCentres : fallbackCentres,
+                centres: statsCentres,
             };
 
             dashboardCache[selectedFY] = {
@@ -208,13 +201,9 @@ const AdminDashboard = () => {
             setFundSources(normalizedData.fundSources ?? []);
         } catch (error) {
             console.error("Error fetching admin data:", error);
-            const fallbackCentres = dynamicCentres;
-            const fallbackData = {
-                ...EMPTY_ADMIN_DASHBOARD,
-                centres: fallbackCentres,
-            };
-            setStats(fallbackData);
-            setCentresStats(fallbackCentres);
+            toast.error(error.response?.data?.message || error.message || 'Failed to fetch admin dashboard');
+            setStats(null);
+            setCentresStats([]);
             setFundSources([]);
         } finally {
             setLoading(false);

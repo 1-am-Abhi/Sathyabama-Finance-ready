@@ -64,8 +64,9 @@ FundRequest.init({
         allowNull: false
     },
     organizationId: {
-        type: DataTypes.INTEGER,
-        allowNull: true,
+        type: DataTypes.STRING,
+        allowNull: false,
+        defaultValue: 'ORG_1',
     },
     projectId: {
         type: DataTypes.UUID,

@@ -15,15 +15,33 @@ const protect = async (req, res, next) => {
     
     try {
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
-        const user = await User.findByPk(decoded.id);
+
+        req.user = decoded;
+
+        if (!(req.user?.id || req.user?.userId) || !req.user?.organizationId) {
+            return res.status(401).json({
+                success: false,
+                message: 'Invalid token'
+            });
+        }
+
+        const user = await User.findByPk(decoded.id || decoded.userId);
         if (!user) {
             return res.status(401).json({ success: false, message: 'User not found' });
         }
         req.user = {
             ...user.toJSON(),
             id: user._id || user.id,
-            _id: user._id || user.id
+            userId: user._id || user.id,
+            _id: user._id || user.id,
+            organizationId: user.organizationId || decoded.organizationId
         };
+        if (!req.user?.id || !req.user?.organizationId) {
+            return res.status(401).json({
+                success: false,
+                message: 'Invalid token'
+            });
+        }
         logger.info('Auth Middleware - User identified:', req.user.name, 'Role:', req.user.role, 'Dept:', req.user.department);
         next();
     } catch (error) {
@@ -54,4 +72,3 @@ const authorize = (...roles) => {
 };
 
 module.exports = { protect, authorize };
-

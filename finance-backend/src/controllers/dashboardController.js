@@ -7,21 +7,12 @@ const { getDashboardMetrics } = require('../services/dashboardService');
  */
 exports.getDashboard = asyncHandler(async (req, res) => {
   const fy = req.query.fy || null;
-  const orgId = req.user?.organizationId || null;
+  const orgId = req.user.organizationId;
 
   const data = await getDashboardMetrics({ fy, organizationId: orgId });
   
   return res.json({
     success: true,
-    data: data || {
-      totalProjects: 0,
-      pendingApprovals: 0,
-      approvedRequests: 0,
-      totalDisbursed: 0,
-      totalRevenue: 0,
-      utilization: 0,
-      centres: [],
-      trend: []
-    }
+    data
   });
 });

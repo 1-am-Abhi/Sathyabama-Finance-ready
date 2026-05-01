@@ -7,8 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/ta
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import ProjectDetail from './ProjectDetail';
 import FacultyDetail from './FacultyDetail';
-import axios from 'axios';
-import { safeAxios } from '../../api/safeApi';
+import apiClient from '../../api/client';
 
 const ResearchCentreDetail = ({ isOpen, onClose, centreName, isDark }) => {
     const [selectedProject, setSelectedProject] = useState(null);
@@ -38,15 +37,10 @@ const ResearchCentreDetail = ({ isOpen, onClose, centreName, isDark }) => {
             try {
                 if (isMounted && details.projects.length === 0) setLoading(true);
                 
-                // Use axios directly with token to avoid the globaltoast-on-404 interceptor
-                const token = localStorage.getItem('token');
-                const headers = token ? { Authorization: `Bearer ${token}` } : {};
-                const baseURL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
-
                 const [projectsRes, usersRes, metricsRes] = await Promise.all([
-                    safeAxios(() => axios.get(`${baseURL}/projects`, { headers }), { success: true, data: [] }),
-                    safeAxios(() => axios.get(`${baseURL}/profile/all`, { headers }), { success: true, data: [] }),
-                    safeAxios(() => axios.get(`${baseURL}/academic-metrics/all`, { headers }), { success: true, data: [] })
+                    apiClient.get('/projects'),
+                    apiClient.get('/profile/all'),
+                    apiClient.get('/academic-metrics/all')
                 ]);
                 
                 if (!isMounted) return;

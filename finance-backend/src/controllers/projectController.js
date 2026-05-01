@@ -56,10 +56,7 @@ const getFacultyStats = asyncHandler(async (req, res) => {
 });
 
 const getAllProjects = asyncHandler(async (req, res) => {
-    const orgId = req.user?.organizationId || null;
-    const where = {
-        ...(orgId && { organizationId: orgId })
-    };
+    const where = { organizationId: req.user.organizationId };
 
     if (req.user?.role === 'FACULTY') {
         where.facultyId = req.user?.id || req.user?._id;
@@ -79,7 +76,8 @@ const getAllProjects = asyncHandler(async (req, res) => {
 
 const getProjectDetails = asyncHandler(async (req, res) => {
     const { id } = req.params;
-    const project = await Project.findByPk(id, {
+    const project = await Project.findOne({
+        where: { _id: id, organizationId: req.user.organizationId },
         include: [
             { model: User, as: 'facultyOwner', attributes: ['name', 'email', 'department'], required: false },
             { model: ProjectMember, as: 'members', required: false },
@@ -95,7 +93,7 @@ const getProjectDetails = asyncHandler(async (req, res) => {
 
 const createProject = asyncHandler(async (req, res) => {
     const userId = req.user?.id || req.user?._id;
-    const orgId = req.user?.organizationId || null;
+    const orgId = req.user.organizationId;
     const { title, sanctionedBudget, fundingSource, description, centreId } = req.body;
 
     if (!title || safeNumber(sanctionedBudget) <= 0) {
@@ -121,7 +119,7 @@ const createProject = asyncHandler(async (req, res) => {
 
 const updateProject = asyncHandler(async (req, res) => {
     const { id } = req.params;
-    const project = await Project.findByPk(id);
+    const project = await Project.findOne({ where: { _id: id, organizationId: req.user.organizationId } });
     if (!project) return res.status(200).json({ success: false, message: 'Project not found', data: [] });
 
     const { status, sanctionedBudget, fundingSource, description } = req.body;
@@ -137,11 +135,11 @@ const updateProject = asyncHandler(async (req, res) => {
 
 const deleteProject = asyncHandler(async (req, res) => {
     const { id } = req.params;
-    const project = await Project.findByPk(id);
+    const project = await Project.findOne({ where: { _id: id, organizationId: req.user.organizationId } });
     if (!project) return res.status(200).json({ success: false, message: 'Project not found', data: [] });
 
     // Check for disbursements
-    const disbursementCount = safeNumber(await Disbursement.count({ where: { projectId: id } }));
+    const disbursementCount = safeNumber(await Disbursement.count({ where: { projectId: id, organizationId: req.user.organizationId } }));
     if (disbursementCount > 0) {
         return res.status(200).json({ success: false, message: 'Cannot delete project with existing disbursements', data: [] });
     }

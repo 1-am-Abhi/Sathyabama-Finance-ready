@@ -6,6 +6,6 @@ module.exports = (req, res, next) => {
     });
   }
   
-  req.organizationId = req.user.organizationId || null;
+  req.organizationId = req.user.organizationId;
   next();
 };

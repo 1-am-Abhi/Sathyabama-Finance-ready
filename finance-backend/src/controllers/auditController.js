@@ -30,10 +30,7 @@ const getAuditTimeline = asyncHandler(async (req, res) => {
  * Exports all audit logs for the organization as JSON (AUDITOR-accessible).
  */
 const exportAuditLogs = asyncHandler(async (req, res) => {
-  const where = {};
-  if (req.organizationId) {
-    where.organizationId = req.organizationId;
-  }
+  const where = { organizationId: req.user.organizationId };
 
   const logs = await AuditLog.findAll({
     where,
@@ -126,7 +123,7 @@ const verifyAuditLog = asyncHandler(async (req, res) => {
 const safe = require('../utils/safeController');
 
 const topSpendProjects = safe(async (req, res) => {
-  const results = await getTopSpendProjects(req.organizationId);
+  const results = await getTopSpendProjects(req.user.organizationId);
   return results;
 });
 

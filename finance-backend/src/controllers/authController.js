@@ -7,7 +7,13 @@ const bcrypt = require('bcryptjs');
 
 const generateToken = (user) => {
     return jwt.sign(
-        { id: user._id || user.id, role: user.role, email: user.email },
+        {
+            id: user._id || user.id,
+            userId: user._id || user.id,
+            role: user.role,
+            email: user.email,
+            organizationId: user.organizationId,
+        },
         process.env.JWT_SECRET,
         { expiresIn: "7d" }
     );
@@ -61,7 +67,8 @@ const login = async (req, res) => {
                     role: user.role,
                     name: user.name,
                     department: user.department,
-                    centre: user.centre
+                    centre: user.centre,
+                    organizationId: user.organizationId
                 }
             },
             message: 'Login successful'
@@ -120,7 +127,8 @@ const register = asyncHandler(async (req, res) => {
             password: hashedPassword, 
             role: role || 'FACULTY', 
             department, 
-            centre 
+            centre,
+            organizationId: req.body.organizationId || 'ORG_1'
         });
         
         logger.info(`[USER REGISTERED] ${user.email} - ${user.role}`);
@@ -137,7 +145,8 @@ const register = asyncHandler(async (req, res) => {
                     role: user.role,
                     name: user.name,
                     department: user.department,
-                    centre: user.centre
+                    centre: user.centre,
+                    organizationId: user.organizationId
                 }
             }
         });
@@ -335,4 +344,3 @@ module.exports = {
     addCentre,
     cleanupUsers
 };
-

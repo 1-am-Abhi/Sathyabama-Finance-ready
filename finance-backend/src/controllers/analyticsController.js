@@ -26,7 +26,7 @@ exports.getForecastBase = asyncHandler(async (req, res) => {
  */
 exports.getInsights = asyncHandler(async (req, res) => {
     const fy = req.query.fy || null;
-    const organizationId = req.user?.organizationId || null;
+    const organizationId = req.user.organizationId;
     const metrics = await getDashboardMetrics({ fy, organizationId });
     
     return res.json({
@@ -50,7 +50,7 @@ exports.getInsights = asyncHandler(async (req, res) => {
  */
 exports.getFacultyStats = asyncHandler(async (req, res) => {
     const faculties = safeArray(await User.findAll({ 
-        where: { role: 'FACULTY' }, 
+        where: { role: 'FACULTY', organizationId: req.user.organizationId },
         attributes: ['centre', 'createdAt', 'status'],
         raw: true
     }));

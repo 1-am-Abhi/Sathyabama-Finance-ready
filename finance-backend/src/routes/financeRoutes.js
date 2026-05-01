@@ -2,6 +2,7 @@ const logger = require('../utils/logger');
 const express = require('express');
 const router = express.Router();
 const { protect, authorize } = require('../middleware/authMiddleware');
+const dbReady = require('../middleware/dbReady');
 const financeController = require('../controllers/financeController');
 const { 
     getAuditReplay, 
@@ -23,6 +24,7 @@ const { sanitizeFinancialInput } = require('../middleware/inputSanitizer');
 const { financeRateLimiter, reportRateLimiter } = require('../middleware/rateLimiter');
 
 // All finance routes require authentication
+router.use(dbReady);
 router.use(protect);
 router.use(require('../middleware/orgScope'));
 
@@ -44,10 +46,11 @@ router.get('/departments/:id/funding-history', async (req, res) => {
         const { Disbursement, FundRequest } = require('../models');
         const { Op } = require('sequelize');
         const history = await Disbursement.findAll({
+            where: { organizationId: req.user.organizationId },
             include: [{
                 model: FundRequest,
                 as: 'FundRequest',
-                where: { department: req.params.id },
+                where: { department: req.params.id, organizationId: req.user.organizationId },
                 attributes: ['projectTitle', 'source', 'department'],
             }],
             order: [['createdAt', 'DESC']],
@@ -90,7 +93,7 @@ router.get('/projects/:id/history', async (req, res) => {
     try {
         const { AuditLog } = require('../models');
         const history = await AuditLog.findAll({
-            where: { entityId: req.params.id },
+            where: { entityId: req.params.id, organizationId: req.user.organizationId },
             order: [['createdAt', 'DESC']]
         });
         res.json({ success: true, data: history });

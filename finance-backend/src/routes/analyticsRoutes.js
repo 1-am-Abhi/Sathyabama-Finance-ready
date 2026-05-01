@@ -3,6 +3,7 @@ const express = require('express');
 const router = express.Router();
 const { Project, Disbursement, FundRequest } = require('../models');
 const { protect, authorize } = require('../middleware/authMiddleware');
+const orgScope = require('../middleware/orgScope');
 const asyncHandler = require('../utils/asyncHandler');
 const { redisConnection } = require('../config/redis');
 
@@ -138,10 +139,10 @@ router.get('/centre/:name', protect, authorize('ADMIN', 'FINANCE_OFFICER'), asyn
 
 const { getDashboardMetrics } = require('../services/dashboardService');
 
-router.get('/insights', async (req, res) => {
+router.get('/insights', protect, orgScope, async (req, res) => {
   const data = await getDashboardMetrics({
     fy: req.query.fy,
-    organizationId: req.user?.organizationId
+    organizationId: req.user.organizationId
   });
   res.json({ success: true, data });
 });

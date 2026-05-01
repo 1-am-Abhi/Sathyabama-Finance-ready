@@ -2,13 +2,17 @@ const express = require('express');
 const router = express.Router();
 const fundRequestController = require('../controllers/fundRequestController');
 const { protect, authorize } = require('../middleware/authMiddleware');
+const dbReady = require('../middleware/dbReady');
+const orgScope = require('../middleware/orgScope');
 const { validate, fundRequestSchema } = require('../utils/validation');
 const { sanitizeFinancialInput } = require('../middleware/inputSanitizer');
 const { upload } = require('../middleware/uploadMiddleware');
 const auditController = require('../controllers/auditController');
 
 // All routes require authentication
+router.use(dbReady);
 router.use(protect);
+router.use(orgScope);
 
 // ── Read ─────────────────────────────────────────────────────────────────────
 router.get('/', fundRequestController.getFundRequests);

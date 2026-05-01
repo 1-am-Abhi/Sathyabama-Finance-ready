@@ -1,35 +1,20 @@
 /**
- * Global API wrapper to handle success/error states consistently
- * and ensure a safe data format (defaults to [] if failed)
+ * Global API wrappers that preserve backend failures.
+ * Do not return fake fallbacks here: production errors must be visible.
  */
 export const safeApi = async (fn) => {
-  try {
-    const res = await fn();
-    return res?.data?.data || [];
-  } catch (err) {
-    console.error(err);
-    return [];
-  }
+  const res = await fn();
+  return res?.data?.data ?? [];
 };
 
 /**
  * Handle object response instead of array
  */
 export const safeApiObj = async (fn, fallback = null) => {
-    try {
-        const res = await fn();
-        return res?.data?.data ?? fallback;
-    } catch (err) {
-        console.error(err);
-        return fallback;
-    }
+    const res = await fn();
+    return res?.data?.data ?? fallback;
 };
 
-export const safeAxios = async (fn, fallback = { success: true, data: [] }) => {
-    try {
-        return await fn();
-    } catch (err) {
-        console.error(err);
-        return { data: fallback };
-    }
+export const safeAxios = async (fn) => {
+    return fn();
 };

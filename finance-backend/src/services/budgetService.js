@@ -108,7 +108,7 @@ exports.getTopSpendProjects = async (organizationId) => {
 
   for (const p of projects) {
     const disbursements = await Disbursement.findAll({
-      where: { projectId: p._id || p.id },
+      where: { projectId: p._id || p.id, organizationId },
     });
     const total = disbursements.reduce((sum, d) => sum + Number(d.amount), 0);
     results.push({ project: p.title, total });

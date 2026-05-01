@@ -19,6 +19,7 @@ const createEventRequest = asyncHandler(async (req, res) => {
             facultyId: userId,
             facultyName: req.user.name || 'Faculty Member',
             department: req.user.department || 'RESEARCH',
+            organizationId: req.user.organizationId,
             researchCentre: req.user.centre || 'General',
             status: 'PENDING',
             isFullDay: req.body.isFullDay !== undefined ? req.body.isFullDay : true,
@@ -50,6 +51,7 @@ const createEventRequest = asyncHandler(async (req, res) => {
 const getEventRequests = asyncHandler(async (req, res) => {
     try {
         const options = { 
+            where: { organizationId: req.user.organizationId },
             order: [['createdAt', 'DESC']],
             include: [
                 { model: Project, required: false },
@@ -59,7 +61,7 @@ const getEventRequests = asyncHandler(async (req, res) => {
         
         if (req.user && req.user.role === 'FACULTY') {
             const userId = req.user.id || req.user._id;
-            options.where = { facultyId: userId };
+            options.where.facultyId = userId;
         }
 
         const events = await EventRequest.findAll(options);
@@ -92,7 +94,9 @@ const getEventRequests = asyncHandler(async (req, res) => {
 
 const updateEventRequestStatus = asyncHandler(async (req, res) => {
     try {
-        const evt = await EventRequest.findByPk(req.params.id);
+        const evt = await EventRequest.findOne({
+            where: { _id: req.params.id, organizationId: req.user.organizationId }
+        });
         if (!evt) {
             return res.status(404).json({ success: false, message: 'Event not found' });
         }
@@ -164,7 +168,9 @@ const updateEventMembers = asyncHandler(async (req, res) => {
         const { piId, memberIds } = req.body;
         const eventId = req.params.id;
 
-        const evt = await EventRequest.findByPk(eventId);
+        const evt = await EventRequest.findOne({
+            where: { _id: eventId, organizationId: req.user.organizationId }
+        });
         if (!evt) {
             return res.status(404).json({ success: false, message: 'Event not found' });
         }
@@ -197,4 +203,3 @@ module.exports = {
     updateEventRequestStatus,
     updateEventMembers
 };
-

@@ -12,8 +12,9 @@ const Project = sequelize.define('Project', {
         allowNull: false
     },
     organizationId: {
-        type: DataTypes.INTEGER,
-        allowNull: true,
+        type: DataTypes.STRING,
+        allowNull: false,
+        defaultValue: 'ORG_1',
     },
     userId: {
         type: DataTypes.UUID,

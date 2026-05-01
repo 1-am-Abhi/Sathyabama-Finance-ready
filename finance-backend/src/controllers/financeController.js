@@ -9,6 +9,11 @@ const { Parser } = require('json2csv');
 const PDFDocument = require('pdfkit');
 const { safeNumber, parseFY, safeArray } = require('../utils/safeUtils');
 
+const orgWhere = (req, extra = {}) => ({
+    organizationId: req.user.organizationId,
+    ...extra
+});
+
 /**
  * GET /finance/stats
  * Returns aggregated stats for the Finance Dashboard.
@@ -21,6 +26,7 @@ const getFinanceStats = asyncHandler(async (req, res) => {
     const { startDate, endDate } = fyRange;
 
     const whereClause = {
+        organizationId: req.user.organizationId,
         createdAt: { [Op.between]: [startDate, endDate] }
     };
 
@@ -32,7 +38,7 @@ const getFinanceStats = asyncHandler(async (req, res) => {
     // Pending disbursements (FundRequests approved by Admin but not yet executed by Finance)
     const pendingDisbursements = safeNumber(await FundRequest.count({
         where: { 
-            ...whereClause, 
+            ...whereClause,
             status: { [Op.in]: ['APPROVED', 'PARTIALLY_DISBURSED'] }
         }
     }));
@@ -48,7 +54,10 @@ const getFinanceStats = asyncHandler(async (req, res) => {
         const { InternshipFee } = require('../models');
         if (InternshipFee) {
             pendingInternships = safeNumber(await InternshipFee.count({
-                where: { ...whereClause, paymentStatus: 'PENDING' }
+                where: {
+                    createdAt: { [Op.between]: [startDate, endDate] },
+                    paymentStatus: 'PENDING'
+                }
             }));
         }
     } catch (err) {
@@ -192,9 +201,7 @@ const getDisbursalHistory = asyncHandler(async (req, res) => {
     const { startDate, endDate } = getFYRange(req.query.fy || getCurrentFY());
     
     const history = safeArray(await Disbursement.findAll({
-        where: {
-            createdAt: { [Op.between]: [startDate, endDate] }
-        },
+        where: orgWhere(req, { createdAt: { [Op.between]: [startDate, endDate] } }),
         include: [
             { model: Project, as: 'Project', required: false },
             { model: FundRequest, as: 'FundRequest', required: false }
@@ -213,11 +220,11 @@ const getReportsData = asyncHandler(async (req, res) => {
     
     const [disbursements, fundRequests] = await Promise.all([
         Disbursement.findAll({
-            where: { createdAt: { [Op.between]: [startDate, endDate] } },
+            where: orgWhere(req, { createdAt: { [Op.between]: [startDate, endDate] } }),
             include: [{ model: Project, as: 'Project', required: false }]
         }),
         FundRequest.findAll({
-            where: { createdAt: { [Op.between]: [startDate, endDate] } },
+            where: orgWhere(req, { createdAt: { [Op.between]: [startDate, endDate] } }),
             include: [{ model: Project, as: 'Project', required: false }]
         })
     ]);
@@ -241,6 +248,7 @@ const syncEvents = asyncHandler(async (req, res) => {
     const events = safeArray(await AuditLog.findAll({
         where: {
             createdAt: { [Op.gt]: new Date(parseInt(since)) },
+            organizationId: req.user.organizationId,
             entityType: { [Op.in]: ['FundRequest', 'Disbursement', 'PFMSTransaction', 'Revenue'] }
         },
         order: [['createdAt', 'ASC']],
@@ -255,6 +263,7 @@ const syncEvents = asyncHandler(async (req, res) => {
  */
 const getAuditReplay = asyncHandler(async (req, res) => {
     const logs = safeArray(await AuditLog.findAll({
+        where: { organizationId: req.user.organizationId },
         order: [['createdAt', 'DESC']],
         limit: 100,
         include: [{ required: false, model: User, as: 'user', attributes: ['name', 'email'] }]
@@ -267,7 +276,9 @@ const getAuditReplay = asyncHandler(async (req, res) => {
  */
 const getPFMSTransactionsController = asyncHandler(async (req, res) => {
     const fyRange = parseFY(req.query.fy || getCurrentFY());
-    const where = fyRange ? { createdAt: { [Op.between]: [fyRange.startDate, fyRange.endDate] } } : {};
+    const where = fyRange
+        ? { createdAt: { [Op.between]: [fyRange.startDate, fyRange.endDate] } }
+        : {};
 
     const transactions = safeArray(await PFMSTransaction.findAll({
         where,
@@ -319,7 +330,7 @@ const getFundFlowData = asyncHandler(async (req, res) => {
     const whereClause = { createdAt: { [Op.between]: [startDate, endDate] } };
 
     const [disbursements, revenue] = await Promise.all([
-        Disbursement.findAll({ where: whereClause }),
+        Disbursement.findAll({ where: orgWhere(req, whereClause) }),
         Revenue.findAll({ where: whereClause })
     ]);
 
@@ -339,9 +350,7 @@ const getFinancialReports = asyncHandler(async (req, res) => {
     if (!startDate || !endDate) return res.json({ success: true, data: [] });
 
     const data = safeArray(await Disbursement.findAll({
-        where: {
-            createdAt: { [Op.between]: [new Date(startDate), new Date(endDate)] }
-        },
+        where: orgWhere(req, { createdAt: { [Op.between]: [new Date(startDate), new Date(endDate)] } }),
         attributes: ['amount', 'createdAt']
     }));
     return res.json({ success: true, data: data });
@@ -356,6 +365,7 @@ const exportFinancialReports = asyncHandler(async (req, res) => {
         return res.status(200).json({ success: false, message: 'Start date and end date are required', data: [] });
     }
     const whereClause = {
+      organizationId: req.user.organizationId,
       createdAt: { [Op.between]: [new Date(startDate), new Date(endDate)] }
     };
 
@@ -393,6 +403,7 @@ const exportFinancialReportsPDF = asyncHandler(async (req, res) => {
         return res.status(200).json({ success: false, message: 'Start date and end date are required', data: [] });
     }
     const whereClause = {
+      organizationId: req.user.organizationId,
       createdAt: { [Op.between]: [new Date(startDate), new Date(endDate)] }
     };
 
@@ -426,7 +437,7 @@ const exportFinancialReportsPDF = asyncHandler(async (req, res) => {
  */
 const rollbackDisbursement = asyncHandler(async (req, res) => {
     const { id } = req.params;
-    const disbursement = await Disbursement.findByPk(id);
+    const disbursement = await Disbursement.findOne({ where: { _id: id, organizationId: req.user.organizationId } });
     if (!disbursement) return res.status(200).json({ success: false, message: 'Disbursement not found', data: [] });
 
     await sequelize.transaction(async (t) => {

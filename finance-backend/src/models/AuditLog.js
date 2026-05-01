@@ -24,7 +24,7 @@ const AuditLog = sequelize.define('AuditLog', {
         allowNull: false
     },
     organizationId: {
-        type: DataTypes.INTEGER,
+        type: DataTypes.STRING,
         allowNull: true,
     },
     metadata: {

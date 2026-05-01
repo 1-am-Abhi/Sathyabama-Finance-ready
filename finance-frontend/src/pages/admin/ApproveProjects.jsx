@@ -596,7 +596,7 @@ const ApproveProjects = () => {
                             <CardDescription className="dark:text-gray-400">Distribution of project approvals</CardDescription>
                         </CardHeader>
                         <CardContent className="pt-6">
-                            <div className="h-[300px]">
+                            <div className="w-full h-[300px] min-w-0">
                                 <ResponsiveContainer width="100%" height="100%">
                                     <PieChart>
                                         <Pie
@@ -643,7 +643,7 @@ const ApproveProjects = () => {
                             <CardDescription className="dark:text-gray-400">Funding agency distribution</CardDescription>
                         </CardHeader>
                         <CardContent className="pt-6">
-                            <div className="h-[300px]">
+                            <div className="w-full h-[300px] min-w-0">
                                 <ResponsiveContainer width="100%" height="100%">
                                     <BarChart data={
                                         AGENCIES.map(agency => ({

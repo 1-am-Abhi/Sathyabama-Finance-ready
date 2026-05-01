@@ -1,7 +1,7 @@
 const dotenv = require('dotenv');
 dotenv.config();
 
-const { connectDB, sequelize } = require('./src/config/db');
+const { connectDB, sequelize, isDbReady } = require('./src/config/db');
 const http = require('http');
 const socketIo = require('socket.io');
 const jwt = require('jsonwebtoken');
@@ -111,7 +111,6 @@ setIO(io);
 
     } catch (err) {
         logger.error('Redis connection failed:', err);
-        process.exit(1);
     }
 })();
 
@@ -122,7 +121,7 @@ io.use((socket, next) => {
 
     jwt.verify(token, process.env.JWT_SECRET, (err, decoded) => {
         if (err) return next(new Error('Token expired or invalid'));
-        if (!decoded.id && !decoded._id) return next(new Error('Invalid token payload'));
+        if (!decoded.id && !decoded.userId && !decoded._id) return next(new Error('Invalid token payload'));
         socket.user = decoded;
         next();
     });
@@ -201,22 +200,28 @@ const queueService = require('./src/services/queueService');
 require('./src/workers/disbursementWorker');
 require('./src/jobs/reportScheduler');
 
-connectDB().then(async () => {
+let dbServicesStarted = false;
+
+const startDbServices = async () => {
+    if (dbServicesStarted) return;
+
     // 🔴 DB SAFETY
     // await sequelize.sync(); // ONLY THIS - REMOVED FOR PRODUCTION STABILITY
 
-    // Seed standard chart of accounts
-    const seedAccounts = require('./src/utils/accountSeeder');
-    await seedAccounts();
-
-    // Start financial snapshot scheduler
-    const { initSnapshotJobs } = require('./src/jobs/snapshotJob');
-    initSnapshotJobs();
-
-    await queueService.setupRepeatableJobs();
-
-    // 🔴 STARTUP SCHEMA CHECK (FOR STABILITY)
     try {
+        dbServicesStarted = true;
+
+        // Seed standard chart of accounts
+        const seedAccounts = require('./src/utils/accountSeeder');
+        await seedAccounts();
+
+        // Start financial snapshot scheduler
+        const { initSnapshotJobs } = require('./src/jobs/snapshotJob');
+        initSnapshotJobs();
+
+        await queueService.setupRepeatableJobs();
+
+        // 🔴 STARTUP SCHEMA CHECK (FOR STABILITY)
         const [results] = await sequelize.query(`
             SELECT column_name 
             FROM information_schema.columns 
@@ -229,14 +234,31 @@ connectDB().then(async () => {
             logger.error('🚨 CRITICAL SCHEMA DRIFT: Core columns missing from Ledgers table!');
         }
     } catch (err) {
-        logger.warn('[System] Could not verify schema at startup');
+        dbServicesStarted = false;
+        logger.warn('[System] DB-dependent services could not initialize. They will retry after DB reconnect.', {
+            message: err.message
+        });
     }
+};
 
-    server.listen(PORT, () => {
-        logger.info(`Server running on port ${PORT}`);
-        logger.info('[System] Redis + Socket + Jobs initialized');
-    });
+server.listen(PORT, () => {
+    logger.info(`Server running on port ${PORT}`);
+    logger.info('[System] HTTP server initialized');
 });
+
+setTimeout(() => {
+    connectDB(startDbServices);
+}, 5000);
+
+setInterval(async () => {
+    if (!isDbReady()) return;
+
+    try {
+        await sequelize.query('SELECT 1');
+    } catch (err) {
+        logger.warn('DB ping failed', { message: err.message });
+    }
+}, 30000);
 
 // Graceful shutdown
 const gracefulShutdown = async (signal) => {
@@ -254,7 +276,7 @@ const gracefulShutdown = async (signal) => {
             process.exit(0);
         } catch (err) {
             logger.error('Shutdown error:', err);
-            process.exit(1);
+            process.exitCode = 1;
         }
     });
 };

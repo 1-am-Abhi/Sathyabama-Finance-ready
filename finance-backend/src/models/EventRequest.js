@@ -11,6 +11,11 @@ const EventRequest = sequelize.define('EventRequest', {
         type: DataTypes.UUID,
         allowNull: false
     },
+    organizationId: {
+        type: DataTypes.STRING,
+        allowNull: false,
+        defaultValue: 'ORG_1',
+    },
     facultyName: {
         type: DataTypes.STRING,
         allowNull: false

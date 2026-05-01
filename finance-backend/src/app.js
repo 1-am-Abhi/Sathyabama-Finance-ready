@@ -21,6 +21,17 @@ const app = express();
 app.use(helmet());
 app.use(compression());
 app.use(timeout('10s')); // Fail fast on slow requests
+app.use((req, res, next) => {
+    res.setTimeout(15000, () => {
+        if (!res.headersSent) {
+            res.status(503).json({
+                success: false,
+                message: 'Request timed out'
+            });
+        }
+    });
+    next();
+});
 app.set('trust proxy', 1);
 app.disable('x-powered-by');
 
@@ -64,18 +75,18 @@ const AlertService = require('./services/alertService');
 const { getEmptyAdminStatsData } = require('./utils/researchCenterSafety');
 
 const healthHandler = async (req, res) => {
-    const { sequelize } = require('./config/db');
+    const { isDbReady } = require('./config/db');
     const { redis } = require('./services/redisService');
     
-    const dbStatus = await sequelize.authenticate().then(() => 'up').catch(() => 'down');
+    const dbStatus = isDbReady() ? 'up' : 'reconnecting';
     const redisStatus = redis.status === 'ready' ? 'up' : 'down';
     
-    const status = (dbStatus === 'up' && redisStatus === 'up') ? 200 : 503;
-    
-    res.status(status).json({
-        status: status === 200 ? 'OK' : 'ERROR',
-        db: dbStatus === 'up' ? 'connected' : 'disconnected',
-        redis: redisStatus === 'up' ? 'connected' : 'disconnected'
+    res.status(200).json({
+        status: 'OK',
+        db: dbStatus === 'up' ? 'connected' : 'reconnecting',
+        redis: redisStatus === 'up' ? 'connected' : 'disconnected',
+        uptime: process.uptime(),
+        timestamp: new Date().toISOString()
     });
 };
 
@@ -109,9 +120,10 @@ app.use('/api/analytics', analyticsRoutes);
 const projectRoutes = require('./routes/projectRoutes');
 const fundRequestRoutes = require('./routes/fundRequestRoutes');
 const financeRoutes = require('./routes/financeRoutes');
+const dbReady = require('./middleware/dbReady');
 app.use('/api/projects', projectRoutes);
-app.use('/api/fund-requests', fundRequestRoutes);
-app.use('/api/finance', financeRoutes);
+app.use('/api/fund-requests', dbReady, fundRequestRoutes);
+app.use('/api/finance', dbReady, financeRoutes);
 
 // 2. Rate Limiting (Applied to all OTHER institutional APIs)
 const globalLimiter = rateLimit({
@@ -133,6 +145,12 @@ app.use('/api', v1); // Fallback for backward compatibility
 // Global Error Handler
 app.use((err, req, res, next) => {
   logger.error('GLOBAL ERROR:', err);
+  if (err.name === 'SequelizeDatabaseError') {
+    return res.status(500).json({
+      success: false,
+      message: 'Database error'
+    });
+  }
   res.status(500).json({
     success: false,
     message: err.message || 'Internal server error'

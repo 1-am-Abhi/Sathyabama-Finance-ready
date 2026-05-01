@@ -254,9 +254,10 @@ const FinancialReports = () => {
                         <CardTitle className="text-lg font-black tracking-tight">Project Expenditure Analysis</CardTitle>
                         <CardDescription className="text-xs font-bold text-slate-400 uppercase tracking-wider">Live fund distribution by project</CardDescription>
                     </CardHeader>
-                    <CardContent className="px-0 pb-0 h-[300px]">
-                        <ResponsiveContainer width="100%" height="100%">
-                            <BarChart data={data?.projects || []}>
+                    <CardContent className="px-0 pb-0">
+                        <div className="w-full h-[300px] min-w-0">
+                            <ResponsiveContainer width="100%" height="100%">
+                                <BarChart data={data?.projects || []}>
                                 <XAxis 
                                     dataKey="name" 
                                     stroke="#94a3b8" 
@@ -295,8 +296,9 @@ const FinancialReports = () => {
                                         <stop offset="100%" stopColor="#818cf8" />
                                     </linearGradient>
                                 </defs>
-                            </BarChart>
-                        </ResponsiveContainer>
+                                </BarChart>
+                            </ResponsiveContainer>
+                        </div>
                     </CardContent>
                 </Card>
 

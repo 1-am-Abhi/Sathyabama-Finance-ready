@@ -1,5 +1,5 @@
 const { Op } = require('sequelize');
-const { Project, FundRequest, Disbursement, Revenue, User, Sequelize } = require('../models');
+const { Project, FundRequest, Disbursement, Revenue, Sequelize } = require('../models');
 const { getFYRange } = require('../utils/fyUtils');
 const { safeNumber, safeArray } = require('../utils/safeUtils');
 const logger = require('../utils/logger');
@@ -14,8 +14,7 @@ exports.getDashboardMetrics = async ({ fy, organizationId }) => {
     return cached.data;
   }
 
-  try {
-    const range = getFYRange(fy);
+  const range = getFYRange(fy);
 
     const whereDate = range
       ? { createdAt: { [Op.between]: [range.startDate, range.endDate] } }
@@ -41,8 +40,8 @@ exports.getDashboardMetrics = async ({ fy, organizationId }) => {
     // 🔹 Revenue
     let revenueSum = 0;
     if (Revenue) {
-      revenueSum = safeNumber(await Revenue.sum('amount', {
-        where: { ...orgFilter, ...whereDate }
+      revenueSum = safeNumber(await Revenue.sum('verifiedAmount', {
+        where: { ...whereDate }
       }));
     }
 
@@ -94,36 +93,18 @@ exports.getDashboardMetrics = async ({ fy, organizationId }) => {
     }));
     const utilization = totalSanctionedSum > 0 ? (disbursedSum / totalSanctionedSum) * 100 : 0;
 
-    const data = {
-      totalProjects,
-      pendingApprovals,
-      approvedRequests,
-      totalDisbursed: disbursedSum,
-      totalRevenue: revenueSum,
-      utilization: safeNumber(utilization.toFixed(2)),
-      centres: safeArray(centres),
-      trend: safeArray(trend)
-    };
-    dashboardCache.set(cacheKey, { createdAt: Date.now(), data });
-    return data;
-  } catch (err) {
-    logger.error('DASHBOARD_METRICS_ERROR', {
-      message: err.message,
-      stack: err.stack,
-      fy,
-      organizationId
-    });
-    return {
-      totalProjects: 0,
-      pendingApprovals: 0,
-      approvedRequests: 0,
-      totalDisbursed: 0,
-      totalRevenue: 0,
-      utilization: 0,
-      centres: [],
-      trend: []
-    };
-  }
+  const data = {
+    totalProjects,
+    pendingApprovals,
+    approvedRequests,
+    totalDisbursed: disbursedSum,
+    totalRevenue: revenueSum,
+    utilization: safeNumber(utilization.toFixed(2)),
+    centres: safeArray(centres),
+    trend: safeArray(trend)
+  };
+  dashboardCache.set(cacheKey, { createdAt: Date.now(), data });
+  return data;
 };
 
 /**

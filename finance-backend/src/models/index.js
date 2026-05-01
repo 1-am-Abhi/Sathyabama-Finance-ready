@@ -58,17 +58,17 @@ const {
 } = models;
 
 // Organization relations
-Organization.hasMany(User, { foreignKey: 'organizationId' });
-User.belongsTo(Organization, { foreignKey: 'organizationId' });
+Organization.hasMany(User, { foreignKey: 'organizationId', constraints: false });
+User.belongsTo(Organization, { foreignKey: 'organizationId', constraints: false });
 
-Organization.hasMany(Project, { foreignKey: 'organizationId' });
-Project.belongsTo(Organization, { foreignKey: 'organizationId' });
+Organization.hasMany(Project, { foreignKey: 'organizationId', constraints: false });
+Project.belongsTo(Organization, { foreignKey: 'organizationId', constraints: false });
 
-Organization.hasMany(FundRequest, { foreignKey: 'organizationId' });
-FundRequest.belongsTo(Organization, { foreignKey: 'organizationId' });
+Organization.hasMany(FundRequest, { foreignKey: 'organizationId', constraints: false });
+FundRequest.belongsTo(Organization, { foreignKey: 'organizationId', constraints: false });
 
-Organization.hasMany(Disbursement, { foreignKey: 'organizationId' });
-Disbursement.belongsTo(Organization, { foreignKey: 'organizationId' });
+Organization.hasMany(Disbursement, { foreignKey: 'organizationId', constraints: false });
+Disbursement.belongsTo(Organization, { foreignKey: 'organizationId', constraints: false });
 
 // Research centre ownership
 ResearchCenter.hasMany(User, { foreignKey: 'researchCenterId', as: 'faculty' });

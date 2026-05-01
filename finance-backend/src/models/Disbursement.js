@@ -16,8 +16,9 @@ const Disbursement = sequelize.define('Disbursement', {
         allowNull: false
     },
     organizationId: {
-        type: DataTypes.INTEGER,
-        allowNull: true,
+        type: DataTypes.STRING,
+        allowNull: false,
+        defaultValue: 'ORG_1',
     },
     amount: {
         type: DataTypes.DECIMAL(15, 2),

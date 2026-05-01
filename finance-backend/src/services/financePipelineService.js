@@ -5,6 +5,7 @@ const NotificationService = require('./notificationService');
 const { logDisbursementAudit } = require('./auditService');
 const { verifyFinancialParity } = require('./watchdogService');
 const { detectAnomalies } = require('./analyticsService');
+const { clearDashboardCache } = require('./dashboardService');
 
 const {
     sequelize,
@@ -197,6 +198,7 @@ const safeCreateLedgerEntry = async (payload, options = {}) => {
 const findEventProject = async (event, options = {}) => {
     const marker = getEventMarker(getRecordId(event));
     const where = {
+        organizationId: event.organizationId,
         [Op.or]: [
             { description: { [Op.like]: `%${marker}%` } },
             {
@@ -233,6 +235,7 @@ const ensureEventProject = async (event, options = {}) => {
         description: `${event.description || event.eventType || 'Institutional event'} ${marker}`.trim(),
         userId: event.facultyId,
         facultyId: event.facultyId,
+        organizationId: event.organizationId,
         pi: event.facultyName,
         department: event.department || 'RESEARCH',
         centre: event.researchCentre || null,
@@ -284,6 +287,7 @@ const ensureEventFundRequest = async (event, project, actor, options = {}) => {
 
     let fundRequest = await FundRequest.findOne({
         where: {
+            organizationId: event.organizationId,
             [Op.or]: [
                 { purpose: { [Op.like]: `%${marker}%` } },
                 { projectId: getRecordId(project), projectTitle: event.eventTitle, facultyId: event.facultyId },
@@ -298,6 +302,7 @@ const ensureEventFundRequest = async (event, project, actor, options = {}) => {
         faculty: event.facultyName,
         facultyId: event.facultyId,
         userId: event.facultyId,
+        organizationId: event.organizationId,
         requestedAmount,
         purpose,
         status: 'APPROVED',
@@ -441,7 +446,7 @@ const executeDisbursementPipeline = async (request, payload, actor, options = {}
     }
 
     try {
-        return await sequelize.transaction(async (transaction) => {
+        const result = await sequelize.transaction(async (transaction) => {
             const existingByReference = await Disbursement.findOne({
                 where: { referenceId },
                 transaction,
@@ -618,6 +623,7 @@ const executeDisbursementPipeline = async (request, payload, actor, options = {}
                 disbursement = await Disbursement.create({
                     fundRequestId: requestId,
                     projectId: lockedRequest.projectId,
+                    organizationId: lockedRequest.organizationId || actor?.organizationId,
                     amount,
                     installmentNumber,
                     isInstallment: true,
@@ -841,6 +847,9 @@ const executeDisbursementPipeline = async (request, payload, actor, options = {}
                 }
             };
         });
+
+        clearDashboardCache();
+        return result;
     } catch (err) {
         logFinancialError('DISBURSEMENT_ERROR', err, {
             correlationId,

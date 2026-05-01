@@ -2,7 +2,6 @@ import React, { createContext, useContext } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import apiClient from '../api/client';
 import { useAuth } from './AuthContext';
-import { safeApi } from '../api/safeApi';
 
 const PipelineContext = createContext();
 
@@ -19,25 +18,27 @@ export const PipelineProvider = ({ children }) => {
     const queryClient = useQueryClient();
 
     // Fetch projects
-    const { data: projects, isLoading: projectsLoading, refetch: refetchProjects } = useQuery({
+    const { data: projects = [], isLoading: projectsLoading, refetch: refetchProjects } = useQuery({
         queryKey: ['projects'],
         queryFn: async () => {
             const prefix = user?.role === 'FACULTY' ? '/faculty' : '';
-            return safeApi(() => apiClient.get(`${prefix}/projects`), []);
+            const response = await apiClient.get(`${prefix}/projects`);
+            return response.data?.data ?? [];
         },
         enabled: !!user,
         retry: false,
     });
 
     // Fetch fund requests
-    const { data: fundRequests, isLoading: requestsLoading, refetch: refetchFundRequests } = useQuery({
+    const { data: fundRequests = [], isLoading: requestsLoading, refetch: refetchFundRequests } = useQuery({
         queryKey: ['fund-requests', user?.role],
         queryFn: async () => {
             const prefix = user?.role === 'FACULTY' ? '/faculty' : '';
             // Get FY from URL or default to current
             const params = new URLSearchParams(window.location.search);
             const fy = params.get('fy');
-            return safeApi(() => apiClient.get(`${prefix}/fund-requests`, { params: { fy } }), []);
+            const response = await apiClient.get(`${prefix}/fund-requests`, { params: { fy } });
+            return response.data?.data ?? [];
         },
         enabled: !!user,
         retry: false

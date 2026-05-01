@@ -29,8 +29,9 @@ const User = sequelize.define('User', {
         defaultValue: 'FINANCE_OFFICER'
     },
     organizationId: {
-        type: DataTypes.INTEGER,
-        allowNull: true,
+        type: DataTypes.STRING,
+        allowNull: false,
+        defaultValue: 'ORG_1',
     },
     department: {
         type: DataTypes.STRING,

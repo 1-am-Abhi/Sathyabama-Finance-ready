@@ -25,7 +25,6 @@ import { FACULTY_MEMBERS } from '../../constants/facultyMembers';
 import ResearchCentreDetail from './ResearchCentreDetail';
 import * as XLSX from 'xlsx';
 import apiClient from '../../api/client';
-import { safeApi, safeApiObj } from '../../api/safeApi';
 import { getCentreName } from '../../constants/centreMap';
 
 const AdminReports = () => {
@@ -88,20 +87,12 @@ const AdminReports = () => {
         const fetchReportData = async () => {
             try {
                 setLoading(true);
-                const [statsData, requestsData] = await Promise.all([
-                    safeApiObj(() => apiClient.get('/projects/stats'), {
-                        totalProjects: 0,
-                        activeProjects: 0,
-                        pendingApprovals: 0,
-                        totalBudget: 0,
-                        totalAllocated: 0,
-                        totalDisbursed: 0,
-                        used: 0,
-                        totalFaculty: 0,
-                        centres: []
-                    }),
-                    safeApi(() => apiClient.get('/fund-requests'), [])
+                const [statsRes, requestsRes] = await Promise.all([
+                    apiClient.get('/projects/stats'),
+                    apiClient.get('/fund-requests')
                 ]);
+                const statsData = statsRes.data?.data;
+                const requestsData = requestsRes.data?.data;
 
                 const s = statsData || {};
                 const normalizeName = (val) => {
@@ -133,15 +124,7 @@ const AdminReports = () => {
                 setAllRequests(normalizedRequests);
             } catch (err) {
                 console.error("Error fetching report data:", err);
-                setStats({
-                    totalProjects: 0,
-                    activeProjects: 0,
-                    pendingProjects: 0,
-                    totalBudget: 0,
-                    totalDisbursed: 0,
-                    totalFaculty: 0,
-                    centres: []
-                });
+                setStats(null);
                 setAllRequests([]);
             } finally {
                 setLoading(false);

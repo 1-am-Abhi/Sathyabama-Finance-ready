@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { protect, authorize } = require('../middleware/authMiddleware');
+const orgScope = require('../middleware/orgScope');
 const upload = require('../middleware/upload');
 
 // Controllers
@@ -15,6 +16,7 @@ const profileController = require('../controllers/profileController');
 
 // All routes here require FACULTY role
 router.use(protect);
+router.use(orgScope);
 router.use(authorize('FACULTY'));
 
 // --- Projects ---

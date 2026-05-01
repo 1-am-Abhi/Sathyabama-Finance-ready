@@ -56,21 +56,22 @@ const resolveCentreAssignment = async (project, user) => {
     return { centreId: null, centre: project?.centre || user?.centre || 'Research Centre' };
 };
 
-const computeRemaining = async (project) => {
+const computeRemaining = async (project, organizationId) => {
     const total = safeNumber(project?.sanctionedBudget);
     const projectId = project?._id || project?.id;
     if (!projectId) return 0;
     const disbursed = safeNumber(await Disbursement.sum('amount', {
-        where: { projectId }
+        where: { projectId, organizationId }
     }));
     return Math.max(0, total - disbursed);
 };
 
-const nextInstallmentNumber = async (projectId) => {
+const nextInstallmentNumber = async (projectId, organizationId) => {
     if (!projectId) return 1;
     const count = safeNumber(await FundRequest.count({
         where: {
             projectId,
+            organizationId,
             status: { [Op.ne]: 'REJECTED' },
         },
     }));
@@ -80,12 +81,10 @@ const nextInstallmentNumber = async (projectId) => {
 // ─── READ ──────────────────────────────────────────────────────────────────────
 
 const getFundRequests = asyncHandler(async (req, res) => {
-    const orgId = req.user?.organizationId || null;
+    const orgId = req.user.organizationId;
     const userId = req.user?.id || req.user?._id;
     
-    const where = {
-        ...(orgId && { organizationId: orgId })
-    };
+    const where = { organizationId: orgId };
 
     if (req.user?.role === 'FACULTY') {
         where.facultyId = userId;
@@ -120,7 +119,8 @@ const getFundRequests = asyncHandler(async (req, res) => {
 });
 
 const getFundRequest = asyncHandler(async (req, res) => {
-    const request = await FundRequest.findByPk(req.params.id, {
+    const request = await FundRequest.findOne({
+        where: { _id: req.params.id, organizationId: req.user.organizationId },
         include: [
             { model: Project, as: 'Project', required: false },
             { model: User, as: 'FacultyUser', attributes: ['name', 'email'], required: false },
@@ -139,7 +139,7 @@ const getFundRequest = asyncHandler(async (req, res) => {
 
 const createFundRequest = asyncHandler(async (req, res) => {
     const facultyId = req.user?.id || req.user?._id;
-    const orgId = req.user?.organizationId || null;
+    const orgId = req.user.organizationId;
     const {
         projectTitle, requestedAmount, purpose, source, totalBudget,
         projectId: bodyProjectId
@@ -154,10 +154,10 @@ const createFundRequest = asyncHandler(async (req, res) => {
     // 1. Resolve project
     let project = null;
     if (bodyProjectId) {
-        project = await Project.findByPk(bodyProjectId);
+        project = await Project.findOne({ where: { _id: bodyProjectId, organizationId: orgId } });
     }
     if (!project) {
-        project = await Project.findOne({ where: { title: projectTitle, facultyId } });
+        project = await Project.findOne({ where: { title: projectTitle, facultyId, organizationId: orgId } });
     }
 
     if (!project) {
@@ -184,7 +184,7 @@ const createFundRequest = asyncHandler(async (req, res) => {
     }
 
     // 2. Budget check
-    const remaining = await computeRemaining(project);
+    const remaining = await computeRemaining(project, orgId);
     if (amount > remaining) {
         return res.status(200).json({ 
             success: false, 
@@ -194,7 +194,7 @@ const createFundRequest = asyncHandler(async (req, res) => {
     }
 
     // 3. Create request
-    const installmentNumber = await nextInstallmentNumber(project?._id || project?.id);
+    const installmentNumber = await nextInstallmentNumber(project?._id || project?.id, orgId);
     const centreAssignment = await resolveCentreAssignment(project, req.user);
 
     const fundRequest = await FundRequest.create({
@@ -221,7 +221,7 @@ const createFundRequest = asyncHandler(async (req, res) => {
 });
 
 const updateFundRequest = asyncHandler(async (req, res) => {
-    const request = await FundRequest.findByPk(req.params.id);
+    const request = await FundRequest.findOne({ where: { _id: req.params.id, organizationId: req.user.organizationId } });
     if (!request) return res.status(200).json({ success: false, message: 'Request not found', data: [] });
 
     if (req.body.documents) request.documents = req.body.documents;
@@ -232,7 +232,7 @@ const updateFundRequest = asyncHandler(async (req, res) => {
 });
 
 const approveFundRequest = asyncHandler(async (req, res) => {
-    const request = await FundRequest.findByPk(req.params.id);
+    const request = await FundRequest.findOne({ where: { _id: req.params.id, organizationId: req.user.organizationId } });
     if (!request) return res.status(200).json({ success: false, message: 'Request not found', data: [] });
 
     if (request.status !== 'PENDING') {
@@ -251,7 +251,7 @@ const approveFundRequest = asyncHandler(async (req, res) => {
 });
 
 const rejectFundRequest = asyncHandler(async (req, res) => {
-    const request = await FundRequest.findByPk(req.params.id);
+    const request = await FundRequest.findOne({ where: { _id: req.params.id, organizationId: req.user.organizationId } });
     if (!request) return res.status(200).json({ success: false, message: 'Request not found', data: [] });
 
     await request.update({ status: 'REJECTED' });
@@ -264,7 +264,7 @@ const rejectFundRequest = asyncHandler(async (req, res) => {
 });
 
 const disburseFund = asyncHandler(async (req, res) => {
-    const request = await FundRequest.findByPk(req.params.id);
+    const request = await FundRequest.findOne({ where: { _id: req.params.id, organizationId: req.user.organizationId } });
     if (!request) return res.status(200).json({ success: false, message: 'Request not found', data: [] });
 
     if (!['APPROVED', 'PARTIALLY_DISBURSED'].includes(request.status)) {
@@ -272,7 +272,7 @@ const disburseFund = asyncHandler(async (req, res) => {
     }
 
     const totalDisbursed = safeNumber(await Disbursement.sum('amount', {
-        where: { fundRequestId: request._id || request.id }
+        where: { fundRequestId: request._id || request.id, organizationId: req.user.organizationId }
     }));
     const remainingAmount = Math.max(0, safeNumber(request.requestedAmount) - totalDisbursed);
     const installmentAmount = safeNumber(req.body.amount || req.body.disbursementAmount || remainingAmount);
@@ -339,16 +339,16 @@ const disburseFund = asyncHandler(async (req, res) => {
 });
 
 const getProjectWithInstallments = asyncHandler(async (req, res) => {
-    const project = await Project.findByPk(req.params.projectId);
+    const project = await Project.findOne({ where: { _id: req.params.projectId, organizationId: req.user.organizationId } });
     if (!project) return res.status(200).json({ success: false, message: 'Project not found', data: [] });
 
     const installments = safeArray(await FundRequest.findAll({
-        where: { projectId: project.id || project._id },
+        where: { projectId: project.id || project._id, organizationId: req.user.organizationId },
         include: [{ model: Disbursement, as: 'Disbursements', required: false }],
         order: [['installmentNumber', 'ASC']],
     }));
 
-    const disbursedAmount = safeNumber(await Disbursement.sum('amount', { where: { projectId: project.id || project._id } }));
+    const disbursedAmount = safeNumber(await Disbursement.sum('amount', { where: { projectId: project.id || project._id, organizationId: req.user.organizationId } }));
 
     return res.json({
         success: true,
@@ -365,7 +365,7 @@ const getProjectWithInstallments = asyncHandler(async (req, res) => {
 });
 
 const advanceStage = asyncHandler(async (req, res) => {
-    const request = await FundRequest.findByPk(req.params.id);
+    const request = await FundRequest.findOne({ where: { _id: req.params.id, organizationId: req.user.organizationId } });
     if (!request) return res.status(200).json({ success: false, message: 'Request not found', data: [] });
 
     const { nextStage, remarks } = req.body;
