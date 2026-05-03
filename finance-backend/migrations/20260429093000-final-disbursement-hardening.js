@@ -5,7 +5,7 @@ module.exports = {
     const transaction = await queryInterface.sequelize.transaction();
 
     try {
-      // ✅ SAFE COLUMN ADD
+      // 🔹 SAFE COLUMN ADD FUNCTION
       const safeAddColumn = async (table, column, definition) => {
         const schema = await queryInterface.describeTable(table);
         if (!schema[column]) {
@@ -16,7 +16,7 @@ module.exports = {
         }
       };
 
-      // ✅ SAFE INDEX ADD
+      // 🔹 SAFE INDEX ADD FUNCTION
       const safeAddIndex = async (table, fields, options) => {
         try {
           await queryInterface.addIndex(table, fields, { ...options, transaction });
@@ -26,7 +26,7 @@ module.exports = {
       };
 
       // =========================
-      // 🟢 FUNDREQUESTS FIX
+      // 🟢 FUNDREQUESTS HARDENING
       // =========================
       await safeAddColumn('FundRequests', 'requestId', {
         type: Sequelize.STRING,
@@ -34,7 +34,7 @@ module.exports = {
       });
 
       // =========================
-      // 🟢 DISBURSEMENTS FIX
+      // 🟢 DISBURSEMENTS HARDENING
       // =========================
       await safeAddColumn('Disbursements', 'referenceId', {
         type: Sequelize.STRING,
@@ -87,7 +87,7 @@ module.exports = {
       });
 
       // =========================
-      // 🟢 LEDGERS FIX
+      // 🟢 LEDGERS HARDENING
       // =========================
       await safeAddColumn('Ledgers', 'disbursementId', {
         type: Sequelize.UUID,

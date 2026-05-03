@@ -1,9 +1,34 @@
 'use strict';
 
 module.exports = {
-  up: async (queryInterface, Sequelize) => {
-    // 1. Persistent Job Tracking (Durability beyond Redis restarts)
-    await queryInterface.createTable('SystemJobs', {
+  async up(queryInterface, Sequelize) {
+
+    // 🔹 SAFE COLUMN ADD
+    const safeAddColumn = async (table, column, definition) => {
+      const schema = await queryInterface.describeTable(table);
+      if (!schema[column]) {
+        await queryInterface.addColumn(table, column, definition);
+        console.log(`✅ Added ${column} to ${table}`);
+      } else {
+        console.log(`⚠️ ${column} already exists in ${table}, skipping`);
+      }
+    };
+
+    // 🔹 SAFE TABLE CREATE
+    const safeCreateTable = async (tableName, schema) => {
+      const tables = await queryInterface.showAllTables();
+      if (!tables.includes(tableName)) {
+        await queryInterface.createTable(tableName, schema);
+        console.log(`✅ Created table ${tableName}`);
+      } else {
+        console.log(`⚠️ Table ${tableName} exists, skipping`);
+      }
+    };
+
+    // =========================
+    // 🟢 SYSTEM JOBS
+    // =========================
+    await safeCreateTable('SystemJobs', {
       jobId: { type: Sequelize.STRING, primaryKey: true },
       requestId: { type: Sequelize.UUID, allowNull: false },
       status: { type: Sequelize.STRING, defaultValue: 'PENDING' },
@@ -13,8 +38,10 @@ module.exports = {
       updatedAt: { type: Sequelize.DATE, allowNull: false }
     });
 
-    // 2. Persistent Feature Flags
-    await queryInterface.createTable('FeatureFlags', {
+    // =========================
+    // 🟢 FEATURE FLAGS
+    // =========================
+    await safeCreateTable('FeatureFlags', {
       key: { type: Sequelize.STRING, primaryKey: true },
       enabled: { type: Sequelize.BOOLEAN, defaultValue: false },
       updatedBy: { type: Sequelize.STRING },
@@ -24,32 +51,42 @@ module.exports = {
       updatedAt: { type: Sequelize.DATE, allowNull: false }
     });
 
-    // 3. Request Tracing in Transactional Tables
+    // =========================
+    // 🟢 SAFE REQUEST ID ADD
+    // =========================
     const tablesToHarden = ['FundRequests', 'Disbursements', 'Notifications'];
+
     for (const table of tablesToHarden) {
-       await queryInterface.addColumn(table, 'requestId', {
-         type: Sequelize.UUID,
-         allowNull: true // Set to null for existing, enforced for new via controller
-       });
+      await safeAddColumn(table, 'requestId', {
+        type: Sequelize.UUID,
+        allowNull: true
+      });
     }
 
-    // 4. DB-Level Idempotency Protection
-    await queryInterface.addColumn('FundRequests', 'idempotencyKey', {
+    // =========================
+    // 🟢 IDEMPOTENCY KEY
+    // =========================
+    await safeAddColumn('FundRequests', 'idempotencyKey', {
       type: Sequelize.STRING,
       allowNull: true
     });
-    await queryInterface.addIndex('FundRequests', ['idempotencyKey'], {
-      unique: true,
-      where: { idempotencyKey: { [Sequelize.Op.ne]: null } }
-    });
+
+    try {
+      await queryInterface.addIndex('FundRequests', ['idempotencyKey'], {
+        unique: true,
+        where: { idempotencyKey: { [Sequelize.Op.ne]: null } }
+      });
+    } catch (err) {
+      console.log('⚠️ idempotency index exists, skipping');
+    }
   },
 
-  down: async (queryInterface, Sequelize) => {
-    await queryInterface.dropTable('SystemJobs');
-    await queryInterface.dropTable('FeatureFlags');
-    await queryInterface.removeColumn('FundRequests', 'requestId');
-    await queryInterface.removeColumn('Disbursements', 'requestId');
-    await queryInterface.removeColumn('Notifications', 'requestId');
-    await queryInterface.removeColumn('FundRequests', 'idempotencyKey');
+  async down(queryInterface) {
+    try { await queryInterface.dropTable('SystemJobs'); } catch {}
+    try { await queryInterface.dropTable('FeatureFlags'); } catch {}
+    try { await queryInterface.removeColumn('FundRequests', 'requestId'); } catch {}
+    try { await queryInterface.removeColumn('Disbursements', 'requestId'); } catch {}
+    try { await queryInterface.removeColumn('Notifications', 'requestId'); } catch {}
+    try { await queryInterface.removeColumn('FundRequests', 'idempotencyKey'); } catch {}
   }
 };
