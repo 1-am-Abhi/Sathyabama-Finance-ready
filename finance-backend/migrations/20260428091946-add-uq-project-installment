@@ -1,0 +1,56 @@
+'use strict';
+
+module.exports = {
+  async up(queryInterface, Sequelize) {
+
+    const tables = await queryInterface.showAllTables();
+
+    const hasTable =
+      tables.includes('Installments') ||
+      tables.includes('installments');
+
+    if (!hasTable) {
+      console.log('⚠️ Installments table not found, skipping');
+      return;
+    }
+
+    let schema;
+    try {
+      schema = await queryInterface.describeTable('Installments');
+    } catch (err) {
+      console.log('⚠️ Could not describe Installments table, skipping');
+      return;
+    }
+
+    // 🔥 CRITICAL FIX
+    if (!schema.projectId) {
+      console.log('⚠️ projectId column not found, skipping constraint');
+      return;
+    }
+
+    if (!schema.installmentNumber) {
+      console.log('⚠️ installmentNumber column missing, skipping');
+      return;
+    }
+
+    try {
+      await queryInterface.addConstraint('Installments', {
+        fields: ['projectId', 'installmentNumber'],
+        type: 'unique',
+        name: 'uq_project_installment'
+      });
+
+      console.log('✅ Unique constraint added');
+    } catch (err) {
+      console.log('⚠️ Constraint already exists or failed, skipping');
+    }
+  },
+
+  async down(queryInterface) {
+    try {
+      await queryInterface.removeConstraint('Installments', 'uq_project_installment');
+    } catch {
+      console.log('⚠️ rollback skipped');
+    }
+  }
+};
