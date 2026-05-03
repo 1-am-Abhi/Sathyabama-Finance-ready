@@ -6,24 +6,22 @@ const seedAccounts = async () => {
   logger.info('[AccountSeed] Synchronizing Chart of Accounts...');
 
   try {
-    // 🔴 CHECK MODEL EXISTS
     if (!Account) {
       logger.warn('[AccountSeed] Account model not found, skipping');
       return;
     }
 
-    // 🔴 CHECK DATA EXISTS
     if (!ACCOUNTS || Object.keys(ACCOUNTS).length === 0) {
       logger.warn('[AccountSeed] ACCOUNTS data missing, skipping');
       return;
     }
 
-    // 🔥 SAFE COUNT CHECK
+    // ✅ Check if table is ready
     let existingCount = 0;
     try {
       existingCount = await Account.count();
-    } catch (err) {
-      logger.warn('[AccountSeed] Table not ready, skipping seeding');
+    } catch {
+      logger.warn('[AccountSeed] Table not ready, skipping');
       return;
     }
 
@@ -32,7 +30,7 @@ const seedAccounts = async () => {
       return;
     }
 
-    // 🔥 PREPARE DATA
+    // ✅ Clean mapping (NO unwanted fields like description)
     const accountsArray = Object.values(ACCOUNTS).map(acc => ({
       name: acc.name,
       code: acc.code,
@@ -43,7 +41,6 @@ const seedAccounts = async () => {
       updatedAt: new Date()
     }));
 
-    // 🔥 BULK INSERT
     await Account.bulkCreate(accountsArray, {
       validate: true,
       ignoreDuplicates: true
