@@ -3,9 +3,21 @@
 module.exports = {
   async up(queryInterface, Sequelize) {
 
-    // 🔹 SAFE COLUMN ADD
+    // 🔹 SAFE COLUMN ADD (FIXED)
     const safeAddColumn = async (table, column, definition) => {
+      const tables = await queryInterface.showAllTables();
+
+      const exists =
+        tables.includes(table) ||
+        tables.includes(table.toLowerCase());
+
+      if (!exists) {
+        console.log(`⚠️ Table ${table} does not exist, skipping`);
+        return;
+      }
+
       const schema = await queryInterface.describeTable(table);
+
       if (!schema[column]) {
         await queryInterface.addColumn(table, column, definition);
         console.log(`✅ Added ${column} to ${table}`);
