@@ -4,51 +4,31 @@ const { Account } = require('../models');
 const { ACCOUNTS } = require('../constants/accounts');
 
 const seedAccounts = async () => {
-    logger.info('[AccountSeed] Synchronizing Chart of Accounts...');
+  logger.info('[AccountSeed] Synchronizing Chart of Accounts...');
 
-    for (const key in ACCOUNTS) {
-        const accountData = ACCOUNTS[key];
+  try {
+    // 🔥 GLOBAL CHECK (MOST IMPORTANT)
+    const existingCount = await Account.count();
 
-        try {
-            const existing = await Account.findOne({
-                where: {
-                    [Op.or]: [
-                        { code: accountData.code },
-                        { name: accountData.name }
-                    ]
-                }
-            });
-
-            if (existing) {
-                await existing.update({
-                    code: accountData.code,
-                    name: accountData.name,
-                    type: accountData.type,
-                    isActive: true,
-                    organizationId: existing.organizationId || 'ORG_1'
-                });
-
-                logger.info(`[AccountSeed] Updated: ${accountData.name}`);
-                continue;
-            }
-
-            await Account.create({
-                ...accountData,
-                isActive: true,
-                organizationId: accountData.organizationId || 'ORG_1'
-            });
-
-            logger.info(`[AccountSeed] Created: ${accountData.name}`);
-
-        } catch (err) {
-            logger.error(
-                `[AccountSeed] Failed for ${accountData.name}`,
-                err.message
-            );
-        }
+    if (existingCount > 0) {
+      logger.info('⚠️ Accounts already exist, skipping seeding');
+      return;
     }
 
-    logger.info('[AccountSeed] Chart of Accounts synchronization complete.');
+    // 🔥 BULK INSERT (SAFE + FAST)
+    const accountsArray = Object.values(ACCOUNTS).map(acc => ({
+      ...acc,
+      isActive: true,
+      organizationId: acc.organizationId || 'ORG_1'
+    }));
+
+    await Account.bulkCreate(accountsArray);
+
+    logger.info('✅ Chart of Accounts seeded successfully');
+
+  } catch (err) {
+    logger.error('[AccountSeed] Critical failure:', err.message);
+  }
 };
 
 module.exports = seedAccounts;
