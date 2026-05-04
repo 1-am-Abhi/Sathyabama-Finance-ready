@@ -154,9 +154,12 @@ const startDbServices = async () => {
   try {
     dbServicesStarted = true;
 
-    // ✅ SEED
-    const seedAccounts = require('./src/utils/accountSeeder');
-    await seedAccounts();
+// ✅ SEED
+const seedAccounts = require('./src/utils/accountSeeder');
+const seedDefaultUsers = require('./src/utils/seedDefaultUsers');
+
+await seedAccounts();
+await seedDefaultUsers();
 
     // ✅ JOBS
     const { initSnapshotJobs } = require('./src/jobs/snapshotJob');

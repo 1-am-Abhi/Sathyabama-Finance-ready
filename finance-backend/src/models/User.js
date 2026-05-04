@@ -4,8 +4,8 @@ const bcrypt = require('bcryptjs');
 
 const User = sequelize.define('User', {
     id: {
-        type: DataTypes.UUID,
-        defaultValue: DataTypes.UUIDV4,   // Sequelize generates UUID; DB also has a default, both are fine
+        type: DataTypes.INTEGER,
+        autoIncrement: true,
         primaryKey: true,
         allowNull: false
     },
@@ -27,16 +27,17 @@ const User = sequelize.define('User', {
     },
     role: {
         type: DataTypes.ENUM('ADMIN', 'FACULTY', 'FINANCE_OFFICER', 'AUDITOR'),
+        allowNull: false,
         defaultValue: 'FINANCE_OFFICER'
     },
     organizationId: {
         type: DataTypes.STRING,
         allowNull: false,
-        defaultValue: 'ORG_1',
+        defaultValue: 'ORG_1'
     },
     department: {
         type: DataTypes.STRING,
-        allowNull: false
+        allowNull: true
     },
     centre: {
         type: DataTypes.STRING,
@@ -89,6 +90,7 @@ const User = sequelize.define('User', {
             'PDF',
             'OTHER'
         ),
+        allowNull: false,
         defaultValue: 'FACULTY'
     },
     bio: {
@@ -97,26 +99,31 @@ const User = sequelize.define('User', {
     },
     education: {
         type: DataTypes.JSONB,
+        allowNull: false,
         defaultValue: []
     },
     achievements: {
         type: DataTypes.JSONB,
+        allowNull: false,
         defaultValue: []
     },
     photo: {
-        type: DataTypes.TEXT, // Base64 or URL
+        type: DataTypes.TEXT,
         allowNull: true
     },
     isProfileCompleted: {
         type: DataTypes.BOOLEAN,
+        allowNull: false,
         defaultValue: false
     },
     status: {
         type: DataTypes.ENUM('Active', 'Inactive'),
+        allowNull: false,
         defaultValue: 'Active'
     }
 }, {
     tableName: 'Users',
+    timestamps: true,
     hooks: {
         beforeSave: async (user) => {
             if (user.changed('password')) {
@@ -128,7 +135,7 @@ const User = sequelize.define('User', {
 });
 
 User.prototype.comparePassword = async function (candidatePassword) {
-    return await bcrypt.compare(candidatePassword, this.password);
+    return bcrypt.compare(candidatePassword, this.password);
 };
 
 module.exports = User;
