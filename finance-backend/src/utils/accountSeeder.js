@@ -16,7 +16,7 @@ const seedAccounts = async () => {
       return;
     }
 
-    // ✅ Check if table is ready
+    // 🔥 Check DB ready
     let existingCount = 0;
     try {
       existingCount = await Account.count();
@@ -26,24 +26,35 @@ const seedAccounts = async () => {
     }
 
     if (existingCount > 0) {
-      logger.info('⚠️ Accounts already exist, skipping seeding');
+      logger.info(`⚠️ Accounts already exist (${existingCount}), skipping`);
       return;
     }
 
-    // ✅ Clean mapping (NO unwanted fields like description)
-    const accountsArray = Object.values(ACCOUNTS).map(acc => ({
-      name: acc.name,
-      code: acc.code,
-      type: acc.type,
-      isActive: true,
-      organizationId: acc.organizationId || 'ORG_1',
-      createdAt: new Date(),
-      updatedAt: new Date()
-    }));
+    // 🔥 STRICT FIELD FILTER (THIS FIXES YOUR ISSUE)
+    const allowedFields = ['name', 'code', 'type'];
+
+    const accountsArray = Object.values(ACCOUNTS).map(acc => {
+      const clean = {};
+
+      for (const key of allowedFields) {
+        if (acc[key] !== undefined) {
+          clean[key] = acc[key];
+        }
+      }
+
+      return {
+        ...clean,
+        isActive: true,
+        organizationId: acc.organizationId || 'ORG_1',
+        createdAt: new Date(),
+        updatedAt: new Date()
+      };
+    });
 
     await Account.bulkCreate(accountsArray, {
       validate: true,
-      ignoreDuplicates: true
+      ignoreDuplicates: true,
+      fields: ['name', 'code', 'type', 'isActive', 'organizationId', 'createdAt', 'updatedAt']
     });
 
     logger.info('✅ Chart of Accounts seeded successfully');
