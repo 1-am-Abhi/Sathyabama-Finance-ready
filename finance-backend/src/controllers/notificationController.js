@@ -1,11 +1,20 @@
 const logger = require('../utils/logger');
 const asyncHandler = require('../utils/asyncHandler');
-const { Notification } = require('../models');
+const { Notification, User } = require('../models');
 const NotificationService = require('../services/notificationService');
+const { findUserByRuntimeId, getUserUuid, isUuid } = require('../utils/userIdentity');
 
 const normalizeType = (type = 'INFO') => String(type).trim().toUpperCase();
 
-const getAuthUserId = (req) => String(req.user?.id || req.user?._id || '');
+const getAuthUserId = (req) => String(req.user?._id || req.user?.id || '');
+
+const resolveNotificationUserId = async (value, req) => {
+    const candidate = value || req.user?._id || req.user?.id || req.user?.userId;
+    if (isUuid(String(candidate || ''))) return String(candidate);
+
+    const user = await findUserByRuntimeId(User, candidate);
+    return getUserUuid(user);
+};
 
 const canAccessUserNotifications = (req, userId) =>
     String(userId || '') === getAuthUserId(req) ||
@@ -40,7 +49,10 @@ const createNotification = asyncHandler(async (req, res) => {
         return res.status(201).json({ success: true, data: notifications });
     }
 
-    const target = targetUserId || req.user?.id || req.user?._id;
+    const target = await resolveNotificationUserId(targetUserId, req);
+    if (!target) {
+        return res.status(400).json({ success: false, message: 'A valid UUID user target is required' });
+    }
     logger.info(`[NotificationController] Creating for single user: ${target}`);
     
     const notification = await NotificationService.create(
@@ -55,7 +67,10 @@ const createNotification = asyncHandler(async (req, res) => {
 });
 
 const getNotifications = asyncHandler(async (req, res) => {
-    const userId = req.params.userId || req.user.id || req.user._id;
+    const userId = await resolveNotificationUserId(req.params.userId, req);
+    if (!userId) {
+        return res.status(400).json({ success: false, message: 'A valid user id is required', data: [] });
+    }
 
     if (!canAccessUserNotifications(req, userId)) {
         return res.status(403).json({ success: false, message: 'Unauthorized' });
@@ -94,7 +109,10 @@ const markAsRead = asyncHandler(async (req, res) => {
 });
 
 const markAllAsRead = asyncHandler(async (req, res) => {
-    const userId = req.params.userId || req.user.id || req.user._id;
+    const userId = await resolveNotificationUserId(req.params.userId, req);
+    if (!userId) {
+        return res.status(400).json({ success: false, message: 'A valid user id is required' });
+    }
 
     if (!canAccessUserNotifications(req, userId)) {
         return res.status(403).json({ success: false, message: 'Unauthorized' });
@@ -119,4 +137,3 @@ module.exports = {
     markAsRead,
     markAllAsRead
 };
-

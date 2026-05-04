@@ -20,8 +20,7 @@ const sequelize = process.env.DATABASE_URL
         }
     );
 
-const shouldSyncDatabase = process.env.DB_SYNC === 'true' && process.env.NODE_ENV !== 'production';
-const shouldAlterSchema = process.env.DB_SYNC_ALTER !== 'false';
+const shouldSyncDatabase = false;
 let dbReady = false;
 let retryTimer = null;
 let retryDelay = 5000;
@@ -39,11 +38,9 @@ const connectDB = async (onConnected) => {
         }
         
         if (shouldSyncDatabase) {
-            // await sequelize.sync({ alter: shouldAlterSchema }); // REMOVED FOR STABILITY
-            logger.warn(`WARNING: Database synced (alter=${shouldAlterSchema}). This should not happen in production!`);
-        } else {
-            logger.info('Database sync skipped natively. Migrations should manage the schemas moving forward.');
+            logger.warn('Database sync is disabled. Run Sequelize migrations instead.');
         }
+        logger.info('Database sync skipped. Migrations manage schema creation and changes.');
 
         retryDelay = 5000;
         hasLoggedDbFailure = false;

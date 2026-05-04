@@ -32,12 +32,17 @@ FacultyRequest.init({
         defaultValue: 'FACULTY'
     },
     createdBy: {
-        type: DataTypes.INTEGER,
+        type: DataTypes.UUID,
         allowNull: false
+    },
+    createdByLegacy: {
+        type: DataTypes.INTEGER,
+        allowNull: true
     }
 }, {
     sequelize,
     modelName: 'FacultyRequest',
+    tableName: 'FacultyRequests',
     timestamps: true
 });
 

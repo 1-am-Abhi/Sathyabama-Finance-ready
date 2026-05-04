@@ -1,17 +1,19 @@
 {
   "name": "finance-backend",
   "version": "1.0.0",
-  "main": "index.js",
+  "private": true,
+  "main": "server.js",
   "engines": {
     "node": "22.x"
   },
   "scripts": {
     "start": "node server.js",
     "dev": "NODE_ENV=development nodemon server.js",
+    "migrate": "npx sequelize-cli db:migrate",
+    "migrate:undo": "npx sequelize-cli db:migrate:undo",
     "seed": "NODE_ENV=development node seed.js",
     "reset": "NODE_ENV=development node reset_db.js",
-    "migrate": "echo '🔥 RUNNING MIGRATIONS...' && npx sequelize-cli db:migrate",
-    "migrate:undo": "npx sequelize-cli db:migrate:undo",
+    "start:prod": "npm run migrate && node server.js",
     "test": "NODE_ENV=test node --test test/*.test.js",
     "test:smoke": "node scripts/smokeDisbursementTest.js"
   },

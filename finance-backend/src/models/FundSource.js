@@ -12,6 +12,7 @@ const FundSource = sequelize.define('FundSource', {
         defaultValue: 0
     }
 }, {
+    tableName: 'FundSources',
     timestamps: true
 });
 

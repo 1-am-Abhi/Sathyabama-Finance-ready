@@ -153,6 +153,7 @@ FundRequest.init({
 }, { 
     sequelize, 
     modelName: 'FundRequest',
+    tableName: 'FundRequests',
     timestamps: true,
     indexes: [
         { fields: ['status'] },

@@ -22,7 +22,13 @@ const ResearchCenterModel = ResearchCenter || Centre;
 
 const getAdminStats = asyncHandler(async (req, res) => {
     const { financialYear } = req.query;
-    const adminData = await getAdminDashboardData(financialYear);
+    let adminData;
+    try {
+        adminData = await getAdminDashboardData(financialYear);
+    } catch (error) {
+        logger.error('[ProjectController] admin stats fallback:', error.message);
+        adminData = { data: {} };
+    }
     const rawData = adminData?.data || {};
 
     return res.status(200).json({
@@ -41,7 +47,13 @@ const getAdminStats = asyncHandler(async (req, res) => {
 
 const getFacultyStats = asyncHandler(async (req, res) => {
     const userId = req.user?.id || req.user?._id;
-    const data = await getFacultyDashboardData(userId, req.user?.name);
+    let data;
+    try {
+        data = await getFacultyDashboardData(userId, req.user?.name);
+    } catch (error) {
+        logger.error('[ProjectController] faculty stats fallback:', error.message);
+        data = {};
+    }
 
     const safeData = data || {};
     return res.status(200).json({
@@ -86,7 +98,7 @@ const getProjectDetails = asyncHandler(async (req, res) => {
         ]
     });
 
-    if (!project) return res.status(200).json({ success: false, message: 'Project not found', data: [] });
+    if (!project) return res.status(404).json({ success: false, message: 'Project not found', data: null });
 
     return res.status(200).json({ success: true, data: project });
 });
@@ -97,7 +109,7 @@ const createProject = asyncHandler(async (req, res) => {
     const { title, sanctionedBudget, fundingSource, description, centreId } = req.body;
 
     if (!title || safeNumber(sanctionedBudget) <= 0) {
-        return res.status(200).json({ success: false, message: 'Title and valid budget are required', data: [] });
+        return res.status(400).json({ success: false, message: 'Title and valid budget are required', data: null });
     }
 
     const project = await Project.create({
@@ -120,7 +132,7 @@ const createProject = asyncHandler(async (req, res) => {
 const updateProject = asyncHandler(async (req, res) => {
     const { id } = req.params;
     const project = await Project.findOne({ where: { _id: id, organizationId: req.user.organizationId } });
-    if (!project) return res.status(200).json({ success: false, message: 'Project not found', data: [] });
+    if (!project) return res.status(404).json({ success: false, message: 'Project not found', data: null });
 
     const { status, sanctionedBudget, fundingSource, description } = req.body;
     
@@ -136,12 +148,12 @@ const updateProject = asyncHandler(async (req, res) => {
 const deleteProject = asyncHandler(async (req, res) => {
     const { id } = req.params;
     const project = await Project.findOne({ where: { _id: id, organizationId: req.user.organizationId } });
-    if (!project) return res.status(200).json({ success: false, message: 'Project not found', data: [] });
+    if (!project) return res.status(404).json({ success: false, message: 'Project not found', data: null });
 
     // Check for disbursements
     const disbursementCount = safeNumber(await Disbursement.count({ where: { projectId: id, organizationId: req.user.organizationId } }));
     if (disbursementCount > 0) {
-        return res.status(200).json({ success: false, message: 'Cannot delete project with existing disbursements', data: [] });
+        return res.status(409).json({ success: false, message: 'Cannot delete project with existing disbursements', data: null });
     }
 
     await project.destroy();

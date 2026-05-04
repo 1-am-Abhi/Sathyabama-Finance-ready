@@ -16,6 +16,10 @@ const EventRequest = sequelize.define('EventRequest', {
         allowNull: false,
         defaultValue: 'ORG_1',
     },
+    projectId: {
+        type: DataTypes.UUID,
+        allowNull: true
+    },
     facultyName: {
         type: DataTypes.STRING,
         allowNull: false
@@ -100,6 +104,9 @@ const EventRequest = sequelize.define('EventRequest', {
         type: DataTypes.TEXT,
         allowNull: true
     }
+}, {
+    tableName: 'EventRequests',
+    timestamps: true
 });
 
 module.exports = EventRequest;

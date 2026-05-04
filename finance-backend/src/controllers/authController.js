@@ -4,12 +4,16 @@ const { User, Centre } = require("../models");
 const jwt = require("jsonwebtoken");
 const { sequelize } = require("../config/db");
 const bcrypt = require('bcryptjs');
+const { findUserByRuntimeId, getUserUuid, publicUser } = require('../utils/userIdentity');
 
 const generateToken = (user) => {
+    const uuid = getUserUuid(user);
     return jwt.sign(
         {
-            id: user.id,
-            userId: user.id,
+            id: uuid || user.id,
+            _id: uuid,
+            userId: uuid || user.id,
+            legacyId: user.id,
             role: user.role,
             email: user.email,
             organizationId: user.organizationId,
@@ -61,15 +65,7 @@ const login = async (req, res) => {
             success: true,
             data: {
                 token,
-                user: {
-                    id: user.id,
-                    email: user.email,
-                    role: user.role,
-                    name: user.name,
-                    department: user.department,
-                    centre: user.centre,
-                    organizationId: user.organizationId
-                }
+                user: publicUser(user)
             },
             message: 'Login successful'
         });
@@ -118,13 +114,10 @@ const register = asyncHandler(async (req, res) => {
             return res.status(400).json({ success: false, message: "User already exists" });
         }
 
-        const salt = await bcrypt.genSalt(10);
-        const hashedPassword = await bcrypt.hash(password, salt);
-
         const user = await User.create({
             name,
             email,
-            password: hashedPassword,
+            password,
             role: role || 'FACULTY',
             department,
             centre,
@@ -139,15 +132,7 @@ const register = asyncHandler(async (req, res) => {
             success: true,
             data: {
                 token,
-                user: {
-                    id: user.id,
-                    email: user.email,
-                    role: user.role,
-                    name: user.name,
-                    department: user.department,
-                    centre: user.centre,
-                    organizationId: user.organizationId
-                }
+                user: publicUser(user)
             }
         });
     } catch (err) {
@@ -187,16 +172,12 @@ const cleanupUsers = asyncHandler(async (req, res) => {
 
 const getMe = asyncHandler(async (req, res) => {
     try {
-        const userId = req.user.id;
-        const user = await User.findByPk(userId);
+        const user = await findUserByRuntimeId(User, req.user?._id || req.user?.id || req.user?.userId);
         if (!user) {
             return res.status(404).json({ success: false, message: "User not found" });
         }
 
-        const userData = user.toJSON();
-        delete userData.password;
-
-        return res.status(200).json({ success: true, data: { user: userData } });
+        return res.status(200).json({ success: true, data: { user: publicUser(user) } });
     } catch (err) {
         logger.error('[AuthController] getMe error:', err);
         return res.status(500).json({ success: false, message: err.message });
@@ -216,9 +197,9 @@ const getUsers = asyncHandler(async (req, res) => {
                             LEFT JOIN "ProjectMembers" AS pm
                                 ON pm."projectId" = p."_id"
                             WHERE
-                                p."facultyId" = "User"."id"
-                                OR p."userId" = "User"."id"
-                                OR pm."userId" = "User"."id"
+                                p."facultyId" = "User"."_id"
+                                OR p."userId" = "User"."_id"
+                                OR pm."userId" = "User"."_id"
                         )`),
                         "projectsCount",
                     ],
@@ -226,7 +207,7 @@ const getUsers = asyncHandler(async (req, res) => {
                         sequelize.literal(`(
                             SELECT COUNT(*)
                             FROM "EventRequests" AS er
-                            WHERE er."facultyId" = "User"."id" AND er.status = 'APPROVED'
+                            WHERE er."facultyId" = "User"."_id" AND er.status = 'APPROVED'
                         )`),
                         "eventsCount",
                     ],
@@ -243,7 +224,7 @@ const getUsers = asyncHandler(async (req, res) => {
 
 const updateUser = asyncHandler(async (req, res) => {
     try {
-        const user = await User.findByPk(req.params.id);
+        const user = await findUserByRuntimeId(User, req.params.id);
         if (!user) {
             return res.status(404).json({ success: false, message: "User not found" });
         }
@@ -261,7 +242,7 @@ const updateUser = asyncHandler(async (req, res) => {
 
 const deleteUser = asyncHandler(async (req, res) => {
     try {
-        const user = await User.findByPk(req.params.id);
+        const user = await findUserByRuntimeId(User, req.params.id);
         if (!user) {
             return res.status(404).json({ success: false, message: "User not found" });
         }
@@ -284,7 +265,7 @@ const deleteUser = asyncHandler(async (req, res) => {
 const updatePassword = asyncHandler(async (req, res) => {
     try {
         const { currentPassword, newPassword } = req.body;
-        const user = await User.findByPk(req.user.id);
+        const user = await findUserByRuntimeId(User, req.user?._id || req.user?.id || req.user?.userId);
 
         if (!user) {
             return res.status(404).json({ success: false, message: 'User not found' });
@@ -295,8 +276,7 @@ const updatePassword = asyncHandler(async (req, res) => {
             return res.status(401).json({ success: false, message: "Invalid current password" });
         }
 
-        const salt = await bcrypt.genSalt(10);
-        user.password = await bcrypt.hash(newPassword, salt);
+        user.password = newPassword;
         await user.save();
 
         return res.status(200).json({ success: true, message: "Password updated successfully" });

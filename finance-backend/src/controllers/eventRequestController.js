@@ -54,8 +54,7 @@ const getEventRequests = asyncHandler(async (req, res) => {
             where: { organizationId: req.user.organizationId },
             order: [['createdAt', 'DESC']],
             include: [
-                { model: Project, required: false },
-                { model: Centre, required: false }
+                { model: Project, as: 'Project', required: false }
             ]
         };
         
@@ -79,7 +78,7 @@ const getEventRequests = asyncHandler(async (req, res) => {
                 ...raw,
                 id: raw.id || raw._id,
                 projectName: raw.Project?.title || raw.Project?.name || "N/A",
-                centreName: raw.Centre?.name || "N/A",
+                centreName: raw.Project?.centre || raw.Project?.researchCenterName || "N/A",
                 amount: Number(raw.amount || raw.approvedAmount || 0),
                 members: membersMap.get(getRecordId(raw)) || [],
             };

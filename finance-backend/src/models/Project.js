@@ -114,6 +114,7 @@ const Project = sequelize.define('Project', {
         allowNull: true
     }
 }, {
+    tableName: 'Projects',
     timestamps: true,
     paranoid: false
 });

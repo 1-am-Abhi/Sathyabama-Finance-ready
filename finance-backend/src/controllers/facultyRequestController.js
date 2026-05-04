@@ -5,7 +5,8 @@ const NotificationService = require('../services/notificationService');
 const createRequest = asyncHandler(async (req, res) => {
     const payload = {
         ...req.body,
-        createdBy: req.user.id || req.user._id,
+        createdBy: req.user._id || req.user.id,
+        createdByLegacy: req.user.legacyId || null,
         status: 'PENDING',
         currentStage: 'ADMIN' // Promotes to ADMIN on submit
     };
@@ -141,4 +142,3 @@ module.exports = {
     getFinanceRequests,
     disburseFinanceRequest
 };
-

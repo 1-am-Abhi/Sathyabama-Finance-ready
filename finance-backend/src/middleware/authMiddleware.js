@@ -1,6 +1,7 @@
 const logger = require('../utils/logger');
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
+const { findUserByRuntimeId, publicUser } = require('../utils/userIdentity');
 
 const protect = async (req, res, next) => {
     let token;
@@ -18,22 +19,24 @@ const protect = async (req, res, next) => {
 
         req.user = decoded;
 
-        if (!(req.user?.id || req.user?.userId) || !req.user?.organizationId) {
+        if (!(req.user?._id || req.user?.id || req.user?.userId) || !req.user?.organizationId) {
             return res.status(401).json({
                 success: false,
                 message: 'Invalid token'
             });
         }
 
-        const user = await User.findByPk(decoded.id || decoded.userId);
+        const user = await findUserByRuntimeId(User, decoded._id || decoded.id || decoded.userId || decoded.legacyId);
         if (!user) {
             return res.status(401).json({ success: false, message: 'User not found' });
         }
+        const safeUser = publicUser(user);
         req.user = {
-            ...user.toJSON(),
-            id: user._id || user.id,
-            userId: user._id || user.id,
-            _id: user._id || user.id,
+            ...safeUser,
+            id: safeUser._id || safeUser.legacyId,
+            userId: safeUser._id || safeUser.legacyId,
+            _id: safeUser._id,
+            legacyId: safeUser.legacyId,
             organizationId: user.organizationId || decoded.organizationId
         };
         if (!req.user?.id || !req.user?.organizationId) {

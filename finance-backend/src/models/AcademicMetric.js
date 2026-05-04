@@ -54,6 +54,9 @@ const AcademicMetric = sequelize.define('AcademicMetric', {
     fellowship: { type: DataTypes.TEXT, allowNull: true, defaultValue: '' },
     coordinators: { type: DataTypes.TEXT, allowNull: true, defaultValue: '' },
     grants: { type: DataTypes.TEXT, allowNull: true, defaultValue: '' }
+}, {
+    tableName: 'AcademicMetrics',
+    timestamps: true
 });
 
 module.exports = AcademicMetric;

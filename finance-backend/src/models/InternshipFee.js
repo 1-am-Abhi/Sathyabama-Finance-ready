@@ -56,6 +56,7 @@ const InternshipFee = sequelize.define('InternshipFee', {
         }
     }
 }, {
+    tableName: 'InternshipFees',
     timestamps: true
 });
 

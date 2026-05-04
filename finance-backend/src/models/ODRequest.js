@@ -75,6 +75,9 @@ const ODRequest = sequelize.define('ODRequest', {
         type: DataTypes.TEXT,
         allowNull: true
     }
+}, {
+    tableName: 'ODRequests',
+    timestamps: true
 });
 
 module.exports = ODRequest;

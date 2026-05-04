@@ -2,6 +2,7 @@ const logger = require('../utils/logger');
 const { Op, Sequelize } = require('sequelize');
 const Notification = require('../models/Notification');
 const User = require('../models/User');
+const { findUserByRuntimeId, getUserUuid, isUuid } = require('../utils/userIdentity');
 
 const emitNotification = (notification) => {
     if (!notification?.userId || !global.io) {
@@ -31,9 +32,20 @@ class NotificationService {
         if (!userId) {
             throw new Error('userId is required for notification');
         }
-        logger.info(`[NotificationService] Creating ${type} for user ${userId}: ${title}`);
+        let recipientId = String(userId);
+        if (!isUuid(recipientId)) {
+            const user = await findUserByRuntimeId(User, recipientId);
+            recipientId = getUserUuid(user);
+        }
+
+        if (!recipientId) {
+            logger.warn(`[NotificationService] Skipping notification for unresolved user id "${userId}"`);
+            return null;
+        }
+
+        logger.info(`[NotificationService] Creating ${type} for user ${recipientId}: ${title}`);
         const notification = await Notification.create({
-            userId,
+            userId: recipientId,
             role: null,
             title,
             message,
@@ -79,7 +91,7 @@ class NotificationService {
         logger.info(`[NotificationService] Creating ${users.length} notifications for role ${role}`);
 
         const notificationEntries = users.map((user) => ({
-            userId: user._id || user.id,
+            userId: user._id,
             role,
             title,
             message,

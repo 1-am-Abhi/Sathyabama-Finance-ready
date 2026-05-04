@@ -129,7 +129,7 @@ const getFundRequest = asyncHandler(async (req, res) => {
     });
 
     if (!request) {
-        return res.status(200).json({ success: false, message: 'Request not found', data: [] });
+        return res.status(404).json({ success: false, message: 'Request not found', data: null });
     }
 
     return res.json({ success: true, data: normalizeFundRequest(request) });
@@ -148,7 +148,7 @@ const createFundRequest = asyncHandler(async (req, res) => {
     const amount = safeNumber(requestedAmount);
 
     if (!projectTitle || amount <= 0) {
-        return res.status(200).json({ success: false, message: 'Missing or invalid fields', data: [] });
+        return res.status(400).json({ success: false, message: 'Missing or invalid fields', data: null });
     }
 
     // 1. Resolve project
@@ -180,13 +180,13 @@ const createFundRequest = asyncHandler(async (req, res) => {
     }
 
     if (project?.status === 'FROZEN') {
-        return res.status(200).json({ success: false, message: 'Project is FROZEN. Requests suspended.', data: [] });
+        return res.status(409).json({ success: false, message: 'Project is FROZEN. Requests suspended.', data: null });
     }
 
     // 2. Budget check
     const remaining = await computeRemaining(project, orgId);
     if (amount > remaining) {
-        return res.status(200).json({ 
+        return res.status(400).json({ 
             success: false, 
             message: `Requested amount exceeds remaining budget ₹${remaining.toLocaleString()}`,
             data: [] 
@@ -222,7 +222,7 @@ const createFundRequest = asyncHandler(async (req, res) => {
 
 const updateFundRequest = asyncHandler(async (req, res) => {
     const request = await FundRequest.findOne({ where: { _id: req.params.id, organizationId: req.user.organizationId } });
-    if (!request) return res.status(200).json({ success: false, message: 'Request not found', data: [] });
+    if (!request) return res.status(404).json({ success: false, message: 'Request not found', data: null });
 
     if (req.body.documents) request.documents = req.body.documents;
     if (req.body.currentStage) request.currentStage = req.body.currentStage;
@@ -233,10 +233,10 @@ const updateFundRequest = asyncHandler(async (req, res) => {
 
 const approveFundRequest = asyncHandler(async (req, res) => {
     const request = await FundRequest.findOne({ where: { _id: req.params.id, organizationId: req.user.organizationId } });
-    if (!request) return res.status(200).json({ success: false, message: 'Request not found', data: [] });
+    if (!request) return res.status(404).json({ success: false, message: 'Request not found', data: null });
 
     if (request.status !== 'PENDING') {
-        return res.status(200).json({ success: false, message: `Request is already ${request.status}`, data: [] });
+        return res.status(409).json({ success: false, message: `Request is already ${request.status}`, data: null });
     }
 
     await approveFundRequestPipeline(request, req.user, req.body.remarks);
@@ -252,7 +252,7 @@ const approveFundRequest = asyncHandler(async (req, res) => {
 
 const rejectFundRequest = asyncHandler(async (req, res) => {
     const request = await FundRequest.findOne({ where: { _id: req.params.id, organizationId: req.user.organizationId } });
-    if (!request) return res.status(200).json({ success: false, message: 'Request not found', data: [] });
+    if (!request) return res.status(404).json({ success: false, message: 'Request not found', data: null });
 
     await request.update({ status: 'REJECTED' });
 
@@ -265,10 +265,10 @@ const rejectFundRequest = asyncHandler(async (req, res) => {
 
 const disburseFund = asyncHandler(async (req, res) => {
     const request = await FundRequest.findOne({ where: { _id: req.params.id, organizationId: req.user.organizationId } });
-    if (!request) return res.status(200).json({ success: false, message: 'Request not found', data: [] });
+    if (!request) return res.status(404).json({ success: false, message: 'Request not found', data: null });
 
     if (!['APPROVED', 'PARTIALLY_DISBURSED'].includes(request.status)) {
-        return res.status(200).json({ success: false, message: 'Request must be approved first', data: [] });
+        return res.status(409).json({ success: false, message: 'Request must be approved first', data: null });
     }
 
     const totalDisbursed = safeNumber(await Disbursement.sum('amount', {
@@ -285,7 +285,7 @@ const disburseFund = asyncHandler(async (req, res) => {
         : (paymentMode === 'CHEQUE' ? chequeNumber : transactionId);
 
     if (installmentAmount <= 0 || installmentAmount - remainingAmount >= ROUNDING_TOLERANCE) {
-        return res.status(200).json({
+        return res.status(400).json({
             success: false,
             message: `Disbursement amount must be between ₹1 and ₹${remainingAmount.toLocaleString()}`,
             data: []
@@ -293,19 +293,19 @@ const disburseFund = asyncHandler(async (req, res) => {
     }
 
     if (!PAYMENT_MODES.includes(paymentMode)) {
-        return res.status(200).json({ success: false, message: 'Invalid payment mode', data: [] });
+        return res.status(400).json({ success: false, message: 'Invalid payment mode', data: null });
     }
 
     if (paymentMode === 'CHEQUE' && (!chequeNumber || !bankName)) {
-        return res.status(200).json({ success: false, message: 'Cheque number and bank name are required for CHEQUE payments', data: [] });
+        return res.status(400).json({ success: false, message: 'Cheque number and bank name are required for CHEQUE payments', data: null });
     }
 
     if (paymentMode !== 'CHEQUE' && !transactionId) {
-        return res.status(200).json({ success: false, message: 'UTR / transaction ID is required for digital payments', data: [] });
+        return res.status(400).json({ success: false, message: 'UTR / transaction ID is required for digital payments', data: null });
     }
 
     if (!referenceId) {
-        return res.status(200).json({ success: false, message: 'Missing referenceId for idempotency', data: [] });
+        return res.status(400).json({ success: false, message: 'Missing referenceId for idempotency', data: null });
     }
 
     const payload = {
@@ -340,7 +340,7 @@ const disburseFund = asyncHandler(async (req, res) => {
 
 const getProjectWithInstallments = asyncHandler(async (req, res) => {
     const project = await Project.findOne({ where: { _id: req.params.projectId, organizationId: req.user.organizationId } });
-    if (!project) return res.status(200).json({ success: false, message: 'Project not found', data: [] });
+    if (!project) return res.status(404).json({ success: false, message: 'Project not found', data: null });
 
     const installments = safeArray(await FundRequest.findAll({
         where: { projectId: project.id || project._id, organizationId: req.user.organizationId },
@@ -366,11 +366,11 @@ const getProjectWithInstallments = asyncHandler(async (req, res) => {
 
 const advanceStage = asyncHandler(async (req, res) => {
     const request = await FundRequest.findOne({ where: { _id: req.params.id, organizationId: req.user.organizationId } });
-    if (!request) return res.status(200).json({ success: false, message: 'Request not found', data: [] });
+    if (!request) return res.status(404).json({ success: false, message: 'Request not found', data: null });
 
     const { nextStage, remarks } = req.body;
     if (!nextStage) {
-        return res.status(200).json({ success: false, message: 'Next stage is required', data: [] });
+        return res.status(400).json({ success: false, message: 'Next stage is required', data: null });
     }
 
     const updated = await request.advanceStage(nextStage, req.user || {}, remarks || '');

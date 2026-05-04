@@ -81,36 +81,40 @@ ResearchCenter.hasMany(FundRequest, { foreignKey: 'researchCenterId', as: 'fundR
 FundRequest.belongsTo(ResearchCenter, { foreignKey: 'researchCenterId', as: 'researchCenter' });
 
 // Project ownership and team membership
-Project.belongsTo(User, { foreignKey: 'facultyId', as: 'facultyOwner' });
-Project.belongsTo(User, { foreignKey: 'userId', as: 'creator' });
-User.hasMany(Project, { foreignKey: 'facultyId', as: 'ownedProjects' });
-User.hasMany(Project, { foreignKey: 'userId', as: 'createdProjects' });
+Project.belongsTo(User, { foreignKey: 'facultyId', targetKey: '_id', as: 'facultyOwner', constraints: false });
+Project.belongsTo(User, { foreignKey: 'userId', targetKey: '_id', as: 'creator', constraints: false });
+User.hasMany(Project, { foreignKey: 'facultyId', sourceKey: '_id', as: 'ownedProjects', constraints: false });
+User.hasMany(Project, { foreignKey: 'userId', sourceKey: '_id', as: 'createdProjects', constraints: false });
 
 Project.hasMany(ProjectMember, { foreignKey: 'projectId', as: 'members' });
 ProjectMember.belongsTo(Project, { foreignKey: 'projectId', as: 'project' });
-User.hasMany(ProjectMember, { foreignKey: 'userId', as: 'projectMemberships' });
-ProjectMember.belongsTo(User, { foreignKey: 'userId', as: 'user' });
+User.hasMany(ProjectMember, { foreignKey: 'userId', sourceKey: '_id', as: 'projectMemberships', constraints: false });
+ProjectMember.belongsTo(User, { foreignKey: 'userId', targetKey: '_id', as: 'user', constraints: false });
 
 Project.belongsToMany(User, {
     through: ProjectMember,
     foreignKey: 'projectId',
     otherKey: 'userId',
+    targetKey: '_id',
     as: 'teamMembers',
+    constraints: false,
 });
 User.belongsToMany(Project, {
     through: ProjectMember,
     foreignKey: 'userId',
     otherKey: 'projectId',
+    sourceKey: '_id',
     as: 'projects',
+    constraints: false,
 });
 
 // Core finance pipeline
 Project.hasMany(FundRequest, { foreignKey: 'projectId', as: 'fundRequests' });
 FundRequest.belongsTo(Project, { foreignKey: 'projectId', as: 'Project' });
-User.hasMany(FundRequest, { foreignKey: 'userId', as: 'fundRequests' });
-FundRequest.belongsTo(User, { foreignKey: 'userId', as: 'requester' });
-User.hasMany(FundRequest, { foreignKey: 'facultyId', as: 'facultyFundRequests' });
-FundRequest.belongsTo(User, { foreignKey: 'facultyId', as: 'FacultyUser' });
+User.hasMany(FundRequest, { foreignKey: 'userId', sourceKey: '_id', as: 'fundRequests', constraints: false });
+FundRequest.belongsTo(User, { foreignKey: 'userId', targetKey: '_id', as: 'requester', constraints: false });
+User.hasMany(FundRequest, { foreignKey: 'facultyId', sourceKey: '_id', as: 'facultyFundRequests', constraints: false });
+FundRequest.belongsTo(User, { foreignKey: 'facultyId', targetKey: '_id', as: 'FacultyUser', constraints: false });
 
 FundRequest.hasMany(Disbursement, { foreignKey: 'fundRequestId', as: 'Disbursements' });
 FundRequest.hasMany(Disbursement, { foreignKey: 'fundRequestId', as: 'Disbursement' });
@@ -118,42 +122,44 @@ Disbursement.belongsTo(FundRequest, { foreignKey: 'fundRequestId', as: 'FundRequ
 Project.hasMany(Disbursement, { foreignKey: 'projectId', as: 'disbursements' });
 Project.hasMany(Disbursement, { foreignKey: 'projectId', as: 'Disbursements' });
 Disbursement.belongsTo(Project, { foreignKey: 'projectId', as: 'Project' });
-User.hasMany(Disbursement, { foreignKey: 'disbursedBy', as: 'processedDisbursements' });
-Disbursement.belongsTo(User, { foreignKey: 'disbursedBy', as: 'officer' });
+User.hasMany(Disbursement, { foreignKey: 'disbursedBy', sourceKey: '_id', as: 'processedDisbursements', constraints: false });
+Disbursement.belongsTo(User, { foreignKey: 'disbursedBy', targetKey: '_id', as: 'officer', constraints: false });
 
 Project.hasMany(PFMSTransaction, { foreignKey: 'projectId', as: 'pfmsTransactions' });
 PFMSTransaction.belongsTo(Project, { foreignKey: 'projectId', as: 'Project' });
 
 // Event, OD, equipment, documents, and academic records
-User.hasMany(EventRequest, { foreignKey: 'facultyId', as: 'eventRequests' });
-EventRequest.belongsTo(User, { foreignKey: 'facultyId', as: 'faculty' });
+User.hasMany(EventRequest, { foreignKey: 'facultyId', sourceKey: '_id', as: 'eventRequests', constraints: false });
+EventRequest.belongsTo(User, { foreignKey: 'facultyId', targetKey: '_id', as: 'faculty', constraints: false });
+Project.hasMany(EventRequest, { foreignKey: 'projectId', as: 'eventRequests', constraints: false });
+EventRequest.belongsTo(Project, { foreignKey: 'projectId', as: 'Project', constraints: false });
 
-User.hasMany(EquipmentRequest, { foreignKey: 'facultyId', as: 'equipmentRequests' });
-EquipmentRequest.belongsTo(User, { foreignKey: 'facultyId', as: 'faculty' });
+User.hasMany(EquipmentRequest, { foreignKey: 'facultyId', sourceKey: '_id', as: 'equipmentRequests', constraints: false });
+EquipmentRequest.belongsTo(User, { foreignKey: 'facultyId', targetKey: '_id', as: 'faculty', constraints: false });
 
-User.hasMany(Document, { foreignKey: 'facultyId', as: 'documents' });
-Document.belongsTo(User, { foreignKey: 'facultyId', as: 'faculty' });
+User.hasMany(Document, { foreignKey: 'facultyId', sourceKey: '_id', as: 'documents', constraints: false });
+Document.belongsTo(User, { foreignKey: 'facultyId', targetKey: '_id', as: 'faculty', constraints: false });
 
-User.hasMany(FacultyRequest, { foreignKey: 'createdBy', as: 'facultyRequests' });
-FacultyRequest.belongsTo(User, { foreignKey: 'createdBy', as: 'user' });
+User.hasMany(FacultyRequest, { foreignKey: 'createdBy', sourceKey: '_id', as: 'facultyRequests', constraints: false });
+FacultyRequest.belongsTo(User, { foreignKey: 'createdBy', targetKey: '_id', as: 'user', constraints: false });
 
-User.hasMany(ODRequest, { foreignKey: 'facultyId', as: 'odRequests' });
-ODRequest.belongsTo(User, { foreignKey: 'facultyId', as: 'faculty' });
+User.hasMany(ODRequest, { foreignKey: 'facultyId', sourceKey: '_id', as: 'odRequests', constraints: false });
+ODRequest.belongsTo(User, { foreignKey: 'facultyId', targetKey: '_id', as: 'faculty', constraints: false });
 
-User.hasMany(AcademicMetric, { foreignKey: 'facultyId', as: 'academicMetrics' });
-AcademicMetric.belongsTo(User, { foreignKey: 'facultyId', as: 'faculty' });
+User.hasMany(AcademicMetric, { foreignKey: 'facultyId', sourceKey: '_id', as: 'academicMetrics', constraints: false });
+AcademicMetric.belongsTo(User, { foreignKey: 'facultyId', targetKey: '_id', as: 'faculty', constraints: false });
 
 // Notifications and revenue
-User.hasMany(Notification, { foreignKey: 'userId', as: 'notifications' });
-Notification.belongsTo(User, { foreignKey: 'userId', as: 'user' });
+User.hasMany(Notification, { foreignKey: 'userId', sourceKey: '_id', as: 'notifications', constraints: false });
+Notification.belongsTo(User, { foreignKey: 'userId', targetKey: '_id', as: 'user', constraints: false });
 
-User.hasMany(Revenue, { foreignKey: 'userId', as: 'revenues' });
-Revenue.belongsTo(User, { foreignKey: 'userId', as: 'User' });
-User.hasMany(Revenue, { foreignKey: 'verifiedBy', as: 'verifiedRevenues' });
-Revenue.belongsTo(User, { foreignKey: 'verifiedBy', as: 'Verifier' });
+User.hasMany(Revenue, { foreignKey: 'userId', sourceKey: '_id', as: 'revenues', constraints: false });
+Revenue.belongsTo(User, { foreignKey: 'userId', targetKey: '_id', as: 'User', constraints: false });
+User.hasMany(Revenue, { foreignKey: 'verifiedBy', sourceKey: '_id', as: 'verifiedRevenues', constraints: false });
+Revenue.belongsTo(User, { foreignKey: 'verifiedBy', targetKey: '_id', as: 'Verifier', constraints: false });
 
-User.hasMany(InternshipFee, { foreignKey: 'verifiedBy', as: 'verifiedInternshipFees' });
-InternshipFee.belongsTo(User, { foreignKey: 'verifiedBy', as: 'verifier' });
+User.hasMany(InternshipFee, { foreignKey: 'verifiedBy', sourceKey: '_id', as: 'verifiedInternshipFees', constraints: false });
+InternshipFee.belongsTo(User, { foreignKey: 'verifiedBy', targetKey: '_id', as: 'verifier', constraints: false });
 
 // Ledger / audit trail
 Project.hasMany(Ledger, { foreignKey: 'projectId', as: 'ledgerEntries' });
@@ -164,8 +170,8 @@ Disbursement.hasMany(Ledger, { foreignKey: 'disbursementId', as: 'ledgerEntries'
 Ledger.belongsTo(Disbursement, { foreignKey: 'disbursementId', as: 'Disbursement' });
 Revenue.hasMany(Ledger, { foreignKey: 'revenueId', as: 'ledgerEntries' });
 Ledger.belongsTo(Revenue, { foreignKey: 'revenueId', as: 'Revenue' });
-User.hasMany(Ledger, { foreignKey: 'createdByUserId', as: 'createdLedgerEntries' });
-Ledger.belongsTo(User, { foreignKey: 'createdByUserId', as: 'createdByUser' });
+User.hasMany(Ledger, { foreignKey: 'createdByUserId', sourceKey: '_id', as: 'createdLedgerEntries', constraints: false });
+Ledger.belongsTo(User, { foreignKey: 'createdByUserId', targetKey: '_id', as: 'createdByUser', constraints: false });
 
 JournalEntry.hasMany(Ledger, { foreignKey: 'journalId', as: 'ledgerEntries' });
 Ledger.belongsTo(JournalEntry, { foreignKey: 'journalId', as: 'JournalEntry' });
@@ -174,8 +180,8 @@ Account.hasMany(Ledger, { foreignKey: 'accountId', as: 'ledgerEntries' });
 Ledger.belongsTo(Account, { foreignKey: 'accountId', as: 'Account' });
 
 // Audit logs
-User.hasMany(AuditLog, { foreignKey: 'userId', as: 'auditLogs' });
-AuditLog.belongsTo(User, { foreignKey: 'userId', as: 'user' });
+User.hasMany(AuditLog, { foreignKey: 'userId', sourceKey: '_id', as: 'auditLogs', constraints: false });
+AuditLog.belongsTo(User, { foreignKey: 'userId', targetKey: '_id', as: 'user', constraints: false });
 
 models.sequelize = sequelize;
 models.Sequelize = Sequelize;

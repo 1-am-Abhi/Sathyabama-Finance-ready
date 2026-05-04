@@ -59,6 +59,9 @@ const EquipmentRequest = sequelize.define('EquipmentRequest', {
         type: DataTypes.TEXT,
         allowNull: true
     }
+}, {
+    tableName: 'EquipmentRequests',
+    timestamps: true
 });
 
 module.exports = EquipmentRequest;

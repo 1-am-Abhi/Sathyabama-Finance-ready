@@ -20,11 +20,10 @@ const asyncHandler = (fn) => async (req, res, next) => {
       return;
     }
 
-    // Always return 200 with success: false as per user requirement
-    // This prevents 500 errors from crashing the UI/pipeline
-    return res.status(200).json({
+    const statusCode = err.statusCode || err.status || 500;
+    return res.status(statusCode).json({
       success: false,
-      message: err.message || "Internal error",
+      message: statusCode >= 500 ? "Internal server error" : (err.message || "Request failed"),
       data: []
     });
   }

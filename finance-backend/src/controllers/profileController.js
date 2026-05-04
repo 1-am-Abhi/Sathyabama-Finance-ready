@@ -2,6 +2,7 @@ const logger = require('../utils/logger');
 const asyncHandler = require('../utils/asyncHandler');
 const { User } = require('../models');
 const { syncScopusData } = require('../services/scopusService');
+const { findUserByRuntimeId, publicUser } = require('../utils/userIdentity');
 
 const updateProfile = asyncHandler(async (req, res) => {
     logger.info('Profile Update Request Received for User:', req.user.id);
@@ -12,7 +13,7 @@ const updateProfile = asyncHandler(async (req, res) => {
         officeLocation, specialization, bio, education, achievements, photo 
     } = req.body;
 
-    const user = await User.findByPk(req.user.id);
+    const user = await findUserByRuntimeId(User, req.user?._id || req.user?.id || req.user?.userId);
     if (!user) {
         return res.status(404).json({ success: false, message: 'User not found' });
     }
@@ -42,18 +43,15 @@ const updateProfile = asyncHandler(async (req, res) => {
     await user.save();
 
     // Return updated user (without password)
-    const userJson = user.toJSON();
-    delete userJson.password;
-
     res.status(200).json({
         success: true,
         message: 'Profile updated successfully',
-        user: userJson || {}
+        user: publicUser(user)
     });
 });
 
 const syncScopus = asyncHandler(async (req, res) => {
-    const user = await User.findByPk(req.user.id);
+    const user = await findUserByRuntimeId(User, req.user?._id || req.user?.id || req.user?.userId);
     if (!user || !user.scopusId) {
         return res.status(400).json({ success: false, message: 'Scopus Author ID not configured in profile' });
     }
@@ -86,4 +84,3 @@ module.exports = {
     syncScopus,
     getAllProfiles
 };
-

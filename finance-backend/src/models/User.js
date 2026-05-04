@@ -3,6 +3,12 @@ const { sequelize } = require('../config/db');
 const bcrypt = require('bcryptjs');
 
 const User = sequelize.define('User', {
+    _id: {
+        type: DataTypes.UUID,
+        defaultValue: DataTypes.UUIDV4,
+        allowNull: false,
+        unique: true
+    },
     id: {
         type: DataTypes.INTEGER,
         autoIncrement: true,
@@ -124,6 +130,12 @@ const User = sequelize.define('User', {
 }, {
     tableName: 'Users',
     timestamps: true,
+    indexes: [
+        { unique: true, fields: ['_id'] },
+        { fields: ['role'] },
+        { fields: ['organizationId'] },
+        { fields: ['researchCenterId'] }
+    ],
     hooks: {
         beforeSave: async (user) => {
             if (user.changed('password')) {

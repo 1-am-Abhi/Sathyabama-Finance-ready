@@ -20,6 +20,7 @@ const ProjectMember = sequelize.define('ProjectMember', {
         defaultValue: 'MEMBER'
     }
 }, {
+    tableName: 'ProjectMembers',
     indexes: [
         {
             unique: true,
