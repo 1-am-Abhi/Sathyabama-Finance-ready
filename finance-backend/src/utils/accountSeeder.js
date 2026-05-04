@@ -16,7 +16,7 @@ const seedAccounts = async () => {
       return;
     }
 
-    // 🔥 Check DB ready
+    // ✅ DB ready check
     let existingCount = 0;
     try {
       existingCount = await Account.count();
@@ -30,31 +30,46 @@ const seedAccounts = async () => {
       return;
     }
 
-    // 🔥 STRICT FIELD FILTER (THIS FIXES YOUR ISSUE)
-    const allowedFields = ['name', 'code', 'type'];
+    // 🔥 HARD FILTER (NO EXTRA FIELD EVER PASSES)
+    const accountsArray = Object.values(ACCOUNTS).map(acc => ({
+      name: acc.name || null,
+      code: acc.code || null,
+      type: acc.type || null,
+      isActive: true,
+      organizationId: acc.organizationId || 'ORG_1',
+      createdAt: new Date(),
+      updatedAt: new Date()
+    }));
 
-    const accountsArray = Object.values(ACCOUNTS).map(acc => {
-      const clean = {};
-
-      for (const key of allowedFields) {
-        if (acc[key] !== undefined) {
-          clean[key] = acc[key];
+    // 🔥 FORCE REMOVE ANY UNKNOWN KEYS (EXTRA SAFETY)
+    accountsArray.forEach(acc => {
+      Object.keys(acc).forEach(key => {
+        if (![
+          'name',
+          'code',
+          'type',
+          'isActive',
+          'organizationId',
+          'createdAt',
+          'updatedAt'
+        ].includes(key)) {
+          delete acc[key];
         }
-      }
-
-      return {
-        ...clean,
-        isActive: true,
-        organizationId: acc.organizationId || 'ORG_1',
-        createdAt: new Date(),
-        updatedAt: new Date()
-      };
+      });
     });
 
     await Account.bulkCreate(accountsArray, {
       validate: true,
       ignoreDuplicates: true,
-      fields: ['name', 'code', 'type', 'isActive', 'organizationId', 'createdAt', 'updatedAt']
+      fields: [
+        'name',
+        'code',
+        'type',
+        'isActive',
+        'organizationId',
+        'createdAt',
+        'updatedAt'
+      ]
     });
 
     logger.info('✅ Chart of Accounts seeded successfully');
