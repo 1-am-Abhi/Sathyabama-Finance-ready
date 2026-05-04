@@ -6,14 +6,14 @@ const compression = require('compression');
 const timeout = require('connect-timeout');
 const rateLimit = require('express-rate-limit');
 const { v4: uuidv4 } = require('uuid');
-let logger;
+
+let logger = console;
 try {
+    // If custom logger is available, use it; otherwise fall back to console
     logger = require('./utils/logger');
 } catch (e) {
-    logger.warn("Logger not found, using console fallback");
-    logger = console;
+    console.warn("Logger not found, using console fallback");
 }
-
 
 const app = express();
 
@@ -21,6 +21,7 @@ const app = express();
 app.use(helmet());
 app.use(compression());
 app.use(timeout('10s')); // Fail fast on slow requests
+
 app.use((req, res, next) => {
     res.setTimeout(15000, () => {
         if (!res.headersSent) {
@@ -32,9 +33,11 @@ app.use((req, res, next) => {
     });
     next();
 });
+
 app.set('trust proxy', 1);
 app.disable('x-powered-by');
 
+// CORS
 app.use(cors({
     origin: function (origin, callback) {
         if (!origin || origin === process.env.FRONTEND_URL) {
@@ -46,8 +49,6 @@ app.use(cors({
     credentials: true
 }));
 
-
-
 // Request Tracing
 app.use((req, res, next) => {
     req.id = req.headers['x-request-id'] || uuidv4();
@@ -56,6 +57,7 @@ app.use((req, res, next) => {
 });
 
 app.use(morgan('dev'));
+
 app.use((req, res, next) => {
     const start = Date.now();
     res.on('finish', () => {
@@ -67,20 +69,30 @@ app.use((req, res, next) => {
     });
     next();
 });
-app.use(express.json({ limit: '10mb' }));
 
+app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 const AlertService = require('./services/alertService');
 const { getEmptyAdminStatsData } = require('./utils/researchCenterSafety');
 
+// Root route for basic health / Render checks
+app.get('/', (req, res) => {
+    res.status(200).json({
+        success: true,
+        message: 'Finance backend is running',
+        path: '/',
+        timestamp: new Date().toISOString()
+    });
+});
+
 const healthHandler = async (req, res) => {
     const { isDbReady } = require('./config/db');
     const { redis } = require('./services/redisService');
-    
+
     const dbStatus = isDbReady() ? 'up' : 'reconnecting';
-    const redisStatus = redis.status === 'ready' ? 'up' : 'down';
-    
+    const redisStatus = redis && redis.status === 'ready' ? 'up' : 'down';
+
     res.status(200).json({
         status: 'OK',
         db: dbStatus === 'up' ? 'connected' : 'reconnecting',
@@ -121,6 +133,7 @@ const projectRoutes = require('./routes/projectRoutes');
 const fundRequestRoutes = require('./routes/fundRequestRoutes');
 const financeRoutes = require('./routes/financeRoutes');
 const dbReady = require('./middleware/dbReady');
+
 app.use('/api/projects', projectRoutes);
 app.use('/api/fund-requests', dbReady, fundRequestRoutes);
 app.use('/api/finance', dbReady, financeRoutes);
@@ -136,25 +149,28 @@ app.use('/api/', globalLimiter);
 
 // 3. Mount remaining institutional routes
 mountRoutes(v1, path.join(__dirname, 'routes'));
+
 // Filter out auth from v1 to prevent double mounting if mountRoutes picks it up
-v1.stack = v1.stack.filter(layer => !layer.route || !layer.route.path.includes('/auth'));
+v1.stack = v1.stack.filter(
+    (layer) => !layer.route || !layer.route.path.includes('/auth')
+);
 
 app.use('/api/v1', v1);
 app.use('/api', v1); // Fallback for backward compatibility
 
 // Global Error Handler
 app.use((err, req, res, next) => {
-  logger.error('GLOBAL ERROR:', err);
-  if (err.name === 'SequelizeDatabaseError') {
-    return res.status(500).json({
-      success: false,
-      message: 'Database error'
+    logger.error('GLOBAL ERROR:', err);
+    if (err.name === 'SequelizeDatabaseError') {
+        return res.status(500).json({
+            success: false,
+            message: 'Database error'
+        });
+    }
+    res.status(500).json({
+        success: false,
+        message: err.message || 'Internal server error'
     });
-  }
-  res.status(500).json({
-    success: false,
-    message: err.message || 'Internal server error'
-  });
 });
 
 // Final 404 Catch-all (Must be last)
@@ -167,6 +183,5 @@ app.use((req, res) => {
         correlationId: req.correlationId
     });
 });
-
 
 module.exports = app;
