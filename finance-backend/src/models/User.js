@@ -3,10 +3,11 @@ const { sequelize } = require('../config/db');
 const bcrypt = require('bcryptjs');
 
 const User = sequelize.define('User', {
-    _id: {
+    id: {
         type: DataTypes.UUID,
-        defaultValue: DataTypes.UUIDV4,
-        primaryKey: true
+        defaultValue: DataTypes.UUIDV4,   // Sequelize generates UUID; DB also has a default, both are fine
+        primaryKey: true,
+        allowNull: false
     },
     name: {
         type: DataTypes.STRING,
@@ -79,7 +80,15 @@ const User = sequelize.define('User', {
         allowNull: true
     },
     designationCategory: {
-        type: DataTypes.ENUM('FACULTY', 'SCIENTIFIC_ASSISTANT', 'TECHNICAL_ASSISTANT', 'JRF', 'SRF', 'PDF', 'OTHER'),
+        type: DataTypes.ENUM(
+            'FACULTY',
+            'SCIENTIFIC_ASSISTANT',
+            'TECHNICAL_ASSISTANT',
+            'JRF',
+            'SRF',
+            'PDF',
+            'OTHER'
+        ),
         defaultValue: 'FACULTY'
     },
     bio: {
@@ -107,6 +116,7 @@ const User = sequelize.define('User', {
         defaultValue: 'Active'
     }
 }, {
+    tableName: 'Users',
     hooks: {
         beforeSave: async (user) => {
             if (user.changed('password')) {
