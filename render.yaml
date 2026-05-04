@@ -7,7 +7,7 @@ services:
     rootDir: finance-backend
 
     buildCommand: npm ci
-    startCommand: npm run migrate && npm start
+    startCommand: npm start
 
     healthCheckPath: /api/health
 
