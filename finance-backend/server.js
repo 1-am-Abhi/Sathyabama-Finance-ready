@@ -1,22 +1,57 @@
 require('dotenv').config();
 
-const { connectDB, sequelize, isDbReady } = require('./src/config/db');
 const http = require('http');
 const socketIo = require('socket.io');
 const jwt = require('jsonwebtoken');
 const client = require('prom-client');
+
+const { connectDB, sequelize, isDbReady } = require('./src/config/db');
 const app = require('./src/app');
 const { setIO } = require('./src/socketInstance');
 
+// ================= LOGGER =================
 let logger;
 try {
   logger = require('./src/utils/logger');
 } catch {
-  console.warn("Logger not found, using console fallback");
+  console.warn('Logger not found, using console fallback');
   logger = console;
 }
 
 console.log('🚀 Skipping CLI migrations (handled safely in DB connection)');
+
+// ================= BASIC HEALTH ROUTES =================
+// Root for Render health checks
+app.get('/', (req, res) => {
+  res.status(200).json({
+    status: 'ok',
+    service: 'finance-backend',
+    timestamp: new Date().toISOString()
+  });
+});
+
+// Simple health endpoint (can be used as explicit healthCheckPath on Render)
+app.get('/health', async (req, res) => {
+  const health = {
+    status: 'ok',
+    db: 'unknown',
+    timestamp: new Date().toISOString()
+  };
+
+  try {
+    if (isDbReady()) {
+      await sequelize.query('SELECT 1');
+      health.db = 'up';
+    } else {
+      health.db = 'initializing';
+    }
+    res.status(200).json(health);
+  } catch (err) {
+    health.status = 'error';
+    health.db = 'down';
+    res.status(503).json(health);
+  }
+});
 
 // ================= REDIS =================
 const { createAdapter } = require('@socket.io/redis-adapter');
@@ -29,7 +64,9 @@ if (!process.env.REDIS_URL) {
 const redisConfig = {
   url: process.env.REDIS_URL,
   socket: {
-    tls: process.env.NODE_ENV === 'production' || process.env.REDIS_URL.startsWith('rediss://'),
+    tls:
+      process.env.NODE_ENV === 'production' ||
+      process.env.REDIS_URL.startsWith('rediss://'),
     rejectUnauthorized: false
   }
 };
@@ -43,7 +80,7 @@ const rateLimit = require('express-rate-limit');
 const limiter = rateLimit({
   windowMs: 60 * 1000,
   max: 5,
-  message: "Too many attempts, try later"
+  message: 'Too many attempts, try later'
 });
 
 app.use('/api/disburse', limiter);
@@ -60,10 +97,19 @@ app.use((req, res, next) => {
 // ================= METRICS =================
 client.collectDefaultMetrics({ prefix: 'finance_api_' });
 
+app.get('/metrics', async (req, res) => {
+  try {
+    res.set('Content-Type', client.register.contentType);
+    res.end(await client.register.metrics());
+  } catch (err) {
+    res.status(500).send('Unable to collect metrics');
+  }
+});
+
 // ================= SERVER =================
 const server = http.createServer(app);
 const io = socketIo(server, {
-  cors: { origin: '*', methods: ["GET", "POST"] }
+  cors: { origin: '*', methods: ['GET', 'POST'] }
 });
 
 setIO(io);
@@ -120,7 +166,6 @@ const startDbServices = async () => {
     await queueService.setupRepeatableJobs();
 
     logger.info('[System] DB services started');
-
   } catch (err) {
     dbServicesStarted = false;
     logger.warn('DB services failed:', err.message);
