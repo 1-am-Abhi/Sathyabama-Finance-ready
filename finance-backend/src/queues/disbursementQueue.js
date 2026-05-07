@@ -2,13 +2,18 @@ const { Queue } = require("bullmq");
 const { redisConnection, redisDisabled } = require("../config/redis");
 
 if (redisDisabled) {
+  const { Op } = require("sequelize");
   const { executeDisbursementPipeline } = require("../services/financePipelineService");
   const { FundRequest, User } = require("../models");
   const { findUserByRuntimeId } = require("../utils/userIdentity");
 
   const disbursementQueue = {
     async add(name, data) {
-      const request = await FundRequest.findByPk(data.requestId);
+      const whereKeys = [
+        data.requestId ? { id: data.requestId } : null,
+        data.requestId ? { _id: data.requestId } : null
+      ].filter(Boolean);
+      const request = await FundRequest.findOne({ where: { [Op.or]: whereKeys } });
       const user = await findUserByRuntimeId(User, data.userId);
       if (!request) throw new Error(`FundRequest not found: ${data.requestId}`);
       if (!user) throw new Error(`User not found: ${data.userId}`);

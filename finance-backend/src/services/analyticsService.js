@@ -14,7 +14,13 @@ const detectAnomalies = async (disbursementData) => {
     const now = new Date();
     const oneMinuteAgo = new Date(now.getTime() - 60000);
 
-    const project = await Project.findByPk(projectId);
+    const projWhereKeys = [
+        projectId ? { id: projectId } : null,
+        projectId ? { _id: projectId } : null
+    ].filter(Boolean);
+    const project = await Project.findOne({
+        where: { [Op.or]: projWhereKeys }
+    });
     if (!project) return { anomaly: false };
 
     // 1. Rule: Amount > 30% of total sanctioned budget

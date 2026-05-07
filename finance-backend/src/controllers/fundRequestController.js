@@ -343,22 +343,38 @@ const disburseFund = asyncHandler(async (req, res) => {
         amount: installmentAmount > remainingAmount ? remainingAmount : installmentAmount
     };
 
-    const job = await disbursementQueue.add("disburse", {
-        requestId: request.id || request._id,
-        userId: req.user?.id || req.user?._id,
-        payload
-    });
+    try {
+        const job = await disbursementQueue.add("disburse", {
+            requestId: request.id || request._id,
+            userId: req.user?.id || req.user?._id,
+            payload
+        });
 
-    return res.status(202).json({
-        success: true,
-        message: job.returnvalue ? 'Disbursement executed' : 'Disbursement queued',
-        data: job.returnvalue?.disbursement || [],
-        totals: job.returnvalue?.totals || {
-            requestedAmount: safeNumber(request.requestedAmount),
-            totalDisbursed,
-            remainingAmount
+        return res.status(202).json({
+            success: true,
+            message: job.returnvalue ? 'Disbursement executed' : 'Disbursement queued',
+            data: job.returnvalue?.disbursement || [],
+            totals: job.returnvalue?.totals || {
+                requestedAmount: safeNumber(request.requestedAmount),
+                totalDisbursed,
+                remainingAmount
+            }
+        });
+    } catch (err) {
+        if (
+            err.message.includes('Target project status') ||
+            err.message.includes('Duplicate disbursement') ||
+            err.message.includes('Overpayment protection') ||
+            err.message.includes('Disbursement exceeds available') ||
+            err.message.includes('No formal approval record') ||
+            err.message.includes('Institutional Compliance') ||
+            err.message.includes('mandatory to prevent duplicate') ||
+            err.message.includes('Cannot disburse request in status')
+        ) {
+            return res.status(409).json({ success: false, message: err.message, data: null });
         }
-    });
+        throw err;
+    }
 });
 
 const getProjectWithInstallments = asyncHandler(async (req, res) => {
