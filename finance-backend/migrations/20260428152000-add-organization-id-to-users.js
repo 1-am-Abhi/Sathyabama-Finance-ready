@@ -1,37 +1,27 @@
 'use strict';
 
 module.exports = {
-  up: async (queryInterface, Sequelize) => {
+  up: async (queryInterface) => {
     return queryInterface.sequelize.transaction(async (t) => {
-      // 1. Add organizationId column if it doesn't exist
       await queryInterface.sequelize.query(`
-        ALTER TABLE "Users" ADD COLUMN IF NOT EXISTS "organizationId" INTEGER;
-      `, { transaction: t });
+        ALTER TABLE "Users" DROP CONSTRAINT IF EXISTS "fk_users_org";
+        ALTER TABLE "Users" ADD COLUMN IF NOT EXISTS "organizationId" VARCHAR(255);
+        ALTER TABLE "Users"
+          ALTER COLUMN "organizationId" TYPE VARCHAR(255)
+          USING COALESCE("organizationId"::text, 'ORG_1');
 
-      // 2. Add foreign key constraint safely
-      // We check if Organizations table exists before adding FK
-      const [tableExists] = await queryInterface.sequelize.query(`
-        SELECT EXISTS (
-          SELECT FROM information_schema.tables 
-          WHERE table_name = 'Organizations'
-        );
-      `, { transaction: t });
+        UPDATE "Users"
+        SET "organizationId" = 'ORG_1'
+        WHERE "organizationId" IS NULL OR "organizationId" = '';
 
-      if (tableExists[0].exists) {
-        await queryInterface.sequelize.query(`
-          ALTER TABLE "Users" DROP CONSTRAINT IF EXISTS "fk_users_org";
-          ALTER TABLE "Users"
-          ADD CONSTRAINT "fk_users_org"
-          FOREIGN KEY ("organizationId")
-          REFERENCES "Organizations"(id)
-          ON DELETE RESTRICT;
-        `, { transaction: t });
-      }
+        ALTER TABLE "Users" ALTER COLUMN "organizationId" SET DEFAULT 'ORG_1';
+        ALTER TABLE "Users" ALTER COLUMN "organizationId" SET NOT NULL;
+      `, { transaction: t });
     });
   },
 
-  down: async (queryInterface, Sequelize) => {
-    await queryInterface.removeConstraint('Users', 'fk_users_org');
-    await queryInterface.removeColumn('Users', 'organizationId');
+  down: async (queryInterface) => {
+    await queryInterface.removeConstraint('Users', 'fk_users_org').catch(() => {});
+    await queryInterface.removeColumn('Users', 'organizationId').catch(() => {});
   }
 };

@@ -30,6 +30,11 @@ const Account = sequelize.define('Account', {
         type: DataTypes.TEXT,
         allowNull: true
     },
+    organizationId: {
+        type: DataTypes.STRING,
+        allowNull: true,
+        defaultValue: 'ORG_1'
+    },
     isActive: {
         type: DataTypes.BOOLEAN,
         defaultValue: true

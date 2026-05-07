@@ -517,7 +517,7 @@ const getBalanceSheet = asyncHandler(async (req, res) => {
  * GET /finance/ledger/verify
  */
 const verifyLedgerIntegrity = asyncHandler(async (req, res) => {
-    const ledger = safeArray(await Ledger.findAll({ order: [['id', 'ASC']] }));
+    const ledger = safeArray(await Ledger.findAll({ order: [['createdAt', 'ASC'], ['id', 'ASC']] }));
     
     let isIntact = true;
     for (let i = 1; i < ledger.length; i++) {

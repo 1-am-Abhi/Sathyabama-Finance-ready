@@ -5,9 +5,8 @@ module.exports = {
     const transaction = await queryInterface.sequelize.transaction();
 
     try {
-      // 🔹 SAFE COLUMN ADD FUNCTION
       const safeAddColumn = async (table, column, definition) => {
-        const schema = await queryInterface.describeTable(table);
+        const schema = await queryInterface.describeTable(table).catch(() => ({}));
         if (!schema[column]) {
           await queryInterface.addColumn(table, column, definition, { transaction });
           console.log(`✅ Added ${column} to ${table}`);
@@ -16,40 +15,44 @@ module.exports = {
         }
       };
 
-      // 🔹 SAFE INDEX ADD FUNCTION
       const safeAddIndex = async (table, fields, options) => {
         try {
           await queryInterface.addIndex(table, fields, { ...options, transaction });
-        } catch (err) {
-          console.log(`⚠️ Index ${options.name} exists, skipping`);
+        } catch {
+          console.log(`⚠️ Index ${options.name} exists or columns missing, skipping`);
         }
       };
 
-      // =========================
-      // 🟢 FUNDREQUESTS HARDENING
-      // =========================
+      const disbSchema = await queryInterface.describeTable('Disbursements').catch(() => ({}));
+      const ledgerSchema = await queryInterface.describeTable('Ledgers').catch(() => ({}));
+
       await safeAddColumn('FundRequests', 'requestId', {
         type: Sequelize.STRING,
         allowNull: true
       });
 
-      // =========================
-      // 🟢 DISBURSEMENTS HARDENING
-      // =========================
       await safeAddColumn('Disbursements', 'referenceId', {
         type: Sequelize.STRING,
         allowNull: true
       });
 
+      const hasBankReference = !!disbSchema.bankReference;
+      const hasTransactionId = !!disbSchema.transactionId;
+      const hasChequeNumber = !!disbSchema.chequeNumber;
+      const hasId = !!disbSchema.id;
+      const hasAmount = !!disbSchema.amount;
+      const hasFundRequestId = !!disbSchema.fundRequestId;
+
+      let fillExpr = `NULLIF("referenceId", '')`;
+
+      if (hasBankReference) fillExpr += `, NULLIF("bankReference", '')`;
+      if (hasTransactionId) fillExpr += `, NULLIF("transactionId", '')`;
+      if (hasChequeNumber) fillExpr += `, NULLIF("chequeNumber", '')`;
+      if (hasId) fillExpr += `, "id"::text`;
+
       await queryInterface.sequelize.query(`
         UPDATE "Disbursements"
-        SET "referenceId" = COALESCE(
-          NULLIF("referenceId", ''),
-          NULLIF("bankReference", ''),
-          NULLIF("transactionId", ''),
-          NULLIF("chequeNumber", ''),
-          "id"::text
-        )
+        SET "referenceId" = COALESCE(${fillExpr})
         WHERE "referenceId" IS NULL OR "referenceId" = ''
       `, { transaction });
 
@@ -63,61 +66,71 @@ module.exports = {
         unique: true
       });
 
-      await queryInterface.sequelize.query(`
-        ALTER TABLE "Disbursements"
-        ALTER COLUMN "amount" SET NOT NULL
-      `, { transaction }).catch(() => {});
+      if (hasAmount) {
+        await queryInterface.sequelize.query(`
+          ALTER TABLE "Disbursements"
+          ALTER COLUMN "amount" SET NOT NULL
+        `, { transaction }).catch(() => {});
 
-      await queryInterface.sequelize.query(`
-        DO $$
-        BEGIN
-          IF NOT EXISTS (
-            SELECT 1 FROM pg_constraint
-            WHERE conname = 'chk_amount_positive'
-          ) THEN
-            ALTER TABLE "Disbursements"
-            ADD CONSTRAINT "chk_amount_positive"
-            CHECK ("amount" > 0);
-          END IF;
-        END $$;
-      `, { transaction });
+        await queryInterface.sequelize.query(`
+          DO $$
+          BEGIN
+            IF NOT EXISTS (
+              SELECT 1 FROM pg_constraint
+              WHERE conname = 'chk_amount_positive'
+            ) THEN
+              ALTER TABLE "Disbursements"
+              ADD CONSTRAINT "chk_amount_positive"
+              CHECK ("amount" > 0);
+            END IF;
+          END $$;
+        `, { transaction });
+      } else {
+        console.log('⚠️ amount missing in Disbursements, skipping amount hardening');
+      }
 
-      await safeAddIndex('Disbursements', ['fundRequestId'], {
-        name: 'idx_disbursements_fund_request_id_final'
-      });
+      if (hasFundRequestId) {
+        await safeAddIndex('Disbursements', ['fundRequestId'], {
+          name: 'idx_disbursements_fund_request_id_final'
+        });
+      } else {
+        console.log('⚠️ fundRequestId missing in Disbursements, skipping index');
+      }
 
-      // =========================
-      // 🟢 LEDGERS HARDENING
-      // =========================
       await safeAddColumn('Ledgers', 'disbursementId', {
         type: Sequelize.UUID,
         allowNull: true
       });
 
-      await safeAddIndex('Ledgers', ['disbursementId'], {
-        name: 'idx_ledger_disbursement'
-      });
+      if ((await queryInterface.describeTable('Ledgers').catch(() => ({}))).disbursementId) {
+        await safeAddIndex('Ledgers', ['disbursementId'], {
+          name: 'idx_ledger_disbursement'
+        });
+      }
 
-      await queryInterface.sequelize.query(`
-        DO $$
-        BEGIN
-          IF NOT EXISTS (
-            SELECT 1 FROM pg_constraint
-            WHERE conname = 'chk_disbursement_ledger_link'
-          ) THEN
-            ALTER TABLE "Ledgers"
-            ADD CONSTRAINT "chk_disbursement_ledger_link"
-            CHECK (
-              COALESCE("metadata"->>'financialOperation', '') <> 'DISBURSEMENT'
-              OR "disbursementId" IS NOT NULL
-            );
-          END IF;
-        END $$;
-      `, { transaction });
+      if (ledgerSchema.metadata) {
+        await queryInterface.sequelize.query(`
+          DO $$
+          BEGIN
+            IF NOT EXISTS (
+              SELECT 1 FROM pg_constraint
+              WHERE conname = 'chk_disbursement_ledger_link'
+            ) THEN
+              ALTER TABLE "Ledgers"
+              ADD CONSTRAINT "chk_disbursement_ledger_link"
+              CHECK (
+                COALESCE("metadata"->>'financialOperation', '') <> 'DISBURSEMENT'
+                OR "disbursementId" IS NOT NULL
+              );
+            END IF;
+          END $$;
+        `, { transaction });
+      } else {
+        console.log('⚠️ metadata missing in Ledgers, skipping ledger check constraint');
+      }
 
       await transaction.commit();
-      console.log('✅ financial_grade_hardening migration complete');
-
+      console.log('✅ final-disbursement-hardening migration complete');
     } catch (err) {
       await transaction.rollback();
       console.error('❌ Migration failed:', err.message);
@@ -135,7 +148,6 @@ module.exports = {
       await queryInterface.removeConstraint('Disbursements', 'chk_amount_positive', { transaction }).catch(() => {});
       await queryInterface.removeIndex('Disbursements', 'unique_reference_id', { transaction }).catch(() => {});
       await queryInterface.removeColumn('Disbursements', 'referenceId', { transaction }).catch(() => {});
-
       await transaction.commit();
     } catch (err) {
       await transaction.rollback();

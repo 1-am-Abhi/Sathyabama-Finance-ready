@@ -1,14 +1,13 @@
 {
   "name": "sathyabama-finance-monorepo",
   "version": "1.0.0",
+  "private": true,
   "description": "Unified Sathyabama Finance Portal Monorepo",
-  "main": "index.js",
   "scripts": {
     "start": "concurrently \"npm run start --prefix finance-frontend\" \"npm run start --prefix finance-backend\"",
     "dev": "concurrently \"npm run dev --prefix finance-frontend\" \"npm run dev --prefix finance-backend\"",
     "seed": "npm run seed --prefix finance-backend",
-    "install:all": "npm install && npm install --prefix finance-frontend && npm install --prefix finance-backend",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "install:all": "npm install && npm install --prefix finance-frontend && npm install --prefix finance-backend"
   },
   "devDependencies": {
     "concurrently": "^8.2.2"

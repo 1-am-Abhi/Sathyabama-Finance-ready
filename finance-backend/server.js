@@ -57,22 +57,24 @@ app.get('/health', async (req, res) => {
 const { createAdapter } = require('@socket.io/redis-adapter');
 const { createClient } = require('redis');
 
-if (!process.env.REDIS_URL) {
+const redisEnabled = process.env.NODE_ENV === 'production';
+
+if (redisEnabled && !process.env.REDIS_URL) {
   throw new Error('FATAL: REDIS_URL is required');
 }
 
-const redisConfig = {
-  url: process.env.REDIS_URL,
-  socket: {
-    tls:
-      process.env.NODE_ENV === 'production' ||
-      process.env.REDIS_URL.startsWith('rediss://'),
-    rejectUnauthorized: false
-  }
-};
+const redisConfig = redisEnabled
+  ? {
+      url: process.env.REDIS_URL,
+      socket: {
+        tls: process.env.REDIS_URL.startsWith('rediss://'),
+        rejectUnauthorized: false
+      }
+    }
+  : null;
 
-const pubClient = createClient(redisConfig);
-const subClient = pubClient.duplicate();
+const pubClient = redisEnabled ? createClient(redisConfig) : null;
+const subClient = redisEnabled ? pubClient.duplicate() : null;
 
 // ================= RATE LIMIT =================
 const rateLimit = require('express-rate-limit');
@@ -116,6 +118,11 @@ setIO(io);
 
 // ================= REDIS INIT =================
 (async () => {
+  if (!redisEnabled) {
+    logger.info('[Redis] Disabled outside production');
+    return;
+  }
+
   try {
     await pubClient.connect();
     await subClient.connect();
@@ -175,10 +182,11 @@ const startDbServices = async () => {
 };
 
 // ================= START SERVER =================
-const PORT = process.env.PORT || 5000;
+const PORT = parseInt(process.env.PORT, 10) || 5000;
+const HOST = process.env.HOST || "127.0.0.1";
 
-server.listen(PORT, () => {
-  logger.info(`Server running on port ${PORT}`);
+server.listen(PORT, HOST, () => {
+  console.log(`Server running at http://${HOST}:${PORT}`);
 });
 
 // ================= DB CONNECT =================

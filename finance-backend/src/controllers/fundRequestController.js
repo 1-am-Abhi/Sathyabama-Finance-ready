@@ -120,7 +120,10 @@ const getFundRequests = asyncHandler(async (req, res) => {
 
 const getFundRequest = asyncHandler(async (req, res) => {
     const request = await FundRequest.findOne({
-        where: { _id: req.params.id, organizationId: req.user.organizationId },
+        where: { 
+            organizationId: req.user.organizationId,
+            [Op.or]: [{ id: req.params.id }, { _id: req.params.id }]
+        },
         include: [
             { model: Project, as: 'Project', required: false },
             { model: User, as: 'FacultyUser', attributes: ['name', 'email'], required: false },
@@ -221,7 +224,12 @@ const createFundRequest = asyncHandler(async (req, res) => {
 });
 
 const updateFundRequest = asyncHandler(async (req, res) => {
-    const request = await FundRequest.findOne({ where: { _id: req.params.id, organizationId: req.user.organizationId } });
+    const request = await FundRequest.findOne({ 
+        where: { 
+            organizationId: req.user.organizationId,
+            [Op.or]: [{ id: req.params.id }, { _id: req.params.id }]
+        } 
+    });
     if (!request) return res.status(404).json({ success: false, message: 'Request not found', data: null });
 
     if (req.body.documents) request.documents = req.body.documents;
@@ -232,7 +240,12 @@ const updateFundRequest = asyncHandler(async (req, res) => {
 });
 
 const approveFundRequest = asyncHandler(async (req, res) => {
-    const request = await FundRequest.findOne({ where: { _id: req.params.id, organizationId: req.user.organizationId } });
+    const request = await FundRequest.findOne({ 
+        where: { 
+            organizationId: req.user.organizationId,
+            [Op.or]: [{ id: req.params.id }, { _id: req.params.id }]
+        } 
+    });
     if (!request) return res.status(404).json({ success: false, message: 'Request not found', data: null });
 
     if (request.status !== 'PENDING') {
@@ -251,7 +264,12 @@ const approveFundRequest = asyncHandler(async (req, res) => {
 });
 
 const rejectFundRequest = asyncHandler(async (req, res) => {
-    const request = await FundRequest.findOne({ where: { _id: req.params.id, organizationId: req.user.organizationId } });
+    const request = await FundRequest.findOne({ 
+        where: { 
+            organizationId: req.user.organizationId,
+            [Op.or]: [{ id: req.params.id }, { _id: req.params.id }]
+        } 
+    });
     if (!request) return res.status(404).json({ success: false, message: 'Request not found', data: null });
 
     await request.update({ status: 'REJECTED' });
@@ -264,7 +282,12 @@ const rejectFundRequest = asyncHandler(async (req, res) => {
 });
 
 const disburseFund = asyncHandler(async (req, res) => {
-    const request = await FundRequest.findOne({ where: { _id: req.params.id, organizationId: req.user.organizationId } });
+    const request = await FundRequest.findOne({ 
+        where: { 
+            organizationId: req.user.organizationId,
+            [Op.or]: [{ id: req.params.id }, { _id: req.params.id }]
+        } 
+    });
     if (!request) return res.status(404).json({ success: false, message: 'Request not found', data: null });
 
     if (!['APPROVED', 'PARTIALLY_DISBURSED'].includes(request.status)) {
@@ -339,7 +362,12 @@ const disburseFund = asyncHandler(async (req, res) => {
 });
 
 const getProjectWithInstallments = asyncHandler(async (req, res) => {
-    const project = await Project.findOne({ where: { _id: req.params.projectId, organizationId: req.user.organizationId } });
+    const project = await Project.findOne({ 
+        where: { 
+            organizationId: req.user.organizationId,
+            [Op.or]: [{ id: req.params.projectId }, { _id: req.params.projectId }]
+        } 
+    });
     if (!project) return res.status(404).json({ success: false, message: 'Project not found', data: null });
 
     const installments = safeArray(await FundRequest.findAll({
@@ -365,7 +393,12 @@ const getProjectWithInstallments = asyncHandler(async (req, res) => {
 });
 
 const advanceStage = asyncHandler(async (req, res) => {
-    const request = await FundRequest.findOne({ where: { _id: req.params.id, organizationId: req.user.organizationId } });
+    const request = await FundRequest.findOne({ 
+        where: { 
+            organizationId: req.user.organizationId,
+            [Op.or]: [{ id: req.params.id }, { _id: req.params.id }]
+        } 
+    });
     if (!request) return res.status(404).json({ success: false, message: 'Request not found', data: null });
 
     const { nextStage, remarks } = req.body;

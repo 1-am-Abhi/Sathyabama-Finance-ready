@@ -117,6 +117,7 @@ const createProject = asyncHandler(async (req, res) => {
         pi: req.user?.name || 'Unknown',
         facultyId: userId,
         organizationId: orgId,
+        department: req.user?.department || 'RESEARCH',
         sanctionedBudget: safeNumber(sanctionedBudget),
         releasedBudget: 0,
         utilizedBudget: 0,

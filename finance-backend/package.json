@@ -7,16 +7,17 @@
     "node": "22.x"
   },
   "scripts": {
-    "start": "node server.js",
-    "dev": "NODE_ENV=development nodemon server.js",
-    "migrate": "npx sequelize-cli db:migrate",
-    "migrate:undo": "npx sequelize-cli db:migrate:undo",
-    "seed": "NODE_ENV=development node seed.js",
-    "reset": "NODE_ENV=development node reset_db.js",
-    "start:prod": "npm run migrate && node server.js",
-    "test": "NODE_ENV=test node --test test/*.test.js",
-    "test:smoke": "node scripts/smokeDisbursementTest.js"
-  },
+  "start": "node server.js",
+  "dev": "NODE_ENV=development nodemon server.js",
+  "migrate": "npx sequelize-cli db:migrate",
+  "migrate:undo": "npx sequelize-cli db:migrate:undo",
+  "seed": "NODE_ENV=development node seed.js",
+  "reset": "NODE_ENV=development node reset_db.js",
+  "start:prod": "npm run migrate && node server.js",
+  "test": "NODE_ENV=test node --test test/*.test.js",
+  "test:smoke": "node scripts/smokeDisbursementTest.js",
+  "smoke:finance": "node scripts/finance-smoke.js"
+},
   "keywords": [],
   "author": "",
   "license": "ISC",

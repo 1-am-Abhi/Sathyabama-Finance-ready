@@ -1,7 +1,7 @@
 const { Op } = require('sequelize');
 const models = require('../models');
 
-const { FundRequest, FundSource, Project } = models;
+const { FundRequest, FundSource, Project, sequelize } = models;
 
 const FUND_SOURCE_VALUES = ['INSTITUTIONAL', 'PFMS', 'OTHERS'];
 

@@ -6,6 +6,7 @@ const { logDisbursementAudit } = require('./auditService');
 const { verifyFinancialParity } = require('./watchdogService');
 const { detectAnomalies } = require('./analyticsService');
 const { clearDashboardCache } = require('./dashboardService');
+const { isUuid } = require('../utils/userIdentity');
 
 const {
     sequelize,
@@ -69,6 +70,11 @@ const logFinancialError = (event, err, context = {}) => {
 
 const getRecordId = (record) => record?._id || record?.id || null;
 
+const getActorUuid = (actor) => {
+    const candidate = actor?._id || actor?.userId || actor?.id;
+    return isUuid(String(candidate || '')) ? String(candidate) : null;
+};
+
 const getEventMarker = (eventId) => `[EventRequest:${eventId}]`;
 
 const isMissingTableError = (error) =>
@@ -131,11 +137,11 @@ const postJournalTransaction = async (params, options = {}) => {
         referenceId,
         metadata: { ...metadata, isOpeningBalance: description === 'OPENING_BALANCE' },
         transactionDate,
-        createdByUserId: actor?.id || actor?._id || null
+        createdByUserId: getActorUuid(actor)
     }, { transaction });
 
     // 3. Post Ledger Lines
-    const ledgerLines = entries.map(entry => ({
+    const ledgerLines = entries.map((entry, index) => ({
         journalId: journal.id,
         accountId: entry.accountId,
         projectId: entry.projectId || null,
@@ -145,10 +151,14 @@ const postJournalTransaction = async (params, options = {}) => {
         credit: entry.credit || 0,
         referenceId: referenceId || null,
         description: entry.description || description,
-        metadata: { ...metadata, ...(entry.metadata || {}) }
+        metadata: { ...metadata, ...(entry.metadata || {}) },
+        createdAt: new Date(new Date(transactionDate).getTime() + index)
     }));
 
-    await Ledger.bulkCreate(ledgerLines, { transaction, validate: true, individualHooks: true });
+    for (const line of ledgerLines) {
+        await Ledger.create(line, { transaction, validate: true });
+    }
+
     return journal;
 };
 
@@ -385,9 +395,11 @@ const approveFundRequestPipeline = async (request, actor, remarks, options = {})
         currentStage: 'FUND_APPROVED'
     }, { transaction });
 
-    if (actor?.id || actor?._id) {
+    const actorId = getActorUuid(actor);
+
+    if (actorId) {
         await AuditLog.create({
-            userId: actor.id || actor._id,
+            userId: actorId,
             action: 'FUND_REQUEST_APPROVED',
             entityType: 'FundRequest',
             entityId: String(lockedRequest._id || lockedRequest.id),
@@ -561,7 +573,8 @@ const executeDisbursementPipeline = async (request, payload, actor, options = {}
             const requestId = lockedRequest._id || lockedRequest.id;
 
             // IDEMPOTENCY CHECK
-            const sysActor = actor?.id || actor?._id || 'sys';
+            const actorId = getActorUuid(actor);
+            const sysActor = actorId || actor?.id || actor?._id || 'sys';
             const idempotencyKey = payload.idempotencyKey || `disburse_${requestId}_${bankReference}_${sysActor}`;
 
             const existingByKey = await Disbursement.findOne({
@@ -631,7 +644,7 @@ const executeDisbursementPipeline = async (request, payload, actor, options = {}
                     approvedByName,
                     approvedAt,
                     isHighValue,
-                    disbursedBy: actor?.id || actor?._id,
+                    disbursedBy: actorId,
                     disbursedByName: actor?.name || 'Finance Officer',
                     disbursedAt: disbursementDate,
                     bankReference,
@@ -652,7 +665,7 @@ const executeDisbursementPipeline = async (request, payload, actor, options = {}
                     correlationId,
                     fundRequestId: requestId,
                     amount,
-                    userId: actor?.id || actor?._id,
+                    userId: actorId,
                     payload
                 });
                 throw err;
@@ -690,7 +703,7 @@ const executeDisbursementPipeline = async (request, payload, actor, options = {}
                 disbursementDate,
                 financeRemarks,
                 financeProcessedAt: new Date(),
-                financeProcessedBy: actor?.id || actor?._id || null,
+                financeProcessedBy: actorId,
             }, { transaction });
 
             // --- DOUBLE-ENTRY ACCOUNTING INTEGRATION ---
@@ -751,7 +764,7 @@ const executeDisbursementPipeline = async (request, payload, actor, options = {}
                 remainingAmount,
                 isInstallment: true,
                 isHighValue,
-                userId: actor?.id || actor?._id,
+                userId: actorId,
                 entityId: requestId,
                 metadata: {
                     transactionId: bankReference,
@@ -768,7 +781,7 @@ const executeDisbursementPipeline = async (request, payload, actor, options = {}
             });
 
             await AuditLog.create({
-                userId: actor?.id || actor?._id,
+                userId: actorId,
                 action: 'INSTALLMENT_DISBURSED',
                 entityType: 'Disbursement',
                 entityId: String(disbursement._id || disbursement.id),
@@ -832,7 +845,7 @@ const executeDisbursementPipeline = async (request, payload, actor, options = {}
                     correlationId,
                     fundRequestId: requestId,
                     amount,
-                    userId: actor?.id || actor?._id,
+                    userId: actorId,
                     payload
                 })
             );
@@ -855,7 +868,7 @@ const executeDisbursementPipeline = async (request, payload, actor, options = {}
             correlationId,
             fundRequestId,
             amount,
-            userId: actor?.id || actor?._id,
+            userId: getActorUuid(actor),
             payload
         });
         throw err;

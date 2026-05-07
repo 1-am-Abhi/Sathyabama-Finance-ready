@@ -8,7 +8,7 @@ module.exports = {
       await queryInterface.sequelize.query(`
         DO $$
         BEGIN
-          IF to_regclass('public."Users"') IS NULL THEN
+          IF to_regclass('"Users"') IS NULL THEN
             CREATE TABLE "Users" (
               "id" SERIAL PRIMARY KEY,
               "_id" UUID NOT NULL DEFAULT gen_random_uuid(),
@@ -110,7 +110,7 @@ module.exports = {
       await queryInterface.sequelize.query(`
         DO $$
         BEGIN
-          IF to_regclass('public."Projects"') IS NULL THEN
+          IF to_regclass('"Projects"') IS NULL THEN
             CREATE TABLE "Projects" (
               "_id" UUID PRIMARY KEY DEFAULT gen_random_uuid(),
               "title" VARCHAR(255) NOT NULL,
@@ -147,7 +147,7 @@ module.exports = {
           ALTER TABLE "Projects" ADD COLUMN IF NOT EXISTS "_id" UUID DEFAULT gen_random_uuid();
           IF EXISTS (
             SELECT 1 FROM information_schema.columns
-            WHERE table_schema = 'public' AND table_name = 'Projects' AND column_name = 'id' AND data_type = 'uuid'
+            WHERE table_schema = current_schema() AND table_name = 'Projects' AND column_name = 'id' AND data_type = 'uuid'
           ) THEN
             UPDATE "Projects" SET "_id" = COALESCE("_id", "id"::uuid) WHERE "_id" IS NULL;
           END IF;
@@ -198,7 +198,7 @@ module.exports = {
       await queryInterface.sequelize.query(`
         DO $$
         BEGIN
-          IF to_regclass('public."FundRequests"') IS NULL THEN
+          IF to_regclass('"FundRequests"') IS NULL THEN
             CREATE TABLE "FundRequests" (
               "_id" UUID PRIMARY KEY DEFAULT gen_random_uuid(),
               "projectTitle" VARCHAR(255) NOT NULL,
@@ -233,7 +233,7 @@ module.exports = {
           ALTER TABLE "FundRequests" ADD COLUMN IF NOT EXISTS "_id" UUID DEFAULT gen_random_uuid();
           IF EXISTS (
             SELECT 1 FROM information_schema.columns
-            WHERE table_schema = 'public' AND table_name = 'FundRequests' AND column_name = 'id' AND data_type = 'uuid'
+            WHERE table_schema = current_schema() AND table_name = 'FundRequests' AND column_name = 'id' AND data_type = 'uuid'
           ) THEN
             UPDATE "FundRequests" SET "_id" = COALESCE("_id", "id"::uuid) WHERE "_id" IS NULL;
           END IF;
@@ -268,7 +268,7 @@ module.exports = {
           ALTER TABLE "FundRequests" ADD COLUMN IF NOT EXISTS "updatedAt" TIMESTAMPTZ DEFAULT NOW();
           IF EXISTS (
             SELECT 1 FROM information_schema.columns
-            WHERE table_schema = 'public' AND table_name = 'FundRequests' AND column_name = 'title'
+            WHERE table_schema = current_schema() AND table_name = 'FundRequests' AND column_name = 'title'
           ) THEN
             UPDATE "FundRequests" SET "projectTitle" = COALESCE("projectTitle", "title", 'Untitled Request') WHERE "projectTitle" IS NULL;
           ELSE
@@ -276,7 +276,7 @@ module.exports = {
           END IF;
           IF EXISTS (
             SELECT 1 FROM information_schema.columns
-            WHERE table_schema = 'public' AND table_name = 'FundRequests' AND column_name = 'amount'
+            WHERE table_schema = current_schema() AND table_name = 'FundRequests' AND column_name = 'amount'
           ) THEN
             UPDATE "FundRequests" SET "requestedAmount" = COALESCE("requestedAmount", "amount", 0) WHERE "requestedAmount" IS NULL;
           ELSE
@@ -612,11 +612,11 @@ module.exports = {
         DECLARE
           col_type text;
         BEGIN
-          IF to_regclass('public."FacultyRequests"') IS NOT NULL THEN
+          IF to_regclass('"FacultyRequests"') IS NOT NULL THEN
             ALTER TABLE "FacultyRequests" ADD COLUMN IF NOT EXISTS "createdByLegacy" INTEGER;
             SELECT data_type INTO col_type
             FROM information_schema.columns
-            WHERE table_schema = 'public'
+            WHERE table_schema = current_schema()
               AND table_name = 'FacultyRequests'
               AND column_name = 'createdBy';
 
@@ -646,13 +646,13 @@ module.exports = {
           current_type text;
           legacy_column text := target_column || 'Legacy';
         BEGIN
-          IF to_regclass(format('public.%I', target_table)) IS NULL THEN
+          IF to_regclass(format('%I', target_table)) IS NULL THEN
             RETURN;
           END IF;
 
           SELECT data_type INTO current_type
           FROM information_schema.columns
-          WHERE table_schema = 'public'
+          WHERE table_schema = current_schema()
             AND table_name = target_table
             AND column_name = target_column;
 
@@ -681,13 +681,13 @@ module.exports = {
           legacy_column text := target_column || 'Legacy';
         BEGIN
           PERFORM _sist_ensure_uuid_column(target_table, target_column);
-          IF to_regclass(format('public.%I', target_table)) IS NULL THEN
+          IF to_regclass(format('%I', target_table)) IS NULL THEN
             RETURN;
           END IF;
 
           IF EXISTS (
             SELECT 1 FROM information_schema.columns
-            WHERE table_schema = 'public'
+            WHERE table_schema = current_schema()
               AND table_name = target_table
               AND column_name = legacy_column
           ) THEN

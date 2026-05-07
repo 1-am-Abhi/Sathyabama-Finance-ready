@@ -5,7 +5,7 @@ module.exports = {
   async up(queryInterface, Sequelize) {
     // Check if table User exists first to make it non-destructive
     const tableExists = await queryInterface.sequelize.query(
-      "SELECT to_regclass('public.Users');",
+      "SELECT to_regclass('\"Users\"');",
       { type: Sequelize.QueryTypes.SELECT }
     );
     
