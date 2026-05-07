@@ -183,7 +183,7 @@ const startDbServices = async () => {
 
 // ================= START SERVER =================
 const PORT = parseInt(process.env.PORT, 10) || 5000;
-const HOST = process.env.HOST || "127.0.0.1";
+const HOST = process.env.HOST || (process.env.NODE_ENV === 'production' ? '0.0.0.0' : '127.0.0.1');
 
 server.listen(PORT, HOST, () => {
   console.log(`Server running at http://${HOST}:${PORT}`);
