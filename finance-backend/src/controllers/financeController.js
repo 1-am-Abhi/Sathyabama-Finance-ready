@@ -1,5 +1,5 @@
 const { Disbursement, FundRequest, Project, PFMSTransaction, Revenue, User, AuditLog, Account, JournalEntry, AccountingPeriod, Ledger, LedgerSnapshot, sequelize } = require('../models');
-const { Op } = require('sequelize');
+const { Op, literal } = require('sequelize');
 const { ACCOUNTS } = require('../constants/accounts');
 const asyncHandler = require('../utils/asyncHandler');
 const { getCurrentFY, getFYRange } = require('../utils/fyUtils');
@@ -192,18 +192,27 @@ const updateDepartmentFunding = asyncHandler(async (req, res) => {
  * GET /finance/disbursal-history
  */
 const getDisbursalHistory = asyncHandler(async (req, res) => {
-    const { startDate, endDate } = getFYRange(req.query.fy || getCurrentFY());
-    
-    const history = safeArray(await Disbursement.findAll({
-        where: orgWhere(req, disbursementDateWhere(startDate, endDate)),
-        include: [
-            { model: Project, as: 'Project', required: false },
-            { model: FundRequest, as: 'FundRequest', required: false }
-        ],
-        order: [['createdAt', 'DESC']]
-    }));
+  const { startDate, endDate } = getFYRange(req.query.fy || getCurrentFY());
 
-    return res.json({ success: true, data: safeArray(history) });
+  const history = safeArray(await Disbursement.findAll({
+    where: {
+      organizationId: req.user.organizationId,
+      [Op.and]: [
+        literal(`COALESCE("Disbursement"."disbursedAt", "Disbursement"."createdAt") >= '${new Date(startDate).toISOString()}'`),
+        literal(`COALESCE("Disbursement"."disbursedAt", "Disbursement"."createdAt") <= '${new Date(endDate).toISOString()}'`)
+      ]
+    },
+    include: [
+      { model: Project, as: 'Project', required: false },
+      { model: FundRequest, as: 'FundRequest', required: false }
+    ],
+    order: [['createdAt', 'DESC']]
+  }));
+
+  return res.json({
+    success: true,
+    data: safeArray(history)
+  });
 });
 
 /**
@@ -269,17 +278,28 @@ const getAuditReplay = asyncHandler(async (req, res) => {
  * GET /finance/pfms
  */
 const getPFMSTransactionsController = asyncHandler(async (req, res) => {
-    const fyRange = parseFY(req.query.fy || getCurrentFY());
-    const where = fyRange
-        ? { createdAt: { [Op.between]: [fyRange.startDate, fyRange.endDate] } }
-        : {};
+  const fyRange = parseFY(req.query.fy || getCurrentFY());
 
-    const transactions = safeArray(await PFMSTransaction.findAll({
-        where,
-        include: [{ model: Project, as: 'Project', required: false }],
-        order: [['createdAt', 'DESC']]
-    }));
-    return res.json({ success: true, data: transactions });
+  const where = {
+    organizationId: req.user.organizationId
+  };
+
+  if (fyRange) {
+    where.createdAt = {
+      [Op.between]: [fyRange.startDate, fyRange.endDate]
+    };
+  }
+
+  const transactions = safeArray(await PFMSTransaction.findAll({
+    where,
+    include: [{ model: Project, as: 'Project', required: false }],
+    order: [['createdAt', 'DESC']]
+  }));
+
+  return res.json({
+    success: true,
+    data: transactions
+  });
 });
 
 /**

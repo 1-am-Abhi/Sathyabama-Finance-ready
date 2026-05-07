@@ -2,18 +2,14 @@ const { DataTypes } = require('sequelize');
 const { sequelize } = require('../config/db');
 
 const PFMSTransaction = sequelize.define('PFMSTransaction', {
-    _id: {
+    id: {
         type: DataTypes.UUID,
         defaultValue: DataTypes.UUIDV4,
         primaryKey: true
     },
     projectId: {
         type: DataTypes.UUID,
-        allowNull: false,
-        references: {
-            model: 'Projects',
-            key: '_id'
-        }
+        allowNull: false
     },
     pfmsProjectId: {
         type: DataTypes.STRING,
@@ -29,27 +25,35 @@ const PFMSTransaction = sequelize.define('PFMSTransaction', {
     },
     sanctionOrderDate: {
         type: DataTypes.DATEONLY,
-        allowNull: false
+        allowNull: true
     },
     installmentNumber: {
         type: DataTypes.INTEGER,
+        allowNull: false,
         defaultValue: 1
     },
     amountReleased: {
         type: DataTypes.DECIMAL(15, 2),
-        allowNull: false
+        allowNull: false,
+        defaultValue: 0
     },
     creditDate: {
         type: DataTypes.DATEONLY,
-        allowNull: false
+        allowNull: true
     },
     utrNumber: {
         type: DataTypes.STRING,
-        allowNull: false
+        allowNull: true
     },
     ucStatus: {
-        type: DataTypes.ENUM('PENDING', 'SUBMITTED', 'APPROVED'),
+        type: DataTypes.STRING,
+        allowNull: false,
         defaultValue: 'PENDING'
+    },
+    organizationId: {
+        type: DataTypes.STRING,
+        allowNull: false,
+        defaultValue: 'ORG_1'
     }
 }, {
     tableName: 'PFMSTransactions',

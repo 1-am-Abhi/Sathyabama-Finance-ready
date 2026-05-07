@@ -29,12 +29,23 @@ const createDocument = asyncHandler(async (req, res) => {
 });
 
 const getDocuments = asyncHandler(async (req, res) => {
-    let where = {};
-    if (req.user.role === 'FACULTY') {
-        where = { facultyId: req.user._id || req.user.id };
-    }
-    const docs = await Document.findAll({ where, order: [['createdAt', 'DESC']] });
-    res.status(200).json({ success: true, data: docs || [] });
+  const where = {
+    organizationId: req.user.organizationId
+  };
+
+  if (req.user.role === 'FACULTY') {
+    where.facultyId = req.user.id || req.user._id;
+  }
+
+  const docs = await Document.findAll({
+    where,
+    order: [['createdAt', 'DESC']]
+  });
+
+  res.status(200).json({
+    success: true,
+    data: docs || []
+  });
 });
 
 const updateDocumentStatus = asyncHandler(async (req, res) => {

@@ -82,41 +82,55 @@ const nextInstallmentNumber = async (projectId, organizationId) => {
 // ─── READ ──────────────────────────────────────────────────────────────────────
 
 const getFundRequests = asyncHandler(async (req, res) => {
-    const orgId = req.user.organizationId;
-    const userId = req.user?._id || req.user?.id;
-    
-    const where = { organizationId: orgId };
+  const orgId = req.user.organizationId;
+  const userId = req.user?.id || req.user?._id;
+  const where = { organizationId: orgId };
 
-    if (req.user?.role === 'FACULTY') {
-        where.facultyId = userId;
-    }
+  if (req.user?.role === 'FACULTY') where.facultyId = userId;
 
-    if (req.query.status) {
-        const statuses = String(req.query.status)
-            .split(',')
-            .map((status) => status.trim())
-            .filter(Boolean);
-        if (statuses.length === 1) {
-            where.status = statuses[0];
-        } else if (statuses.length > 1) {
-            where.status = { [Op.in]: statuses };
-        }
-    }
+  if (req.query.status) {
+    const statuses = String(req.query.status)
+      .split(',')
+      .map((status) => status.trim())
+      .filter(Boolean);
 
-    const rawRequests = await FundRequest.findAll({
-        where,
-        include: [
-            { model: Project, as: 'Project', required: false },
-            { model: User, as: 'FacultyUser', attributes: ['name', 'department'], required: false },
-            { model: Disbursement, as: 'Disbursements', required: false }
-        ],
-        order: [['createdAt', 'DESC']],
+    if (statuses.length === 1) where.status = statuses[0];
+    else if (statuses.length > 1) where.status = { [Op.in]: statuses };
+  }
+
+  const baseInclude = [
+    { model: Project, as: 'Project', required: false },
+    { model: User, as: 'FacultyUser', attributes: ['name', 'department'], required: false }
+  ];
+
+  const disbursementInclude = { model: Disbursement, as: 'Disbursements', required: false };
+
+  let rawRequests;
+  try {
+    rawRequests = await FundRequest.findAll({
+      where,
+      include: [...baseInclude, disbursementInclude],
+      order: [['createdAt', 'DESC']]
     });
+  } catch (error) {
+    if (
+      /Disbursements\.fundRequestId does not exist/i.test(error.message) ||
+      /column .*fundRequestId.* does not exist/i.test(error.message)
+    ) {
+      logger.warn('FundRequestController fallback without Disbursements include', error.message);
+      rawRequests = await FundRequest.findAll({
+        where,
+        include: baseInclude,
+        order: [['createdAt', 'DESC']]
+      });
+    } else {
+      throw error;
+    }
+  }
 
-    const requests = safeArray(rawRequests);
-    const data = requests.map((r) => normalizeFundRequest(r));
-
-    return res.json({ success: true, count: data.length, data: safeArray(data) });
+  const requests = safeArray(rawRequests);
+  const data = requests.map((r) => normalizeFundRequest(r));
+  return res.json({ success: true, count: data.length, data: safeArray(data) });
 });
 
 const getFundRequest = asyncHandler(async (req, res) => {

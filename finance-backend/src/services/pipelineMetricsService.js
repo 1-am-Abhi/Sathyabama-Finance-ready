@@ -119,32 +119,43 @@ const runWithResearchCenterFallback = async (primaryQuery, fallbackQuery, fallba
 };
 
 const getMonthlyAnalytics = async (dateRange) => {
-    try {
-        const query = {
-            attributes: [
-                [models.Sequelize.fn('DATE_TRUNC', 'month', models.Sequelize.col('disbursedAt')), 'month'],
-                [models.Sequelize.fn('SUM', models.Sequelize.col('amount')), 'total']
-            ],
-            group: ['month'],
-            order: [[models.Sequelize.fn('DATE_TRUNC', 'month', models.Sequelize.col('disbursedAt')), 'ASC']]
-        };
-        
-        if (dateRange) {
-            query.where = {
-                disbursedAt: { [Op.between]: [dateRange.start, dateRange.end] }
-            };
-        }
+  try {
+    const effectiveDateExpr = models.Sequelize.fn(
+      'COALESCE',
+      models.Sequelize.col('disbursedAt'),
+      models.Sequelize.col('createdAt')
+    );
 
-        const data = await Disbursement.findAll(query);
+    const monthExpr = models.Sequelize.fn('DATE_TRUNC', 'month', effectiveDateExpr);
 
-        return data.map(d => ({
-            month: new Date(d.get('month')).toLocaleString('default', { month: 'short' }),
-            amount: toNumber(d.get('total'))
-        }));
-    } catch (err) {
-        logger.error("Monthly analytics error:", err);
-        return [];
+    const query = {
+      attributes: [
+        [monthExpr, 'month'],
+        [models.Sequelize.fn('SUM', models.Sequelize.col('amount')), 'total']
+      ],
+      group: [monthExpr],
+      order: [[monthExpr, 'ASC']]
+    };
+
+    if (dateRange) {
+      query.where = {
+        [Op.and]: [
+          models.Sequelize.where(effectiveDateExpr, Op.gte, dateRange.start),
+          models.Sequelize.where(effectiveDateExpr, Op.lte, dateRange.end)
+        ]
+      };
     }
+
+    const data = await Disbursement.findAll(query);
+
+    return data.map((d) => ({
+      month: new Date(d.get('month')).toLocaleString('default', { month: 'short' }),
+      amount: toNumber(d.get('total'))
+    }));
+  } catch (err) {
+    logger.error('Monthly analytics error', err);
+    return [];
+  }
 };
 
 const getYoYGrowth = async (financialYear, currentUsed) => {

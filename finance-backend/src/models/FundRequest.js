@@ -54,7 +54,7 @@ class FundRequest extends Model {
 }
 
 FundRequest.init({
-    _id: {
+    id: {
         type: DataTypes.UUID,
         defaultValue: DataTypes.UUIDV4,
         primaryKey: true

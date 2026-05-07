@@ -2,14 +2,14 @@ const { DataTypes } = require('sequelize');
 const { sequelize } = require('../config/db');
 
 const Document = sequelize.define('Document', {
-    _id: {
+    id: {
         type: DataTypes.UUID,
         defaultValue: DataTypes.UUIDV4,
         primaryKey: true
     },
     facultyId: {
         type: DataTypes.UUID,
-        allowNull: false
+        allowNull: true
     },
     facultyName: {
         type: DataTypes.STRING,
@@ -25,6 +25,7 @@ const Document = sequelize.define('Document', {
     },
     documentType: {
         type: DataTypes.STRING,
+        allowNull: false,
         defaultValue: 'GENERAL'
     },
     projectName: {
@@ -36,12 +37,12 @@ const Document = sequelize.define('Document', {
         allowNull: true
     },
     fileData: {
-        // base64 encoded file data
         type: DataTypes.TEXT,
         allowNull: true
     },
     status: {
         type: DataTypes.STRING,
+        allowNull: false,
         defaultValue: 'PENDING'
     },
     adminRemarks: {
@@ -51,6 +52,11 @@ const Document = sequelize.define('Document', {
     verifiedAt: {
         type: DataTypes.DATE,
         allowNull: true
+    },
+    organizationId: {
+        type: DataTypes.STRING,
+        allowNull: false,
+        defaultValue: 'ORG_1'
     }
 }, {
     tableName: 'Documents',
