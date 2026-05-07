@@ -14,12 +14,8 @@ const detectAnomalies = async (disbursementData) => {
     const now = new Date();
     const oneMinuteAgo = new Date(now.getTime() - 60000);
 
-    const projWhereKeys = [
-        projectId ? { id: projectId } : null,
-        projectId ? { _id: projectId } : null
-    ].filter(Boolean);
     const project = await Project.findOne({
-        where: { [Op.or]: projWhereKeys }
+        where: { _id: projectId }
     });
     if (!project) return { anomaly: false };
 

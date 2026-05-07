@@ -35,7 +35,10 @@ exports.getDashboardMetrics = async ({ fy, organizationId }) => {
       where: { ...orgFilter, status: 'APPROVED', ...whereDate }
     }));
 
-    const disbursementWhere = { ...orgFilter, ...whereDate };
+    const disbursementDate = range
+      ? { disbursedAt: { [Op.between]: [range.startDate, range.endDate] } }
+      : {};
+    const disbursementWhere = { ...orgFilter, ...disbursementDate };
 
     // 🔹 Revenue
     let revenueSum = 0;
@@ -71,12 +74,12 @@ exports.getDashboardMetrics = async ({ fy, organizationId }) => {
       }),
       Disbursement.findAll({
         attributes: [
-          [Sequelize.fn('DATE_TRUNC', 'month', Sequelize.col('createdAt')), 'month'],
+          [Sequelize.fn('DATE_TRUNC', 'month', Sequelize.col('disbursedAt')), 'month'],
           [Sequelize.fn('SUM', Sequelize.col('amount')), 'total']
         ],
         where: disbursementWhere,
-        group: [Sequelize.fn('DATE_TRUNC', 'month', Sequelize.col('createdAt'))],
-        order: [[Sequelize.fn('DATE_TRUNC', 'month', Sequelize.col('createdAt')), 'ASC']],
+        group: [Sequelize.fn('DATE_TRUNC', 'month', Sequelize.col('disbursedAt'))],
+        order: [[Sequelize.fn('DATE_TRUNC', 'month', Sequelize.col('disbursedAt')), 'ASC']],
         raw: true
       })
     ]);

@@ -14,6 +14,10 @@ const orgWhere = (req, extra = {}) => ({
     ...extra
 });
 
+const disbursementDateWhere = (startDate, endDate) => ({
+    disbursedAt: { [Op.between]: [startDate, endDate] }
+});
+
 /**
  * GET /finance/stats
  * Returns aggregated stats for the Finance Dashboard.
@@ -191,7 +195,7 @@ const getDisbursalHistory = asyncHandler(async (req, res) => {
     const { startDate, endDate } = getFYRange(req.query.fy || getCurrentFY());
     
     const history = safeArray(await Disbursement.findAll({
-        where: orgWhere(req, { createdAt: { [Op.between]: [startDate, endDate] } }),
+        where: orgWhere(req, disbursementDateWhere(startDate, endDate)),
         include: [
             { model: Project, as: 'Project', required: false },
             { model: FundRequest, as: 'FundRequest', required: false }
@@ -210,7 +214,7 @@ const getReportsData = asyncHandler(async (req, res) => {
     
     const [disbursements, fundRequests] = await Promise.all([
         Disbursement.findAll({
-            where: orgWhere(req, { createdAt: { [Op.between]: [startDate, endDate] } }),
+            where: orgWhere(req, disbursementDateWhere(startDate, endDate)),
             include: [{ model: Project, as: 'Project', required: false }]
         }),
         FundRequest.findAll({
@@ -288,7 +292,7 @@ const createPFMSTransactionController = asyncHandler(async (req, res) => {
         amountReleased, creditDate, utrNumber
     } = req.body;
 
-    if (!projectId || !pfmsProjectId || !govtOrganization || !sanctionOrderNo) {
+    if (!projectId || !pfmsProjectId || !govtOrganization || !sanctionOrderNo || !sanctionOrderDate || !creditDate || !utrNumber || safeNumber(amountReleased) <= 0) {
         return res.status(200).json({ success: false, message: 'Missing required PFMS fields', data: [] });
     }
 
@@ -320,7 +324,7 @@ const getFundFlowData = asyncHandler(async (req, res) => {
     const whereClause = { createdAt: { [Op.between]: [startDate, endDate] } };
 
     const [disbursements, revenue] = await Promise.all([
-        Disbursement.findAll({ where: orgWhere(req, whereClause) }),
+        Disbursement.findAll({ where: orgWhere(req, disbursementDateWhere(startDate, endDate)) }),
         Revenue.findAll({ where: whereClause })
     ]);
 
@@ -340,8 +344,8 @@ const getFinancialReports = asyncHandler(async (req, res) => {
     if (!startDate || !endDate) return res.json({ success: true, data: [] });
 
     const data = safeArray(await Disbursement.findAll({
-        where: orgWhere(req, { createdAt: { [Op.between]: [new Date(startDate), new Date(endDate)] } }),
-        attributes: ['amount', 'createdAt']
+        where: orgWhere(req, disbursementDateWhere(new Date(startDate), new Date(endDate))),
+        attributes: ['amount', 'disbursedAt', 'createdAt']
     }));
     return res.json({ success: true, data: data });
 });
@@ -356,7 +360,7 @@ const exportFinancialReports = asyncHandler(async (req, res) => {
     }
     const whereClause = {
       organizationId: req.user.organizationId,
-      createdAt: { [Op.between]: [new Date(startDate), new Date(endDate)] }
+      disbursedAt: { [Op.between]: [new Date(startDate), new Date(endDate)] }
     };
 
     const disbursements = safeArray(await Disbursement.findAll({
@@ -369,7 +373,7 @@ const exportFinancialReports = asyncHandler(async (req, res) => {
     }));
 
     const data = disbursements.map(d => ({
-      Date: d.createdAt,
+      Date: d.disbursedAt || d.createdAt,
       Project: d.FundRequest?.Project?.title || 'Unknown',
       Amount: safeNumber(d.amount),
       Officer: d.officer?.name || 'N/A',
@@ -394,7 +398,7 @@ const exportFinancialReportsPDF = asyncHandler(async (req, res) => {
     }
     const whereClause = {
       organizationId: req.user.organizationId,
-      createdAt: { [Op.between]: [new Date(startDate), new Date(endDate)] }
+      disbursedAt: { [Op.between]: [new Date(startDate), new Date(endDate)] }
     };
 
     const disbursements = safeArray(await Disbursement.findAll({

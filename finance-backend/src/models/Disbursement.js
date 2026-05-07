@@ -99,6 +99,11 @@ const Disbursement = sequelize.define('Disbursement', {
         type: DataTypes.ENUM('CHEQUE', 'UPI', 'NEFT', 'RTGS'),
         defaultValue: 'CHEQUE'
     },
+    status: {
+        type: DataTypes.STRING,
+        allowNull: false,
+        defaultValue: 'COMPLETED'
+    },
     // TASK 1 — Idempotency Key
     idempotencyKey: {
         type: DataTypes.STRING,

@@ -7,6 +7,7 @@ const User = require("../models/User");
 const NotificationService = require("../services/notificationService");
 const Project = require("../models/Project");
 const Disbursement = require("../models/Disbursement");
+const { findUserByRuntimeId } = require("../utils/userIdentity");
 
 if (redisDisabled) {
     logger.info('[Worker:disbursement] Redis disabled outside production; BullMQ worker not started.');
@@ -23,7 +24,7 @@ const disbursementWorker = new Worker(
     const request = await FundRequest.findByPk(requestId);
     if (!request) throw new Error(`FundRequest not found: ${requestId}`);
 
-    const user = await User.findByPk(userId);
+    const user = await findUserByRuntimeId(User, userId);
     if (!user) throw new Error(`User not found: ${userId}`);
 
     const { request: updatedRequest, disbursement } = await executeDisbursementPipeline(

@@ -3,8 +3,12 @@ const { Document } = require('../models');
 const NotificationService = require('../services/notificationService');
 
 const createDocument = asyncHandler(async (req, res) => {
+    if (!req.body.fileName) {
+        return res.status(400).json({ success: false, message: 'fileName is required', data: null });
+    }
+
     const doc = await Document.create({
-        facultyId: req.user.id || req.user._id,
+        facultyId: req.user._id || req.user.id,
         facultyName: req.user.name,
         fileName: req.body.fileName,
         fileType: req.body.fileType,
@@ -27,7 +31,7 @@ const createDocument = asyncHandler(async (req, res) => {
 const getDocuments = asyncHandler(async (req, res) => {
     let where = {};
     if (req.user.role === 'FACULTY') {
-        where = { facultyId: req.user.id || req.user._id };
+        where = { facultyId: req.user._id || req.user.id };
     }
     const docs = await Document.findAll({ where, order: [['createdAt', 'DESC']] });
     res.status(200).json({ success: true, data: docs || [] });
@@ -49,7 +53,7 @@ const updateDocumentStatus = asyncHandler(async (req, res) => {
 
 const updateDocument = asyncHandler(async (req, res) => {
     const doc = await Document.findOne({ 
-        where: { _id: req.params.id, facultyId: req.user.id || req.user._id } 
+        where: { _id: req.params.id, facultyId: req.user._id || req.user.id } 
     });
     if (!doc) {
         return res.status(404).json({ success: false, message: 'Document not found or access denied' });
@@ -75,4 +79,3 @@ module.exports = {
     updateDocumentStatus,
     updateDocument
 };
-

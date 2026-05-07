@@ -69,6 +69,7 @@ const logFinancialError = (event, err, context = {}) => {
 };
 
 const getRecordId = (record) => record?._id || record?.id || null;
+const byUuid = (value) => ({ _id: value });
 
 const getActorUuid = (actor) => {
     const candidate = actor?._id || actor?.userId || actor?.id;
@@ -383,12 +384,8 @@ const approveFundRequestPipeline = async (request, actor, remarks, options = {})
 
     const transaction = options.transaction;
     const reqId = request._id || request.id;
-    const whereKeys = [
-        reqId ? { id: reqId } : null,
-        reqId ? { _id: reqId } : null
-    ].filter(Boolean);
     const lockedRequest = await FundRequest.findOne({
-        where: { [Op.or]: whereKeys },
+        where: byUuid(reqId),
         transaction,
         lock: transaction.LOCK.UPDATE
     });
@@ -397,25 +394,17 @@ const approveFundRequestPipeline = async (request, actor, remarks, options = {})
     }
 
     const requestId = lockedRequest._id || lockedRequest.id;
-    const updateWhereKeys = [
-        requestId ? { id: requestId } : null,
-        requestId ? { _id: requestId } : null
-    ].filter(Boolean);
     await FundRequest.update({
         status: 'APPROVED',
         currentStage: 'FUND_APPROVED'
     }, {
-        where: { [Op.or]: updateWhereKeys },
+        where: byUuid(requestId),
         transaction
     });
 
     // PROMOTE PROJECT TO ACTIVE IF PENDING
-    const projWhereKeys = [
-        lockedRequest.projectId ? { id: lockedRequest.projectId } : null,
-        lockedRequest.projectId ? { _id: lockedRequest.projectId } : null
-    ].filter(Boolean);
     const project = await Project.findOne({
-        where: { [Op.or]: projWhereKeys },
+        where: byUuid(lockedRequest.projectId),
         transaction,
         lock: transaction.LOCK.UPDATE
     });
@@ -423,7 +412,7 @@ const approveFundRequestPipeline = async (request, actor, remarks, options = {})
         await Project.update(
             { status: 'ACTIVE' },
             {
-                where: { [Op.or]: projWhereKeys },
+                where: byUuid(lockedRequest.projectId),
                 transaction
             }
         );
@@ -502,10 +491,7 @@ const executeDisbursementPipeline = async (request, payload, actor, options = {}
                 const [existingRequest, totalDisbursed] = await Promise.all([
                     FundRequest.findOne({
                         where: {
-                            [Op.or]: [
-                                existingByReference.fundRequestId ? { id: existingByReference.fundRequestId } : null,
-                                existingByReference.fundRequestId ? { _id: existingByReference.fundRequestId } : null
-                            ].filter(Boolean)
+                            _id: existingByReference.fundRequestId
                         },
                         transaction
                     }),
@@ -554,12 +540,8 @@ const executeDisbursementPipeline = async (request, payload, actor, options = {}
 
             // ROW-LEVEL LOCK on FundRequest
             const reqId = request._id || request.id;
-            const reqWhereKeys = [
-                reqId ? { id: reqId } : null,
-                reqId ? { _id: reqId } : null
-            ].filter(Boolean);
             const lockedRequest = await FundRequest.findOne({
-                where: { [Op.or]: reqWhereKeys },
+                where: byUuid(reqId),
                 transaction,
                 lock: transaction.LOCK.UPDATE
             });
@@ -573,12 +555,8 @@ const executeDisbursementPipeline = async (request, payload, actor, options = {}
             }
 
             // ROW-LEVEL LOCK on Project
-            const projWhereKeys = [
-                lockedRequest.projectId ? { id: lockedRequest.projectId } : null,
-                lockedRequest.projectId ? { _id: lockedRequest.projectId } : null
-            ].filter(Boolean);
             const project = await Project.findOne({
-                where: { [Op.or]: projWhereKeys },
+                where: byUuid(lockedRequest.projectId),
                 transaction,
                 lock: transaction.LOCK.UPDATE
             });
@@ -758,10 +736,6 @@ const executeDisbursementPipeline = async (request, payload, actor, options = {}
                     : 'COMPLETED';
 
             try {
-                const fundUpdateKeys = [
-                    requestId ? { id: requestId } : null,
-                    requestId ? { _id: requestId } : null
-                ].filter(Boolean);
                 await FundRequest.update({
                     status: requestStatus,
                     currentStage: requestStatus === 'APPROVED' ? 'FUND_APPROVED' : 'AMOUNT_DISBURSED',
@@ -772,7 +746,7 @@ const executeDisbursementPipeline = async (request, payload, actor, options = {}
                     financeProcessedAt: new Date(),
                     financeProcessedBy: actorId,
                 }, {
-                    where: { [Op.or]: fundUpdateKeys },
+                    where: byUuid(requestId),
                     transaction
                 });
             } catch (err) {
@@ -831,7 +805,7 @@ const executeDisbursementPipeline = async (request, payload, actor, options = {}
                     releasedBudget: authoritativeProjectSum,
                     status: 'ACTIVE'
                 }, {
-                    where: { [Op.or]: projWhereKeys },
+                    where: byUuid(lockedRequest.projectId),
                     transaction
                 });
             } catch (err) {

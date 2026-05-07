@@ -52,6 +52,9 @@ const Document = sequelize.define('Document', {
         type: DataTypes.DATE,
         allowNull: true
     }
+}, {
+    tableName: 'Documents',
+    timestamps: true
 });
 
 module.exports = Document;

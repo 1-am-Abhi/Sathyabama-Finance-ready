@@ -52,6 +52,7 @@ const PFMSTransaction = sequelize.define('PFMSTransaction', {
         defaultValue: 'PENDING'
     }
 }, {
+    tableName: 'PFMSTransactions',
     timestamps: true
 });
 

@@ -185,6 +185,16 @@ const startDbServices = async () => {
 const PORT = parseInt(process.env.PORT, 10) || 5000;
 const HOST = process.env.HOST || (process.env.NODE_ENV === 'production' ? '0.0.0.0' : '127.0.0.1');
 
+server.on('error', (err) => {
+  if (err.code === 'EADDRINUSE') {
+    logger.error(`[Startup] Port ${PORT} is already in use. Set PORT to a free port or stop the existing process.`);
+    process.exit(1);
+  }
+
+  logger.error('[Startup] Server failed to start:', err);
+  process.exit(1);
+});
+
 server.listen(PORT, HOST, () => {
   console.log(`Server running at http://${HOST}:${PORT}`);
 });
