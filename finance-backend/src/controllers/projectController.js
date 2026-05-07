@@ -40,7 +40,7 @@ const getAdminStats = asyncHandler(async (req, res) => {
             remaining: safeNumber(rawData.remaining),
             utilization: safeNumber(rawData.utilization),
             centres: safeArray(rawData.centres),
-            trend: safeArray(rawData.trend)
+            trend: safeArray(rawData.trend || rawData.monthlyData)
         }
     });
 });

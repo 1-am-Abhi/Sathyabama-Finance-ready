@@ -213,12 +213,21 @@ const getUsers = asyncHandler(async (req, res) => {
                     ],
                 ],
             },
+            order: [["name", "ASC"]],
         });
 
         return res.status(200).json({ success: true, data: users || [] });
     } catch (err) {
-        logger.error('[AuthController] getUsers error:', err);
-        return res.status(500).json({ success: false, message: err.message });
+        logger.error('[AuthController] getUsers failed, falling back to basic list:', err);
+        const basicUsers = await User.findAll({
+            attributes: { exclude: ["password"] },
+            order: [["name", "ASC"]]
+        });
+        return res.status(200).json({ 
+            success: true, 
+            data: basicUsers || [], 
+            warning: 'Some user metrics (projectsCount/eventsCount) are currently unavailable due to a database query issue.' 
+        });
     }
 });
 

@@ -310,18 +310,19 @@ const AdminDashboard = () => {
     }, [dashboardData]);
 
     const centreData = React.useMemo(() => {
-        return (dashboardData?.centres || [])
+        const sourceCentres = stats?.centres || dashboardData?.centres || [];
+        return sourceCentres
             .map(c => ({
-                _id: c.name || Math.random().toString(),
-                centre: c.name,
-                name: c.name,
-                totalProjects: Number(c.projectCount || 0),
-                activeProjects: 0,
-                totalBudget: 0,
-                disbursed: 0
+                _id: c._id || c.id || c.name || Math.random().toString(),
+                centre: c.name || c.centre || 'Unknown',
+                name: c.name || c.centre || 'Unknown',
+                totalProjects: Number(c.projectCount || c.totalProjects || 0),
+                activeProjects: Number(c.activeProjects || 0),
+                totalBudget: Number(c.totalBudget || 0),
+                disbursed: Number(c.disbursed || 0)
             }))
-            .filter(c => c.name && c.name !== 'Others' && c.name !== 'N/A' && c.name !== 'Unassigned');
-    }, [dashboardData]);
+            .filter(c => c.name && !['Others', 'N/A', 'Unassigned'].includes(c.name));
+    }, [stats, dashboardData]);
 
     const filteredData = React.useMemo(
         () =>
@@ -331,7 +332,7 @@ const AdminDashboard = () => {
         [centreData, selectedCentre]
     );
 
-    const barChartData = React.useMemo(() => dashboardData?.trend || [], [dashboardData]);
+    const barChartData = React.useMemo(() => stats?.trend || stats?.monthlyData || dashboardData?.trend || [], [stats, dashboardData]);
 
     const handleBarClick = async (data) => {
         if (!data || !data.fullName) return;
@@ -367,9 +368,9 @@ const AdminDashboard = () => {
     if (!userId) return null;
     if (dashboardLoading || loading) return <Loader message="Analyzing financial metrics..." />;
 
-    const hasData = (dashboardData?.totalProjects ?? 0) > 0 || safeNumber(dashboardData?.totalDisbursed) > 0;
-    const monthlyData = dashboardData?.trend ?? [];
-    const centreList = dashboardData?.centres ?? [];
+    const hasData = (stats?.totalProjects ?? dashboardData?.totalProjects ?? 0) > 0 || safeNumber(stats?.totalDisbursed ?? dashboardData?.totalDisbursed) > 0;
+    const monthlyData = stats?.trend || stats?.monthlyData || dashboardData?.trend || [];
+    const centreList = stats?.centres || dashboardData?.centres || [];
 
     if (!loading && !hasData && (!centreList || !centreList.length)) {
         return <EmptyState message="No Financial Data Available" description="There are no records for the selected financial year." />;
@@ -865,21 +866,21 @@ const AdminDashboard = () => {
                                     {drillData.map((p, idx) => (
                                         <div 
                                             key={idx}
-                                            className="flex items-center justify-between p-4 rounded-2xl bg-gray-100 border border-gray-200 hover:border-indigo-500/30 transition-all group"
+                                            className="flex items-center justify-between p-4 rounded-2xl bg-slate-950/50 border border-slate-800/50 hover:border-maroon-500/30 transition-all group"
                                         >
                                             <div className="flex items-center gap-3">
-                                                <div className="w-8 h-8 rounded-lg bg-indigo-500/10 flex items-center justify-center text-indigo-400 font-bold text-xs">
+                                                <div className="w-8 h-8 rounded-lg bg-maroon-500/10 flex items-center justify-center text-maroon-400 font-bold text-xs">
                                                     {idx + 1}
                                                 </div>
-                                                <span className="text-sm font-medium text-gray-200 group-hover:text-slate-900 transition-colors truncate max-w-[300px]">
+                                                <span className="text-sm font-medium text-slate-200 group-hover:text-white transition-colors truncate max-w-[300px]">
                                                     {p.projectTitle}
                                                 </span>
                                             </div>
                                             <div className="text-right">
                                                 <p className="text-sm font-bold text-emerald-400">
-                                                    ₹{Number(p.disbursed).toLocaleString()}
+                                                    ₹{Number(p.disbursed).toLocaleString('en-IN')}
                                                 </p>
-                                                <p className="text-[10px] text-gray-500 uppercase tracking-wider">Released</p>
+                                                <p className="text-[10px] text-slate-500 uppercase tracking-wider font-black">Released</p>
                                             </div>
                                         </div>
                                     ))}

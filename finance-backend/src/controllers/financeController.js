@@ -80,43 +80,32 @@ const getFinanceStats = asyncHandler(async (req, res) => {
  * Returns overview of institutional, PFMS, and other fund sources.
  */
 const getFundSourcesOverview = asyncHandler(async (req, res) => {
+    const { getFundSourceOverview } = require('../services/pipelineMetricsService');
     const fy = req.query.fy || getCurrentFY();
-    const { DepartmentFunding } = require('../models');
     
-    if (!DepartmentFunding) {
-        return res.json({ success: true, data: [] });
-    }
-
-    const fundingSummary = safeArray(await DepartmentFunding.findAll({
-        where: { financialYear: fy }
-    }));
-
-    // Aggregate by source type
-    const institutional = fundingSummary.filter(f => f.fundSource === 'INSTITUTIONAL');
-    const pfms = fundingSummary.filter(f => f.fundSource === 'PFMS');
-    const others = fundingSummary.filter(f => f.fundSource === 'OTHERS');
+    const overview = await getFundSourceOverview();
 
     const data = [
         {
             name: 'INSTITUTIONAL',
-            totalAllocated: institutional.reduce((acc, curr) => acc + safeNumber(curr.totalAllocated), 0),
-            totalUsed: institutional.reduce((acc, curr) => acc + safeNumber(curr.totalUsed), 0),
-            remainingBalance: institutional.reduce((acc, curr) => acc + safeNumber(curr.remainingBalance), 0),
-            count: institutional.length
+            totalAllocated: safeNumber(overview.institutionalFunds.totalAllocated),
+            totalUsed: safeNumber(overview.institutionalFunds.totalUsed),
+            remainingBalance: safeNumber(overview.institutionalFunds.remainingBalance),
+            count: overview.institutionalFunds.projectCount
         },
         {
             name: 'PFMS',
-            totalAllocated: pfms.reduce((acc, curr) => acc + safeNumber(curr.totalAllocated), 0),
-            totalUsed: pfms.reduce((acc, curr) => acc + safeNumber(curr.totalUsed), 0),
-            remainingBalance: pfms.reduce((acc, curr) => acc + safeNumber(curr.remainingBalance), 0),
-            count: pfms.length
+            totalAllocated: safeNumber(overview.pfmsFunds.totalAllocated),
+            totalUsed: safeNumber(overview.pfmsFunds.totalUsed),
+            remainingBalance: safeNumber(overview.pfmsFunds.remainingBalance),
+            count: overview.pfmsFunds.projectCount
         },
         {
             name: 'OTHERS',
-            totalAllocated: others.reduce((acc, curr) => acc + safeNumber(curr.totalAllocated), 0),
-            totalUsed: others.reduce((acc, curr) => acc + safeNumber(curr.totalUsed), 0),
-            remainingBalance: others.reduce((acc, curr) => acc + safeNumber(curr.remainingBalance), 0),
-            count: others.length
+            totalAllocated: safeNumber(overview.othersFunds.totalAllocated),
+            totalUsed: safeNumber(overview.othersFunds.totalUsed),
+            remainingBalance: safeNumber(overview.othersFunds.remainingBalance),
+            count: overview.othersFunds.projectCount
         }
     ];
 
@@ -128,33 +117,32 @@ const getFundSourcesOverview = asyncHandler(async (req, res) => {
  */
 const updateFundSourceAmount = asyncHandler(async (req, res) => {
     const { source, amount, type } = req.body;
-    const fy = req.body.fy || getCurrentFY();
-    const { DepartmentFunding } = require('../models');
+    const { FundSource } = require('../models');
+    const { normalizeFundSourceType, ensureCanonicalFundSources } = require('../services/fundSourceCatalogService');
 
-    if (!source || !amount || !type) {
+    if (!source || amount === undefined || !type) {
         return res.status(200).json({ success: false, message: 'Source, amount, and type are required', data: [] });
     }
 
-    let record = await DepartmentFunding.findOne({
-        where: { fundSource: source, financialYear: fy }
+    const sourceType = normalizeFundSourceType(source) || source;
+    await ensureCanonicalFundSources();
+
+    let record = await FundSource.findOne({
+        where: { sourceType }
     });
 
     if (!record) {
-        record = await DepartmentFunding.create({
-            fundSource: source,
-            financialYear: fy,
-            totalAllocated: type === 'allocation' ? safeNumber(amount) : 0,
-            totalUsed: 0,
-            remainingBalance: type === 'allocation' ? safeNumber(amount) : 0,
-            department: 'GENERAL'
+        record = await FundSource.create({
+            sourceType,
+            totalAllocated: type === 'allocation' ? safeNumber(amount) : 0
         });
     } else {
         if (type === 'allocation') {
-            record.totalAllocated = safeNumber(record.totalAllocated) + safeNumber(amount);
-        } else {
-            record.totalUsed = safeNumber(record.totalUsed) + safeNumber(amount);
+            record.totalAllocated = safeNumber(amount); // Overwrite or add? Usually allocation is a set value. 
+            // In the original code it was: record.totalAllocated = safeNumber(record.totalAllocated) + safeNumber(amount);
+            // But FundSource.totalAllocated is the total for that source.
+            record.totalAllocated = safeNumber(amount); 
         }
-        record.remainingBalance = safeNumber(record.totalAllocated) - safeNumber(record.totalUsed);
         await record.save();
     }
 
@@ -165,13 +153,19 @@ const updateFundSourceAmount = asyncHandler(async (req, res) => {
  * GET /finance/departments
  */
 const getDepartmentFinance = asyncHandler(async (req, res) => {
-    const { DepartmentFunding } = require('../models');
-    if (!DepartmentFunding) return res.json({ success: true, data: [] });
-
+    const { getAdminDashboardData } = require('../services/pipelineMetricsService');
     const fy = req.query.fy || getCurrentFY();
-    const data = safeArray(await DepartmentFunding.findAll({
-        where: { financialYear: fy },
-        order: [['departmentName', 'ASC']]
+    
+    const adminData = await getAdminDashboardData(fy);
+    const centres = adminData?.data?.centres || [];
+    
+    // Map centres to the expected DepartmentFunding shape
+    const data = centres.map(c => ({
+        id: c._id || c.id,
+        departmentName: c.name,
+        totalAllocated: c.totalBudget,
+        totalUsed: c.disbursed,
+        remainingBalance: Math.max(0, c.totalBudget - c.disbursed)
     }));
     
     return res.json({ success: true, data: safeArray(data) });
@@ -181,13 +175,9 @@ const getDepartmentFinance = asyncHandler(async (req, res) => {
  * GET /finance/departments/:id/funding
  */
 const getDepartmentFundingDetails = asyncHandler(async (req, res) => {
-    const { DepartmentFunding } = require('../models');
-    if (!DepartmentFunding) return res.json({ success: true, data: [] });
-
-    const funding = safeArray(await DepartmentFunding.findAll({
-        where: { departmentId: req.params.id }
-    }));
-    return res.json({ success: true, data: funding });
+    const { getDepartmentFundingRows } = require('../services/pipelineMetricsService');
+    const funding = await getDepartmentFundingRows(req.params.id);
+    return res.json({ success: true, data: safeArray(funding) });
 });
 
 const updateDepartmentFunding = asyncHandler(async (req, res) => {

@@ -105,11 +105,12 @@ const ManageFaculty = () => {
             try {
                 const response = await apiClient.get('/auth/users');
                 if (response.data.success) {
-                    const mappedFaculties = response.data.users.map(u => ({
-                        id: u._id,
-                        name: u.name,
-                        username: u.email.split('@')[0],
-                        email: u.email,
+                    const usersArray = response.data.data || response.data.users || [];
+                    const mappedFaculties = usersArray.map(u => ({
+                        id: u._id || u.id,
+                        name: u.name || 'Unknown',
+                        username: (u.email || '').split('@')[0],
+                        email: u.email || '',
                         centre: getCentreName(u.centre),
                         status: u.status || 'Active',
                         projectCount: Number(u.projectCount ?? u.projectsCount ?? 0),
