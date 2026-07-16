@@ -37,6 +37,14 @@ services:
         value: https://finance-frontend-pxh9.onrender.com
       - key: REDIS_URL
         sync: false
+      # Claude AI proxy key (server-side). Without it, AI endpoints return 503.
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      # Installment proof-gating (see docs). Defaults apply if unset.
+      - key: PROOF_GATING_ENABLED
+        value: "true"
+      - key: PROOF_DEADLINE_DAYS
+        value: "30"
 
   - type: web
     name: finance-frontend
