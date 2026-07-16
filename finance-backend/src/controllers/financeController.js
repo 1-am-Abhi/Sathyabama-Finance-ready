@@ -8,6 +8,11 @@ const logger = require('../utils/logger');
 const { Parser } = require('json2csv');
 const PDFDocument = require('pdfkit');
 const { safeNumber, parseFY, safeArray } = require('../utils/safeUtils');
+const NotificationService = require('../services/notificationService');
+const { postJournalTransaction } = require('../services/financePipelineService');
+const { NON_REVERSED_DISBURSEMENT_WHERE } = require('../constants/financeConstants');
+
+const ROUNDING_TOLERANCE = 0.01;
 
 const orgWhere = (req, extra = {}) => ({
     organizationId: req.user.organizationId,
@@ -451,29 +456,166 @@ const exportFinancialReportsPDF = asyncHandler(async (req, res) => {
  */
 const rollbackDisbursement = asyncHandler(async (req, res) => {
     const { id } = req.params;
-    const disbursement = await Disbursement.findOne({ where: { _id: id, organizationId: req.user.organizationId } });
-    if (!disbursement) return res.status(200).json({ success: false, message: 'Disbursement not found', data: [] });
+    const reason = (req.body?.reason || req.body?.remarks || '').toString().trim();
 
-    await sequelize.transaction(async (t) => {
-        const [bankAcc, expenseAcc] = await Promise.all([
-            Account.findOne({ where: { code: ACCOUNTS.BANK.code }, transaction: t }),
-            Account.findOne({ where: { code: ACCOUNTS.PROJECT_EXPENSE.code }, transaction: t })
-        ]);
+    const disbursement = await Disbursement.findOne({
+        where: { _id: id, organizationId: req.user.organizationId }
+    });
+    if (!disbursement) {
+        return res.status(404).json({ success: false, message: 'Disbursement not found', data: null });
+    }
+    if (String(disbursement.status).toUpperCase() === 'REVERSED') {
+        return res.status(409).json({ success: false, message: 'Disbursement is already reversed', data: null });
+    }
 
-        if (!bankAcc || !expenseAcc) throw new Error('Accounts not found');
+    const actorId = req.user._id || req.user.id;
+    const reversalAmount = safeNumber(disbursement.amount);
 
-        const reversalAmount = safeNumber(disbursement.amount);
-        const journalEntry = await JournalEntry.create({ description: 'Rollback' }, { transaction: t });
+    let result;
+    try {
+        result = await sequelize.transaction(async (t) => {
+            // Re-load with a row lock and re-check status so concurrent rollbacks
+            // cannot double-reverse the same disbursement.
+            const locked = await Disbursement.findOne({
+                where: { id: disbursement.id },
+                transaction: t,
+                lock: t.LOCK.UPDATE
+            });
+            if (!locked) throw new Error('Disbursement disappeared during rollback');
+            if (String(locked.status).toUpperCase() === 'REVERSED') {
+                const e = new Error('ALREADY_REVERSED');
+                e.alreadyReversed = true;
+                throw e;
+            }
 
-        await Ledger.bulkCreate([
-            { journalId: journalEntry.id, accountId: bankAcc.id, debit: reversalAmount, credit: 0 },
-            { journalId: journalEntry.id, accountId: expenseAcc.id, debit: 0, credit: reversalAmount }
-        ], { transaction: t });
+            const [bankAcc, expenseAcc] = await Promise.all([
+                Account.findOne({ where: { code: ACCOUNTS.BANK.code }, transaction: t }),
+                Account.findOne({ where: { code: ACCOUNTS.PROJECT_EXPENSE.code }, transaction: t })
+            ]);
+            if (!bankAcc || !expenseAcc) throw new Error('Chart of Accounts not initialized');
 
-        await disbursement.update({ status: 'REVERSED' }, { transaction: t });
+            // Hash-chained, balanced, double-entry reversal (reverse of the original
+            // Debit Expense / Credit Bank). Uses postJournalTransaction so the Ledger
+            // beforeCreate hooks (SHA-256 hash chain + closed-period lock) run — the
+            // previous bulkCreate path bypassed them and broke ledger immutability.
+            await postJournalTransaction({
+                description: `Reversal of disbursement ${locked.referenceId || locked.id}`,
+                referenceId: `REV-${locked.referenceId || locked.id}`,
+                metadata: {
+                    financialOperation: 'DISBURSEMENT_REVERSAL',
+                    disbursementId: locked.id,
+                    fundRequestId: locked.fundRequestId,
+                    reason: reason || null,
+                    reversedBy: actorId
+                },
+                actor: req.user,
+                entries: [
+                    {
+                        accountId: bankAcc.id,
+                        projectId: null,
+                        fundRequestId: locked.fundRequestId,
+                        disbursementId: locked.id,
+                        debit: reversalAmount,
+                        credit: 0,
+                        description: 'Reversal: cash returned to Institutional Bank'
+                    },
+                    {
+                        accountId: expenseAcc.id,
+                        projectId: locked.projectId,
+                        fundRequestId: locked.fundRequestId,
+                        disbursementId: locked.id,
+                        debit: 0,
+                        credit: reversalAmount,
+                        description: 'Reversal: research expense reversed'
+                    }
+                ]
+            }, { transaction: t });
+
+            // Mark the disbursement REVERSED so it drops out of every budget SUM
+            // (all disbursed-total queries now use NON_REVERSED_DISBURSEMENT_WHERE).
+            await locked.update({
+                status: 'REVERSED',
+                remarks: [locked.remarks, `REVERSED${reason ? `: ${reason}` : ''}`].filter(Boolean).join(' | ')
+            }, { transaction: t });
+
+            // Re-derive the parent fund request status from the remaining
+            // (non-reversed) disbursements so a reversal reopens budget correctly.
+            let updatedRequest = null;
+            if (locked.fundRequestId) {
+                const request = await FundRequest.findOne({ where: { _id: locked.fundRequestId }, transaction: t });
+                if (request) {
+                    const remainingDisbursed = safeNumber(await Disbursement.sum('amount', {
+                        where: { fundRequestId: locked.fundRequestId, ...NON_REVERSED_DISBURSEMENT_WHERE },
+                        transaction: t
+                    }));
+                    const requested = safeNumber(request.requestedAmount);
+                    const requestRemaining = Math.max(0, requested - remainingDisbursed);
+                    const newStatus = remainingDisbursed === 0
+                        ? 'APPROVED'
+                        : requestRemaining >= ROUNDING_TOLERANCE
+                            ? 'PARTIALLY_DISBURSED'
+                            : 'COMPLETED';
+                    await request.update({
+                        status: newStatus,
+                        currentStage: newStatus === 'APPROVED' ? 'FUND_APPROVED' : 'AMOUNT_DISBURSED'
+                    }, { transaction: t });
+                    updatedRequest = request;
+                }
+            }
+
+            await AuditLog.create({
+                userId: actorId,
+                action: 'DISBURSEMENT_REVERSED',
+                entityType: 'Disbursement',
+                entityId: String(locked.id),
+                organizationId: locked.organizationId,
+                metadata: { amount: reversalAmount, reason: reason || null, referenceId: locked.referenceId }
+            }, { transaction: t });
+
+            return { request: updatedRequest };
+        });
+    } catch (err) {
+        if (err.alreadyReversed) {
+            return res.status(409).json({ success: false, message: 'Disbursement is already reversed', data: null });
+        }
+        throw err;
+    }
+
+    // Post-commit side effects — must never roll back the reversal.
+    try {
+        const facultyId = result.request?.userId || result.request?.facultyId;
+        if (facultyId) {
+            await NotificationService.create(
+                facultyId,
+                'Disbursement Reversed',
+                `A disbursement of ₹${reversalAmount.toLocaleString()} has been reversed by Finance${reason ? `: ${reason}` : '.'}`,
+                'ALERT',
+                '/faculty/request-funds'
+            );
+        }
+        await NotificationService.notifyRole(
+            'ADMIN',
+            'Disbursement Reversed',
+            `Finance reversed a disbursement of ₹${reversalAmount.toLocaleString()}.`,
+            'INFO',
+            '/admin/fund-requests'
+        );
+    } catch (e) {
+        logger.warn('[rollback] notification failed:', e.message);
+    }
+
+    safeEmit('finance', 'finance:update', {
+        type: 'DISBURSEMENT_REVERSAL',
+        disbursementId: disbursement.id,
+        amount: reversalAmount,
+        timestamp: Date.now()
     });
 
-    return res.json({ success: true, message: 'Disbursement rolled back' });
+    return res.json({
+        success: true,
+        message: 'Disbursement rolled back',
+        data: { id: disbursement.id, amount: reversalAmount }
+    });
 });
 
 /**

@@ -3,16 +3,18 @@ const { Op, Sequelize } = require('sequelize');
 const Notification = require('../models/Notification');
 const User = require('../models/User');
 const { findUserByRuntimeId, getUserUuid, isUuid } = require('../utils/userIdentity');
+const { getIO } = require('../socketInstance');
 
 const emitNotification = (notification) => {
-    if (!notification?.userId || !global.io) {
+    const io = getIO();
+    if (!notification?.userId || !io) {
         return;
     }
 
     const payload = notification.toJSON ? notification.toJSON() : notification;
     try {
-        global.io.to(String(payload.userId)).emit('notification', payload);
-        global.io.to(String(payload.userId)).emit('notifications:update', {
+        io.to(String(payload.userId)).emit('notification', payload);
+        io.to(String(payload.userId)).emit('notifications:update', {
             userId: String(payload.userId),
             notificationId: payload._id || payload.id,
         });

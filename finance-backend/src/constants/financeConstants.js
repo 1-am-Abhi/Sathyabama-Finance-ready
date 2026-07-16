@@ -3,7 +3,26 @@
  * Single source of truth for all project status whitelisting and logic.
  */
 
+const { Op } = require('sequelize');
+
 const VALID_PROJECT_STATUSES = ['ACTIVE', 'APPROVED'];
+
+/**
+ * WHERE fragment selecting disbursements that still count toward budget /
+ * remaining / total-disbursed math — i.e. everything that is NOT reversed.
+ * NULL-safe: legacy rows with a NULL status are treated as active (COMPLETED),
+ * so a naive `status != 'REVERSED'` (which silently drops NULLs in SQL and would
+ * under-count disbursed funds, enabling over-disbursement) is avoided.
+ *
+ * Spread into an existing where clause:
+ *   Disbursement.sum('amount', { where: { fundRequestId, ...NON_REVERSED_DISBURSEMENT_WHERE } })
+ */
+const NON_REVERSED_DISBURSEMENT_WHERE = {
+    [Op.or]: [
+        { status: { [Op.ne]: 'REVERSED' } },
+        { status: { [Op.is]: null } }
+    ]
+};
 
 // Safety Guard: Stop execution if the system is misconfigured
 if (!VALID_PROJECT_STATUSES || VALID_PROJECT_STATUSES.length === 0) {
@@ -27,5 +46,6 @@ const getSqlStatusList = () => {
 module.exports = {
     VALID_PROJECT_STATUSES,
     isValidProjectStatus,
-    getSqlStatusList
+    getSqlStatusList,
+    NON_REVERSED_DISBURSEMENT_WHERE
 };

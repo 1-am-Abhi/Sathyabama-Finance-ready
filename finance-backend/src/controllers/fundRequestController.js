@@ -18,6 +18,7 @@ const {
 const {
     approveFundRequestPipeline,
 } = require('../services/financePipelineService');
+const { NON_REVERSED_DISBURSEMENT_WHERE } = require('../constants/financeConstants');
 const { normalizeFundSource } = require('../services/fundSourceCatalogService');
 const { safeEmit } = require('../socketInstance');
 const { safeNumber, parseFY, safeArray } = require('../utils/safeUtils');
@@ -62,7 +63,7 @@ const computeRemaining = async (project, organizationId) => {
     const projectId = project?._id || project?.id;
     if (!projectId) return 0;
     const disbursed = safeNumber(await Disbursement.sum('amount', {
-        where: { projectId, organizationId }
+        where: { projectId, organizationId, ...NON_REVERSED_DISBURSEMENT_WHERE }
     }));
     return Math.max(0, total - disbursed);
 };
@@ -310,7 +311,7 @@ const disburseFund = asyncHandler(async (req, res) => {
     }
 
     const totalDisbursed = safeNumber(await Disbursement.sum('amount', {
-        where: { fundRequestId: getRecordId(request), organizationId: req.user.organizationId }
+        where: { fundRequestId: getRecordId(request), organizationId: req.user.organizationId, ...NON_REVERSED_DISBURSEMENT_WHERE }
     }));
     const remainingAmount = Math.max(0, safeNumber(request.requestedAmount) - totalDisbursed);
     const installmentAmount = safeNumber(req.body.amount || req.body.disbursementAmount || remainingAmount);
@@ -407,7 +408,7 @@ const getProjectWithInstallments = asyncHandler(async (req, res) => {
         order: [['installmentNumber', 'ASC']],
     }));
 
-    const disbursedAmount = safeNumber(await Disbursement.sum('amount', { where: { projectId: getRecordId(project), organizationId: req.user.organizationId } }));
+    const disbursedAmount = safeNumber(await Disbursement.sum('amount', { where: { projectId: getRecordId(project), organizationId: req.user.organizationId, ...NON_REVERSED_DISBURSEMENT_WHERE } }));
 
     return res.json({
         success: true,

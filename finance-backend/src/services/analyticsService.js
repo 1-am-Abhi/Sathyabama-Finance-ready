@@ -1,6 +1,7 @@
 const logger = require('../utils/logger');
 const { Disbursement, Project, FundRequest, Centre, ResearchCenter } = require('../models');
 const { Op } = require('sequelize');
+const { NON_REVERSED_DISBURSEMENT_WHERE } = require('../constants/financeConstants');
 const { toNumber } = require('./pipelineMetricsService');
 const { isResearchCenterFailure } = require('../utils/researchCenterSafety');
 
@@ -70,7 +71,7 @@ const computeHeuristicInsights = async () => {
     
     // 1. Overall Burn Rate
     const recentSpending = await Disbursement.sum('amount', {
-        where: { disbursedAt: { [Op.gte]: thirtyDaysAgo } }
+        where: { disbursedAt: { [Op.gte]: thirtyDaysAgo }, ...NON_REVERSED_DISBURSEMENT_WHERE }
     }) || 0;
     
     const avgDailySpend = toNumber(recentSpending) / 30;
@@ -116,10 +117,11 @@ const computeHeuristicInsights = async () => {
     // 4. Trend Analysis
     const prevThirtyDaysStart = new Date(thirtyDaysAgo.getTime() - (30 * 24 * 60 * 60 * 1000));
     const previousSpending = await Disbursement.sum('amount', {
-        where: { 
-            disbursedAt: { 
-                [Op.between]: [prevThirtyDaysStart, thirtyDaysAgo] 
-            } 
+        where: {
+            disbursedAt: {
+                [Op.between]: [prevThirtyDaysStart, thirtyDaysAgo]
+            },
+            ...NON_REVERSED_DISBURSEMENT_WHERE
         }
     }) || 0;
 

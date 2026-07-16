@@ -148,8 +148,21 @@ io.use((socket, next) => {
 // ================= SOCKET =================
 io.on('connection', (socket) => {
   const userId = socket.user.id || socket.user._id;
-  socket.join(userId);
-  logger.info(`[Socket] ${userId} connected`);
+  if (userId) socket.join(String(userId));
+
+  // Finance/Admin clients join the shared "finance" room so pipeline broadcasts
+  // (safeEmit('finance', 'finance:update', ...)) actually reach them.
+  const role = String(socket.user.role || '').toUpperCase();
+  if (role === 'FINANCE_OFFICER' || role === 'ADMIN') {
+    socket.join('finance');
+  }
+
+  // Explicit client-initiated room joins (NotificationContext emits 'join',
+  // useFinanceSocket emits 'join-finance').
+  socket.on('join', (id) => { if (id) socket.join(String(id)); });
+  socket.on('join-finance', () => socket.join('finance'));
+
+  logger.info(`[Socket] ${userId} connected (role=${role || 'unknown'})`);
 });
 
 // ================= DB SERVICES =================
@@ -173,6 +186,13 @@ const startDbServices = async () => {
 
     const queueService = require('./src/services/queueService');
     await queueService.setupRepeatableJobs();
+
+    // Start the BullMQ disbursement consumer. In production this drains the
+    // "disbursement" queue that disburseFund enqueues to; outside production the
+    // worker module is a no-op (the queue runs the pipeline synchronously).
+    // Without this, queued disbursements are never processed in production.
+    require('./src/workers/disbursementWorker');
+    logger.info('[System] Disbursement worker initialized');
 
     logger.info('[System] DB services started');
   } catch (err) {

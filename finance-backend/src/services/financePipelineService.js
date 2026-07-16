@@ -32,7 +32,8 @@ const { safeEmit } = require('../socketInstance');
 const {
     VALID_PROJECT_STATUSES,
     isValidProjectStatus,
-    getSqlStatusList
+    getSqlStatusList,
+    NON_REVERSED_DISBURSEMENT_WHERE
 } = require('../constants/financeConstants');
 const { ACCOUNTS } = require('../constants/accounts');
 
@@ -496,7 +497,7 @@ const executeDisbursementPipeline = async (request, payload, actor, options = {}
                         transaction
                     }),
                     Disbursement.sum('amount', {
-                        where: { fundRequestId: existingByReference.fundRequestId },
+                        where: { fundRequestId: existingByReference.fundRequestId, ...NON_REVERSED_DISBURSEMENT_WHERE },
                         transaction
                     })
                 ]);
@@ -566,9 +567,10 @@ const executeDisbursementPipeline = async (request, payload, actor, options = {}
                 throw new Error(`Target project status [${project?.status || 'UNKNOWN'}] is invalid for disbursement`);
             }
 
-            // BUDGET VALIDATION — project-level and request-level SUM within transaction
+            // BUDGET VALIDATION — project-level and request-level SUM within transaction.
+            // Reversed disbursements are excluded so a rollback frees the budget back up.
             const projectDisbursements = await Disbursement.findAll({
-                where: { projectId: lockedRequest.projectId },
+                where: { projectId: lockedRequest.projectId, ...NON_REVERSED_DISBURSEMENT_WHERE },
                 attributes: ['amount'],
                 transaction,
                 lock: transaction.LOCK.UPDATE
@@ -582,7 +584,7 @@ const executeDisbursementPipeline = async (request, payload, actor, options = {}
             if (amount > remaining) amount = toMoney(remaining);
 
             const requestDisbursements = await Disbursement.findAll({
-                where: { fundRequestId: lockedRequest._id || lockedRequest.id },
+                where: { fundRequestId: lockedRequest._id || lockedRequest.id, ...NON_REVERSED_DISBURSEMENT_WHERE },
                 attributes: ['amount'],
                 transaction,
                 lock: transaction.LOCK.UPDATE
@@ -616,7 +618,7 @@ const executeDisbursementPipeline = async (request, payload, actor, options = {}
             if (existingByKey) {
                 logger.info(`[${correlationId}] [Pipeline:DISBURSE] Idempotent replay via key`);
                 const totalDisbursedValue = toMoney(await Disbursement.sum('amount', {
-                    where: { fundRequestId: requestId },
+                    where: { fundRequestId: requestId, ...NON_REVERSED_DISBURSEMENT_WHERE },
                     transaction
                 }));
                 const requestedAmount = toMoney(lockedRequest.requestedAmount);
@@ -711,16 +713,16 @@ const executeDisbursementPipeline = async (request, payload, actor, options = {}
                 throw err;
             }
 
-            // RECOMPUTE AUTHORITATIVE SUM AFTER INSERT
+            // RECOMPUTE AUTHORITATIVE SUM AFTER INSERT (excludes reversed disbursements)
             const authoritativeProjectRows = await Disbursement.findAll({
-                where: { projectId: lockedRequest.projectId },
+                where: { projectId: lockedRequest.projectId, ...NON_REVERSED_DISBURSEMENT_WHERE },
                 attributes: ['amount'],
                 transaction,
                 lock: transaction.LOCK.UPDATE
             });
             const authoritativeProjectSum = toMoney(sumAmounts(authoritativeProjectRows));
             const authoritativeRequestRows = await Disbursement.findAll({
-                where: { fundRequestId: requestId },
+                where: { fundRequestId: requestId, ...NON_REVERSED_DISBURSEMENT_WHERE },
                 attributes: ['amount'],
                 transaction,
                 lock: transaction.LOCK.UPDATE
@@ -1061,6 +1063,7 @@ const getEventMembersMap = async (events) => {
 
 module.exports = {
     EVENT_SOURCE_LABEL,
+    postJournalTransaction,
     getRecordId,
     getEventMarker,
     normalizeSource,

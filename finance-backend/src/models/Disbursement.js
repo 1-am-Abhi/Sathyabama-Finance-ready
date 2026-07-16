@@ -79,6 +79,16 @@ const Disbursement = sequelize.define('Disbursement', {
         type: DataTypes.STRING,
         allowNull: true,
         unique: true
+    },
+    // Lifecycle status. The DB column is added by migrations
+    // (20260507153000 / 20260507160000) but was never declared on the model,
+    // so writes to it (e.g. marking a disbursement REVERSED) were silently
+    // dropped by Sequelize. COMPLETED rows count toward budget/remaining math;
+    // REVERSED rows are excluded (see NON_REVERSED_WHERE below).
+    status: {
+        type: DataTypes.STRING,
+        allowNull: false,
+        defaultValue: 'COMPLETED'
     }
 }, {
     timestamps: true,
