@@ -48,7 +48,9 @@ apiClient.interceptors.response.use(
         
         if (['post', 'put', 'delete'].includes(response.config.method)) {
             const message = response.data?.message || 'Action completed successfully';
-            if (!response.config.url?.includes('/auth/login')) {
+            const url = response.config.url || '';
+            // AI proxy calls are UI-driven analyses, not user "actions" — no success toast.
+            if (!url.includes('/auth/login') && !url.includes('/ai/')) {
                 toast.success(message);
             }
         }

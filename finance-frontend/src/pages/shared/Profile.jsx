@@ -47,7 +47,6 @@ const Profile = () => {
 
     const handleSave = async () => {
         try {
-            console.log("Saving profile data:", editData);
             const response = await apiClient.put('/profile/update', editData);
             
             if (response.data.success) {

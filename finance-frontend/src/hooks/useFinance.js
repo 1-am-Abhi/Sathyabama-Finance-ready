@@ -329,8 +329,18 @@ export const useRollbackDisbursement = () => {
     return useMutation({
         mutationFn: (id) => rollbackDisbursement(id),
         onSuccess: () => {
-            // Re-sync all financial datasets
-            queryClient.invalidateQueries();
+            // Re-sync the financial datasets affected by a reversed disbursement (targeted)
+            queryClient.invalidateQueries({ queryKey: ['disbursementQueue'] });
+            queryClient.invalidateQueries({ queryKey: ['disbursalHistory'] });
+            queryClient.invalidateQueries({ queryKey: ['financialReports'] });
+            queryClient.invalidateQueries({ queryKey: ['financeStats'] });
+            queryClient.invalidateQueries({ queryKey: ['fundFlow'] });
+            queryClient.invalidateQueries({ queryKey: ['pfms'] });
+            queryClient.invalidateQueries({ queryKey: ['fundSourcesOverview'] });
+            queryClient.invalidateQueries({ queryKey: ['projects'] });
+            queryClient.invalidateQueries({ queryKey: ['projectDetails'] });
+            queryClient.invalidateQueries({ queryKey: ['adminDashboard'] });
+            queryClient.invalidateQueries({ queryKey: ['facultyDashboard'] });
         },
     });
 };

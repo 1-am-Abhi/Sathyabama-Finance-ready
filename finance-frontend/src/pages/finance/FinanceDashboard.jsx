@@ -68,10 +68,13 @@ const FinanceDashboard = () => {
     // REAL-TIME STREAMING
     useFinanceSocket(selectedFY);
 
-    // FIX — FORCE REFRESH ON FY CHANGE
+    // FIX — FORCE REFRESH ON FY CHANGE (targeted to this page's datasets)
     useEffect(() => {
         if (selectedFY) {
-            queryClient.invalidateQueries();
+            queryClient.invalidateQueries({ queryKey: ['financeStats', selectedFY] });
+            queryClient.invalidateQueries({ queryKey: ['fundFlow', selectedFY] });
+            queryClient.invalidateQueries({ queryKey: ['internships', selectedFY] });
+            queryClient.invalidateQueries({ queryKey: ['pfms', selectedFY] });
         }
     }, [selectedFY, queryClient]);
 

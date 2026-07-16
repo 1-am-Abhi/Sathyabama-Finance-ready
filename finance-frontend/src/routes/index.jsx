@@ -1,56 +1,65 @@
-import React from 'react';
+import React, { lazy, Suspense } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { Loader2 } from 'lucide-react';
 import ProtectedRoute from '../components/auth/ProtectedRoute';
 import LoginPage from '../components/auth/LoginPage';
 import { ROLES } from '../constants/roles';
 import DashboardLayout from '../components/shared/DashboardLayout';
 
-// Admin Pages
-import AdminDashboard from '../pages/admin/AdminDashboard';
-import CreateProject from '../pages/admin/CreateProject';
-import ApproveProjects from '../pages/admin/ApproveProjects';
-import AssignFaculty from '../pages/admin/AssignFaculty';
-import ApproveFundRequests from '../pages/admin/ApproveFundRequests';
-import ODRequests from '../pages/admin/ODRequests';
-import EventRequests from '../pages/admin/EventRequests';
-import ApproveEquipment from '../pages/admin/ApproveEquipment';
-import AdminReports from '../pages/admin/AdminReports';
-import AdminDocuments from '../pages/admin/AdminDocuments';
-import AdminRevenue from '../pages/admin/AdminRevenue';
-import AdminInternship from '../pages/admin/AdminInternship';
-import AdminFacultyRequests from '../pages/admin/AdminFacultyRequests';
-import Settings from '../components/shared/Settings';
-import Profile from '../pages/shared/Profile';
+// Admin Pages (lazy-loaded → per-route chunks)
+const AdminDashboard = lazy(() => import('../pages/admin/AdminDashboard'));
+const CreateProject = lazy(() => import('../pages/admin/CreateProject'));
+const ApproveProjects = lazy(() => import('../pages/admin/ApproveProjects'));
+const AssignFaculty = lazy(() => import('../pages/admin/AssignFaculty'));
+const ApproveFundRequests = lazy(() => import('../pages/admin/ApproveFundRequests'));
+const ODRequests = lazy(() => import('../pages/admin/ODRequests'));
+const EventRequests = lazy(() => import('../pages/admin/EventRequests'));
+const ApproveEquipment = lazy(() => import('../pages/admin/ApproveEquipment'));
+const AdminReports = lazy(() => import('../pages/admin/AdminReports'));
+const AdminDocuments = lazy(() => import('../pages/admin/AdminDocuments'));
+const AdminRevenue = lazy(() => import('../pages/admin/AdminRevenue'));
+const AdminInternship = lazy(() => import('../pages/admin/AdminInternship'));
+const AdminFacultyRequests = lazy(() => import('../pages/admin/AdminFacultyRequests'));
+const Settings = lazy(() => import('../components/shared/Settings'));
+const Profile = lazy(() => import('../pages/shared/Profile'));
 
 // Faculty Pages
-import FacultyDashboard from '../pages/faculty/FacultyDashboard';
-import FacultyProjects from '../pages/faculty/FacultyProjects';
-import FacultyRequestFunds from '../pages/faculty/FacultyRequestFunds';
-import FacultyODRequest from '../pages/faculty/FacultyODRequest';
-import FacultyEventRequests from '../pages/faculty/FacultyEventRequests';
-import FacultyDocuments from '../pages/faculty/FacultyDocuments';
-import ConsultancyRevenueSummary from '../pages/faculty/ConsultancyRevenue/RevenueSummary';
-import MyRevenueRecords from '../pages/faculty/ConsultancyRevenue/MyRevenueRecords';
-import AddRevenueRecord from '../pages/faculty/ConsultancyRevenue/AddRevenueRecord';
-import EquipmentMyRequests from '../pages/faculty/EquipmentFinancialRecords/MyRequests';
-import AcademicSupportDashboard from '../pages/shared/AcademicSupportDashboard';
-import AIProposalGenerator from '../pages/faculty/AIProposalGenerator';
-import ProfileSetup from '../pages/faculty/ProfileSetup';
-import FacultySubmissionForm from '../pages/faculty/FacultySubmissionForm';
+const FacultyDashboard = lazy(() => import('../pages/faculty/FacultyDashboard'));
+const FacultyProjects = lazy(() => import('../pages/faculty/FacultyProjects'));
+const FacultyRequestFunds = lazy(() => import('../pages/faculty/FacultyRequestFunds'));
+const FacultyODRequest = lazy(() => import('../pages/faculty/FacultyODRequest'));
+const FacultyEventRequests = lazy(() => import('../pages/faculty/FacultyEventRequests'));
+const FacultyDocuments = lazy(() => import('../pages/faculty/FacultyDocuments'));
+const ConsultancyRevenueSummary = lazy(() => import('../pages/faculty/ConsultancyRevenue/RevenueSummary'));
+const MyRevenueRecords = lazy(() => import('../pages/faculty/ConsultancyRevenue/MyRevenueRecords'));
+const AddRevenueRecord = lazy(() => import('../pages/faculty/ConsultancyRevenue/AddRevenueRecord'));
+const EquipmentMyRequests = lazy(() => import('../pages/faculty/EquipmentFinancialRecords/MyRequests'));
+const AcademicSupportDashboard = lazy(() => import('../pages/shared/AcademicSupportDashboard'));
+const AIProposalGenerator = lazy(() => import('../pages/faculty/AIProposalGenerator'));
+const ProfileSetup = lazy(() => import('../pages/faculty/ProfileSetup'));
+const FacultySubmissionForm = lazy(() => import('../pages/faculty/FacultySubmissionForm'));
 
 // Finance Pages
-import FinanceDashboard from '../pages/finance/FinanceDashboard';
-import FinanceManagerDashboard from '../pages/finance/FinanceManagerDashboard';
-import FundReleasesPage from '../pages/finance/FundReleasesPage';
-import ManagePFMS from '../pages/finance/ManagePFMS';
-import VerifyInternshipFees from '../pages/finance/VerifyInternshipFees';
-import FunctionFundRequestsPage from '../pages/finance/FunctionFundRequestsPage';
-import DisbursementQueue from '../pages/finance/DisbursementQueue';
-import EquipmentDisbursements from '../pages/finance/EquipmentDisbursements';
-import RevenueVerification from '../pages/finance/RevenueVerification';
-import FinancialReports from '../pages/finance/FinancialReports';
-import DisbursalHistory from '../pages/finance/DisbursalHistory';
-import FinanceFacultyRequests from '../pages/finance/FinanceFacultyRequests';
+const FinanceDashboard = lazy(() => import('../pages/finance/FinanceDashboard'));
+const FinanceManagerDashboard = lazy(() => import('../pages/finance/FinanceManagerDashboard'));
+const FundReleasesPage = lazy(() => import('../pages/finance/FundReleasesPage'));
+const ManagePFMS = lazy(() => import('../pages/finance/ManagePFMS'));
+const VerifyInternshipFees = lazy(() => import('../pages/finance/VerifyInternshipFees'));
+const FunctionFundRequestsPage = lazy(() => import('../pages/finance/FunctionFundRequestsPage'));
+const DisbursementQueue = lazy(() => import('../pages/finance/DisbursementQueue'));
+const EquipmentDisbursements = lazy(() => import('../pages/finance/EquipmentDisbursements'));
+const RevenueVerification = lazy(() => import('../pages/finance/RevenueVerification'));
+const FinancialReports = lazy(() => import('../pages/finance/FinancialReports'));
+const DisbursalHistory = lazy(() => import('../pages/finance/DisbursalHistory'));
+const FinanceFacultyRequests = lazy(() => import('../pages/finance/FinanceFacultyRequests'));
+
+// Suspense fallback shown while a route chunk loads
+const RouteFallback = () => (
+    <div className="flex flex-col items-center justify-center min-h-screen text-gray-500 dark:text-gray-400">
+        <Loader2 className="w-10 h-10 animate-spin mb-3 text-primary" />
+        <p className="text-sm font-medium">Loading...</p>
+    </div>
+);
 
 const AppRoutes = () => {
     // Apply theme on initial load
@@ -81,6 +90,7 @@ const AppRoutes = () => {
 
     return (
         <Router>
+            <Suspense fallback={<RouteFallback />}>
             <Routes>
                     {/* Public Routes */}
                     <Route path="/login" element={<LoginPage />} />
@@ -182,6 +192,7 @@ const AppRoutes = () => {
                     {/* 404 Route */}
                     <Route path="*" element={<Navigate to="/login" replace />} />
             </Routes>
+            </Suspense>
         </Router>
     );
 };

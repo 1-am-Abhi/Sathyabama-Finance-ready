@@ -295,10 +295,6 @@ const AdminDashboard = () => {
         [stats]
     );
 
-    React.useEffect(() => {
-        console.log("CENTRES:", centresList);
-    }, [centresList]);
-
     const totalStats = React.useMemo(() => {
         if (!dashboardData) return { totalProjects: 0, activeProjects: 0, pendingApprovals: 0, totalBudget: 0, totalAllocated: 0, used: 0, remaining: 0, totalFaculty: 0, totalDisbursed: 0 };
         return {

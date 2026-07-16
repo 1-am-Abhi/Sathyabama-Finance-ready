@@ -75,7 +75,7 @@ const ManageFundFlow = () => {
     ];
 
     const handleMarkComplete = (stageId) => {
-        console.log('Marking stage complete:', stageId);
+        // Stage completion handled server-side; UI hook retained for future wiring.
     };
 
     return (

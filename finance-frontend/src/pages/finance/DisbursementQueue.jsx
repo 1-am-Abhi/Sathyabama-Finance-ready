@@ -5,8 +5,9 @@ import { useDisbursementQueue, useExecuteDisbursement } from '../../hooks/useFin
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
 import { Badge } from '../../components/ui/badge';
-import { IndianRupee, Search, Filter, ArrowRight, Building2, Hash, Users, Clock, Calendar, TrendingUp } from 'lucide-react';
+import { IndianRupee, Search, Filter, ArrowRight, Building2, Hash, Users, Clock, Calendar, TrendingUp, CheckCircle, Undo2 } from 'lucide-react';
 import useToast from '../../hooks/useToast';
+import apiClient from '../../api/client';
 
 const safeNumber = (value) => {
     const numeric = Number(value || 0);
@@ -36,8 +37,58 @@ const DisbursementQueue = () => {
     });
     const [showFilters, setShowFilters] = useState(false);
 
-    const { data: requests = [], isLoading } = useDisbursementQueue();
+    const { data: requests = [], isLoading, refetch } = useDisbursementQueue();
     const executeDisbursement = useExecuteDisbursement();
+
+    // Utilization verification / return-for-correction (installment proof-gating)
+    const [returnModal, setReturnModal] = useState({ open: false, requestId: null });
+    const [returnRemarks, setReturnRemarks] = useState('');
+    const [actionSubmitting, setActionSubmitting] = useState(false);
+
+    const handleVerifyUtilization = async (req) => {
+        const id = req.id || req._id;
+        if (actionSubmitting) return;
+        setActionSubmitting(true);
+        try {
+            await apiClient.post(`/fund-requests/${id}/verify-utilization`);
+            showToast('Utilization verified successfully', 'success');
+            if (refetch) refetch();
+        } catch (error) {
+            const data = error?.response?.data;
+            if (error?.response?.status === 400 && data?.code === 'PROOFS_INCOMPLETE') {
+                const missing = data.missing || data.missingItems || data.data?.missing;
+                const detail = Array.isArray(missing) ? missing.join(', ') : missing;
+                showToast(
+                    `${data.message || 'Proofs are incomplete.'}${detail ? ` Missing: ${detail}` : ''}`,
+                    'error'
+                );
+            } else {
+                showToast(data?.message || error.message || 'Failed to verify utilization', 'error');
+            }
+        } finally {
+            setActionSubmitting(false);
+        }
+    };
+
+    const handleReturnSubmit = async () => {
+        if (actionSubmitting) return;
+        if (!returnRemarks.trim()) {
+            showToast('Please enter remarks for the correction request', 'error');
+            return;
+        }
+        setActionSubmitting(true);
+        try {
+            await apiClient.post(`/fund-requests/${returnModal.requestId}/return-for-correction`, { remarks: returnRemarks });
+            showToast('Request returned for correction', 'success');
+            setReturnModal({ open: false, requestId: null });
+            setReturnRemarks('');
+            if (refetch) refetch();
+        } catch (error) {
+            showToast(error?.response?.data?.message || error.message || 'Failed to return request', 'error');
+        } finally {
+            setActionSubmitting(false);
+        }
+    };
 
     React.useEffect(() => {
         setLayout("Disbursement Queue", "Execute payments for approved fund requests");
@@ -305,13 +356,35 @@ const DisbursementQueue = () => {
                                                 <p className="text-xs text-slate-400 mt-0.5">Approved by Admin</p>
                                             </td>
                                             <td className="px-4 py-4">
-                                                <Button
-                                                    size="sm"
-                                                    onClick={() => handleExecuteClick(req)}
-                                                    className="bg-gradient-to-r from-pink-500 to-red-500 hover:scale-105 transition text-white rounded-full px-4 h-9 flex items-center gap-2"
-                                                >
-                                                    Execute <ArrowRight className="w-4 h-4" />
-                                                </Button>
+                                                <div className="flex flex-col gap-2">
+                                                    <Button
+                                                        size="sm"
+                                                        onClick={() => handleExecuteClick(req)}
+                                                        className="bg-gradient-to-r from-pink-500 to-red-500 hover:scale-105 transition text-white rounded-full px-4 h-9 flex items-center gap-2"
+                                                    >
+                                                        Execute <ArrowRight className="w-4 h-4" />
+                                                    </Button>
+                                                    <div className="flex items-center gap-2">
+                                                        <Button
+                                                            size="sm"
+                                                            variant="outline"
+                                                            disabled={actionSubmitting}
+                                                            onClick={() => handleVerifyUtilization(req)}
+                                                            className="text-emerald-600 border-emerald-200 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded-full px-3 h-8 text-xs flex items-center gap-1"
+                                                        >
+                                                            <CheckCircle className="w-3.5 h-3.5" /> Verify Utilization
+                                                        </Button>
+                                                        <Button
+                                                            size="sm"
+                                                            variant="outline"
+                                                            disabled={actionSubmitting}
+                                                            onClick={() => { setReturnRemarks(''); setReturnModal({ open: true, requestId: req.id || req._id }); }}
+                                                            className="text-amber-600 border-amber-200 hover:bg-amber-50 dark:hover:bg-amber-900/20 rounded-full px-3 h-8 text-xs flex items-center gap-1"
+                                                        >
+                                                            <Undo2 className="w-3.5 h-3.5" /> Return
+                                                        </Button>
+                                                    </div>
+                                                </div>
                                             </td>
                                         </tr>
                                     ))
@@ -459,6 +532,49 @@ const DisbursementQueue = () => {
                                 </Button>
                             </div>
                         </form>
+                    </div>
+                </div>
+            )}
+
+            {/* Return for Correction Modal */}
+            {returnModal.open && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+                    <div className="bg-white dark:bg-slate-900 w-full max-w-md rounded-xl shadow-2xl border border-slate-200 dark:border-slate-800 p-6 space-y-4">
+                        <div>
+                            <h3 className="text-lg font-bold text-slate-900 dark:text-white">Return for Correction</h3>
+                            <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+                                Provide remarks explaining what the faculty must correct in their utilization proofs.
+                            </p>
+                        </div>
+                        <div className="space-y-2">
+                            <label className="text-xs font-black uppercase text-slate-500">Remarks <span className="text-red-500">*</span></label>
+                            <textarea
+                                className="w-full p-3 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl focus:ring-2 focus:ring-maroon-500 outline-none transition-all resize-none"
+                                rows="3"
+                                placeholder="e.g. Utilization certificate is missing the sanction reference number."
+                                value={returnRemarks}
+                                onChange={(e) => setReturnRemarks(e.target.value)}
+                            />
+                        </div>
+                        <div className="flex gap-3">
+                            <Button
+                                type="button"
+                                variant="outline"
+                                className="flex-1 rounded-xl"
+                                onClick={() => setReturnModal({ open: false, requestId: null })}
+                                disabled={actionSubmitting}
+                            >
+                                Cancel
+                            </Button>
+                            <Button
+                                type="button"
+                                onClick={handleReturnSubmit}
+                                disabled={actionSubmitting}
+                                className="flex-1 bg-amber-600 hover:bg-amber-700 text-white rounded-xl font-bold disabled:opacity-50"
+                            >
+                                {actionSubmitting ? 'Submitting...' : 'Return Request'}
+                            </Button>
+                        </div>
                     </div>
                 </div>
             )}

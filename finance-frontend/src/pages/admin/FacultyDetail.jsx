@@ -12,29 +12,16 @@ const FacultyDetail = ({ isOpen, onClose, faculty, centreName, isDark }) => {
 
     if (!faculty) return null;
 
-    // Mock faculty projects data
-    const getFacultyProjects = (facultyName) => {
-        const projectsByFaculty = {
-            'Dr. Rajesh Kumar': [
-                { id: 1, name: 'Sustainable Shrimp Farming', pi: 'Dr. Rajesh Kumar', status: 'Active', budget: 500000, released: 350000, utilized: 250000, role: 'PI' },
-                { id: 2, name: 'Coastal Aquaculture Development', pi: 'Dr. Rajesh Kumar', status: 'Active', budget: 350000, released: 250000, utilized: 180000, role: 'PI' }
-            ],
-            'Dr. Priya Sharma': [
-                { id: 3, name: 'Fish Disease Management', pi: 'Dr. Priya Sharma', status: 'Active', budget: 400000, released: 300000, utilized: 200000, role: 'PI' }
-            ],
-            'default': [
-                { id: 1, name: 'Research Project', pi: facultyName, status: 'Active', budget: 500000, released: 350000, utilized: 250000, role: 'PI' }
-            ]
-        };
+    // Use the real per-faculty project breakdown when the API provides it;
+    // otherwise render an empty state instead of fabricated data.
+    const projects = Array.isArray(faculty.projectList)
+        ? faculty.projectList
+        : (Array.isArray(faculty.projects) ? faculty.projects : []);
 
-        return projectsByFaculty[facultyName] || projectsByFaculty['default'];
-    };
-
-    const projects = getFacultyProjects(faculty.name);
-
-    const totalBudget = projects.reduce((sum, p) => sum + p.budget, 0);
-    const totalReleased = projects.reduce((sum, p) => sum + p.released, 0);
-    const totalUtilized = projects.reduce((sum, p) => sum + p.utilized, 0);
+    const totalBudget = projects.reduce((sum, p) => sum + Number(p.budget || 0), 0);
+    const totalReleased = projects.reduce((sum, p) => sum + Number(p.released || 0), 0);
+    const totalUtilized = projects.reduce((sum, p) => sum + Number(p.utilized || 0), 0);
+    const pct = (num, den) => (den > 0 ? ((num / den) * 100).toFixed(1) : '0');
 
     const formatCurrency = (amount) => {
         if (amount >= 10000000) return `₹${(amount / 10000000).toFixed(2)}Cr`;
@@ -99,7 +86,7 @@ const FacultyDetail = ({ isOpen, onClose, faculty, centreName, isDark }) => {
                                 <div className="text-sm text-gray-500 dark:text-gray-400">Funds Released</div>
                                 <div className="text-2xl font-bold dark:text-white">{formatCurrency(totalReleased)}</div>
                                 <div className="text-xs text-blue-600 dark:text-blue-400 mt-1">
-                                    {((totalReleased / totalBudget) * 100).toFixed(1)}% of Budget
+                                    {pct(totalReleased, totalBudget)}% of Budget
                                 </div>
                             </CardContent>
                         </Card>
@@ -108,7 +95,7 @@ const FacultyDetail = ({ isOpen, onClose, faculty, centreName, isDark }) => {
                             <CardContent className="p-4">
                                 <div className="text-sm text-gray-500 dark:text-gray-400">Utilization Rate</div>
                                 <div className="text-2xl font-bold dark:text-white">
-                                    {((totalUtilized / totalReleased) * 100).toFixed(1)}%
+                                    {pct(totalUtilized, totalReleased)}%
                                 </div>
                                 <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                                     {formatCurrency(totalUtilized)} / {formatCurrency(totalReleased)}
@@ -135,6 +122,13 @@ const FacultyDetail = ({ isOpen, onClose, faculty, centreName, isDark }) => {
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
+                                    {projects.length === 0 && (
+                                        <TableRow>
+                                            <TableCell colSpan={6} className="text-center py-10 text-gray-400 italic text-sm">
+                                                No project data available for this faculty member yet.
+                                            </TableCell>
+                                        </TableRow>
+                                    )}
                                     {projects.map((project) => (
                                         <TableRow
                                             key={project.id}

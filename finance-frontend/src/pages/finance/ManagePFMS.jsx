@@ -72,12 +72,12 @@ const ManagePFMS = () => {
             pfmsProjectId: entry.pfmsProjectId,
             principalInvestigator: entry.principalInvestigator,
             govtOrganization: entry.govtOrganization,
-            sanctionOrderNo: 'MOCK-ORDER-123',
-            sanctionOrderDate: '2024-01-01',
-            installmentNumber: '1',
+            sanctionOrderNo: entry.sanctionOrderNo || '',
+            sanctionOrderDate: entry.sanctionOrderDate || '',
+            installmentNumber: entry.installmentNumber != null ? entry.installmentNumber.toString() : '',
             amountReleased: entry.amountReleased.toString(),
             creditDate: entry.creditDate,
-            utrNumber: 'MOCK-UTR-789',
+            utrNumber: entry.utrNumber || '',
             ucStatus: entry.ucStatus
         });
         setShowForm(true);

@@ -9,43 +9,17 @@ import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Toolti
 const ProjectDetail = ({ isOpen, onClose, project, isDark }) => {
     if (!project) return null;
 
-    // Mock detailed project data
-    const projectDetails = {
-        ...project,
-        description: `Comprehensive research project focused on ${project.name}. This initiative aims to advance knowledge and practical applications in the field.`,
-        startDate: '2024-01-15',
-        endDate: '2025-12-31',
-        duration: '24 months',
-        team: [
-            { name: project.pi, role: 'Principal Investigator', allocation: 'Full-time' },
-            { name: 'Dr. Co-Investigator', role: 'Co-PI', allocation: 'Internship' },
-            { name: 'Research Scholar 1', role: 'PhD Student', allocation: 'Full-time' },
-            { name: 'Research Scholar 2', role: 'MSc Student', allocation: 'Full-time' }
-        ],
-        milestones: [
-            { id: 1, title: 'Project Initiation', status: 'Completed', date: '2024-01-15', completion: 100 },
-            { id: 2, title: 'Literature Review', status: 'Completed', date: '2024-03-30', completion: 100 },
-            { id: 3, title: 'Methodology Development', status: 'Completed', date: '2024-06-15', completion: 100 },
-            { id: 4, title: 'Data Collection', status: 'In Progress', date: '2024-12-31', completion: 65 },
-            { id: 5, title: 'Analysis & Results', status: 'Pending', date: '2025-06-30', completion: 0 },
-            { id: 6, title: 'Final Report', status: 'Pending', date: '2025-12-31', completion: 0 }
-        ],
-        expenditure: [
-            { category: 'Equipment', allocated: project.budget * 0.4, spent: project.utilized * 0.35 },
-            { category: 'Consumables', allocated: project.budget * 0.25, spent: project.utilized * 0.30 },
-            { category: 'Travel', allocated: project.budget * 0.15, spent: project.utilized * 0.15 },
-            { category: 'Manpower', allocated: project.budget * 0.15, spent: project.utilized * 0.15 },
-            { category: 'Others', allocated: project.budget * 0.05, spent: project.utilized * 0.05 }
-        ],
-        monthlySpend: [
-            { month: 'Jan', spend: 15000 },
-            { month: 'Feb', spend: 18000 },
-            { month: 'Mar', spend: 22000 },
-            { month: 'Apr', spend: 25000 },
-            { month: 'May', spend: 28000 },
-            { month: 'Jun', spend: 30000 }
-        ]
-    };
+    // Use only the real fields provided for this project; anything the API does not
+    // supply (team, milestones, expenditure breakdown, monthly spend) renders as an
+    // empty state rather than fabricated data.
+    const description = project.description || '';
+    const startDate = project.startDate || null;
+    const endDate = project.endDate || null;
+    const duration = project.duration || 'N/A';
+    const team = Array.isArray(project.team) ? project.team : [];
+    const milestones = Array.isArray(project.milestones) ? project.milestones : [];
+    const expenditure = Array.isArray(project.expenditure) ? project.expenditure : [];
+    const monthlySpend = Array.isArray(project.monthlySpend) ? project.monthlySpend : [];
 
     const formatCurrency = (amount) => {
         const numericAmount = Number(amount);
@@ -63,10 +37,10 @@ const ProjectDetail = ({ isOpen, onClose, project, isDark }) => {
         { name: 'Remaining', value: project.released - project.utilized, color: '#22c55e' }
     ];
 
-    const expenditureData = projectDetails.expenditure.map(e => ({
+    const expenditureData = expenditure.map(e => ({
         category: e.category,
-        allocated: e.allocated / 100000,
-        spent: e.spent / 100000
+        allocated: Number(e.allocated || 0) / 100000,
+        spent: Number(e.spent || 0) / 100000
     }));
 
     const chartConfig = {
@@ -122,7 +96,7 @@ const ProjectDetail = ({ isOpen, onClose, project, isDark }) => {
                                     {project.status}
                                 </Badge>
                             </div>
-                            <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">{projectDetails.duration}</div>
+                            <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">{duration}</div>
                         </CardContent>
                     </Card>
                 </div>
@@ -146,7 +120,7 @@ const ProjectDetail = ({ isOpen, onClose, project, isDark }) => {
                                 <div className="space-y-4">
                                     <div>
                                         <h4 className="font-semibold dark:text-white mb-2">Description</h4>
-                                        <p className="text-gray-600 dark:text-gray-300">{projectDetails.description}</p>
+                                        <p className="text-gray-600 dark:text-gray-300">{description || 'No description available.'}</p>
                                     </div>
                                     <div className="grid grid-cols-2 gap-4">
                                         <div>
@@ -155,7 +129,7 @@ const ProjectDetail = ({ isOpen, onClose, project, isDark }) => {
                                         </div>
                                         <div>
                                             <h4 className="font-semibold dark:text-white mb-1">Duration</h4>
-                                            <p className="text-gray-600 dark:text-gray-300">{projectDetails.startDate} to {projectDetails.endDate}</p>
+                                            <p className="text-gray-600 dark:text-gray-300">{startDate && endDate ? `${startDate} to ${endDate}` : 'Not available'}</p>
                                         </div>
                                     </div>
                                 </div>
@@ -179,7 +153,13 @@ const ProjectDetail = ({ isOpen, onClose, project, isDark }) => {
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
-                                        {projectDetails.team.map((member, index) => (
+                                        {team.length === 0 ? (
+                                            <TableRow className="dark:border-slate-700">
+                                                <TableCell colSpan={3} className="text-center py-10 text-gray-400 italic text-sm">
+                                                    No team data available for this project.
+                                                </TableCell>
+                                            </TableRow>
+                                        ) : team.map((member, index) => (
                                             <TableRow key={index} className="dark:border-slate-700">
                                                 <TableCell className="font-medium dark:text-white">{member.name}</TableCell>
                                                 <TableCell className="dark:text-gray-300">{member.role}</TableCell>
@@ -200,7 +180,12 @@ const ProjectDetail = ({ isOpen, onClose, project, isDark }) => {
                             </CardHeader>
                             <CardContent>
                                 <div className="space-y-4">
-                                    {projectDetails.milestones.map((milestone) => (
+                                    {milestones.length === 0 && (
+                                        <div className="text-center py-10 text-gray-400 italic text-sm">
+                                            No milestone data available for this project.
+                                        </div>
+                                    )}
+                                    {milestones.map((milestone) => (
                                         <div key={milestone.id} className="border dark:border-slate-700 rounded-lg p-4">
                                             <div className="flex justify-between items-start mb-2">
                                                 <div>
@@ -281,6 +266,11 @@ const ProjectDetail = ({ isOpen, onClose, project, isDark }) => {
                                 </CardHeader>
                                 <CardContent>
                                     <div className="h-[300px]">
+                                        {expenditureData.length === 0 ? (
+                                            <div className="flex items-center justify-center h-full text-gray-400 italic text-sm">
+                                                No expenditure breakdown available for this project.
+                                            </div>
+                                        ) : (
                                         <ResponsiveContainer width="100%" height={300}>
                                             <BarChart data={expenditureData}>
                                                 <CartesianGrid strokeDasharray="3 3" stroke={chartConfig.grid} />
@@ -299,6 +289,7 @@ const ProjectDetail = ({ isOpen, onClose, project, isDark }) => {
                                                 <Bar dataKey="spent" fill="#f59e0b" name="Spent" />
                                             </BarChart>
                                         </ResponsiveContainer>
+                                        )}
                                     </div>
                                 </CardContent>
                             </Card>
@@ -310,8 +301,13 @@ const ProjectDetail = ({ isOpen, onClose, project, isDark }) => {
                                 </CardHeader>
                                 <CardContent>
                                     <div className="h-[300px]">
+                                        {monthlySpend.length === 0 ? (
+                                            <div className="flex items-center justify-center h-full text-gray-400 italic text-sm">
+                                                No monthly spending data available for this project.
+                                            </div>
+                                        ) : (
                                         <ResponsiveContainer width="100%" height={300}>
-                                            <LineChart data={projectDetails.monthlySpend}>
+                                            <LineChart data={monthlySpend}>
                                                 <CartesianGrid strokeDasharray="3 3" stroke={chartConfig.grid} />
                                                 <XAxis dataKey="month" stroke={chartConfig.text} />
                                                 <YAxis stroke={chartConfig.text} />
@@ -327,6 +323,7 @@ const ProjectDetail = ({ isOpen, onClose, project, isDark }) => {
                                                 <Line type="monotone" dataKey="spend" stroke="#6366f1" strokeWidth={2} name="Monthly Spend" />
                                             </LineChart>
                                         </ResponsiveContainer>
+                                        )}
                                     </div>
                                 </CardContent>
                             </Card>

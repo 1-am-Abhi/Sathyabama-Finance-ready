@@ -29,6 +29,46 @@ const FacultyRequestFunds = () => {
   const [timelineData, setTimelineData] = useState({});
   const [expandedRequestId, setExpandedRequestId] = useState(null);
 
+  // Utilization proof upload (installment proof-gating)
+  const PROOF_TYPES = ['BILL', 'INVOICE', 'UTILIZATION_CERTIFICATE', 'SUPPORTING'];
+  const [proofModal, setProofModal] = useState({ open: false, requestId: null });
+  const [proofFile, setProofFile] = useState(null);
+  const [proofType, setProofType] = useState('UTILIZATION_CERTIFICATE');
+  const [proofSubmitting, setProofSubmitting] = useState(false);
+  const [proofError, setProofError] = useState('');
+
+  const openProofModal = (requestId) => {
+    setProofFile(null);
+    setProofType('UTILIZATION_CERTIFICATE');
+    setProofError('');
+    setProofModal({ open: true, requestId });
+  };
+
+  const handleProofSubmit = async () => {
+    if (proofSubmitting) return;
+    if (!proofFile) {
+      setProofError('Please select a proof file to upload.');
+      return;
+    }
+    setProofSubmitting(true);
+    setProofError('');
+    try {
+      const fd = new FormData();
+      fd.append('proof', proofFile);
+      fd.append('proofType', proofType);
+      await apiClient.post(`/fund-requests/${proofModal.requestId}/proofs`, fd);
+      if (refetchFundRequests) await refetchFundRequests();
+      setProofModal({ open: false, requestId: null });
+      setProofFile(null);
+    } catch (err) {
+      setProofError(
+        err?.response?.data?.message || err?.message || 'Failed to upload proof.'
+      );
+    } finally {
+      setProofSubmitting(false);
+    }
+  };
+
   const projectList = useMemo(() => projects || [], [projects]);
   const requestHistory = fundRequests || [];
 
@@ -90,11 +130,6 @@ const FacultyRequestFunds = () => {
         return setError("Amount exceeds remaining budget");
       }
 
-      console.log("[DEBUG] Creating request:", {
-        projectId: selectedProject._id,
-        amount: numericAmount
-      });
-
       const payload = new FormData();
       payload.append("projectRef", selectedProject._id);
       payload.append("projectTitle", selectedProject.title);
@@ -106,8 +141,6 @@ const FacultyRequestFunds = () => {
       }
 
       await createRequest(payload);
-
-      console.log("[SUCCESS] Request created");
 
       // force UI sync
       if (refetchProjects) await refetchProjects();
@@ -266,9 +299,14 @@ const FacultyRequestFunds = () => {
                           }`}>
                             {r.status}
                           </span>
-                          <Button variant="ghost" size="sm" className="h-7 text-xs font-semibold text-blue-400 hover:text-blue-300 hover:bg-slate-800 transition-colors" onClick={() => toggleTimeline(r._id || r.id)}>
-                            {expandedRequestId === (r._id || r.id) ? "Hide Timeline" : "View Timeline"}
-                          </Button>
+                          <div className="flex items-center gap-2">
+                            <Button variant="ghost" size="sm" className="h-7 text-xs font-semibold text-emerald-500 hover:text-emerald-400 hover:bg-slate-800 transition-colors" onClick={() => openProofModal(r._id || r.id)}>
+                              Submit Proofs
+                            </Button>
+                            <Button variant="ghost" size="sm" className="h-7 text-xs font-semibold text-blue-400 hover:text-blue-300 hover:bg-slate-800 transition-colors" onClick={() => toggleTimeline(r._id || r.id)}>
+                              {expandedRequestId === (r._id || r.id) ? "Hide Timeline" : "View Timeline"}
+                            </Button>
+                          </div>
                         </div>
                       </div>
                       {expandedRequestId === (r._id || r.id) && timelineData[r._id || r.id] && (
@@ -344,6 +382,54 @@ const FacultyRequestFunds = () => {
               <Button onClick={() => setShowModal(false)} variant="outline" className="flex-1 bg-white dark:bg-slate-800 border-gray-300 dark:border-slate-700 text-gray-700 dark:text-white hover:bg-gray-50 dark:hover:bg-slate-700 h-11 rounded-xl">Cancel</Button>
               <Button onClick={handleSubmit} disabled={submitting} className="flex-1 bg-blue-600 hover:bg-blue-500 text-white h-11 rounded-xl shadow-md font-semibold">
                 {submitting ? "Submitting..." : "Submit Request"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Utilization Proof Upload Modal */}
+      {proofModal.open && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-md flex items-center justify-center z-[60] p-4">
+          <div className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700 p-7 rounded-2xl w-full max-w-md space-y-5 shadow-2xl">
+            <h3 className="font-bold text-xl text-gray-900 dark:text-white border-b border-gray-200 dark:border-slate-700 pb-3">Submit Utilization Proofs</h3>
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              Upload utilization proof for this installment. Verified proofs are required before the next installment can be requested.
+            </p>
+
+            <div>
+              <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">Proof Type</label>
+              <select
+                value={proofType}
+                onChange={(e) => setProofType(e.target.value)}
+                className="w-full bg-gray-50 dark:bg-slate-950 border border-gray-200 dark:border-slate-800 text-gray-900 dark:text-white p-3 rounded-xl mt-2 focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+              >
+                {PROOF_TYPES.map((t) => (
+                  <option key={t} value={t}>{t.replace(/_/g, ' ')}</option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">Proof File</label>
+              <div className="mt-2 flex items-center justify-center w-full">
+                <label className="flex flex-col items-center justify-center w-full h-28 border-2 border-gray-300 dark:border-slate-700 border-dashed rounded-xl cursor-pointer bg-gray-50 dark:bg-slate-950 hover:bg-gray-100 dark:hover:bg-slate-900 hover:border-blue-500/50 transition-all">
+                  <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                      {proofFile ? <span className="text-blue-400 font-medium bg-blue-900/30 px-3 py-1.5 rounded-lg">{proofFile.name}</span> : <span>Click to select proof document</span>}
+                    </p>
+                  </div>
+                  <input type="file" className="hidden" onChange={(e) => setProofFile(e.target.files[0])} />
+                </label>
+              </div>
+            </div>
+
+            {proofError && <p className="text-red-600 dark:text-red-400 text-sm font-medium bg-red-50 dark:bg-red-950/40 px-4 py-3 rounded-xl border border-red-200 dark:border-red-900/50">{proofError}</p>}
+
+            <div className="flex gap-3 mt-6 pt-2">
+              <Button onClick={() => setProofModal({ open: false, requestId: null })} variant="outline" className="flex-1 bg-white dark:bg-slate-800 border-gray-300 dark:border-slate-700 text-gray-700 dark:text-white hover:bg-gray-50 dark:hover:bg-slate-700 h-11 rounded-xl">Cancel</Button>
+              <Button onClick={handleProofSubmit} disabled={proofSubmitting} className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white h-11 rounded-xl shadow-md font-semibold">
+                {proofSubmitting ? "Uploading..." : "Upload Proof"}
               </Button>
             </div>
           </div>

@@ -32,7 +32,6 @@ const SystemStatus = () => {
 
         socket.on('connect', () => {
             setSocketConnected(true);
-            console.log('[Socket] Connected successfully via frontend fallback.');
         });
         socket.on('connect_error', () => setSocketConnected(false));
         socket.on('disconnect', () => setSocketConnected(false));

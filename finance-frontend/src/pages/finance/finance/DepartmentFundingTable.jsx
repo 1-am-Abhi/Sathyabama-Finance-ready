@@ -24,7 +24,6 @@ const DepartmentFundingTable = ({ data, isLoading }) => {
 
     const handleUpdateSuccess = () => {
         // Success feedback can be added here
-        console.log('Funding updated successfully');
     };
 
     if (isLoading) {

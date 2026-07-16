@@ -58,10 +58,6 @@ const AdminReports = () => {
     const handleFacultyAssignment = () => {
         if (!manageFacultyModal.selectedFaculty) return;
 
-        // Update happens in local state for demo
-        // In a real app, this would trigger an API call
-        console.log('Assigning faculty:', manageFacultyModal.selectedFaculty, 'to project:', manageFacultyModal.project?.projectTitle);
-
         // Close modal and reset
         setManageFacultyModal({ isOpen: false, project: null, selectedFaculty: '' });
     };
@@ -177,14 +173,6 @@ const AdminReports = () => {
     }));
 
 
-    const facultyMockData = [
-        { id: 1, name: 'Dr. Priya Sharma', centre: 'Centre for Nano Science', projects: 2, grants: 8500000 },
-        { id: 2, name: 'Dr. Vikram Singh', centre: 'Centre for Energy Research', projects: 1, grants: 6000000 },
-        { id: 3, name: 'Dr. Bharathi', centre: 'Centre for Climate Studies', projects: 3, grants: 7500000 },
-        { id: 4, name: 'Dr. Anita Desai', centre: 'Centre for Molecular Sciences', projects: 1, grants: 4000000 },
-        { id: 5, name: 'Dr. R. Kumar', centre: 'Centre for Waste Management', projects: 2, grants: 5500000 },
-    ];
-
     // --- Chart Data ---
 
     // 1. Trend Data - Using live baseline if history API is unavailable
@@ -200,8 +188,7 @@ const AdminReports = () => {
         fullName: c.centre,
         projects: c.projects,
         funding: c.budget,
-        disbursed: c.disbursed,
-        faculty: Math.floor(Math.random() * 5) + 3 // Mock faculty count
+        disbursed: c.disbursed
     }));
 
     // 3. Status Distributions
@@ -242,6 +229,16 @@ const AdminReports = () => {
     };
 
     // --- Render Helpers ---
+
+    // Per-faculty performance data is not exposed by the current stats API, so we
+    // render an honest empty-state rather than fabricated/random data.
+    const FacultyDataEmptyState = () => (
+        <div className="flex flex-col items-center justify-center h-[300px] w-full text-slate-400 dark:text-slate-500">
+            <Users className="w-10 h-10 mb-3 opacity-30" />
+            <p className="font-medium">No faculty data available</p>
+            <p className="text-xs mt-1">Per-faculty analytics are not yet published for this period</p>
+        </div>
+    );
 
     const renderKPIs = () => {
         const kpiBaseClass = "border-0 shadow-lg text-white transition-all duration-300 animate-in fade-in zoom-in-95";
@@ -436,16 +433,10 @@ const AdminReports = () => {
                         </CardHeader>
                         <CardContent className="pt-6 pl-0">
                             <div className="h-[300px] w-full">
+                                {selectedReport === 'faculty' ? (
+                                    <FacultyDataEmptyState />
+                                ) : (
                                 <ResponsiveContainer width="100%" height={300}>
-                                    {selectedReport === 'faculty' ? (
-                                        <BarChart data={centrePerformanceData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
-                                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" className="dark:stroke-slate-800" />
-                                            <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#64748b' }} />
-                                            <YAxis axisLine={false} tickLine={false} tick={{ fill: '#64748b' }} />
-                                            <Tooltip content={<CustomTooltip />} />
-                                            <Bar dataKey="faculty" name="Faculty Count" fill="#800000" radius={[4, 4, 0, 0]} barSize={40} />
-                                        </BarChart>
-                                    ) : (
                                         <AreaChart data={trendData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
                                             <defs>
                                                 <linearGradient id="colorMain" x1="0" y1="0" x2="0" y2="1">
@@ -483,8 +474,8 @@ const AdminReports = () => {
                                                 fillOpacity={1} fill="url(#colorSec)" strokeWidth={2}
                                             />
                                         </AreaChart>
-                                    )}
                                 </ResponsiveContainer>
+                                )}
                             </div>
                         </CardContent>
                     </Card>
@@ -541,10 +532,13 @@ const AdminReports = () => {
                         </CardHeader>
                         <CardContent className="pt-6 pl-0">
                             <div className="h-[300px] w-full">
+                                {selectedReport === 'faculty' ? (
+                                    <FacultyDataEmptyState />
+                                ) : (
                                 <ResponsiveContainer width="100%" height={300}>
-                                    <BarChart data={selectedReport === 'faculty' ? facultyMockData : centrePerformanceData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                                    <BarChart data={centrePerformanceData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
                                         <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" className="dark:stroke-slate-800" />
-                                        <XAxis dataKey={selectedReport === 'faculty' ? "name" : "name"} axisLine={false} tickLine={false} tick={{ fill: '#64748b' }} />
+                                        <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#64748b' }} />
                                         <YAxis orientation="left" axisLine={false} tickLine={false} tick={{ fill: '#64748b' }} />
                                         {selectedReport === 'finance' &&
                                             <YAxis yAxisId="right" orientation="right" axisLine={false} tickLine={false} tick={{ fill: '#64748b' }} tickFormatter={(value) => formatCurrency(value)} />
@@ -553,20 +547,21 @@ const AdminReports = () => {
                                         <Legend wrapperStyle={{ paddingTop: '20px' }} />
                                         <Bar
                                             yAxisId="left"
-                                            dataKey={selectedReport === 'faculty' ? "projects" : "projects"}
-                                            name={selectedReport === 'faculty' ? "Assigned Projects" : "Projects"}
+                                            dataKey="projects"
+                                            name="Projects"
                                             fill="#800000" radius={[4, 4, 0, 0]} barSize={30}
                                         />
-                                        {(selectedReport === 'finance' || selectedReport === 'faculty') && (
+                                        {selectedReport === 'finance' && (
                                             <Bar
-                                                yAxisId={selectedReport === 'finance' ? "right" : "left"}
-                                                dataKey={selectedReport === 'faculty' ? "grants" : "funding"}
-                                                name={selectedReport === 'faculty' ? "Grants Managed" : "Allocation"}
+                                                yAxisId="right"
+                                                dataKey="funding"
+                                                name="Allocation"
                                                 fill="#10b981" radius={[4, 4, 0, 0]} barSize={30}
                                             />
                                         )}
                                     </BarChart>
                                 </ResponsiveContainer>
+                                )}
                             </div>
                         </CardContent>
                     </Card>
@@ -1042,14 +1037,11 @@ const AdminReports = () => {
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                    {facultyMockData.map((fac) => (
-                                        <TableRow key={fac.id}>
-                                            <TableCell className="dark:text-gray-300 font-black italic uppercase tracking-tighter">{fac.name}</TableCell>
-                                            <TableCell className="dark:text-gray-400">{getCentreName(fac.centre)}</TableCell>
-                                            <TableCell className="text-blue-600 font-black italic tracking-tighter">{fac.projects}</TableCell>
-                                            <TableCell className="text-green-600">{formatCurrency(fac.grants)}</TableCell>
-                                        </TableRow>
-                                    ))}
+                                    <TableRow>
+                                        <TableCell colSpan={4} className="text-center py-12 text-slate-400 dark:text-slate-500">
+                                            No faculty data available
+                                        </TableCell>
+                                    </TableRow>
                                 </TableBody>
                             </Table>
                         </CardContent>

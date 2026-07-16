@@ -24,15 +24,16 @@ export default function useFinanceSocket(selectedFY) {
         const performSync = async () => {
             try {
                 const since = lastSyncRef.current;
-                console.log(`[FinanceSync] Replaying events since ${new Date(since).toISOString()}`);
-                
+
                 const res = await apiClient.get('/finance/sync', { params: { since } });
                 const missedEvents = res.data?.data || [];
 
                 if (missedEvents.length > 0) {
-                    console.log(`[FinanceSync] Replayed ${missedEvents.length} missed events.`);
-                    // Refresh everything to be safe if events were missed
-                    queryClient.invalidateQueries();
+                    // Refresh the finance datasets for the active FY (targeted, not the whole cache)
+                    queryClient.invalidateQueries({ queryKey: ['fundFlow', selectedFY] });
+                    queryClient.invalidateQueries({ queryKey: ['pfms', selectedFY] });
+                    queryClient.invalidateQueries({ queryKey: ['internships', selectedFY] });
+                    queryClient.invalidateQueries({ queryKey: ['financeStats', selectedFY] });
                 }
                 
                 lastSyncRef.current = Date.now();
@@ -67,7 +68,6 @@ export default function useFinanceSocket(selectedFY) {
 
         // --- 4. Event Handler ---
         const onFinanceUpdate = (event) => {
-            console.log('[REALTIME EVENT]', event);
             lastSyncRef.current = Date.now();
 
             switch (event.type) {
@@ -90,7 +90,7 @@ export default function useFinanceSocket(selectedFY) {
                     break;
 
                 default:
-                    triggerThrottledRefresh();
+                    triggerThrottledRefresh(['fundFlow', selectedFY]);
                     break;
             }
         };
