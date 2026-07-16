@@ -178,6 +178,11 @@ const startDbServices = async () => {
     const { initSnapshotJobs } = require('./src/jobs/snapshotJob');
     initSnapshotJobs();
 
+    // Proof-deadline scan: alerts on installments whose utilization proofs are
+    // overdue past PROOF_DEADLINE_DAYS (the next installment stays gated).
+    const { initProofDeadlineJob } = require('./src/jobs/proofDeadlineJob');
+    initProofDeadlineJob();
+
     const queueService = require('./src/services/queueService');
     await queueService.setupRepeatableJobs();
 

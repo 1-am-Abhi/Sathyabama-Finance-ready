@@ -65,4 +65,11 @@ router.post('/:id/disburse', authorize('ADMIN', 'FINANCE_OFFICER'), upload.singl
 // Retained for backward-compat with the stage-based pipeline UI
 router.post('/:id/advance', authorize('FACULTY', 'FINANCE_OFFICER', 'ADMIN'), sanitizeFinancialInput, fundRequestController.advanceStage);
 
+// ── Installment proof gating ──────────────────────────────────────────────────
+// Faculty uploads utilization proofs (bills/invoices/UC); Finance verifies them
+// before the next installment can be requested.
+router.post('/:id/proofs', authorize('FACULTY'), upload.single('proof'), sanitizeFinancialInput, fundRequestController.submitUtilizationProofs);
+router.post('/:id/verify-utilization', authorize('FINANCE_OFFICER', 'ADMIN'), sanitizeFinancialInput, fundRequestController.verifyUtilization);
+router.post('/:id/return-for-correction', authorize('FINANCE_OFFICER', 'ADMIN'), sanitizeFinancialInput, fundRequestController.returnForCorrection);
+
 module.exports = router;

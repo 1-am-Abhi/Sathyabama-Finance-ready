@@ -19,6 +19,27 @@ const {
     approveFundRequestPipeline,
 } = require('../services/financePipelineService');
 const { NON_REVERSED_DISBURSEMENT_WHERE } = require('../constants/financeConstants');
+const {
+    PROOF_TYPES,
+    isGatingEnabled,
+    isInstallmentVerified,
+    evaluateProofs,
+    normalizeDocs,
+} = require('../utils/installmentProof');
+const { FUND_FLOW_STAGES } = require('../models/FundRequest');
+
+// Ensure a request's stage is at least `targetStage` without ever moving
+// backwards (the stage machine is forward-only).
+const ensureStageAtLeast = (request, targetStage) => {
+    const cur = FUND_FLOW_STAGES.indexOf(request.currentStage);
+    const target = FUND_FLOW_STAGES.indexOf(targetStage);
+    if (target > cur) request.currentStage = targetStage;
+};
+
+const facultyOwns = (request, user) => {
+    const ids = [user._id, user.id, user.userId].filter(Boolean).map(String);
+    return ids.includes(String(request.userId)) || ids.includes(String(request.facultyId));
+};
 const { normalizeFundSource } = require('../services/fundSourceCatalogService');
 const { safeEmit } = require('../socketInstance');
 const { safeNumber, parseFY, safeArray } = require('../utils/safeUtils');
@@ -220,6 +241,29 @@ const createFundRequest = asyncHandler(async (req, res) => {
 
     // 3. Create request
     const installmentNumber = await nextInstallmentNumber(getRecordId(project), orgId);
+
+    // 3a. Proof gating — the next installment cannot be requested until the
+    // previous installment's utilization (bills/invoices + UC) has been verified
+    // by Finance. Toggle with PROOF_GATING_ENABLED (default on).
+    if (installmentNumber > 1 && isGatingEnabled()) {
+        const previous = await FundRequest.findOne({
+            where: {
+                projectId: getRecordId(project),
+                organizationId: orgId,
+                status: { [Op.ne]: 'REJECTED' },
+            },
+            order: [['installmentNumber', 'DESC'], ['createdAt', 'DESC']],
+        });
+        if (previous && !isInstallmentVerified(previous)) {
+            return res.status(409).json({
+                success: false,
+                code: 'PREVIOUS_INSTALLMENT_UNVERIFIED',
+                message: `You cannot apply for the next installment yet. Installment #${previous.installmentNumber} must have its utilization (bills/invoices and Utilization Certificate) verified by Finance first.`,
+                data: null,
+            });
+        }
+    }
+
     const centreAssignment = await resolveCentreAssignment(project, req.user);
 
     const fundRequest = await FundRequest.create({
@@ -448,6 +492,142 @@ const advanceStage = asyncHandler(async (req, res) => {
     return res.json({ success: true, data: updated });
 });
 
+/**
+ * POST /fund-requests/:id/proofs   (FACULTY)
+ * Faculty uploads utilization proofs (bills/invoices/UC/supporting docs) for an
+ * installment. Proofs are appended to FundRequest.documents and the stage is
+ * advanced to BILLS_UPLOADED. Finance is notified to verify.
+ */
+const submitUtilizationProofs = asyncHandler(async (req, res) => {
+    const request = await FundRequest.findOne({
+        where: { organizationId: req.user.organizationId, _id: req.params.id },
+    });
+    if (!request) return res.status(404).json({ success: false, message: 'Request not found', data: null });
+
+    if ((req.user.role || '').toUpperCase() === 'FACULTY' && !facultyOwns(request, req.user)) {
+        return res.status(403).json({ success: false, message: 'You can only submit proofs for your own requests', data: null });
+    }
+
+    const uploaderId = req.user._id || req.user.id;
+    const incoming = normalizeDocs(req.body.documents).map((d) => ({
+        type: String(d.type || PROOF_TYPES.SUPPORTING).toUpperCase(),
+        url: d.url || d.path || d.fileUrl,
+        name: d.name || 'document',
+    }));
+
+    if (req.file?.path) {
+        incoming.push({
+            type: String(req.body.proofType || PROOF_TYPES.BILL).toUpperCase(),
+            url: req.file.path,
+            name: req.file.originalname || 'proof',
+        });
+    }
+
+    const cleaned = incoming
+        .filter((d) => d.url)
+        .map((d) => ({ ...d, uploadedAt: new Date(), uploadedBy: uploaderId }));
+
+    if (!cleaned.length) {
+        return res.status(400).json({ success: false, message: 'No proof documents provided', data: null });
+    }
+
+    request.documents = [...normalizeDocs(request.documents), ...cleaned];
+    ensureStageAtLeast(request, 'BILLS_UPLOADED');
+    await request.save();
+
+    try {
+        await NotificationService.notifyRole(
+            'FINANCE_OFFICER',
+            'Utilization Proofs Submitted',
+            `${req.user?.name || 'A faculty member'} uploaded proofs for installment #${request.installmentNumber} of '${request.projectTitle}'. Please verify.`,
+            'INFO',
+            '/finance/disbursements'
+        );
+    } catch (e) { logger.warn('[proofs] notify finance failed:', e.message); }
+
+    safeEmit('finance', 'finance:update', { type: 'PROOFS_SUBMITTED', requestId: getRecordId(request), timestamp: Date.now() });
+    return res.json({ success: true, data: normalizeFundRequest(request) });
+});
+
+/**
+ * POST /fund-requests/:id/verify-utilization   (FINANCE_OFFICER / ADMIN)
+ * Finance verifies an installment's utilization. Requires a Bill/Invoice AND a
+ * Utilization Certificate to be present; otherwise it is held for correction.
+ * On success the stage advances to UTILIZATION_COMPLETED, unlocking the next
+ * installment request for the faculty.
+ */
+const verifyUtilization = asyncHandler(async (req, res) => {
+    const request = await FundRequest.findOne({
+        where: { organizationId: req.user.organizationId, _id: req.params.id },
+    });
+    if (!request) return res.status(404).json({ success: false, message: 'Request not found', data: null });
+
+    const proofs = evaluateProofs(request.documents);
+    if (!proofs.ok) {
+        return res.status(400).json({
+            success: false,
+            code: 'PROOFS_INCOMPLETE',
+            message: `Cannot verify utilization — held for correction. Missing: ${proofs.missing.join(', ')}.`,
+            data: { missing: proofs.missing },
+        });
+    }
+
+    ensureStageAtLeast(request, 'UTILIZATION_COMPLETED');
+    if (req.body.remarks) request.financeRemarks = req.body.remarks;
+    await request.save();
+
+    try {
+        await AuditLog.create({
+            userId: req.user._id || req.user.id,
+            action: 'UTILIZATION_VERIFIED',
+            entityType: 'FundRequest',
+            entityId: String(request.id),
+            organizationId: request.organizationId,
+            metadata: { installmentNumber: request.installmentNumber },
+        });
+    } catch (e) { logger.warn('[verifyUtilization] audit failed:', e.message); }
+
+    try {
+        await NotificationService.create(
+            request.userId || request.facultyId,
+            'Utilization Verified',
+            `Your utilization for installment #${request.installmentNumber} of '${request.projectTitle}' has been verified. You may now apply for the next installment.`,
+            'SUCCESS',
+            '/faculty/request-funds'
+        );
+    } catch (e) { logger.warn('[verifyUtilization] notify faculty failed:', e.message); }
+
+    safeEmit('finance', 'finance:update', { type: 'UTILIZATION_VERIFIED', requestId: getRecordId(request), timestamp: Date.now() });
+    return res.json({ success: true, data: normalizeFundRequest(request) });
+});
+
+/**
+ * POST /fund-requests/:id/return-for-correction   (FINANCE_OFFICER / ADMIN)
+ * Explicitly bounce an installment's proofs back to the faculty with remarks.
+ */
+const returnForCorrection = asyncHandler(async (req, res) => {
+    const request = await FundRequest.findOne({
+        where: { organizationId: req.user.organizationId, _id: req.params.id },
+    });
+    if (!request) return res.status(404).json({ success: false, message: 'Request not found', data: null });
+
+    const remarks = (req.body.remarks || 'Please re-upload complete and valid proofs (bills/invoices and Utilization Certificate).').toString();
+    request.financeRemarks = remarks;
+    await request.save();
+
+    try {
+        await NotificationService.create(
+            request.userId || request.facultyId,
+            'Proofs Returned for Correction',
+            `Finance returned installment #${request.installmentNumber} of '${request.projectTitle}' for correction: ${remarks}`,
+            'ALERT',
+            '/faculty/request-funds'
+        );
+    } catch (e) { logger.warn('[returnForCorrection] notify faculty failed:', e.message); }
+
+    return res.json({ success: true, data: normalizeFundRequest(request) });
+});
+
 module.exports = {
     getFundRequests,
     getFundRequest,
@@ -457,5 +637,8 @@ module.exports = {
     rejectFundRequest,
     disburseFund,
     getProjectWithInstallments,
-    advanceStage
+    advanceStage,
+    submitUtilizationProofs,
+    verifyUtilization,
+    returnForCorrection,
 };
