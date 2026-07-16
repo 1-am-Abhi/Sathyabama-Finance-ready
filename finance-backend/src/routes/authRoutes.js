@@ -12,6 +12,7 @@ router.get('/centres', authController.getCentres);
 router.post('/centres', protect, authorize('ADMIN'), authController.addCentre);
 router.put('/update-password', protect, authController.updatePassword);
 router.put('/users/:id', protect, authorize('ADMIN'), authController.updateUser);
+router.put('/users/:id/reset-password', protect, authorize('ADMIN'), authController.adminResetPassword);
 router.get('/health', authController.checkAuthHealth);
 router.delete('/users/:id', protect, authorize('ADMIN'), authController.deleteUser);
 

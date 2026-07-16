@@ -46,7 +46,8 @@ services:
     rootDir: finance-frontend
 
     buildCommand: npm ci && npm run build
-    startCommand: npm start
+    # Serve the optimized production build via Express (server.js), NOT the CRA dev server.
+    startCommand: node server.js
 
     healthCheckPath: /
 

@@ -1,6 +1,6 @@
 const logger = require('../utils/logger');
 const asyncHandler = require('../utils/asyncHandler');
-const { User, Centre } = require("../models");
+const { User, Centre, AuditLog } = require("../models");
 const jwt = require("jsonwebtoken");
 const { sequelize } = require("../config/db");
 const bcrypt = require('bcryptjs');
@@ -295,6 +295,50 @@ const updatePassword = asyncHandler(async (req, res) => {
     }
 });
 
+// Admin-initiated password reset for a faculty account.
+// The new password is never logged; it is hashed by the User beforeSave hook.
+const adminResetPassword = asyncHandler(async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { newPassword } = req.body;
+
+        if (!newPassword || String(newPassword).length < 6) {
+            return res.status(400).json({
+                success: false,
+                message: 'New password must be at least 6 characters'
+            });
+        }
+
+        const user = await findUserByRuntimeId(User, id);
+        if (!user) {
+            return res.status(404).json({ success: false, message: 'User not found' });
+        }
+
+        // Privileged accounts must use the self-service change-password flow.
+        if (['ADMIN', 'FINANCE_OFFICER', 'AUDITOR'].includes(user.role)) {
+            return res.status(403).json({
+                success: false,
+                message: `Cannot reset password for ${user.role} accounts from this screen.`
+            });
+        }
+
+        user.password = newPassword; // hashed by User beforeSave hook
+        await user.save();
+
+        await AuditLog.create({
+            userId: req.user.id || req.user._id,
+            action: 'PASSWORD_RESET',
+            entityType: 'User',
+            entityId: String(user.id)
+        }).catch((e) => logger.warn('[AuthController] audit log failed for password reset:', e.message));
+
+        return res.status(200).json({ success: true, message: 'Password reset successfully' });
+    } catch (err) {
+        logger.error('[AuthController] adminResetPassword error:', err);
+        return res.status(500).json({ success: false, message: err.message });
+    }
+});
+
 const getCentres = asyncHandler(async (req, res) => {
     try {
         const centres = await Centre.findAll({ order: [["name", "ASC"]] });
@@ -330,6 +374,7 @@ module.exports = {
     updateUser,
     deleteUser,
     updatePassword,
+    adminResetPassword,
     getCentres,
     addCentre,
     cleanupUsers

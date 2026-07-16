@@ -349,11 +349,23 @@ const ManageFaculty = () => {
         }
     };
 
-    const handleResetPassword = (e) => {
+    const handleResetPassword = async (e) => {
         e.preventDefault();
-        console.log(`Password reset for faculty ${resetData.facultyId} to ${resetData.newPassword}`);
-        setIsPasswordModalOpen(false);
-        setResetData({ facultyId: null, newPassword: '' });
+        if (!resetData.facultyId) return;
+        if (!resetData.newPassword || resetData.newPassword.length < 6) {
+            showToast('New password must be at least 6 characters.', 'error');
+            return;
+        }
+        try {
+            await apiClient.put(`/auth/users/${resetData.facultyId}/reset-password`, {
+                newPassword: resetData.newPassword,
+            });
+            showToast('Password reset successfully.');
+            setIsPasswordModalOpen(false);
+            setResetData({ facultyId: null, newPassword: '' });
+        } catch (err) {
+            showToast(err?.response?.data?.message || 'Failed to reset password.', 'error');
+        }
     };
 
     // Stats Logic

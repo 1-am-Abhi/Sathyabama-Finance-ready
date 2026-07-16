@@ -12,3 +12,8 @@ backend_tunnel.log
 backend_tunnel.txt
 frontend_url.txt
 lt-backend.txt
+
+# Ignore node_modules symlinks (worktree build helper)
+/node_modules
+/finance-backend/node_modules
+/finance-frontend/node_modules
