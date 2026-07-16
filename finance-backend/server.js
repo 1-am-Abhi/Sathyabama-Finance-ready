@@ -77,17 +77,11 @@ const pubClient = redisEnabled ? createClient(redisConfig) : null;
 const subClient = redisEnabled ? pubClient.duplicate() : null;
 
 // ================= RATE LIMIT =================
-const rateLimit = require('express-rate-limit');
-
-const limiter = rateLimit({
-  windowMs: 60 * 1000,
-  max: 5,
-  message: 'Too many attempts, try later'
-});
-
-app.use('/api/disburse', limiter);
-app.use('/api/finance', limiter);
-app.use('/api/notifications', limiter);
+// NOTE: Rate limiting is configured in src/app.js — a global 200/15min limiter on
+// /api plus dedicated financeRateLimiter/reportRateLimiter on sensitive finance
+// routes. A previous block here (max:5/min on /api/finance, /api/notifications,
+// /api/disburse) was DEAD CODE: it was registered after app.js had already mounted
+// those routes and the 404 handler, so it never executed. Removed to avoid confusion.
 
 // ================= CORRELATION =================
 app.use((req, res, next) => {

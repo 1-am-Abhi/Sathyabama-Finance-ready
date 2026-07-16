@@ -135,11 +135,17 @@ const getFundRequests = asyncHandler(async (req, res) => {
 });
 
 const getFundRequest = asyncHandler(async (req, res) => {
+    const where = {
+        organizationId: req.user.organizationId,
+        _id: req.params.id
+    };
+    // Ownership guard (IDOR): faculty may only read their own requests.
+    if ((req.user.role || '').toUpperCase() === 'FACULTY') {
+        const facultyId = req.user._id || req.user.id;
+        where[Op.or] = [{ userId: facultyId }, { facultyId }];
+    }
     const request = await FundRequest.findOne({
-        where: { 
-            organizationId: req.user.organizationId,
-            _id: req.params.id
-        },
+        where,
         include: [
             { model: Project, as: 'Project', required: false },
             { model: User, as: 'FacultyUser', attributes: ['name', 'email'], required: false },

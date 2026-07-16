@@ -63,6 +63,6 @@ router.post('/:id/disburse', authorize('ADMIN', 'FINANCE_OFFICER'), upload.singl
 
 // ── Granular pipeline advancement (Finance / Faculty) ─────────────────────────
 // Retained for backward-compat with the stage-based pipeline UI
-router.post('/:id/advance', sanitizeFinancialInput, fundRequestController.advanceStage);
+router.post('/:id/advance', authorize('FACULTY', 'FINANCE_OFFICER', 'ADMIN'), sanitizeFinancialInput, fundRequestController.advanceStage);
 
 module.exports = router;

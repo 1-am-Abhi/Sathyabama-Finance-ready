@@ -67,8 +67,14 @@ const updateODRequestStatus = asyncHandler(async (req, res) => {
         return res.status(404).json({ success: false, message: 'OD Request not found' });
     }
     const userRole = (req.user.role || '').toUpperCase();
-    
+    const actorIds = [req.user._id, req.user.id, req.user.userId].filter(Boolean).map(String);
+
     if (userRole === 'FACULTY') {
+        // Ownership guard (IDOR): a faculty may only modify their own OD request,
+        // and only the proof fields — never the approval status.
+        if (!actorIds.includes(String(od.facultyId))) {
+            return res.status(403).json({ success: false, message: 'You can only update your own OD requests' });
+        }
         if (req.body.proofUploaded !== undefined) od.proofUploaded = req.body.proofUploaded;
         if (req.body.proofData !== undefined) od.proofData = req.body.proofData;
     } else {
