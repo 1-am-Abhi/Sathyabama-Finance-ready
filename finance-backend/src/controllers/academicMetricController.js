@@ -3,9 +3,15 @@ const { AcademicMetric, User } = require('../models');
 
 const getMetrics = asyncHandler(async (req, res) => {
     const cycle = req.query.cycle || '2024-25';
-    const facultyId = req.user.role === 'ADMIN' ? req.query.facultyId : req.user.id;
-    
-    if (!facultyId && req.user.role !== 'ADMIN') {
+    const facultyId = req.user.role === 'ADMIN' ? req.query.facultyId : (req.user.id || req.user._id);
+
+    if (!facultyId) {
+        // Admin without a specific facultyId → return all metrics for the cycle
+        // (querying findOne with facultyId=undefined throws a Sequelize error).
+        if (req.user.role === 'ADMIN') {
+            const all = await AcademicMetric.findAll({ where: { cycle } });
+            return res.status(200).json({ success: true, data: all });
+        }
         return res.status(400).json({ success: false, message: 'FacultyId required' });
     }
 
