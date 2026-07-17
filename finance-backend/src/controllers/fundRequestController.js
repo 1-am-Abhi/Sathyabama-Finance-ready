@@ -285,6 +285,26 @@ const createFundRequest = asyncHandler(async (req, res) => {
 
     const centreAssignment = await resolveCentreAssignment(project, req.user);
 
+    // A bill/invoice may be attached at request time (multipart field "bill").
+    // Persist it as a canonical BILL proof document so Finance's verification —
+    // which requires a Bill/Invoice AND a Utilization Certificate — recognises it.
+    // Previously req.file was accepted by multer but never stored, so the bill was
+    // silently dropped and verification always reported "Missing Bill or Invoice".
+    const initialDocuments = [];
+    if (req.file) {
+        const rawPath = String(req.file.path || '').replace(/\\/g, '/');
+        const url = /^https?:\/\//i.test(rawPath)
+            ? rawPath
+            : `/uploads/${req.file.filename || path.basename(rawPath)}`;
+        initialDocuments.push({
+            type: PROOF_TYPES.BILL,
+            url,
+            name: req.file.originalname || 'bill',
+            uploadedAt: new Date(),
+            uploadedBy: facultyId,
+        });
+    }
+
     const fundRequest = await FundRequest.create({
         projectTitle,
         projectId: getRecordId(project),
@@ -299,6 +319,7 @@ const createFundRequest = asyncHandler(async (req, res) => {
         centreId: centreAssignment.centreId,
         source: normalizeFundSource(source || project?.fundingSource),
         status: 'PENDING',
+        documents: initialDocuments,
     });
 
     try {

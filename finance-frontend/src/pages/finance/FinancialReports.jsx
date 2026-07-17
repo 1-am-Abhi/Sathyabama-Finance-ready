@@ -150,7 +150,7 @@ const FinancialReports = () => {
                             onChange={(e) => setFilters({...filters, centre: e.target.value})}
                         >
                             <option value="All Centres">All Centres</option>
-                            {(dynamicCentres ?? []).map((centre) => {
+                            {(Array.isArray(dynamicCentres) ? dynamicCentres : []).map((centre) => {
                                 const value = centre?.name || centre;
                                 return <option key={value} value={value}>{value}</option>;
                             })}

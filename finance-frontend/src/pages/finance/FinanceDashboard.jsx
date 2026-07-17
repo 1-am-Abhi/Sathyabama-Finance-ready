@@ -222,7 +222,7 @@ const FinanceDashboard = () => {
                         </CardHeader>
                         <CardContent className="p-6">
                             {/* PART 5 — EMPTY STATE */}
-                            {!fundFlowProjects || fundFlowProjects.length === 0 ? (
+                            {!Array.isArray(fundFlowProjects) || fundFlowProjects.length === 0 ? (
                                 <div className="flex flex-col items-center justify-center h-64 text-slate-400 bg-slate-50/50 dark:bg-slate-900/30 rounded-xl border border-dashed">
                                     <div className="bg-white dark:bg-slate-800 p-4 rounded-full mb-4 shadow-sm">
                                         <FileText className="w-8 h-8 opacity-20" />
@@ -305,7 +305,7 @@ const FinanceDashboard = () => {
                             </div>
                         </CardHeader>
                         <CardContent className="p-6">
-                            {!pfmsTransactions || pfmsTransactions.length === 0 ? (
+                            {!Array.isArray(pfmsTransactions) || pfmsTransactions.length === 0 ? (
                                 <div className="flex flex-col items-center justify-center h-48 text-slate-400 bg-slate-50/50 dark:bg-slate-900/30 rounded-xl border border-dashed">
                                     <p className="font-medium">No PFMS transactions for FY {selectedFY}</p>
                                 </div>
@@ -364,7 +364,7 @@ const FinanceDashboard = () => {
                             </div>
                         </CardHeader>
                         <CardContent className="p-6 bg-white dark:bg-slate-900">
-                            {!internshipPayments || internshipPayments.length === 0 ? (
+                            {!Array.isArray(internshipPayments) || internshipPayments.length === 0 ? (
                                 <div className="flex flex-col items-center justify-center h-40 text-slate-400">
                                     <p className="text-xs font-bold uppercase tracking-widest">Clear Queue</p>
                                     <p className="text-[10px] mt-1 italic">No pending payments for {selectedFY}</p>

@@ -325,7 +325,15 @@ const FacultyDashboard = () => {
                                     <tr key={i} className="hover:bg-white/5">
                                         <td className="px-6 py-5 text-xs font-black italic uppercase text-white">{row.title}</td>
                                         <td className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase">{row.fundingAgency || row.agency || '—'}</td>
-                                        <td className="px-6 py-5 text-sm font-black italic text-rose-400">₹{parseInt(row.budget || 0).toLocaleString()}</td>
+                                        <td className="px-6 py-5">
+                                            {/* Same source of truth as My Projects: sanctionedBudget /
+                                                releasedBudget from /faculty/projects. The old `row.budget`
+                                                field does not exist on this payload → always rendered ₹0. */}
+                                            <p className="text-sm font-black italic text-rose-400">₹{safeNumber(row.sanctionedBudget).toLocaleString('en-IN')}</p>
+                                            {safeNumber(row.releasedBudget) > 0 && (
+                                                <p className="text-[10px] font-bold text-emerald-400 not-italic">Released ₹{safeNumber(row.releasedBudget).toLocaleString('en-IN')}</p>
+                                            )}
+                                        </td>
                                         <td className="px-6 py-5 text-right">
                                             <Badge className="bg-emerald-500/15 text-emerald-400 border-emerald-500/30 text-[9px] uppercase">{row.status}</Badge>
                                         </td>

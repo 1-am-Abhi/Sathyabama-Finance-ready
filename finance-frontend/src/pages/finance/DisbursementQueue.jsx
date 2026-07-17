@@ -354,8 +354,15 @@ const DisbursementQueue = () => {
                                                         {formatCurrency(req.releasedAmount)} released of {formatCurrency(req.requestedAmount)}
                                                     </span>
                                                 )}
-                                                {req.documents?.length > 0 && (
-                                                    <span className="text-[9px] text-slate-400 font-bold uppercase">{req.documents.length} Bills attached</span>
+                                                {Array.isArray(req.documents) && req.documents.length > 0 && (
+                                                    <span className="text-[9px] text-slate-400 font-bold uppercase">
+                                                        {(() => {
+                                                            const types = req.documents.map(d => String(d?.type || '').toUpperCase());
+                                                            const bill = types.includes('BILL') || types.includes('INVOICE');
+                                                            const uc = types.includes('UTILIZATION_CERTIFICATE');
+                                                            return `Proofs: Bill ${bill ? 'YES' : 'NO'} / UC ${uc ? 'YES' : 'NO'}`;
+                                                        })()}
+                                                    </span>
                                                 )}
                                             </td>
                                             <td className="px-4 py-4">

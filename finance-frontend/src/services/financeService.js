@@ -128,9 +128,17 @@ export const getFinanceStats = async (fy) => {
 // ── Fund Flow ─────────────────────────────────────────────────────────────────
 
 // Get fund flow projects
+// Fund-flow rows for the Finance settlement view. This MUST return an array —
+// the endpoint currently returns a summary object ({ totalIn, totalOut }), so
+// without this guard the consumer did `object.map(...)` → "map is not a function".
+// Per-project rows (if the endpoint ever provides them) live under .projects/.rows.
 export const getFundFlow = async (fy) => {
     const response = await api.get('/finance/fund-flow', { params: { fy } });
-    return response.data?.data || response.data || {};
+    const body = response.data?.data ?? response.data;
+    if (Array.isArray(body)) return body;
+    if (Array.isArray(body?.projects)) return body.projects;
+    if (Array.isArray(body?.rows)) return body.rows;
+    return [];
 };
 
 // ── PFMS ──────────────────────────────────────────────────────────────────────
