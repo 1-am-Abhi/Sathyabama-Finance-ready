@@ -3,6 +3,11 @@ const router = express.Router();
 const { protect, authorize } = require('../middleware/authMiddleware');
 const orgScope = require('../middleware/orgScope');
 const upload = require('../middleware/upload');
+// Hardened multipart parser (absolute uploads dir, per-request mkdir, size limit)
+// used for the installment fund-request form, plus the financial-body sanitiser —
+// the SAME middleware as the canonical /fund-requests route.
+const { upload: proofUpload } = require('../middleware/uploadMiddleware');
+const { sanitizeFinancialInput } = require('../middleware/inputSanitizer');
 
 // Controllers
 const projectController = require('../controllers/projectController');
@@ -26,8 +31,12 @@ router.put('/projects/:id', projectController.updateProject);
 router.get('/projects/stats', projectController.getFacultyStats);
 
 // --- Fund Requests ---
+// The frontend submits this as multipart/form-data with an optional "bill" file.
+// Without multer, Express 5 leaves req.body undefined for multipart, so the
+// controller's destructure threw a 500. Parse the multipart body (and capture the
+// bill) + sanitise financial fields, exactly like the canonical /fund-requests.
 router.get('/fund-requests', fundRequestController.getFundRequests);
-router.post('/fund-requests', fundRequestController.createFundRequest);
+router.post('/fund-requests', proofUpload.single('bill'), sanitizeFinancialInput, fundRequestController.createFundRequest);
 router.put('/fund-requests/:id', fundRequestController.updateFundRequest);
 router.get('/fund-requests/:id', fundRequestController.getFundRequest);
 
