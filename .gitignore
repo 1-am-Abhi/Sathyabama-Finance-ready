@@ -17,3 +17,5 @@ lt-backend.txt
 /node_modules
 /finance-backend/node_modules
 /finance-frontend/node_modules
+.claude/
+Compress.zip
