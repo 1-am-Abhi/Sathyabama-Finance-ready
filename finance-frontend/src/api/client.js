@@ -34,6 +34,15 @@ apiClient.interceptors.request.use(
         if (token) {
             config.headers.Authorization = `Bearer ${token}`;
         }
+        // For file uploads (FormData), remove the default JSON Content-Type so
+        // axios sets multipart/form-data WITH the boundary. Otherwise the server
+        // can't parse the file and returns "No proof documents provided".
+        if (typeof FormData !== 'undefined' && config.data instanceof FormData) {
+            if (config.headers) {
+                delete config.headers['Content-Type'];
+                delete config.headers['content-type'];
+            }
+        }
         return config;
     },
     (error) => Promise.reject(error)

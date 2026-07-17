@@ -531,10 +531,16 @@ const submitUtilizationProofs = asyncHandler(async (req, res) => {
     }));
 
     if (req.file?.path) {
+        // Cloudinary storage returns an absolute http(s) URL; local disk storage
+        // returns a relative path like "uploads/xxx" — normalise the latter to an
+        // absolute "/uploads/xxx" path served statically by the app.
+        const raw = String(req.file.path).replace(/\\/g, '/');
+        const url = /^https?:\/\//i.test(raw) ? raw : `/${raw.replace(/^\/+/, '')}`;
         incoming.push({
             type: String(req.body.proofType || PROOF_TYPES.BILL).toUpperCase(),
-            url: req.file.path,
+            url,
             name: req.file.originalname || 'proof',
+            uploadedAt: new Date(),
         });
     }
 

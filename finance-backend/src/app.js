@@ -73,6 +73,13 @@ app.use((req, res, next) => {
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
+// Serve locally-stored uploads (bills/UC/proofs) so Finance can preview/download
+// them. NOTE: Render's filesystem is ephemeral — for multi-instance/persistent
+// production, configure Cloudinary (deps already present) so uploads return a
+// durable CDN URL instead of a local path.
+const pathModule = require('path');
+app.use('/uploads', require('express').static(pathModule.join(__dirname, '..', 'uploads')));
+
 const AlertService = require('./services/alertService');
 const { getEmptyAdminStatsData } = require('./utils/researchCenterSafety');
 
