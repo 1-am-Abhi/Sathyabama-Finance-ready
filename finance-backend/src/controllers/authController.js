@@ -315,10 +315,13 @@ const adminResetPassword = asyncHandler(async (req, res) => {
         }
 
         // Privileged accounts must use the self-service change-password flow.
-        if (['ADMIN', 'FINANCE_OFFICER', 'AUDITOR'].includes(user.role)) {
+        // Admin may reset passwords for operational accounts (Faculty, Finance
+        // Officer, Auditor). Other ADMIN accounts use self-service change-password
+        // to avoid admin lockout wars.
+        if (user.role === 'ADMIN') {
             return res.status(403).json({
                 success: false,
-                message: `Cannot reset password for ${user.role} accounts from this screen.`
+                message: 'Cannot reset another ADMIN account password. Use self-service change-password.'
             });
         }
 
