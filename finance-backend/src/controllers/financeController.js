@@ -11,6 +11,7 @@ const { safeNumber, parseFY, safeArray } = require('../utils/safeUtils');
 const NotificationService = require('../services/notificationService');
 const { postJournalTransaction } = require('../services/financePipelineService');
 const { NON_REVERSED_DISBURSEMENT_WHERE } = require('../constants/financeConstants');
+const { idMatch } = require('../utils/idMatch');
 
 const ROUNDING_TOLERANCE = 0.01;
 
@@ -125,35 +126,33 @@ const getFundSourcesOverview = asyncHandler(async (req, res) => {
  * PUT /finance/funds/update
  */
 const updateFundSourceAmount = asyncHandler(async (req, res) => {
-    const { source, amount, type } = req.body;
+    const { source, amount, type, fundSource } = req.body;
     const { FundSource } = require('../models');
-    const { normalizeFundSourceType, ensureCanonicalFundSources } = require('../services/fundSourceCatalogService');
+    const { mapToFundSourceKey, ensureCanonicalFundSources } = require('../services/fundSourceCatalogService');
 
-    if (!source || amount === undefined || !type) {
-        return res.status(200).json({ success: false, message: 'Source, amount, and type are required', data: [] });
+    // The fund source may arrive as `source`, `fundSource`, or — from the current
+    // frontend — inside `type`. Previously the handler wrote to a non-canonical
+    // key (normalizeFundSourceType(source) || source, e.g. "INSTITUTIONAL") while
+    // every reader used mapToFundSourceKey (e.g. "institutionalFunds"), so edits
+    // were saved to a phantom row nothing read and the dashboard never updated.
+    const rawSource = source || fundSource || type;
+    if (!rawSource || amount === undefined) {
+        return res.status(400).json({ success: false, message: 'Fund source and amount are required', data: null });
     }
 
-    const sourceType = normalizeFundSourceType(source) || source;
+    // Resolve to the canonical key. Accept both the enum form (INSTITUTIONAL/PFMS/
+    // OTHERS) and the canonical key form (institutionalFunds/pfmsFunds/othersFunds).
+    const CANONICAL = ['institutionalFunds', 'pfmsFunds', 'othersFunds'];
+    const sourceType = CANONICAL.includes(rawSource) ? rawSource : mapToFundSourceKey(rawSource);
+
     await ensureCanonicalFundSources();
 
-    let record = await FundSource.findOne({
-        where: { sourceType }
+    const [record] = await FundSource.findOrCreate({
+        where: { sourceType },
+        defaults: { sourceType, totalAllocated: 0 }
     });
-
-    if (!record) {
-        record = await FundSource.create({
-            sourceType,
-            totalAllocated: type === 'allocation' ? safeNumber(amount) : 0
-        });
-    } else {
-        if (type === 'allocation') {
-            record.totalAllocated = safeNumber(amount); // Overwrite or add? Usually allocation is a set value. 
-            // In the original code it was: record.totalAllocated = safeNumber(record.totalAllocated) + safeNumber(amount);
-            // But FundSource.totalAllocated is the total for that source.
-            record.totalAllocated = safeNumber(amount); 
-        }
-        await record.save();
-    }
+    record.totalAllocated = safeNumber(amount);
+    await record.save();
 
     return res.json({ success: true, data: record });
 });
@@ -541,7 +540,7 @@ const rollbackDisbursement = asyncHandler(async (req, res) => {
             // (non-reversed) disbursements so a reversal reopens budget correctly.
             let updatedRequest = null;
             if (locked.fundRequestId) {
-                const request = await FundRequest.findOne({ where: { _id: locked.fundRequestId }, transaction: t });
+                const request = await FundRequest.findOne({ where: idMatch(locked.fundRequestId), transaction: t });
                 if (request) {
                     const remainingDisbursed = safeNumber(await Disbursement.sum('amount', {
                         where: { fundRequestId: locked.fundRequestId, ...NON_REVERSED_DISBURSEMENT_WHERE },

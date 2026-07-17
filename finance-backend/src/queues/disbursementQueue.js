@@ -5,10 +5,11 @@ if (redisDisabled) {
   const { executeDisbursementPipeline } = require("../services/financePipelineService");
   const { FundRequest, User } = require("../models");
   const { findUserByRuntimeId } = require("../utils/userIdentity");
+  const { idMatch } = require("../utils/idMatch");
 
   const disbursementQueue = {
     async add(name, data) {
-      const request = await FundRequest.findOne({ where: { _id: data.requestId } });
+      const request = await FundRequest.findOne({ where: idMatch(data.requestId) });
       const user = await findUserByRuntimeId(User, data.userId);
       if (!request) throw new Error(`FundRequest not found: ${data.requestId}`);
       if (!user) throw new Error(`User not found: ${data.userId}`);

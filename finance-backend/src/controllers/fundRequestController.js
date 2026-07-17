@@ -19,6 +19,7 @@ const {
     approveFundRequestPipeline,
 } = require('../services/financePipelineService');
 const { NON_REVERSED_DISBURSEMENT_WHERE } = require('../constants/financeConstants');
+const { idMatch } = require('../utils/idMatch');
 const {
     PROOF_TYPES,
     isGatingEnabled,
@@ -156,14 +157,16 @@ const getFundRequests = asyncHandler(async (req, res) => {
 });
 
 const getFundRequest = asyncHandler(async (req, res) => {
+    // Use Op.and so the id/_id match (itself an Op.or) doesn't collide with the
+    // ownership Op.or below.
     const where = {
         organizationId: req.user.organizationId,
-        _id: req.params.id
+        [Op.and]: [idMatch(req.params.id)]
     };
     // Ownership guard (IDOR): faculty may only read their own requests.
     if ((req.user.role || '').toUpperCase() === 'FACULTY') {
         const facultyId = req.user._id || req.user.id;
-        where[Op.or] = [{ userId: facultyId }, { facultyId }];
+        where[Op.and].push({ [Op.or]: [{ userId: facultyId }, { facultyId }] });
     }
     const request = await FundRequest.findOne({
         where,
@@ -293,7 +296,7 @@ const updateFundRequest = asyncHandler(async (req, res) => {
     const request = await FundRequest.findOne({ 
         where: { 
             organizationId: req.user.organizationId,
-            _id: req.params.id
+            ...idMatch(req.params.id)
         } 
     });
     if (!request) return res.status(404).json({ success: false, message: 'Request not found', data: null });
@@ -309,7 +312,7 @@ const approveFundRequest = asyncHandler(async (req, res) => {
     const request = await FundRequest.findOne({ 
         where: { 
             organizationId: req.user.organizationId,
-            _id: req.params.id
+            ...idMatch(req.params.id)
         } 
     });
     if (!request) return res.status(404).json({ success: false, message: 'Request not found', data: null });
@@ -333,7 +336,7 @@ const rejectFundRequest = asyncHandler(async (req, res) => {
     const request = await FundRequest.findOne({ 
         where: { 
             organizationId: req.user.organizationId,
-            _id: req.params.id
+            ...idMatch(req.params.id)
         } 
     });
     if (!request) return res.status(404).json({ success: false, message: 'Request not found', data: null });
@@ -351,7 +354,7 @@ const disburseFund = asyncHandler(async (req, res) => {
     const request = await FundRequest.findOne({ 
         where: { 
             organizationId: req.user.organizationId,
-            _id: req.params.id
+            ...idMatch(req.params.id)
         } 
     });
     if (!request) return res.status(404).json({ success: false, message: 'Request not found', data: null });
@@ -447,7 +450,7 @@ const getProjectWithInstallments = asyncHandler(async (req, res) => {
     const project = await Project.findOne({ 
         where: { 
             organizationId: req.user.organizationId,
-            _id: req.params.projectId
+            ...idMatch(req.params.projectId)
         } 
     });
     if (!project) return res.status(404).json({ success: false, message: 'Project not found', data: null });
@@ -478,7 +481,7 @@ const advanceStage = asyncHandler(async (req, res) => {
     const request = await FundRequest.findOne({ 
         where: { 
             organizationId: req.user.organizationId,
-            _id: req.params.id
+            ...idMatch(req.params.id)
         } 
     });
     if (!request) return res.status(404).json({ success: false, message: 'Request not found', data: null });
@@ -500,7 +503,7 @@ const advanceStage = asyncHandler(async (req, res) => {
  */
 const submitUtilizationProofs = asyncHandler(async (req, res) => {
     const request = await FundRequest.findOne({
-        where: { organizationId: req.user.organizationId, _id: req.params.id },
+        where: { organizationId: req.user.organizationId, ...idMatch(req.params.id) },
     });
     if (!request) return res.status(404).json({ success: false, message: 'Request not found', data: null });
 
@@ -558,7 +561,7 @@ const submitUtilizationProofs = asyncHandler(async (req, res) => {
  */
 const verifyUtilization = asyncHandler(async (req, res) => {
     const request = await FundRequest.findOne({
-        where: { organizationId: req.user.organizationId, _id: req.params.id },
+        where: { organizationId: req.user.organizationId, ...idMatch(req.params.id) },
     });
     if (!request) return res.status(404).json({ success: false, message: 'Request not found', data: null });
 
@@ -607,7 +610,7 @@ const verifyUtilization = asyncHandler(async (req, res) => {
  */
 const returnForCorrection = asyncHandler(async (req, res) => {
     const request = await FundRequest.findOne({
-        where: { organizationId: req.user.organizationId, _id: req.params.id },
+        where: { organizationId: req.user.organizationId, ...idMatch(req.params.id) },
     });
     if (!request) return res.status(404).json({ success: false, message: 'Request not found', data: null });
 

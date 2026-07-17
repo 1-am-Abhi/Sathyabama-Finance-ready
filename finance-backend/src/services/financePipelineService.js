@@ -70,7 +70,11 @@ const logFinancialError = (event, err, context = {}) => {
 };
 
 const getRecordId = (record) => record?._id || record?.id || null;
-const byUuid = (value) => ({ _id: value });
+// Match by either `id` (model PK) or the legacy `_id` DB column — the two can
+// diverge for rows created after the UUID-hardening migration. reqId/projectId
+// values here come from getRecordId() (the model `id`), while some rows were
+// looked up by `_id`; matching both keys avoids spurious "not found" locks.
+const byUuid = (value) => ({ [Op.or]: [{ id: value }, { _id: value }] });
 
 const getActorUuid = (actor) => {
     const candidate = actor?._id || actor?.userId || actor?.id;
@@ -357,7 +361,7 @@ const getFundSourceAllocationState = async (source, transaction) => {
     const query = `
         SELECT COALESCE(SUM(d."amount"), 0) AS "totalUsed"
         FROM "Projects" p
-        LEFT JOIN "Disbursements" d ON p."_id" = d."projectId"
+        LEFT JOIN "Disbursements" d ON (p."id" = d."projectId" OR p."_id" = d."projectId")
         WHERE p."fundingSource" = :source AND p."status" IN (${getSqlStatusList()})
     `;
     const replacements = { source: normalizeSource(source) };

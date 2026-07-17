@@ -4,6 +4,7 @@ const { redisConnection, redisDisabled } = require("../config/redis");
 const { executeDisbursementPipeline } = require("../services/financePipelineService");
 const { FundRequest, User } = require("../models");
 const { findUserByRuntimeId } = require("../utils/userIdentity");
+const { idMatch } = require("../utils/idMatch");
 
 if (redisDisabled) {
     logger.info('[Worker:disbursement] Redis disabled outside production; BullMQ worker not started.');
@@ -26,7 +27,7 @@ const disbursementWorker = new Worker(
     logger.info(`[Worker:disbursement] Processing job ${job.id} for request ${requestId}`);
 
     // Match the shim's lookup exactly: requestId is FundRequest._id (from getRecordId).
-    const request = await FundRequest.findOne({ where: { _id: requestId } });
+    const request = await FundRequest.findOne({ where: idMatch(requestId) });
     if (!request) throw new Error(`FundRequest not found: ${requestId}`);
 
     const user = await findUserByRuntimeId(User, userId);
