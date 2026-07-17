@@ -168,6 +168,17 @@ const startDbServices = async () => {
   try {
     dbServicesStarted = true;
 
+    // Defensive: guarantee the durable proof-file store exists even if the
+    // migration didn't run (belt-and-suspenders alongside the migration). sync()
+    // is non-destructive — it only creates the table when missing.
+    try {
+      const { UploadedFile } = require('./src/models');
+      await UploadedFile.sync();
+      logger.info('[System] UploadedFiles store ready (durable proof storage)');
+    } catch (e) {
+      logger.warn('[System] UploadedFile.sync failed:', e.message);
+    }
+
     const seedAccounts = require('./src/utils/accountSeeder');
     const seedDefaultUsers = require('./src/utils/seedDefaultUsers');
 
