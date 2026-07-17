@@ -10,7 +10,7 @@ import { Building2, Landmark, AlertCircle, CircleDollarSign } from 'lucide-react
 import { useLayout } from '../../contexts/LayoutContext';
 import { useCentres } from '../../hooks/useCentres';
 import { useSearchParams } from 'react-router-dom';
-import { getCurrentFY } from '../../utils/fyUtils';
+import { getCurrentFY, getFinancialYearOptions } from '../../utils/fyUtils';
 
 const FinanceManagerDashboard = () => {
     const { setLayout } = useLayout();
@@ -100,9 +100,9 @@ const FinanceManagerDashboard = () => {
                             onChange={(e) => setSelectedFY(e.target.value)}
                             className="bg-transparent border-none text-sm font-bold focus:ring-0 outline-none cursor-pointer"
                         >
-                            <option value={getCurrentFY()}>{getCurrentFY()} (Current)</option>
-                            <option value="2024-2025">2024-2025</option>
-                            <option value="2023-2024">2023-2024</option>
+                            {getFinancialYearOptions().map((fy, i) => (
+                                <option key={fy} value={fy}>{fy}{i === 0 ? ' (Current)' : ''}</option>
+                            ))}
                         </select>
                     </div>
                 </div>

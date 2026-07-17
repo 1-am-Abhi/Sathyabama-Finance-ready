@@ -105,7 +105,9 @@ const ManageFaculty = () => {
             try {
                 const response = await apiClient.get('/auth/users');
                 if (response.data.success) {
-                    const usersArray = response.data.data || response.data.users || [];
+                    // Only actual faculty are assignable — exclude ADMIN/FINANCE/AUDITOR.
+                    const usersArray = (response.data.data || response.data.users || [])
+                        .filter(u => (u.role || '').toUpperCase() === 'FACULTY');
                     const mappedFaculties = usersArray.map(u => ({
                         id: u._id || u.id,
                         name: u.name || 'Unknown',

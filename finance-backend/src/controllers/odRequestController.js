@@ -1,6 +1,7 @@
 const logger = require('../utils/logger');
 const asyncHandler = require('../utils/asyncHandler');
 const { ODRequest, AcademicMetric } = require('../models');
+const { getCurrentCycle } = require('../utils/fyUtils');
 const { Op } = require('sequelize');
 
 const createODRequest = asyncHandler(async (req, res) => {
@@ -94,7 +95,7 @@ const updateODRequestStatus = asyncHandler(async (req, res) => {
     await od.save();
 
     if (od.status === 'APPROVED') {
-        const cycle = '2023-24'; 
+        const cycle = getCurrentCycle(); 
         let metrics = await AcademicMetric.findOne({ where: { facultyId: od.facultyId, cycle } });
         if (!metrics) {
             metrics = await AcademicMetric.create({ facultyId: od.facultyId, cycle });

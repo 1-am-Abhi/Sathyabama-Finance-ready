@@ -19,7 +19,7 @@ import {
 } from '../../hooks/useFinance';
 import useFinanceSocket from '../../hooks/useFinanceSocket';
 import { getCentreName } from '../../constants/centreMap';
-import { getCurrentFY } from '../../utils/fyUtils';
+import { getCurrentFY, getFinancialYearOptions } from '../../utils/fyUtils';
 
 const FinanceDashboard = () => {
     const { setLayout } = useLayout();
@@ -168,9 +168,9 @@ const FinanceDashboard = () => {
                         onChange={(e) => setSelectedFY(e.target.value)}
                         className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-5 py-2.5 text-sm font-bold focus:ring-2 focus:ring-primary/20 outline-none cursor-pointer transition-all hover:bg-slate-100"
                     >
-                        <option value={getCurrentFY()}>{getCurrentFY()} (Current)</option>
-                        <option value="2024-2025">2024-2025</option>
-                        <option value="2023-2024">2023-2024</option>
+                        {getFinancialYearOptions().map((fy, i) => (
+                            <option key={fy} value={fy}>{fy}{i === 0 ? ' (Current)' : ''}</option>
+                        ))}
                     </select>
                 </div>
             </div>

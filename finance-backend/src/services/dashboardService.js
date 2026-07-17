@@ -96,6 +96,30 @@ exports.getDashboardMetrics = async ({ fy, organizationId }) => {
     }));
     const utilization = totalSanctionedSum > 0 ? (disbursedSum / totalSanctionedSum) * 100 : 0;
 
+  // Institutional fund overview for the Admin Dashboard (Director/Institutional,
+  // PFMS, Others). Previously absent from this response, so the admin fund cards
+  // rendered empty.
+  let fundSources = [];
+  try {
+    const { getFundSourceOverview } = require('./pipelineMetricsService');
+    const ov = await getFundSourceOverview();
+    const row = (name, sourceType, o) => ({
+      name,
+      sourceType,
+      totalAllocated: safeNumber(o?.totalAllocated),
+      totalUsed: safeNumber(o?.totalUsed),
+      remainingBalance: safeNumber(o?.remainingBalance),
+    });
+    fundSources = [
+      row('INSTITUTIONAL', 'institutionalFunds', ov.institutionalFunds),
+      row('PFMS', 'pfmsFunds', ov.pfmsFunds),
+      row('OTHERS', 'othersFunds', ov.othersFunds),
+    ];
+  } catch (e) {
+    logger.warn('[dashboard] fund sources overview failed:', e.message);
+  }
+  const totalAllocated = fundSources.reduce((s, f) => s + safeNumber(f.totalAllocated), 0);
+
   const data = {
     totalProjects,
     pendingApprovals,
@@ -104,7 +128,11 @@ exports.getDashboardMetrics = async ({ fy, organizationId }) => {
     totalRevenue: revenueSum,
     utilization: safeNumber(utilization.toFixed(2)),
     centres: safeArray(centres),
-    trend: safeArray(trend)
+    trend: safeArray(trend),
+    fundSources,
+    totalAllocated,
+    used: disbursedSum,
+    remaining: Math.max(0, totalAllocated - disbursedSum)
   };
   dashboardCache.set(cacheKey, { createdAt: Date.now(), data });
   return data;

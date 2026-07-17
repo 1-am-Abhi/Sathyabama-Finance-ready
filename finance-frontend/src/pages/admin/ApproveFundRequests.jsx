@@ -11,7 +11,7 @@ import { formatCurrency } from '../../utils/format';
 import DateFilter from '../../components/shared/DateFilter';
 import { useSearchParams } from 'react-router-dom';
 import { Calendar } from 'lucide-react';
-import { getCurrentFY } from '../../utils/fyUtils';
+import { getCurrentFY, getFinancialYearOptions } from '../../utils/fyUtils';
 import { useCentres } from '../../hooks/useCentres';
 import { FUND_SOURCE_OPTIONS } from '../../constants/fundSources';
 import AIResultModal from '../../components/shared/AIResultModal';
@@ -301,9 +301,9 @@ const ApproveFundRequests = () => {
                                 value={selectedFY}
                                 onChange={(e) => setSelectedFY(e.target.value)}
                             >
-                                <option value={getCurrentFY()}>{getCurrentFY()} (Current)</option>
-                                <option value="2024-2025">2024-2025</option>
-                                <option value="2023-2024">2023-2024</option>
+                                {getFinancialYearOptions().map((fy, i) => (
+                                    <option key={fy} value={fy}>{fy}{i === 0 ? ' (Current)' : ''}</option>
+                                ))}
                             </select>
                         </div>
                         <div className="flex items-center space-x-2">

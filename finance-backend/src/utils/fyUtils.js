@@ -27,7 +27,14 @@ function getFYRange(fy) {
     return { startDate, endDate };
 }
 
+// Short academic-cycle form of the current FY, e.g. "2026-2027" -> "2026-27".
+function getCurrentCycle() {
+    const [start, end] = getCurrentFY().split('-');
+    return `${start}-${String(end).slice(-2)}`;
+}
+
 module.exports = {
     getCurrentFY,
-    getFYRange
+    getFYRange,
+    getCurrentCycle
 };

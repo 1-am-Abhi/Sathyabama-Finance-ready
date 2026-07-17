@@ -1,8 +1,9 @@
 const asyncHandler = require('../utils/asyncHandler');
 const { AcademicMetric, User } = require('../models');
+const { getCurrentCycle } = require('../utils/fyUtils');
 
 const getMetrics = asyncHandler(async (req, res) => {
-    const cycle = req.query.cycle || '2024-25';
+    const cycle = req.query.cycle || getCurrentCycle();
     const facultyId = req.user.role === 'ADMIN' ? req.query.facultyId : (req.user.id || req.user._id);
 
     if (!facultyId) {
@@ -29,7 +30,7 @@ const getMetrics = asyncHandler(async (req, res) => {
 });
 
 const getAllMetrics = asyncHandler(async (req, res) => {
-    const cycle = req.query.cycle || '2024-25';
+    const cycle = req.query.cycle || getCurrentCycle();
     const metrics = await AcademicMetric.findAll({ where: { cycle } });
     res.status(200).json({ success: true, count: metrics.length, data: metrics || [] });
 });
@@ -43,7 +44,7 @@ const updateMetrics = asyncHandler(async (req, res) => {
     const { cycle } = req.body;
     const facultyId = req.user.id;
     
-    let metrics = await AcademicMetric.findOne({ where: { facultyId, cycle: cycle || '2024-25' } });
+    let metrics = await AcademicMetric.findOne({ where: { facultyId, cycle: cycle || getCurrentCycle() } });
     
     const updateData = {
         ...req.body,

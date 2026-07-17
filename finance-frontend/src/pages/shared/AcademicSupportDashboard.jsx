@@ -8,17 +8,18 @@ import { Badge } from '../../components/ui/badge';
 import { Button } from '../../components/ui/button';
 import apiClient from '../../api/client';
 import useToast from '../../hooks/useToast';
+import { getCurrentAcademicCycle, getAcademicCycleOptions } from '../../utils/fyUtils';
 
 const AcademicSupportDashboard = () => {
     const { setLayout } = useLayout();
     const { user } = useAuth();
     const { showToast, ToastPortal } = useToast();
     const [academicData, setAcademicData] = useState(null);
-    const [selectedYear, setSelectedYear] = useState('2024-25');
+    const [selectedYear, setSelectedYear] = useState(getCurrentAcademicCycle());
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [isSyncing, setIsSyncing] = useState(false);
     
-    const years = ['2024-25', '2023-24', '2022-23'];
+    const years = getAcademicCycleOptions();
 
     const emptyData = {
         sectionA: {

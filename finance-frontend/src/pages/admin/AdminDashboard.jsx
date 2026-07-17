@@ -22,6 +22,7 @@ import {
 } from 'recharts';
 import ResearchCentreDetail from './ResearchCentreDetail';
 import { formatCurrency } from '../../utils/format';
+import { getCurrentFY } from '../../utils/fyUtils';
 import apiClient from '../../api/client';
 import AddCentreModal from '../../components/shared/AddCentreModal';
 import Loader from '../../components/shared/Loader';
@@ -93,16 +94,6 @@ const EMPTY_ADMIN_DASHBOARD = {
     recentRequests: []
 };
 
-
-const getCurrentFY = () => {
-    const today = new Date();
-    const year = today.getFullYear();
-    const month = today.getMonth(); // 0-based: Apr is 3
-
-    return month >= 3
-        ? `${year}-${year + 1}`
-        : `${year - 1}-${year}`;
-};
 
 const generateFYOptions = (pastYears = 5) => {
     const currentFY = getCurrentFY();

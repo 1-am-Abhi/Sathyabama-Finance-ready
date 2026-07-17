@@ -90,10 +90,14 @@ const FacultyRequestFunds = () => {
     (p) => (p._id || p.id) === selectedProjectId
   );
 
+  // The faculty who submits a project is its Principal Investigator by default
+  // (project.facultyId). Also accept explicit piId/userId if present.
+  const uid = user?._id || user?.id;
   const isPI =
-    selectedProject &&
-    (selectedProject.piId === user?._id ||
-      selectedProject.userId === user?._id);
+    !!selectedProject &&
+    [selectedProject.piId, selectedProject.userId, selectedProject.facultyId]
+      .filter(Boolean)
+      .some((v) => v === uid || v === user?._id || v === user?.id);
 
   // DATA CORRECTNESS (CRITICAL) - Task 1
   const sanctionedAmount = Number(selectedProject?.sanctionedBudget || 0);
@@ -241,7 +245,7 @@ const FacultyRequestFunds = () => {
             {/* CENTER - Action Section */}
             <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900 dark:to-indigo-900 p-8 rounded-xl text-center shadow-lg border border-blue-100 dark:border-blue-800/50">
               <h2 className="text-2xl font-bold mb-3 text-gray-900 dark:text-white">
-                Request Next Installment
+                {releasedAmount > 0 ? "Request Next Installment" : "Request First Installment"}
               </h2>
               <p className="text-gray-600 dark:text-blue-200 mb-6 text-sm max-w-md mx-auto">
                 Submit your expense justification to request funds. Approval workflows will notify you at each stage.
@@ -256,7 +260,9 @@ const FacultyRequestFunds = () => {
                   ? "PI Only"
                   : remainingAmount <= 0
                   ? "Budget Exhausted"
-                  : "Request Installment"}
+                  : releasedAmount > 0
+                  ? "Request Next Installment"
+                  : "Request First Installment"}
               </Button>
             </div>
 

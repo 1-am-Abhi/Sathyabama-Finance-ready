@@ -187,8 +187,9 @@ const EventRequests = () => {
                 if (usersRes.data.success) {
                     // /auth/users returns { success, data: [...] } — NOT `users`.
                     // Fall back so `faculties` is never undefined (would crash the
-                    // faculties.filter(...) render).
-                    setFaculties(usersRes.data.data || usersRes.data.users || []);
+                    // faculties.filter(...) render). Only actual faculty are shown.
+                    setFaculties((usersRes.data.data || usersRes.data.users || [])
+                        .filter(u => (u.role || '').toUpperCase() === 'FACULTY'));
                 }
             } catch (err) {
                 console.error("Failed to fetch data:", err);

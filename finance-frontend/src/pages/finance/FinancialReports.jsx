@@ -10,6 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/ta
 import { BarChart3, Download, Filter, FileSpreadsheet, FilePieChart, TrendingUp, TrendingDown, Wallet, Calendar, Building2, Search, ArrowUpRight, ArrowDownRight, Globe, FileText } from 'lucide-react';
 import useToast from '../../hooks/useToast';
 import apiClient from '../../api/client';
+import { getCurrentAcademicCycle } from '../../utils/fyUtils';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 
 const toNumber = (value) => {
@@ -132,8 +133,8 @@ const FinancialReports = () => {
                             value={filters.period}
                             onChange={(e) => setFilters({...filters, period: e.target.value})}
                         >
-                            <option value="2024-Q1">Q1 FY 2024-25</option>
-                            <option value="2023-Q4">Q4 FY 2023-24</option>
+                            <option value="2024-Q1">Q1 FY {getCurrentAcademicCycle()}</option>
+                            <option value="2023-Q4">Q4 FY {getCurrentAcademicCycle()}</option>
                             <option value="2023-ANNUAL">Annual Report 2023</option>
                         </select>
                     </div>

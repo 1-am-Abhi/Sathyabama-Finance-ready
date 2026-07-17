@@ -16,6 +16,7 @@ import {
 import AIResultModal from '../../components/shared/AIResultModal';
 import { predictFundingSuccess, predictResearchTrends, analyzePersonalResearchMetrics, findMoreCollaborators } from '../../services/aiService';
 import { formatCurrency } from '../../utils/format';
+import { getCurrentFY } from '../../utils/fyUtils';
 import apiClient from '../../api/client';
 
 const safeNumber = (val) => {
@@ -213,7 +214,7 @@ const FacultyDashboard = () => {
                 <Card className="lg:col-span-2 border border-white/10 bg-slate-800/40 rounded-[2rem] overflow-hidden">
                     <CardHeader className="p-6 border-b border-white/10">
                         <CardTitle className="text-base font-black italic tracking-tighter uppercase text-white">Grant Funding Trend</CardTitle>
-                        <CardDescription className="text-[10px] font-black uppercase tracking-widest text-slate-400 italic">Cumulative sanctioned funding — FY 2025-26</CardDescription>
+                        <CardDescription className="text-[10px] font-black uppercase tracking-widest text-slate-400 italic">Cumulative sanctioned funding — FY {getCurrentFY()}</CardDescription>
                     </CardHeader>
                     <CardContent className="p-6">
                         <div className="h-56 w-full">

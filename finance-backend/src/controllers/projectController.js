@@ -23,6 +23,7 @@ const {
 } = require('../services/pipelineMetricsService');
 const { normalizeFundSource } = require('../services/fundSourceCatalogService');
 const { safeNumber, parseFY, safeArray } = require('../utils/safeUtils');
+const NotificationService = require('../services/notificationService');
 
 const ResearchCenterModel = ResearchCenter || Centre;
 
@@ -132,6 +133,30 @@ const createProject = asyncHandler(async (req, res) => {
         centreId,
         status: 'PENDING'
     });
+
+    // Business rule: the submitting faculty automatically becomes the Principal
+    // Investigator. Record an explicit PI ProjectMember (admin can reassign later).
+    try {
+        await ProjectMember.create({ projectId: project.id, userId, role: 'PI' });
+    } catch (e) {
+        logger.warn('[createProject] PI member create failed:', e.message);
+    }
+
+    // Notify admins that a new project/proposal was submitted (only when a faculty
+    // submits — an admin creating a project doesn't need to notify themselves).
+    if ((req.user?.role || '').toUpperCase() === 'FACULTY') {
+        try {
+            await NotificationService.notifyRole(
+                'ADMIN',
+                'New Project Submitted',
+                `${req.user?.name || 'A faculty member'} submitted the project "${title}" for review.`,
+                'INFO',
+                '/admin/approve-projects'
+            );
+        } catch (e) {
+            logger.warn('[createProject] notify admin failed:', e.message);
+        }
+    }
 
     return res.status(201).json({ success: true, data: project });
 });
