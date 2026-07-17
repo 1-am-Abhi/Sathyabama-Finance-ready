@@ -208,6 +208,11 @@ const getProjectDetails = asyncHandler(async (req, res) => {
         success: true,
         data: {
             ...plain,
+            // The disbursement ledger is the ONLY source of truth for released
+            // funds — override the (possibly stale) stored column so no reader can
+            // pick up an outdated releasedBudget.
+            releasedBudget: releasedAmount,
+            utilizedBudget: releasedAmount,
             startDate,
             endDate,
             // Sanction Date is the project start (date of sanction order). Fall back

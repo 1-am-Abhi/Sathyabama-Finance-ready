@@ -36,6 +36,20 @@ const Project = sequelize.define('Project', {
         type: DataTypes.FLOAT,
         allowNull: false
     },
+    // These columns exist in the table but were absent from the model, so the
+    // disbursement pipeline's Project.update({ releasedBudget }) was silently
+    // dropped by Sequelize and the stored value stayed 0 (stale). Declaring them
+    // lets the pipeline keep them in lockstep with the disbursement ledger.
+    releasedBudget: {
+        type: DataTypes.FLOAT,
+        allowNull: true,
+        defaultValue: 0
+    },
+    utilizedBudget: {
+        type: DataTypes.FLOAT,
+        allowNull: true,
+        defaultValue: 0
+    },
     fundingSource: {
         type: DataTypes.STRING,
         allowNull: false
