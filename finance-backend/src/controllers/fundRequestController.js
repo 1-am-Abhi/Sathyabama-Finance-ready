@@ -327,6 +327,18 @@ const approveFundRequest = asyncHandler(async (req, res) => {
         await NotificationService.notifyFaculty(request, 'Fund Request Approved', 'Your request has been approved.', 'SUCCESS', '/faculty/request-funds');
     } catch (e) {}
 
+    // Notify Finance that an approved request is ready for disbursement (was
+    // missing — finance received no notifications for pending disbursements).
+    try {
+        await NotificationService.notifyRole(
+            'FINANCE_OFFICER',
+            'Fund Request Ready for Disbursement',
+            `Installment #${request.installmentNumber || 1} for '${request.projectTitle}' (₹${Number(request.requestedAmount).toLocaleString()}) was approved and is ready to disburse.`,
+            'INFO',
+            '/finance/disbursements'
+        );
+    } catch (e) {}
+
     safeEmit('finance', 'finance:update', { type: 'APPROVAL', requestId: getRecordId(request), timestamp: Date.now() });
 
     return res.json({ success: true, data: request });

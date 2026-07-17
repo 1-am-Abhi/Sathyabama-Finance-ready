@@ -363,14 +363,64 @@ const getFundFlowData = asyncHandler(async (req, res) => {
  * GET /finance/financial-reports
  */
 const getFinancialReports = asyncHandler(async (req, res) => {
-    const { startDate, endDate } = req.query;
-    if (!startDate || !endDate) return res.json({ success: true, data: [] });
+    let { startDate, endDate } = req.query;
+    // Default to the current financial year so the summary is never blank.
+    if (!startDate || !endDate) {
+        const range = getFYRange(getCurrentFY());
+        startDate = startDate || range.startDate;
+        endDate = endDate || range.endDate;
+    }
+    const org = req.user.organizationId;
+    const s = new Date(startDate);
+    const e = new Date(endDate);
 
-    const data = safeArray(await Disbursement.findAll({
-        where: orgWhere(req, disbursementDateWhere(new Date(startDate), new Date(endDate))),
-        attributes: ['amount', 'disbursedAt', 'createdAt']
+    // Outflows = non-reversed disbursements in range (source of truth: ledger/disbursements)
+    const disbursements = safeArray(await Disbursement.findAll({
+        where: { organizationId: org, disbursedAt: { [Op.between]: [s, e] }, ...NON_REVERSED_DISBURSEMENT_WHERE },
+        include: [{ required: false, model: FundRequest, as: 'FundRequest', include: [{ required: false, model: Project, as: 'Project' }] }],
+        order: [['disbursedAt', 'DESC']]
     }));
-    return res.json({ success: true, data: data });
+    const totalDisbursed = disbursements.reduce((sum, d) => sum + safeNumber(d.amount), 0);
+
+    // Sanctioned = sum of project budgets
+    const projects = safeArray(await Project.findAll({
+        where: { organizationId: org },
+        attributes: ['title', 'sanctionedBudget']
+    }));
+    const totalSanctioned = projects.reduce((sum, p) => sum + safeNumber(p.sanctionedBudget), 0);
+
+    // Inflows = revenue records
+    let revenues = [];
+    try {
+        revenues = safeArray(await Revenue.findAll({ order: [['createdAt', 'DESC']] }));
+    } catch (err) {
+        logger.warn('[financial-reports] revenue fetch failed:', err.message);
+    }
+    const revAmount = (r) => safeNumber(r.amountGenerated ?? r.verifiedAmount ?? r.amount);
+    const totalRevenue = revenues.reduce((sum, r) => sum + revAmount(r), 0);
+
+    const outflows = disbursements.map((d) => ({
+        project: d.FundRequest?.Project?.title || d.FundRequest?.projectTitle || 'Unknown',
+        amount: safeNumber(d.amount),
+        date: d.disbursedAt || d.createdAt
+    }));
+    const inflows = revenues.map((r) => ({
+        source: r.revenueSource || r.details || 'Revenue',
+        amount: revAmount(r),
+        date: r.createdAt
+    }));
+
+    return res.json({
+        success: true,
+        totalDisbursed,
+        totalSanctioned,
+        totalRevenue,
+        netFlow: totalRevenue - totalDisbursed,
+        outflows,
+        inflows,
+        projects: projects.map((p) => ({ title: p.title, sanctioned: safeNumber(p.sanctionedBudget) })),
+        data: disbursements
+    });
 });
 
 /**

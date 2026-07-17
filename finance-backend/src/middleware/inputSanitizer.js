@@ -13,6 +13,10 @@ const simpleSanitize = (str) => {
  * Security Middleware: Financial Input Sanitizer & Validator
  */
 const sanitizeFinancialInput = (req, res, next) => {
+    // In Express 5, req.body is undefined when a request arrives without a parsed
+    // JSON body (no/other Content-Type, or empty body). Guard so this middleware
+    // never crashes with "Cannot destructure property 'amount' of req.body".
+    if (!req.body || typeof req.body !== 'object') req.body = {};
     const { amount, requestedAmount, remarks, purpose } = req.body;
 
     // 1. Validate Amount (if present)

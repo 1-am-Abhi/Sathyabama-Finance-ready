@@ -168,7 +168,7 @@ const ODRequests = () => {
         const fetchRequests = async () => {
             try {
                 const response = await apiClient.get('/od-requests');
-                const mappedRequests = response.data.data.map(req => ({
+                const mappedRequests = (Array.isArray(response.data?.data) ? response.data.data : []).map(req => ({
                     ...req,
                     id: req._id,
                     faculty: req.facultyName,

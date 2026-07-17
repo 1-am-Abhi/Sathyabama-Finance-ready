@@ -9,8 +9,26 @@ const {
     Disbursement,
     ResearchCenter,
     Centre,
-    Ledger
+    Ledger,
+    sequelize
 } = require('../models');
+const { NON_REVERSED_DISBURSEMENT_WHERE } = require('../constants/financeConstants');
+
+// Single source of truth for "released" per project: SUM of non-reversed
+// disbursements keyed by projectId (disbursements store the project's `id`).
+const computeReleasedByProject = async (projectIds, organizationId) => {
+    const map = {};
+    const ids = (projectIds || []).filter(Boolean);
+    if (!ids.length) return map;
+    const rows = await Disbursement.findAll({
+        where: { projectId: { [Op.in]: ids }, organizationId, ...NON_REVERSED_DISBURSEMENT_WHERE },
+        attributes: ['projectId', [sequelize.fn('SUM', sequelize.col('amount')), 'released']],
+        group: ['projectId'],
+        raw: true
+    });
+    rows.forEach((r) => { map[r.projectId] = Number(r.released) || 0; });
+    return map;
+};
 
 // A Project's `id` (model PK) and `_id` (DB column) can diverge for rows created
 // after the UUID hardening migration (the model doesn't populate `_id`, so the DB
@@ -54,22 +72,47 @@ const getAdminStats = asyncHandler(async (req, res) => {
 
 const getFacultyStats = asyncHandler(async (req, res) => {
     const userId = req.user?.id || req.user?._id;
-    let data;
-    try {
-        data = await getFacultyDashboardData(userId, req.user?.name);
-    } catch (error) {
-        logger.error('[ProjectController] faculty stats fallback:', error.message);
-        data = {};
-    }
+    const orgId = req.user.organizationId;
 
-    const safeData = data || {};
+    // Single source of truth: the faculty's OWN projects + their non-reversed
+    // disbursements. (The previous path via getFacultyDashboardData returned
+    // totalAllocated: 0 and used a mismatched field name for released.)
+    const projects = safeArray(await Project.findAll({
+        where: { organizationId: orgId, facultyId: userId },
+        attributes: ['id', 'sanctionedBudget', 'status']
+    }));
+    const releasedByProject = await computeReleasedByProject(projects.map((p) => p.id), orgId);
+
+    const totalAllocated = projects.reduce((s, p) => s + safeNumber(p.sanctionedBudget), 0);
+    const totalReleased = projects.reduce((s, p) => s + (releasedByProject[p.id] || 0), 0);
+    const activeProjects = projects.filter(
+        (p) => ['ACTIVE', 'APPROVED'].includes(String(p.status || '').toUpperCase())
+    ).length;
+
+    let activeRequests = 0;
+    try {
+        activeRequests = safeNumber(await FundRequest.count({
+            where: {
+                facultyId: userId,
+                organizationId: orgId,
+                status: { [Op.in]: ['PENDING', 'PENDING_APPROVAL', 'APPROVED', 'PARTIALLY_DISBURSED'] }
+            }
+        }));
+    } catch (e) { logger.warn('[getFacultyStats] activeRequests count failed:', e.message); }
+
     return res.status(200).json({
         success: true,
         data: {
-            totalProjects: safeNumber(safeData.totalProjects),
-            totalReleased: safeNumber(safeData.totalReleased),
-            activeRequests: safeNumber(safeData.activeRequests),
-            notifications: safeArray(safeData.notifications)
+            totalProjects: projects.length,
+            activeProjects,
+            totalReleased,
+            totalDisbursed: totalReleased,
+            facultyDisbursed: totalReleased,
+            totalAllocated,
+            facultyApprovedFunds: totalAllocated,
+            remaining: Math.max(0, totalAllocated - totalReleased),
+            activeRequests,
+            notifications: []
         }
     });
 });
@@ -90,7 +133,21 @@ const getAllProjects = asyncHandler(async (req, res) => {
         order: [['createdAt', 'DESC']]
     }));
 
-    return res.status(200).json({ success: true, data: projects });
+    // Attach the authoritative released/remaining derived from disbursements so
+    // every portal (and the installment state machine) uses one source of truth.
+    const releasedByProject = await computeReleasedByProject(
+        projects.map((p) => p.id),
+        req.user.organizationId
+    );
+    const data = projects.map((p) => {
+        const j = p.toJSON();
+        const released = releasedByProject[p.id] || 0;
+        j.releasedBudget = released;
+        j.remainingBudget = Math.max(0, safeNumber(j.sanctionedBudget) - released);
+        return j;
+    });
+
+    return res.status(200).json({ success: true, data });
 });
 
 const getProjectDetails = asyncHandler(async (req, res) => {
