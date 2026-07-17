@@ -122,7 +122,7 @@ const ProjectDetail = ({ isOpen, onClose, project, isDark }) => {
                                     {project.status}
                                 </Badge>
                             </div>
-                            <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">{duration}</div>
+                            <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">{durationYears ? `${durationYears} year${durationYears > 1 ? 's' : ''}` : ''}</div>
                         </CardContent>
                     </Card>
                 </div>
