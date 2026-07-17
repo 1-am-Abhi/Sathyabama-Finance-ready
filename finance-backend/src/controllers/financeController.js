@@ -154,6 +154,18 @@ const updateFundSourceAmount = asyncHandler(async (req, res) => {
     record.totalAllocated = safeNumber(amount);
     await record.save();
 
+    // Fund allocation changes the institutional overview that BOTH the Finance
+    // and Admin dashboards read. Invalidate the /dashboard cache (otherwise the
+    // Admin Dashboard shows a stale allocation for up to 20s and diverges from
+    // Finance) and broadcast finance:update so every open dashboard refreshes
+    // live without a page reload.
+    try {
+        require('../services/dashboardService').clearDashboardCache();
+    } catch (e) {
+        logger.warn('[finance] dashboard cache clear after allocation failed:', e.message);
+    }
+    safeEmit('finance', 'finance:update', { type: 'FUND_ALLOCATION', sourceType, timestamp: Date.now() });
+
     return res.json({ success: true, data: record });
 });
 
@@ -652,6 +664,13 @@ const rollbackDisbursement = asyncHandler(async (req, res) => {
         logger.warn('[rollback] notification failed:', e.message);
     }
 
+    // Reversal changes released/remaining on the institutional overview — keep
+    // the Admin Dashboard in lockstep with Finance (no 20s stale window).
+    try {
+        require('../services/dashboardService').clearDashboardCache();
+    } catch (e) {
+        logger.warn('[finance] dashboard cache clear after reversal failed:', e.message);
+    }
     safeEmit('finance', 'finance:update', {
         type: 'DISBURSEMENT_REVERSAL',
         disbursementId: disbursement.id,

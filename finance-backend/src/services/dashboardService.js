@@ -23,8 +23,17 @@ exports.getDashboardMetrics = async ({ fy, organizationId }) => {
     const orgId = organizationId || null;
     const orgFilter = orgId ? { organizationId: orgId } : {};
 
-    // 🔹 Projects
+    // 🔹 Projects (counted without a date filter — projects are long-lived)
     const totalProjects = safeNumber(await Project.count({ where: { ...orgFilter } }));
+
+    // Active vs completed projects — same source of truth as the Finance side
+    // (Project.status). Admin Dashboard shows these as institutional KPIs.
+    const activeProjects = safeNumber(await Project.count({
+      where: { ...orgFilter, status: 'ACTIVE' }
+    }));
+    const completedProjects = safeNumber(await Project.count({
+      where: { ...orgFilter, status: 'COMPLETED' }
+    }));
 
     // 🔹 Fund Requests (pipeline)
     const pendingApprovals = safeNumber(await FundRequest.count({
@@ -33,6 +42,25 @@ exports.getDashboardMetrics = async ({ fy, organizationId }) => {
 
     const approvedRequests = safeNumber(await FundRequest.count({
       where: { ...orgFilter, status: 'APPROVED', ...whereDate }
+    }));
+
+    // Running installments = fund requests in-flight: approved and/or disbursed
+    // but whose utilization has NOT yet been verified. Keyed on currentStage
+    // (NOT status) because the disbursement pipeline marks a fully-disbursed
+    // request status=COMPLETED while its stage is still AMOUNT_DISBURSED — the
+    // money is out but the utilization certificate is still pending. Excludes
+    // PENDING/REJECTED/CANCELLED (never entered the pipeline) and the terminal
+    // stages UTILIZATION_COMPLETED / SETTLEMENT_CLOSED (fully settled).
+    const runningInstallments = safeNumber(await FundRequest.count({
+      where: {
+        ...orgFilter,
+        status: { [Op.notIn]: ['PENDING', 'PENDING_APPROVAL', 'REJECTED', 'CANCELLED'] },
+        [Op.or]: [
+          { currentStage: null },
+          { currentStage: { [Op.notIn]: ['UTILIZATION_COMPLETED', 'SETTLEMENT_CLOSED'] } }
+        ],
+        ...whereDate
+      }
     }));
 
     const disbursementDate = range
@@ -122,6 +150,9 @@ exports.getDashboardMetrics = async ({ fy, organizationId }) => {
 
   const data = {
     totalProjects,
+    activeProjects,
+    completedProjects,
+    runningInstallments,
     pendingApprovals,
     approvedRequests,
     totalDisbursed: disbursedSum,

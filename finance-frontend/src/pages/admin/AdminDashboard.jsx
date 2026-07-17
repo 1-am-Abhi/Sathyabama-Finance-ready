@@ -29,6 +29,7 @@ import Loader from '../../components/shared/Loader';
 import EmptyState from '../../components/shared/EmptyState';
 import { normalizeFundSource } from '../../constants/fundSources';
 import { useDashboard } from '../../hooks/useDashboard';
+import { useQueryClient } from '@tanstack/react-query';
 
 const safeNumber = (val) => {
     const num = Number(val || 0);
@@ -73,9 +74,9 @@ const buildInsightsFromMetrics = (raw) => {
 
 const getAdminFundSourceLabel = (value) => {
     const normalized = normalizeFundSource(value);
-    if (normalized === 'INSTITUTIONAL') return 'Innovation Fund';
-    if (normalized === 'OTHERS') return 'External Grants';
-    return 'Government Funds';
+    if (normalized === 'INSTITUTIONAL') return 'Institutional Fund';
+    if (normalized === 'OTHERS') return 'Other Funds';
+    return 'PFMS Fund';
 };
 
 const EMPTY_ADMIN_DASHBOARD = {
@@ -125,6 +126,7 @@ const AdminDashboard = () => {
     const [aiModal, setAiModal] = useState({ open: false, loading: false, result: null });
     const [forecast, setForecast] = useState(null);
     const { data: dashboardData, isLoading: dashboardLoading } = useDashboard(selectedFY);
+    const queryClient = useQueryClient();
     const [isSocketConnected, setIsSocketConnected] = useState(true);
     const [drillCentre, setDrillCentre] = useState(null);
     const [drillData, setDrillData] = useState([]);
@@ -136,7 +138,14 @@ const AdminDashboard = () => {
 
 
     const [stats, setStats] = useState(null);
-    const [fundSources, setFundSources] = useState([]);
+    // Fund sources come from the SAME single source of truth as the Finance
+    // Dashboard: the /dashboard endpoint's fundSources (built from
+    // getFundSourceOverview — the exact function /finance/fund-sources/overview
+    // uses). Never sourced from /projects/stats, which does not carry them.
+    const fundSources = React.useMemo(
+        () => (Array.isArray(dashboardData?.fundSources) ? dashboardData.fundSources : []),
+        [dashboardData]
+    );
     const [centresStats, setCentresStats] = useState([]);
     const [loading, setLoading] = useState(true);
     const [socketConnected, setSocketConnected] = useState(false);
@@ -162,7 +171,6 @@ const AdminDashboard = () => {
                 const cached = dashboardCache[selectedFY];
                 setStats(cached.stats);
                 setCentresStats(cached.centres);
-                setFundSources(cached.fundSources || []);
                 setLoading(false);
                 return;
             }
@@ -183,19 +191,16 @@ const AdminDashboard = () => {
 
             dashboardCache[selectedFY] = {
                 stats: normalizedData,
-                centres: normalizedData.centres,
-                fundSources: normalizedData.fundSources ?? []
+                centres: normalizedData.centres
             };
 
             setStats(normalizedData);
             setCentresStats(normalizedData.centres);
-            setFundSources(normalizedData.fundSources ?? []);
         } catch (error) {
             console.error("Error fetching admin data:", error);
             toast.error(error.response?.data?.message || error.message || 'Failed to fetch admin dashboard');
             setStats(null);
             setCentresStats([]);
-            setFundSources([]);
         } finally {
             setLoading(false);
         }
@@ -259,17 +264,27 @@ const AdminDashboard = () => {
             setIsSocketConnected(false);
         };
 
+        // Any financial state change (allocation, approval, disbursement,
+        // reversal, proof verification) emits finance:update. Refresh the
+        // centres table (/projects/stats) AND invalidate the shared /dashboard
+        // query so the fund overview + all metrics re-render without a reload.
         const handleFinanceUpdate = () => {
             if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);
             refreshTimerRef.current = setTimeout(() => {
-                fetchDashboardData();
+                queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+                fetchDashboardData(true);
                 fetchInsights();
             }, 1000);
         };
 
+        // Fund allocations from the Finance Dashboard broadcast this browser event
+        // even when the socket round-trip is slow — mirror it to the same refresh.
+        const handleFundSourcesUpdated = () => handleFinanceUpdate();
+
         socket.on('connect', handleConnect);
         socket.on('disconnect', handleDisconnect);
         socket.on('finance:update', handleFinanceUpdate);
+        window.addEventListener('fund-sources-updated', handleFundSourcesUpdated);
 
         return () => {
             cancelled = true;
@@ -277,22 +292,37 @@ const AdminDashboard = () => {
             socket.off('connect', handleConnect);
             socket.off('disconnect', handleDisconnect);
             socket.off('finance:update', handleFinanceUpdate);
+            window.removeEventListener('fund-sources-updated', handleFundSourcesUpdated);
             socket.disconnect();
         };
-    }, [selectedFY]);
+    }, [selectedFY, queryClient]);
 
     const centresList = React.useMemo(
         () => (Array.isArray(stats?.centres) ? stats.centres : []),
         [stats]
     );
 
+    // Every figure below is read straight from the /dashboard payload — the same
+    // source of truth the Finance Dashboard reads. No frontend re-computation of
+    // financial totals: released/utilized/remaining come from the backend, which
+    // derives them from non-reversed Disbursements and fund allocations.
     const totalStats = React.useMemo(() => {
-        if (!dashboardData) return { totalProjects: 0, activeProjects: 0, pendingApprovals: 0, totalBudget: 0, totalAllocated: 0, used: 0, remaining: 0, totalFaculty: 0, totalDisbursed: 0 };
+        const d = dashboardData || {};
+        const allocated = safeNumber(d.totalAllocated);
+        const released = safeNumber(d.used); // released = Σ non-reversed disbursements
         return {
-            totalProjects: safeNumber(dashboardData.totalProjects),
-            activeProjects: safeNumber(dashboardData.approvedRequests),
-            pendingApprovals: safeNumber(dashboardData.pendingApprovals),
-            totalDisbursed: safeNumber(dashboardData.totalDisbursed)
+            totalProjects: safeNumber(d.totalProjects),
+            activeProjects: safeNumber(d.activeProjects),
+            completedProjects: safeNumber(d.completedProjects),
+            runningInstallments: safeNumber(d.runningInstallments),
+            pendingApprovals: safeNumber(d.pendingApprovals),
+            totalDisbursed: safeNumber(d.totalDisbursed),
+            totalAllocated: allocated,
+            totalReleased: released,
+            totalUtilized: released,
+            totalRemaining: safeNumber(d.remaining),
+            utilization: allocated > 0 ? (released / allocated) * 100 : 0,
+            totalBudget: allocated
         };
     }, [dashboardData]);
 
@@ -386,20 +416,23 @@ const AdminDashboard = () => {
                 </div>
             </div>
 
-            {/* Top Level KPIs */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            {/* ─── INSTITUTIONAL FINANCIAL OVERVIEW ─── */}
+            {/* Single source of truth: /dashboard (identical figures to the Finance
+                Dashboard's /finance/fund-sources/overview). No frontend math. */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-6 mb-8">
                 {[
-                    { label: 'Total Projects', value: totalStats.totalProjects, icon: Target, color: 'text-indigo-400' },
-                    { label: 'Active Pipeline', value: totalStats.activeProjects, icon: Activity, color: 'text-emerald-400' },
-                    { label: 'Total Disbursed', value: formatCurrency(totalStats.totalDisbursed), icon: Banknote, color: 'text-blue-400' },
-                    { label: 'Pending Approvals', value: totalStats.pendingApprovals, icon: Clock, color: 'text-amber-400' }
+                    { label: 'Total Allocated', value: formatCurrency(totalStats.totalAllocated), icon: Landmark, color: 'text-indigo-400' },
+                    { label: 'Total Released', value: formatCurrency(totalStats.totalReleased), icon: Banknote, color: 'text-emerald-400' },
+                    { label: 'Total Utilized', value: formatCurrency(totalStats.totalUtilized), icon: CircleDollarSign, color: 'text-purple-400' },
+                    { label: 'Total Remaining', value: formatCurrency(totalStats.totalRemaining), icon: Wallet, color: 'text-blue-400' },
+                    { label: 'Utilization %', value: `${totalStats.utilization.toFixed(1)}%`, icon: TrendingUp, color: 'text-amber-400' }
                 ].map((item, i) => (
                     <div key={i} className="p-6 rounded-2xl bg-white border border-gray-200 shadow-sm hover:bg-white/10 transition-all duration-300 group">
                         <div className="flex items-center justify-between mb-4">
                             <p className="text-[10px] font-bold uppercase tracking-widest text-gray-500">{item.label}</p>
                             <item.icon className={`w-4 h-4 ${item.color} opacity-50 group-hover:opacity-100 transition-opacity`} />
                         </div>
-                        <h2 className="text-2xl font-semibold tracking-tight">{item.value}</h2>
+                        <h2 className="text-xl font-semibold tracking-tight">{item.value}</h2>
                     </div>
                 ))}
             </div>
@@ -435,6 +468,25 @@ const AdminDashboard = () => {
                     ))}
                 </div>
             )}
+
+            {/* ─── OPERATIONAL KPIs (project & installment pipeline) ─── */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-6 mb-8">
+                {[
+                    { label: 'Total Projects', value: totalStats.totalProjects, icon: Target, color: 'text-indigo-400' },
+                    { label: 'Active Projects', value: totalStats.activeProjects, icon: Activity, color: 'text-emerald-400' },
+                    { label: 'Pending Approvals', value: totalStats.pendingApprovals, icon: Clock, color: 'text-amber-400' },
+                    { label: 'Running Installments', value: totalStats.runningInstallments, icon: CircleDollarSign, color: 'text-purple-400' },
+                    { label: 'Completed Projects', value: totalStats.completedProjects, icon: CheckCircle, color: 'text-blue-400' }
+                ].map((item, i) => (
+                    <div key={i} className="p-6 rounded-2xl bg-white border border-gray-200 shadow-sm hover:bg-white/10 transition-all duration-300 group">
+                        <div className="flex items-center justify-between mb-4">
+                            <p className="text-[10px] font-bold uppercase tracking-widest text-gray-500">{item.label}</p>
+                            <item.icon className={`w-4 h-4 ${item.color} opacity-50 group-hover:opacity-100 transition-opacity`} />
+                        </div>
+                        <h2 className="text-2xl font-semibold tracking-tight">{item.value}</h2>
+                    </div>
+                ))}
+            </div>
 
 
 
@@ -616,7 +668,7 @@ const AdminDashboard = () => {
                         <div className="w-full h-[240px] min-w-0">
                             <ResponsiveContainer width="100%" height="100%">
                                 <RadialBarChart cx="50%" cy="50%" innerRadius="70%" outerRadius="100%" barSize={24}
-                                    data={[{ name: 'Utilization', value: totalStats.totalBudget > 0 ? (totalStats.totalDisbursed / totalStats.totalBudget) * 100 : 0, fill: '#6366f1' }]}
+                                    data={[{ name: 'Utilization', value: totalStats.utilization, fill: '#6366f1' }]}
                                     startAngle={225} endAngle={-45}
                                 >
                                     <RadialBar background={{ fill: 'rgba(255,255,255,0.05)' }} dataKey="value" cornerRadius={12} />
@@ -625,19 +677,19 @@ const AdminDashboard = () => {
                         </div>
                         <div className="absolute flex flex-col items-center justify-center pt-2">
                             <span className="text-5xl font-bold tracking-tighter text-slate-900">
-                                {totalStats.totalBudget > 0 ? ((totalStats.totalDisbursed / totalStats.totalBudget) * 100).toFixed(0) : 0}<span className="text-xl text-gray-500">%</span>
+                                {totalStats.utilization.toFixed(0)}<span className="text-xl text-gray-500">%</span>
                             </span>
                             <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-gray-500 mt-2">Utilized</p>
                         </div>
                     </div>
                     <div className="grid grid-cols-2 gap-8 mt-8 px-4">
                         <div className="text-center">
-                            <p className="text-[10px] font-bold text-gray-500 uppercase mb-2">Total Grant</p>
-                            <p className="text-lg font-semibold tracking-tight">{formatCurrency(totalStats.totalBudget)}</p>
+                            <p className="text-[10px] font-bold text-gray-500 uppercase mb-2">Total Allocated</p>
+                            <p className="text-lg font-semibold tracking-tight">{formatCurrency(totalStats.totalAllocated)}</p>
                         </div>
                         <div className="text-center border-l border-gray-200">
-                            <p className="text-[10px] font-bold text-gray-500 uppercase mb-2">Total Outflow</p>
-                            <p className="text-lg font-semibold tracking-tight text-emerald-400">{formatCurrency(totalStats.totalDisbursed)}</p>
+                            <p className="text-[10px] font-bold text-gray-500 uppercase mb-2">Total Released</p>
+                            <p className="text-lg font-semibold tracking-tight text-emerald-400">{formatCurrency(totalStats.totalReleased)}</p>
                         </div>
                     </div>
                 </div>

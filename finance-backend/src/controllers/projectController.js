@@ -215,6 +215,17 @@ const createProject = asyncHandler(async (req, res) => {
         }
     }
 
+    // A new project raises totalProjects on the shared dashboard — clear the
+    // cache and broadcast so the Admin Dashboard reflects it without a reload.
+    try {
+        require('../services/dashboardService').clearDashboardCache();
+        require('../socketInstance').safeEmit('finance', 'finance:update', {
+            type: 'PROJECT_CREATED', projectId: project.id, timestamp: Date.now()
+        });
+    } catch (e) {
+        logger.warn('[createProject] dashboard refresh broadcast failed:', e.message);
+    }
+
     return res.status(201).json({ success: true, data: project });
 });
 
@@ -225,12 +236,27 @@ const updateProject = asyncHandler(async (req, res) => {
 
     const { status, sanctionedBudget, fundingSource, description } = req.body;
     
+    const statusChanged = status && status !== project.status;
     if (status) project.status = status;
     if (sanctionedBudget) project.sanctionedBudget = safeNumber(sanctionedBudget);
     if (fundingSource) project.fundingSource = normalizeFundSource(fundingSource);
     if (description) project.description = description;
 
     await project.save();
+
+    // A project status change (e.g. approval PENDING → ACTIVE, or completion)
+    // changes activeProjects/completedProjects on the shared dashboard. Clear the
+    // cache and broadcast so the Admin Dashboard updates live, matching Finance.
+    if (statusChanged) {
+        try {
+            require('../services/dashboardService').clearDashboardCache();
+            require('../socketInstance').safeEmit('finance', 'finance:update', {
+                type: 'PROJECT_STATUS', projectId: project.id, status: project.status, timestamp: Date.now()
+            });
+        } catch (e) {
+            logger.warn('[updateProject] dashboard refresh broadcast failed:', e.message);
+        }
+    }
     return res.status(200).json({ success: true, data: project });
 });
 

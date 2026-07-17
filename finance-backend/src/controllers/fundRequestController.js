@@ -289,6 +289,15 @@ const createFundRequest = asyncHandler(async (req, res) => {
         await NotificationService.notifyRole('ADMIN', 'New Fund Request', `${req.user?.name} submitted ₹${amount.toLocaleString()}.`, 'INFO', '/admin/fund-requests');
     } catch (e) { logger.warn('Notification failed'); }
 
+    // A new request raises pendingApprovals on the shared dashboard — clear the
+    // cache and notify so the Admin Dashboard reflects it without a reload.
+    try {
+        require('../services/dashboardService').clearDashboardCache();
+    } catch (e) {
+        logger.warn('[createFundRequest] dashboard cache clear failed:', e.message);
+    }
+    safeEmit('finance', 'finance:update', { type: 'FUND_REQUEST_CREATED', requestId: getRecordId(fundRequest), timestamp: Date.now() });
+
     return res.status(201).json({ success: true, data: fundRequest });
 });
 
@@ -339,6 +348,14 @@ const approveFundRequest = asyncHandler(async (req, res) => {
         );
     } catch (e) {}
 
+    // Approval moves a request PENDING → APPROVED, changing pendingApprovals and
+    // runningInstallments on the shared dashboard. Invalidate so Admin matches
+    // Finance immediately.
+    try {
+        require('../services/dashboardService').clearDashboardCache();
+    } catch (e) {
+        logger.warn('[approveFundRequest] dashboard cache clear failed:', e.message);
+    }
     safeEmit('finance', 'finance:update', { type: 'APPROVAL', requestId: getRecordId(request), timestamp: Date.now() });
 
     return res.json({ success: true, data: request });
@@ -618,6 +635,14 @@ const verifyUtilization = asyncHandler(async (req, res) => {
         );
     } catch (e) { logger.warn('[verifyUtilization] notify faculty failed:', e.message); }
 
+    // Verification moves this installment out of "running" (stage →
+    // UTILIZATION_COMPLETED). Invalidate the shared dashboard cache so the Admin
+    // Dashboard's Running Installments count updates in lockstep with Finance.
+    try {
+        require('../services/dashboardService').clearDashboardCache();
+    } catch (e) {
+        logger.warn('[verifyUtilization] dashboard cache clear failed:', e.message);
+    }
     safeEmit('finance', 'finance:update', { type: 'UTILIZATION_VERIFIED', requestId: getRecordId(request), timestamp: Date.now() });
     return res.json({ success: true, data: normalizeFundRequest(request) });
 });
