@@ -1,16 +1,22 @@
 const logger = require('../utils/logger');
+const { Op } = require('sequelize');
 const asyncHandler = require('../utils/asyncHandler');
-const { 
-    Project, 
-    User, 
-    ProjectMember, 
-    FundRequest, 
+const {
+    Project,
+    User,
+    ProjectMember,
+    FundRequest,
     Disbursement,
     ResearchCenter,
     Centre,
     Ledger
 } = require('../models');
-const { Op } = require('sequelize');
+
+// A Project's `id` (model PK) and `_id` (DB column) can diverge for rows created
+// after the UUID hardening migration (the model doesn't populate `_id`, so the DB
+// default generates a different UUID). The API only ever exposes `id`, so match on
+// EITHER key to avoid spurious "Project not found" on newer projects.
+const projectIdMatch = (id) => ({ [Op.or]: [{ id }, { _id: id }] });
 const {
     getAdminDashboardData,
     getFacultyDashboardData,
@@ -89,7 +95,7 @@ const getAllProjects = asyncHandler(async (req, res) => {
 const getProjectDetails = asyncHandler(async (req, res) => {
     const { id } = req.params;
     const project = await Project.findOne({
-        where: { _id: id, organizationId: req.user.organizationId },
+        where: { ...projectIdMatch(id), organizationId: req.user.organizationId },
         include: [
             { model: User, as: 'facultyOwner', attributes: ['name', 'email', 'department'], required: false },
             { model: ProjectMember, as: 'members', required: false },
@@ -132,7 +138,7 @@ const createProject = asyncHandler(async (req, res) => {
 
 const updateProject = asyncHandler(async (req, res) => {
     const { id } = req.params;
-    const project = await Project.findOne({ where: { _id: id, organizationId: req.user.organizationId } });
+    const project = await Project.findOne({ where: { ...projectIdMatch(id), organizationId: req.user.organizationId } });
     if (!project) return res.status(404).json({ success: false, message: 'Project not found', data: null });
 
     const { status, sanctionedBudget, fundingSource, description } = req.body;
@@ -148,11 +154,11 @@ const updateProject = asyncHandler(async (req, res) => {
 
 const deleteProject = asyncHandler(async (req, res) => {
     const { id } = req.params;
-    const project = await Project.findOne({ where: { _id: id, organizationId: req.user.organizationId } });
+    const project = await Project.findOne({ where: { ...projectIdMatch(id), organizationId: req.user.organizationId } });
     if (!project) return res.status(404).json({ success: false, message: 'Project not found', data: null });
 
-    // Check for disbursements
-    const disbursementCount = safeNumber(await Disbursement.count({ where: { projectId: id, organizationId: req.user.organizationId } }));
+    // Disbursements reference the project by its `id`; match either key.
+    const disbursementCount = safeNumber(await Disbursement.count({ where: { projectId: project.id, organizationId: req.user.organizationId } }));
     if (disbursementCount > 0) {
         return res.status(409).json({ success: false, message: 'Cannot delete project with existing disbursements', data: null });
     }

@@ -197,10 +197,10 @@ const createFundRequest = asyncHandler(async (req, res) => {
         return res.status(400).json({ success: false, message: 'Missing or invalid fields', data: null });
     }
 
-    // 1. Resolve project
+    // 1. Resolve project (match either key — a project's id and _id can diverge)
     let project = null;
     if (bodyProjectId) {
-        project = await Project.findOne({ where: { _id: bodyProjectId, organizationId: orgId } });
+        project = await Project.findOne({ where: { [Op.or]: [{ id: bodyProjectId }, { _id: bodyProjectId }], organizationId: orgId } });
     }
     if (!project) {
         project = await Project.findOne({ where: { title: projectTitle, facultyId, organizationId: orgId } });
