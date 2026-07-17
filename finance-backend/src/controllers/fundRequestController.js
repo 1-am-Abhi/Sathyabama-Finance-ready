@@ -632,17 +632,22 @@ const submitUtilizationProofs = asyncHandler(async (req, res) => {
     ensureStageAtLeast(request, 'BILLS_UPLOADED');
     await request.save();
 
-    try {
-        await NotificationService.notifyRole(
+    // Respond as soon as the proof is persisted. Notifications/sockets are
+    // fire-and-forget side effects — awaiting them here added latency that, on
+    // Render's cold DB, pushed the request past the 10s timeout and returned a
+    // 500 BEFORE completing, so the uploaded proof appeared to "not save" and
+    // verification later reported the UC missing.
+    Promise.resolve()
+        .then(() => NotificationService.notifyRole(
             'FINANCE_OFFICER',
             'Utilization Proofs Submitted',
             `${req.user?.name || 'A faculty member'} uploaded proofs for installment #${request.installmentNumber} of '${request.projectTitle}'. Please verify.`,
             'INFO',
             '/finance/disbursements'
-        );
-    } catch (e) { logger.warn('[proofs] notify finance failed:', e.message); }
+        ))
+        .then(() => safeEmit('finance', 'finance:update', { type: 'PROOFS_SUBMITTED', requestId: getRecordId(request), timestamp: Date.now() }))
+        .catch((e) => logger.warn('[proofs] post-save side effect failed:', e.message));
 
-    safeEmit('finance', 'finance:update', { type: 'PROOFS_SUBMITTED', requestId: getRecordId(request), timestamp: Date.now() });
     return res.json({ success: true, data: normalizeFundRequest(request) });
 });
 

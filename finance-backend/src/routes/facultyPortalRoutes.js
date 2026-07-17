@@ -6,7 +6,7 @@ const upload = require('../middleware/upload');
 // Hardened multipart parser (absolute uploads dir, per-request mkdir, size limit)
 // used for the installment fund-request form, plus the financial-body sanitiser —
 // the SAME middleware as the canonical /fund-requests route.
-const { upload: proofUpload } = require('../middleware/uploadMiddleware');
+const { upload: proofUpload, persistUploads } = require('../middleware/uploadMiddleware');
 const { sanitizeFinancialInput } = require('../middleware/inputSanitizer');
 
 // Controllers
@@ -36,7 +36,7 @@ router.get('/projects/stats', projectController.getFacultyStats);
 // controller's destructure threw a 500. Parse the multipart body (and capture the
 // bill) + sanitise financial fields, exactly like the canonical /fund-requests.
 router.get('/fund-requests', fundRequestController.getFundRequests);
-router.post('/fund-requests', proofUpload.single('bill'), sanitizeFinancialInput, fundRequestController.createFundRequest);
+router.post('/fund-requests', proofUpload.single('bill'), persistUploads, sanitizeFinancialInput, fundRequestController.createFundRequest);
 router.put('/fund-requests/:id', fundRequestController.updateFundRequest);
 router.get('/fund-requests/:id', fundRequestController.getFundRequest);
 
