@@ -285,9 +285,8 @@ const getAuditReplay = asyncHandler(async (req, res) => {
 const getPFMSTransactionsController = asyncHandler(async (req, res) => {
   const fyRange = parseFY(req.query.fy || getCurrentFY());
 
-  const where = {
-    organizationId: req.user.organizationId
-  };
+  // PFMSTransactions has no organizationId column — do not filter on it.
+  const where = {};
 
   if (fyRange) {
     where.createdAt = {

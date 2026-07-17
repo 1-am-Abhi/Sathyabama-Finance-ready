@@ -2,10 +2,17 @@ const { DataTypes } = require('sequelize');
 const { sequelize } = require('../config/db');
 
 const PFMSTransaction = sequelize.define('PFMSTransaction', {
-    id: {
+    // The PFMSTransactions table's primary key is `_id` (convergence migrations).
+    // The model previously declared `id`, causing
+    // `column PFMSTransaction.id does not exist` on every query.
+    _id: {
         type: DataTypes.UUID,
         defaultValue: DataTypes.UUIDV4,
         primaryKey: true
+    },
+    id: {
+        type: DataTypes.VIRTUAL,
+        get() { return this.getDataValue('_id'); }
     },
     projectId: {
         type: DataTypes.UUID,
@@ -49,12 +56,8 @@ const PFMSTransaction = sequelize.define('PFMSTransaction', {
         type: DataTypes.STRING,
         allowNull: false,
         defaultValue: 'PENDING'
-    },
-    organizationId: {
-        type: DataTypes.STRING,
-        allowNull: false,
-        defaultValue: 'ORG_1'
     }
+    // NOTE: the PFMSTransactions table has no organizationId column.
 }, {
     tableName: 'PFMSTransactions',
     timestamps: true

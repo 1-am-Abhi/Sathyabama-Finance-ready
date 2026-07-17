@@ -29,9 +29,9 @@ const createDocument = asyncHandler(async (req, res) => {
 });
 
 const getDocuments = asyncHandler(async (req, res) => {
-  const where = {
-    organizationId: req.user.organizationId
-  };
+  // The Documents table has no organizationId column; scope faculty to their own
+  // documents by facultyId. Admin/finance see all.
+  const where = {};
 
   if (req.user.role === 'FACULTY') {
     where.facultyId = req.user.id || req.user._id;
