@@ -205,6 +205,10 @@ const getFundRequest = asyncHandler(async (req, res) => {
 const createFundRequest = asyncHandler(async (req, res) => {
     const facultyId = req.user?._id || req.user?.id;
     const orgId = req.user.organizationId;
+    // Defensive: Express 5 leaves req.body undefined when no body parser matched
+    // (e.g. a multipart POST reaching a route without multer). Never destructure
+    // undefined — return a clean 400 instead of a 500.
+    if (!req.body) req.body = {};
     const {
         projectTitle, requestedAmount, purpose, source, totalBudget,
         projectId: bodyProjectId
