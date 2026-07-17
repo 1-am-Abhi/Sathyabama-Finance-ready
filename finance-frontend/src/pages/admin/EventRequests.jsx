@@ -177,7 +177,7 @@ const EventRequests = () => {
                 ]);
                 
                 if (reqsRes.data.success) {
-                    const formattedRequests = reqsRes.data.data.map(req => ({
+                    const formattedRequests = (reqsRes.data.data || []).map(req => ({
                         ...req,
                         id: req._id,
                         faculty: req.facultyName
@@ -185,7 +185,10 @@ const EventRequests = () => {
                     setRequests(formattedRequests);
                 }
                 if (usersRes.data.success) {
-                    setFaculties(usersRes.data.users);
+                    // /auth/users returns { success, data: [...] } — NOT `users`.
+                    // Fall back so `faculties` is never undefined (would crash the
+                    // faculties.filter(...) render).
+                    setFaculties(usersRes.data.data || usersRes.data.users || []);
                 }
             } catch (err) {
                 console.error("Failed to fetch data:", err);
