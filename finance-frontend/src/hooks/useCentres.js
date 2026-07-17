@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { getResearchCentres } from '../api/researchCentreService';
 import { RESEARCH_CENTRES as STATIC_CENTRES } from '../data/dashboardData';
+import { CENTRE_MAP } from '../constants/centreMap';
 
 export const useCentres = () => {
     const [centres, setCentres] = useState(STATIC_CENTRES);
@@ -12,15 +13,8 @@ export const useCentres = () => {
 
             const centresData = await getResearchCentres();
 
-            // PHASE 2: RESEARCH CENTRE FULL FORM (UI ONLY)
-            const CENTRE_MAP = {
-                'CCCS': 'Centre for Computational and Communication Sciences',
-                'CDDD': 'Centre for Drug Discovery and Development',
-                'CNSNT': 'Centre for Nanoscience and Nanotechnology',
-                'CWM': 'Centre for Waste Management',
-                'CEER': 'Centre for Energy and Environmental Research',
-                'CEAM': 'Centre for Advanced Materials'
-            };
+            // Research-centre full names come from the single shared CENTRE_MAP
+            // (official Sathyabama names), so every screen displays them identically.
 
             const generateId = () => Date.now().toString(36) + Math.random().toString(36).substring(2, 7);
             
