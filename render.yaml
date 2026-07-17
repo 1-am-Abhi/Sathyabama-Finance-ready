@@ -25,8 +25,12 @@ services:
         value: production
       - key: DB_SYNC
         value: "false"
+      # Was "2" — far too small. With notification polling, the disbursement
+      # worker and concurrent users, a 2-connection pool exhausted and writes
+      # (e.g. proof uploads) hung until the request timeout, so the UC never
+      # saved ("UC NO"). 10 is within Render free-tier Postgres limits.
       - key: DB_POOL_MAX
-        value: "2"
+        value: "10"
       - key: DB_POOL_MIN
         value: "0"
       - key: DB_RETRY_MAX
