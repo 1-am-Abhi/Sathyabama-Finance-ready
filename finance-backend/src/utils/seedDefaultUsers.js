@@ -16,17 +16,9 @@ const seedDefaultUsers = async () => {
         designation: 'Administrator',
         status: 'Active'
       },
-      {
-        name: 'Faculty User',
-        email: 'faculty@sathyabama.ac.in',
-        password: 'Faculty@123',
-        role: 'FACULTY',
-        organizationId: 'ORG_1',
-        department: 'Computer Science',
-        designation: 'Professor',
-        designationCategory: 'FACULTY',
-        status: 'Active'
-      },
+      // NOTE: no demo faculty is seeded. Faculty master data is owned exclusively
+      // by the IRC Excel import (src/seeders/seedIrcFaculty.js). Seeding a demo
+      // faculty here would re-introduce an "old/demo" record on every boot.
       {
         name: 'Finance Officer',
         email: 'finance@sathyabama.ac.in',
