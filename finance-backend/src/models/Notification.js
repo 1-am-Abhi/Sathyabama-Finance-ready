@@ -37,10 +37,20 @@ const Notification = sequelize.define('Notification', {
     isRead: {
         type: DataTypes.BOOLEAN,
         defaultValue: false
+    },
+    // Deterministic fingerprint of (userId, type, relatedId, title, message) used
+    // to suppress duplicate notifications from double-fired events / retries.
+    dedupeKey: {
+        type: DataTypes.STRING,
+        allowNull: true,
     }
 }, {
     tableName: 'Notifications',
-    timestamps: true
+    timestamps: true,
+    indexes: [
+        { fields: ['userId'] },
+        { fields: ['userId', 'dedupeKey'] },
+    ]
 });
 
 module.exports = Notification;

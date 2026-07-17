@@ -20,10 +20,16 @@ const app = express();
 // Security & Optimization
 app.use(helmet());
 app.use(compression());
-app.use(timeout('10s')); // Fail fast on slow requests
+// Request timeout. 10s was too aggressive for Render's free-tier Postgres, whose
+// cold-start latency pushed legitimate multipart proof uploads (multer + a file
+// write + several DB round-trips) past the limit, returning 500 "Response
+// timeout" so the uploaded proof never persisted. 30s comfortably covers a cold
+// DB while still failing genuinely hung requests. The socket timeout is set
+// higher so connect-timeout fires first with a clean message.
+app.use(timeout('30s'));
 
 app.use((req, res, next) => {
-    res.setTimeout(15000, () => {
+    res.setTimeout(35000, () => {
         if (!res.headersSent) {
             res.status(503).json({
                 success: false,
@@ -31,6 +37,13 @@ app.use((req, res, next) => {
             });
         }
     });
+    next();
+});
+
+// Stop processing a request once connect-timeout has already responded, so we
+// never continue a half-finished DB write or attempt a double send.
+app.use((req, res, next) => {
+    if (req.timedout) return;
     next();
 });
 

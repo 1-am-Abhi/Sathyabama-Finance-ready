@@ -1,5 +1,14 @@
 const logger = require('../utils/logger');
+const crypto = require('crypto');
 const { Op, Sequelize } = require('sequelize');
+
+// Deterministic fingerprint of a notification. Identical events (double-fired
+// handlers, client retries) produce the same key, so we can suppress duplicates.
+const DEDUPE_WINDOW_MS = 10 * 60 * 1000; // 10 minutes
+const buildDedupeKey = (userId, type, relatedId, title, message) =>
+    crypto.createHash('sha1')
+        .update(`${userId}|${type}|${relatedId || ''}|${title || ''}|${message || ''}`)
+        .digest('hex');
 const Notification = require('../models/Notification');
 const User = require('../models/User');
 const { findUserByRuntimeId, getUserUuid, isUuid } = require('../utils/userIdentity');
@@ -45,6 +54,28 @@ class NotificationService {
             return null;
         }
 
+        // Idempotency: suppress an identical notification created within the
+        // dedupe window (double-fired event / retry).
+        const dedupeKey = buildDedupeKey(recipientId, type, relatedId, title, message);
+        try {
+            const existing = await Notification.findOne({
+                where: {
+                    userId: recipientId,
+                    dedupeKey,
+                    createdAt: { [Op.gte]: new Date(Date.now() - DEDUPE_WINDOW_MS) },
+                },
+                order: [['createdAt', 'DESC']],
+            });
+            if (existing) {
+                logger.info(`[NotificationService] Duplicate suppressed for user ${recipientId}: ${title}`);
+                return existing;
+            }
+        } catch (e) {
+            // If the dedupe check fails (e.g. column not yet migrated), fall through
+            // and still create the notification — never lose a notification.
+            logger.warn('[NotificationService] dedupe check failed:', e.message);
+        }
+
         logger.info(`[NotificationService] Creating ${type} for user ${recipientId}: ${title}`);
         const notification = await Notification.create({
             userId: recipientId,
@@ -53,6 +84,7 @@ class NotificationService {
             message,
             type,
             relatedId,
+            dedupeKey,
             isRead: false
         });
         emitNotification(notification);
@@ -90,17 +122,41 @@ class NotificationService {
             return [];
         }
 
-        logger.info(`[NotificationService] Creating ${users.length} notifications for role ${role}`);
+        logger.info(`[NotificationService] Creating up to ${users.length} notifications for role ${role}`);
 
-        const notificationEntries = users.map((user) => ({
-            userId: user._id,
-            role,
-            title,
-            message,
-            type,
-            relatedId,
-            isRead: false,
-        }));
+        // Idempotency: for each recipient, skip if an identical notification was
+        // created within the dedupe window (double-fired broadcast / retry).
+        let recentKeys = new Set();
+        try {
+            const recipientIds = users.map((u) => u._id);
+            const keyByUser = new Map(
+                users.map((u) => [String(u._id), buildDedupeKey(u._id, type, relatedId, title, message)])
+            );
+            const recent = await Notification.findAll({
+                where: {
+                    userId: { [Op.in]: recipientIds },
+                    dedupeKey: { [Op.in]: Array.from(keyByUser.values()) },
+                    createdAt: { [Op.gte]: new Date(Date.now() - DEDUPE_WINDOW_MS) },
+                },
+                attributes: ['userId', 'dedupeKey'],
+            });
+            recentKeys = new Set(recent.map((r) => `${r.userId}:${r.dedupeKey}`));
+        } catch (e) {
+            logger.warn('[NotificationService] role dedupe check failed:', e.message);
+        }
+
+        const notificationEntries = users
+            .map((user) => {
+                const dedupeKey = buildDedupeKey(user._id, type, relatedId, title, message);
+                if (recentKeys.has(`${user._id}:${dedupeKey}`)) return null;
+                return { userId: user._id, role, title, message, type, relatedId, dedupeKey, isRead: false };
+            })
+            .filter(Boolean);
+
+        if (!notificationEntries.length) {
+            logger.info(`[NotificationService] All ${users.length} role notifications suppressed as duplicates`);
+            return [];
+        }
 
         const created = await Notification.bulkCreate(notificationEntries);
         created.forEach((notification) => emitNotification(notification));
