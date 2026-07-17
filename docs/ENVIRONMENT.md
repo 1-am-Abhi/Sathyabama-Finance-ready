@@ -14,6 +14,7 @@
 | `DB_POOL_MAX` / `DB_POOL_MIN` | No | `2` / `0` | Sequelize pool sizing |
 | `DB_RETRY_MAX` | No | `3` | DB connect retries |
 | `DB_SYNC` | No | `false` | Must stay `false` in prod (migrations manage schema) |
+| `DB_SSL` | No | auto | Auto-detects (SSL on for managed PG, off for localhost). Set `false` to force-disable. |
 | `ANTHROPIC_API_KEY` | No | — | Enables the AI features; without it AI endpoints return 503 `AI_UNAVAILABLE` |
 | `AI_MODEL` | No | `claude-opus-4-8` | Override the Claude model used by the AI proxy |
 | `PROOF_GATING_ENABLED` | No | `true` | Enforce installment proof-gating; set `false` to disable |
