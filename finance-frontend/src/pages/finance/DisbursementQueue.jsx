@@ -16,6 +16,16 @@ const safeNumber = (value) => {
 
 const HIGH_VALUE_THRESHOLD = 100000;
 const formatCurrency = (value) => `₹${safeNumber(value).toLocaleString('en-IN')}`;
+
+// Uploaded proofs are served from the backend root at /uploads/<file> (NOT under
+// /api). Cloudinary URLs are already absolute. Build a browser-openable URL.
+const fileUrl = (url) => {
+    if (!url) return '#';
+    if (/^https?:\/\//i.test(url)) return url;
+    const apiBase = apiClient.defaults.baseURL || '';
+    const root = apiBase.replace(/\/api\/?$/, '');
+    return `${root}${url.startsWith('/') ? '' : '/'}${url}`;
+};
 const formatCompactLakhs = (value) => `₹${(safeNumber(value) / 100000).toFixed(2)}L`;
 
 const DisbursementQueue = () => {
@@ -355,14 +365,29 @@ const DisbursementQueue = () => {
                                                     </span>
                                                 )}
                                                 {Array.isArray(req.documents) && req.documents.length > 0 && (
-                                                    <span className="text-[9px] text-slate-400 font-bold uppercase">
-                                                        {(() => {
-                                                            const types = req.documents.map(d => String(d?.type || '').toUpperCase());
-                                                            const bill = types.includes('BILL') || types.includes('INVOICE');
-                                                            const uc = types.includes('UTILIZATION_CERTIFICATE');
-                                                            return `Proofs: Bill ${bill ? 'YES' : 'NO'} / UC ${uc ? 'YES' : 'NO'}`;
-                                                        })()}
-                                                    </span>
+                                                    <div className="mt-1 space-y-1">
+                                                        <span className="block text-[9px] text-slate-400 font-bold uppercase">
+                                                            {(() => {
+                                                                const types = req.documents.map(d => String(d?.type || '').toUpperCase());
+                                                                const bill = types.includes('BILL') || types.includes('INVOICE');
+                                                                const uc = types.includes('UTILIZATION_CERTIFICATE');
+                                                                return `Proofs: Bill ${bill ? 'YES' : 'NO'} / UC ${uc ? 'YES' : 'NO'}`;
+                                                            })()}
+                                                        </span>
+                                                        {/* Finance reviews documents before verifying — View opens in a
+                                                            new tab, Download saves the file. */}
+                                                        {req.documents.filter(d => d && d.url).map((doc, di) => {
+                                                            const href = fileUrl(doc.url);
+                                                            const label = String(doc.type || 'DOC').replace(/_/g, ' ');
+                                                            return (
+                                                                <div key={di} className="flex items-center gap-2 text-[10px]">
+                                                                    <span className="font-bold text-slate-500 truncate max-w-[90px]" title={doc.name}>{label}</span>
+                                                                    <a href={href} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline font-semibold">View</a>
+                                                                    <a href={href} download={doc.name || true} className="text-emerald-600 hover:underline font-semibold">Download</a>
+                                                                </div>
+                                                            );
+                                                        })}
+                                                    </div>
                                                 )}
                                             </td>
                                             <td className="px-4 py-4">

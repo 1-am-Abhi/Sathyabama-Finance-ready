@@ -257,6 +257,18 @@ const normalizeFundRequest = (request) => {
     const totalDisbursed = disbursementRows.reduce((sum, d) => sum + toNumber(d.amount), 0);
     const remainingAmount = Math.max(0, requestedAmount - totalDisbursed);
 
+    // Payment state is DERIVED from the Disbursement table (source of truth), not
+    // from the stored FundRequest.chequeStatus — the disbursement pipeline updates
+    // the request via a raw write that bypasses the chequeStatus hook, so the
+    // stored value can lag at "Pending" even after money is released. Reports and
+    // UI should read paymentStatus / the derived chequeStatus below.
+    const isFullyReleased = requestedAmount > 0 && totalDisbursed >= requestedAmount - 0.5;
+    const isPartiallyReleased = totalDisbursed > 0 && !isFullyReleased;
+    const paymentStatus = isFullyReleased ? 'RELEASED' : (isPartiallyReleased ? 'PARTIAL' : 'PENDING');
+    const derivedChequeStatus = isFullyReleased
+        ? 'Disbursed'
+        : (isPartiallyReleased ? 'Partial' : (raw.chequeStatus || 'Pending'));
+
     return {
         ...raw,
         id: getRecordId(raw),
@@ -265,6 +277,8 @@ const normalizeFundRequest = (request) => {
         releasedAmount: totalDisbursed,
         totalDisbursed,
         remainingAmount,
+        paymentStatus,
+        chequeStatus: derivedChequeStatus,
         Project: project,
         projectTitle: project?.title || raw.projectTitle || null,
         faculty: project?.pi || raw.faculty || null,

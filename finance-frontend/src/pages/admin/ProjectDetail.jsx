@@ -5,17 +5,43 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '.
 import { Badge } from '../../components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line } from 'recharts';
+import apiClient from '../../api/client';
 
 const ProjectDetail = ({ isOpen, onClose, project, isDark }) => {
+    // Fetch full details (dates, derived amounts, installment progress) from the
+    // single source of truth so the dialog never shows N/A when data exists — the
+    // parent only passes a list item, which lacks the derived fields.
+    const [details, setDetails] = React.useState(null);
+    React.useEffect(() => {
+        const id = project?.id || project?._id;
+        if (!isOpen || !id) { setDetails(null); return; }
+        let cancelled = false;
+        apiClient.get(`/projects/${id}`)
+            .then((res) => { if (!cancelled) setDetails(res.data?.data || null); })
+            .catch(() => { if (!cancelled) setDetails(null); });
+        return () => { cancelled = true; };
+    }, [isOpen, project?.id, project?._id]);
+
     if (!project) return null;
 
-    // Use only the real fields provided for this project; anything the API does not
-    // supply (team, milestones, expenditure breakdown, monthly spend) renders as an
-    // empty state rather than fabricated data.
-    const description = project.description || '';
-    const startDate = project.startDate || null;
-    const endDate = project.endDate || null;
-    const duration = project.duration || 'N/A';
+    // Merge fetched details over the passed list item.
+    const p = { ...project, ...(details || {}) };
+
+    const fmtDate = (v) => {
+        if (!v) return null;
+        const d = new Date(v);
+        return isNaN(d.getTime()) ? String(v).slice(0, 10) : d.toLocaleDateString('en-IN', { year: 'numeric', month: 'short', day: 'numeric' });
+    };
+
+    const description = p.description || '';
+    const startDate = fmtDate(p.startDate);
+    const endDate = fmtDate(p.endDate);
+    const sanctionDate = fmtDate(p.sanctionDate || p.startDate);
+    const durationYears = p.duration != null ? p.duration : null;
+    const sanctionedAmount = Number(p.sanctionedAmount ?? p.sanctionedBudget ?? 0);
+    const releasedAmount = Number(p.releasedAmount ?? p.releasedBudget ?? 0);
+    const remainingAmount = Number(p.remainingAmount ?? Math.max(0, sanctionedAmount - releasedAmount));
+    const installmentProgress = p.installmentProgress || null;
     const team = Array.isArray(project.team) ? project.team : [];
     const milestones = Array.isArray(project.milestones) ? project.milestones : [];
     const expenditure = Array.isArray(project.expenditure) ? project.expenditure : [];
@@ -31,10 +57,10 @@ const ProjectDetail = ({ isOpen, onClose, project, isDark }) => {
         }).format(numericAmount);
     };
 
-    // Chart data
+    // Chart data — derived from the same source of truth as the summary cards.
     const budgetUtilizationData = [
-        { name: 'Utilized', value: project.utilized, color: '#6366f1' },
-        { name: 'Remaining', value: project.released - project.utilized, color: '#22c55e' }
+        { name: 'Released', value: releasedAmount, color: '#6366f1' },
+        { name: 'Remaining', value: remainingAmount, color: '#22c55e' }
     ];
 
     const expenditureData = expenditure.map(e => ({
@@ -122,14 +148,47 @@ const ProjectDetail = ({ isOpen, onClose, project, isDark }) => {
                                         <h4 className="font-semibold dark:text-white mb-2">Description</h4>
                                         <p className="text-gray-600 dark:text-gray-300">{description || 'No description available.'}</p>
                                     </div>
-                                    <div className="grid grid-cols-2 gap-4">
+
+                                    {/* Financial summary — single source of truth from /projects/:id */}
+                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                        <div className="rounded-lg bg-slate-50 dark:bg-slate-900/40 p-3">
+                                            <h4 className="text-[11px] font-bold uppercase tracking-wide text-gray-500 mb-1">Sanction Amount</h4>
+                                            <p className="text-lg font-bold dark:text-white">{formatCurrency(sanctionedAmount)}</p>
+                                        </div>
+                                        <div className="rounded-lg bg-slate-50 dark:bg-slate-900/40 p-3">
+                                            <h4 className="text-[11px] font-bold uppercase tracking-wide text-gray-500 mb-1">Released Amount</h4>
+                                            <p className="text-lg font-bold text-emerald-600">{formatCurrency(releasedAmount)}</p>
+                                        </div>
+                                        <div className="rounded-lg bg-slate-50 dark:bg-slate-900/40 p-3">
+                                            <h4 className="text-[11px] font-bold uppercase tracking-wide text-gray-500 mb-1">Remaining Amount</h4>
+                                            <p className="text-lg font-bold text-indigo-600">{formatCurrency(remainingAmount)}</p>
+                                        </div>
+                                        <div className="rounded-lg bg-slate-50 dark:bg-slate-900/40 p-3">
+                                            <h4 className="text-[11px] font-bold uppercase tracking-wide text-gray-500 mb-1">Installment Progress</h4>
+                                            <p className="text-lg font-bold dark:text-white">{installmentProgress || '0/0'}</p>
+                                        </div>
+                                    </div>
+
+                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                                         <div>
                                             <h4 className="font-semibold dark:text-white mb-1">Principal Investigator</h4>
-                                            <p className="text-gray-600 dark:text-gray-300">{project.pi}</p>
+                                            <p className="text-gray-600 dark:text-gray-300">{p.pi || '—'}</p>
+                                        </div>
+                                        <div>
+                                            <h4 className="font-semibold dark:text-white mb-1">Sanction Date</h4>
+                                            <p className="text-gray-600 dark:text-gray-300">{sanctionDate || 'Not available'}</p>
+                                        </div>
+                                        <div>
+                                            <h4 className="font-semibold dark:text-white mb-1">Start Date</h4>
+                                            <p className="text-gray-600 dark:text-gray-300">{startDate || 'Not available'}</p>
+                                        </div>
+                                        <div>
+                                            <h4 className="font-semibold dark:text-white mb-1">End Date</h4>
+                                            <p className="text-gray-600 dark:text-gray-300">{endDate || 'Not available'}</p>
                                         </div>
                                         <div>
                                             <h4 className="font-semibold dark:text-white mb-1">Duration</h4>
-                                            <p className="text-gray-600 dark:text-gray-300">{startDate && endDate ? `${startDate} to ${endDate}` : 'Not available'}</p>
+                                            <p className="text-gray-600 dark:text-gray-300">{durationYears ? `${durationYears} year${durationYears > 1 ? 's' : ''}` : (startDate && endDate ? `${startDate} to ${endDate}` : 'Not available')}</p>
                                         </div>
                                     </div>
                                 </div>

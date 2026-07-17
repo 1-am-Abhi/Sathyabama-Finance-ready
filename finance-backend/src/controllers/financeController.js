@@ -53,9 +53,22 @@ const getFinanceStats = asyncHandler(async (req, res) => {
         }
     }));
 
-    // Pending settlements (Disbursements made but not yet finalized/closed)
+    // Pending settlements: disbursements whose installment utilization has NOT yet
+    // been verified/settled. A verified installment (stage UTILIZATION_COMPLETED /
+    // SETTLEMENT_CLOSED) is settled and must NOT count as pending. Previously this
+    // counted EVERY disbursement in range, so completed installments wrongly showed
+    // as pending settlements.
     const pendingSettlements = safeNumber(await Disbursement.count({
-        where: whereClause
+        where: { ...whereClause, ...NON_REVERSED_DISBURSEMENT_WHERE },
+        include: [{
+            model: FundRequest,
+            as: 'FundRequest',
+            required: true,
+            attributes: [],
+            where: {
+                currentStage: { [Op.notIn]: ['UTILIZATION_COMPLETED', 'SETTLEMENT_CLOSED'] }
+            }
+        }]
     }));
 
     // Pending internships (Internship fees not yet verified)

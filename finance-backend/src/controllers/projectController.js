@@ -14,6 +14,19 @@ const {
 } = require('../models');
 const { NON_REVERSED_DISBURSEMENT_WHERE } = require('../constants/financeConstants');
 
+// Derive a project end date. Prefer an explicit endDate; otherwise add the
+// entered duration (in whole years) to the start date. Returns a YYYY-MM-DD
+// string (DATEONLY) or null.
+const computeProjectEndDate = (startDate, endDate, duration) => {
+    if (endDate) return endDate;
+    const years = Number(duration);
+    if (!startDate || !Number.isFinite(years) || years <= 0) return null;
+    const d = new Date(startDate);
+    if (isNaN(d.getTime())) return null;
+    d.setFullYear(d.getFullYear() + Math.round(years));
+    return d.toISOString().slice(0, 10);
+};
+
 // Single source of truth for "released" per project: SUM of non-reversed
 // disbursements keyed by projectId (disbursements store the project's `id`).
 const computeReleasedByProject = async (projectIds, organizationId) => {
@@ -164,17 +177,68 @@ const getProjectDetails = asyncHandler(async (req, res) => {
 
     if (!project) return res.status(404).json({ success: false, message: 'Project not found', data: null });
 
-    return res.status(200).json({ success: true, data: project });
+    const plain = project.toJSON();
+
+    // Derive financials from the single source of truth (non-reversed disbursements).
+    const disbursements = Array.isArray(plain.Disbursements) ? plain.Disbursements : [];
+    const releasedAmount = disbursements
+        .filter((d) => !d.isReversed && d.status !== 'REVERSED')
+        .reduce((sum, d) => sum + safeNumber(d.amount), 0);
+    const sanctionedBudget = safeNumber(plain.sanctionedBudget);
+    const remainingAmount = Math.max(0, sanctionedBudget - releasedAmount);
+
+    // Installment progress: verified (settled) installments over total requested.
+    const installments = Array.isArray(plain.fundRequests) ? plain.fundRequests : [];
+    const installmentsTotal = installments.length;
+    const installmentsCompleted = installments.filter(
+        (r) => ['UTILIZATION_COMPLETED', 'SETTLEMENT_CLOSED'].includes(r.currentStage)
+    ).length;
+
+    // Normalise dates to YYYY-MM-DD (columns are timestamps → Date objects) so the
+    // UI renders clean dates and never an ISO blob or N/A when a value exists.
+    const dateOnly = (v) => {
+        if (!v) return null;
+        const d = new Date(v);
+        return isNaN(d.getTime()) ? String(v).slice(0, 10) : d.toISOString().slice(0, 10);
+    };
+    const startDate = dateOnly(plain.startDate);
+    const endDate = dateOnly(plain.endDate);
+
+    return res.status(200).json({
+        success: true,
+        data: {
+            ...plain,
+            startDate,
+            endDate,
+            // Sanction Date is the project start (date of sanction order). Fall back
+            // to the creation date so the UI never shows N/A when a project exists.
+            sanctionDate: startDate || dateOnly(plain.createdAt),
+            sanctionedAmount: sanctionedBudget,
+            releasedAmount,
+            remainingAmount,
+            installmentsTotal,
+            installmentsCompleted,
+            installmentProgress: `${installmentsCompleted}/${installmentsTotal}`,
+        }
+    });
 });
 
 const createProject = asyncHandler(async (req, res) => {
     const userId = req.user?.id || req.user?._id;
     const orgId = req.user.organizationId;
-    const { title, sanctionedBudget, fundingSource, description, centreId } = req.body;
+    const {
+        title, sanctionedBudget, fundingSource, description, centreId,
+        startDate, endDate, duration, projectType, publicationYear
+    } = req.body;
 
     if (!title || safeNumber(sanctionedBudget) <= 0) {
         return res.status(400).json({ success: false, message: 'Title and valid budget are required', data: null });
     }
+
+    // Sanction/start date is what the faculty enters; the project end date is
+    // derived from the entered duration (in years) when not supplied explicitly.
+    const resolvedStart = startDate || null;
+    const resolvedEnd = computeProjectEndDate(resolvedStart, endDate, duration);
 
     const project = await Project.create({
         title,
@@ -188,6 +252,10 @@ const createProject = asyncHandler(async (req, res) => {
         fundingSource: normalizeFundSource(fundingSource || 'INSTITUTIONAL'),
         description,
         centreId,
+        startDate: resolvedStart,
+        endDate: resolvedEnd,
+        projectType: projectType || 'PROJECT',
+        publicationYear: publicationYear ? safeNumber(publicationYear) : null,
         status: 'PENDING'
     });
 
@@ -234,13 +302,28 @@ const updateProject = asyncHandler(async (req, res) => {
     const project = await Project.findOne({ where: { ...projectIdMatch(id), organizationId: req.user.organizationId } });
     if (!project) return res.status(404).json({ success: false, message: 'Project not found', data: null });
 
-    const { status, sanctionedBudget, fundingSource, description } = req.body;
-    
+    const {
+        status, sanctionedBudget, fundingSource, description,
+        startDate, endDate, duration, projectType, publicationYear
+    } = req.body;
+
     const statusChanged = status && status !== project.status;
     if (status) project.status = status;
     if (sanctionedBudget) project.sanctionedBudget = safeNumber(sanctionedBudget);
     if (fundingSource) project.fundingSource = normalizeFundSource(fundingSource);
     if (description) project.description = description;
+    if (projectType) project.projectType = projectType;
+    if (publicationYear) project.publicationYear = safeNumber(publicationYear);
+    // Update timeline fields; recompute endDate from duration when start changes.
+    if (startDate !== undefined) project.startDate = startDate || null;
+    if (startDate !== undefined || endDate !== undefined || duration !== undefined) {
+        const nextEnd = computeProjectEndDate(
+            startDate !== undefined ? startDate : project.startDate,
+            endDate,
+            duration
+        );
+        if (nextEnd) project.endDate = nextEnd;
+    }
 
     await project.save();
 

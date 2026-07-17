@@ -745,6 +745,10 @@ const executeDisbursementPipeline = async (request, payload, actor, options = {}
                 await FundRequest.update({
                     status: requestStatus,
                     currentStage: requestStatus === 'APPROVED' ? 'FUND_APPROVED' : 'AMOUNT_DISBURSED',
+                    // Keep chequeStatus consistent with the money that actually moved
+                    // (this raw update bypasses the model's advanceStage hook): once
+                    // any amount is released the payment is Disbursed, not Pending.
+                    chequeStatus: requestStatus === 'APPROVED' ? lockedRequest.chequeStatus : 'Disbursed',
                     transactionId: bankReference,
                     bankName: payload.bankName || lockedRequest.bankName,
                     disbursementDate,
