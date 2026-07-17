@@ -731,7 +731,7 @@ const ApproveFundRequests = () => {
                                                         </div>
                                                         <div className="flex items-center gap-2">
                                                             <span className="text-gray-400">{new Date(inst.createdAt).toLocaleDateString()}</span>
-                                                            <Badge variant={inst.status === 'DISBURSED' ? 'success' : 'secondary'} className="text-[9px] h-4">
+                                                            <Badge variant={['DISBURSED', 'COMPLETED', 'PARTIALLY_DISBURSED'].includes(inst.status) ? 'success' : 'secondary'} className="text-[9px] h-4">
                                                                 {inst.status}
                                                             </Badge>
                                                         </div>

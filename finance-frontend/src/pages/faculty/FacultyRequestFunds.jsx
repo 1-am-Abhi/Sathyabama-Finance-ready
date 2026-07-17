@@ -337,7 +337,7 @@ const FacultyRequestFunds = () => {
                         <div className="text-right flex flex-col items-end gap-3">
                           <span className={`text-xs px-3 py-1 rounded font-bold uppercase tracking-wider ${
                             r.status === 'APPROVED' ? 'bg-green-900/40 text-green-400 border border-green-800/50' :
-                            r.status === 'DISBURSED' ? 'bg-blue-900/40 text-blue-400 border border-blue-800/50' :
+                            ['DISBURSED', 'COMPLETED', 'PARTIALLY_DISBURSED'].includes(r.status) ? 'bg-blue-900/40 text-blue-400 border border-blue-800/50' :
                             r.status === 'REJECTED' ? 'bg-red-900/40 text-red-400 border border-red-800/50' :
                             'bg-yellow-900/40 text-yellow-400 border border-yellow-800/50'
                           }`}>

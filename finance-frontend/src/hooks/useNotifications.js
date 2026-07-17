@@ -35,8 +35,12 @@ export const useNotifications = () => {
             return extractNotifications(response.data).map(normalizeNotification);
         },
         enabled: Boolean(userId),
-        refetchInterval: 5000,
-        staleTime: 0,
+        // Poll every 30s instead of 5s. The 5s cadence hammered the notifications
+        // endpoint (loaded on every page) and, on a cold DB, produced overlapping
+        // slow requests / timeouts and a retry storm.
+        refetchInterval: 30000,
+        staleTime: 10000,
+        retry: 1,
     });
 
     const markAsRead = useMutation({

@@ -373,21 +373,18 @@ const approveFundRequest = asyncHandler(async (req, res) => {
 
     await approveFundRequestPipeline(request, req.user, req.body.remarks);
 
-    try {
-        await NotificationService.notifyFaculty(request, 'Fund Request Approved', 'Your request has been approved.', 'SUCCESS', '/faculty/request-funds');
-    } catch (e) {}
-
-    // Notify Finance that an approved request is ready for disbursement (was
-    // missing — finance received no notifications for pending disbursements).
-    try {
-        await NotificationService.notifyRole(
+    // Secondary work runs AFTER the commit and is NOT awaited — the response
+    // returns immediately (no notification/socket latency on the critical path).
+    Promise.resolve()
+        .then(() => NotificationService.notifyFaculty(request, 'Fund Request Approved', 'Your request has been approved.', 'SUCCESS', '/faculty/request-funds'))
+        .then(() => NotificationService.notifyRole(
             'FINANCE_OFFICER',
             'Fund Request Ready for Disbursement',
             `Installment #${request.installmentNumber || 1} for '${request.projectTitle}' (₹${Number(request.requestedAmount).toLocaleString()}) was approved and is ready to disburse.`,
             'INFO',
             '/finance/disbursements'
-        );
-    } catch (e) {}
+        ))
+        .catch((e) => logger.warn('[approveFundRequest] async notify failed:', e.message));
 
     // Approval moves a request PENDING → APPROVED, changing pendingApprovals and
     // runningInstallments on the shared dashboard. Invalidate so Admin matches
@@ -678,26 +675,25 @@ const verifyUtilization = asyncHandler(async (req, res) => {
     if (req.body.remarks) request.financeRemarks = req.body.remarks;
     await request.save();
 
-    try {
-        await AuditLog.create({
+    // Audit log + notification are secondary work — run them after the commit
+    // WITHOUT blocking the response (avoids adding latency / timeout risk).
+    Promise.resolve()
+        .then(() => AuditLog.create({
             userId: req.user._id || req.user.id,
             action: 'UTILIZATION_VERIFIED',
             entityType: 'FundRequest',
             entityId: String(request.id),
             organizationId: request.organizationId,
             metadata: { installmentNumber: request.installmentNumber },
-        });
-    } catch (e) { logger.warn('[verifyUtilization] audit failed:', e.message); }
-
-    try {
-        await NotificationService.create(
+        }))
+        .then(() => NotificationService.create(
             request.userId || request.facultyId,
             'Utilization Verified',
             `Your utilization for installment #${request.installmentNumber} of '${request.projectTitle}' has been verified. You may now apply for the next installment.`,
             'SUCCESS',
             '/faculty/request-funds'
-        );
-    } catch (e) { logger.warn('[verifyUtilization] notify faculty failed:', e.message); }
+        ))
+        .catch((e) => logger.warn('[verifyUtilization] async side effect failed:', e.message));
 
     // Verification moves this installment out of "running" (stage →
     // UTILIZATION_COMPLETED). Invalidate the shared dashboard cache so the Admin
