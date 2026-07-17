@@ -66,7 +66,10 @@ const FinancialReports = () => {
               .finally(() => setIsLoading(false));
             
             apiClient.get('/analytics/alerts').then(res => {
-                setAlerts(res.data?.alerts || []);
+                // Endpoint returns { success, data: [...] }. Accept either shape,
+                // and always coerce to an array so the alerts.map() never crashes.
+                const a = res.data?.data ?? res.data?.alerts;
+                setAlerts(Array.isArray(a) ? a : []);
             }).catch(err => console.error(err));
 
             apiClient.get('/audit/top-projects').then(res => {

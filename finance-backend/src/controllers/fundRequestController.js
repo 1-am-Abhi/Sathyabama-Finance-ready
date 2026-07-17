@@ -1,4 +1,5 @@
 const logger = require('../utils/logger');
+const path = require('path');
 const asyncHandler = require('../utils/asyncHandler');
 const { disbursementQueue } = require('../queues/disbursementQueue');
 const { 
@@ -111,7 +112,22 @@ const getFundRequests = asyncHandler(async (req, res) => {
 
   if (req.user?.role === 'FACULTY') where.facultyId = userId;
 
-  if (req.query.status) {
+  // Disbursement-queue mode. The route flags this via a plain req property —
+  // NOT by reassigning req.query, which is a read-only getter in Express 5 (the
+  // old reassignment silently no-op'd, so the queue returned COMPLETED/PENDING
+  // requests and the Finance portal showed Execute on already-disbursed items).
+  // The queue shows only rows that still need a Finance action:
+  //   • APPROVED / PARTIALLY_DISBURSED  → awaiting Execute
+  //   • disbursed but not yet verified   → awaiting Verify Utilization
+  // It excludes PENDING (not approved) and fully-settled (UTILIZATION_COMPLETED
+  // / SETTLEMENT_CLOSED) requests.
+  if (req._disbursementQueue) {
+    where.status = { [Op.notIn]: ['PENDING', 'PENDING_APPROVAL', 'REJECTED', 'CANCELLED'] };
+    where[Op.or] = [
+      { currentStage: null },
+      { currentStage: { [Op.notIn]: ['UTILIZATION_COMPLETED', 'SETTLEMENT_CLOSED'] } }
+    ];
+  } else if (req.query.status) {
     const statuses = String(req.query.status)
       .split(',')
       .map((status) => status.trim())
@@ -389,7 +405,18 @@ const disburseFund = asyncHandler(async (req, res) => {
     if (!request) return res.status(404).json({ success: false, message: 'Request not found', data: null });
 
     if (!['APPROVED', 'PARTIALLY_DISBURSED'].includes(request.status)) {
-        return res.status(409).json({ success: false, message: 'Request must be approved first', data: null });
+        // Status-aware 409 so the Finance portal shows a meaningful message and
+        // never a 500 on a double-Execute. A COMPLETED/DISBURSED request has
+        // already been paid out — reject the duplicate execution explicitly.
+        const alreadyDone = ['COMPLETED', 'DISBURSED'].includes(request.status);
+        return res.status(409).json({
+            success: false,
+            code: alreadyDone ? 'ALREADY_DISBURSED' : 'NOT_APPROVED',
+            message: alreadyDone
+                ? 'Already disbursed. This installment has been fully paid out.'
+                : 'Request must be approved before it can be disbursed.',
+            data: null
+        });
     }
 
     const totalDisbursed = safeNumber(await Disbursement.sum('amount', {
@@ -434,7 +461,11 @@ const disburseFund = asyncHandler(async (req, res) => {
         transactionId,
         chequeNumber,
         bankName,
-        proofUrl: req.file?.path || req.body.proofUrl || null,
+        proofUrl: req.file
+            ? (/^https?:\/\//i.test(String(req.file.path || ''))
+                ? req.file.path
+                : `/uploads/${req.file.filename || path.basename(String(req.file.path || ''))}`)
+            : (req.body.proofUrl || null),
         paymentMode,
         disbursementDate: req.body.disbursementDate || null,
         remarks: req.body.remarks || '',
@@ -547,12 +578,15 @@ const submitUtilizationProofs = asyncHandler(async (req, res) => {
         name: d.name || 'document',
     }));
 
-    if (req.file?.path) {
-        // Cloudinary storage returns an absolute http(s) URL; local disk storage
-        // returns a relative path like "uploads/xxx" — normalise the latter to an
-        // absolute "/uploads/xxx" path served statically by the app.
-        const raw = String(req.file.path).replace(/\\/g, '/');
-        const url = /^https?:\/\//i.test(raw) ? raw : `/${raw.replace(/^\/+/, '')}`;
+    if (req.file) {
+        // Cloudinary storage returns an absolute http(s) URL in req.file.path;
+        // local disk storage writes to an absolute dir and exposes req.file.filename.
+        // Always serve local files as "/uploads/<filename>" (matches app.js static
+        // mount) — never leak the absolute filesystem path into the stored URL.
+        const rawPath = String(req.file.path || '').replace(/\\/g, '/');
+        const url = /^https?:\/\//i.test(rawPath)
+            ? rawPath
+            : `/uploads/${req.file.filename || path.basename(rawPath)}`;
         incoming.push({
             type: String(req.body.proofType || PROOF_TYPES.BILL).toUpperCase(),
             url,

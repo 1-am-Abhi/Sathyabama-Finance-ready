@@ -149,7 +149,14 @@ const DisbursementQueue = () => {
             localStorage.setItem('fundSourcesUpdatedAt', Date.now());
             navigate('/finance/dashboard');
         } catch (error) {
+            const status = error.response?.status;
             showToast(error.response?.data?.message || error.message || 'Failed to execute disbursement', 'error');
+            // 409 = already disbursed / not in a disbursable state. The row is
+            // stale — close the modal and refresh so it drops out of the queue.
+            if (status === 409) {
+                setIsModalOpen(false);
+                if (refetch) refetch();
+            }
         } finally {
             setIsSubmitting(false);
         }
@@ -356,35 +363,70 @@ const DisbursementQueue = () => {
                                                 <p className="text-xs text-slate-400 mt-0.5">Approved by Admin</p>
                                             </td>
                                             <td className="px-4 py-4">
-                                                <div className="flex flex-col gap-2">
-                                                    <Button
-                                                        size="sm"
-                                                        onClick={() => handleExecuteClick(req)}
-                                                        className="bg-gradient-to-r from-pink-500 to-red-500 hover:scale-105 transition text-white rounded-full px-4 h-9 flex items-center gap-2"
-                                                    >
-                                                        Execute <ArrowRight className="w-4 h-4" />
-                                                    </Button>
-                                                    <div className="flex items-center gap-2">
-                                                        <Button
-                                                            size="sm"
-                                                            variant="outline"
-                                                            disabled={actionSubmitting}
-                                                            onClick={() => handleVerifyUtilization(req)}
-                                                            className="text-emerald-600 border-emerald-200 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded-full px-3 h-8 text-xs flex items-center gap-1"
-                                                        >
-                                                            <CheckCircle className="w-3.5 h-3.5" /> Verify Utilization
-                                                        </Button>
-                                                        <Button
-                                                            size="sm"
-                                                            variant="outline"
-                                                            disabled={actionSubmitting}
-                                                            onClick={() => { setReturnRemarks(''); setReturnModal({ open: true, requestId: req.id || req._id }); }}
-                                                            className="text-amber-600 border-amber-200 hover:bg-amber-50 dark:hover:bg-amber-900/20 rounded-full px-3 h-8 text-xs flex items-center gap-1"
-                                                        >
-                                                            <Undo2 className="w-3.5 h-3.5" /> Return
-                                                        </Button>
-                                                    </div>
-                                                </div>
+                                                {(() => {
+                                                    // Button visibility is driven ENTIRELY by backend state so a
+                                                    // stale/duplicate action can never be offered.
+                                                    const released = safeNumber(req.releasedAmount);
+                                                    const requested = safeNumber(req.requestedAmount);
+                                                    const isFullyDisbursed =
+                                                        ['COMPLETED', 'DISBURSED'].includes(req.status) ||
+                                                        (requested > 0 && released >= requested);
+                                                    const isVerified = ['UTILIZATION_COMPLETED', 'SETTLEMENT_CLOSED'].includes(req.currentStage);
+                                                    const canExecute =
+                                                        !isFullyDisbursed &&
+                                                        ['APPROVED', 'PARTIALLY_DISBURSED'].includes(req.status);
+                                                    // Awaiting verification = money is out but utilization not yet verified.
+                                                    const awaitingVerification = isFullyDisbursed && !isVerified;
+
+                                                    return (
+                                                        <div className="flex flex-col gap-2">
+                                                            {canExecute && (
+                                                                <Button
+                                                                    size="sm"
+                                                                    onClick={() => handleExecuteClick(req)}
+                                                                    className="bg-gradient-to-r from-pink-500 to-red-500 hover:scale-105 transition text-white rounded-full px-4 h-9 flex items-center gap-2"
+                                                                >
+                                                                    {req.status === 'PARTIALLY_DISBURSED' ? 'Disburse Balance' : 'Execute'} <ArrowRight className="w-4 h-4" />
+                                                                </Button>
+                                                            )}
+
+                                                            {isFullyDisbursed && (
+                                                                <span className="inline-flex items-center gap-1.5 w-fit bg-green-100 text-green-700 rounded-full px-3 h-8 text-xs font-black">
+                                                                    <CheckCircle className="w-3.5 h-3.5" /> Disbursed
+                                                                </span>
+                                                            )}
+
+                                                            {isVerified && (
+                                                                <span className="inline-flex items-center gap-1.5 w-fit bg-emerald-600 text-white rounded-full px-3 h-8 text-xs font-black">
+                                                                    <CheckCircle className="w-3.5 h-3.5" /> Utilization Verified
+                                                                </span>
+                                                            )}
+
+                                                            {awaitingVerification && (
+                                                                <div className="flex items-center gap-2">
+                                                                    <Button
+                                                                        size="sm"
+                                                                        variant="outline"
+                                                                        disabled={actionSubmitting}
+                                                                        onClick={() => handleVerifyUtilization(req)}
+                                                                        className="text-emerald-600 border-emerald-200 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded-full px-3 h-8 text-xs flex items-center gap-1"
+                                                                    >
+                                                                        <CheckCircle className="w-3.5 h-3.5" /> Verify Utilization
+                                                                    </Button>
+                                                                    <Button
+                                                                        size="sm"
+                                                                        variant="outline"
+                                                                        disabled={actionSubmitting}
+                                                                        onClick={() => { setReturnRemarks(''); setReturnModal({ open: true, requestId: req.id || req._id }); }}
+                                                                        className="text-amber-600 border-amber-200 hover:bg-amber-50 dark:hover:bg-amber-900/20 rounded-full px-3 h-8 text-xs flex items-center gap-1"
+                                                                    >
+                                                                        <Undo2 className="w-3.5 h-3.5" /> Return
+                                                                    </Button>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    );
+                                                })()}
                                             </td>
                                         </tr>
                                     ))

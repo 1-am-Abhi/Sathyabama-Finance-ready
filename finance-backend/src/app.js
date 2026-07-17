@@ -168,6 +168,17 @@ app.use('/api', v1); // Fallback for backward compatibility
 // Global Error Handler
 app.use((err, req, res, next) => {
     logger.error('GLOBAL ERROR:', err);
+    // Multer (file upload) errors are client errors, not server faults — surface
+    // a clear 400 instead of a generic 500 (e.g. file too large / unexpected field).
+    if (err.name === 'MulterError') {
+        return res.status(400).json({
+            success: false,
+            code: err.code,
+            message: err.code === 'LIMIT_FILE_SIZE'
+                ? 'File too large. Maximum upload size is 15 MB.'
+                : `Upload error: ${err.message}`
+        });
+    }
     if (err.name === 'SequelizeDatabaseError') {
         return res.status(500).json({
             success: false,

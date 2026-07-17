@@ -104,11 +104,10 @@ router.get('/projects/:id/history', async (req, res) => {
 
 // ── Disbursements ─────────────────────────────────────────────────────────────
 router.get('/disbursements', (req, res, next) => {
-    req.query = {
-        ...req.query,
-        status: req.query.status || 'APPROVED,PARTIALLY_DISBURSED',
-        limit: req.query.limit || '200',
-    };
+    // Flag queue mode via a plain req property. Express 5's req.query is a
+    // read-only getter — reassigning it (the previous approach) silently failed,
+    // so the queue leaked COMPLETED/PENDING rows and showed stale Execute buttons.
+    req._disbursementQueue = true;
     return fundRequestController.getFundRequests(req, res, next);
 });
 router.put('/disbursements/:id/execute', authorize('FINANCE_OFFICER', 'ADMIN'), financeRateLimiter, fundRequestController.disburseFund);

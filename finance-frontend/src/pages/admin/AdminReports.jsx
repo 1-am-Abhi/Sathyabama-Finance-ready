@@ -39,7 +39,7 @@ const AdminReports = () => {
     const [selectedSource, setSelectedSource] = useState('All');
     const [manageFacultyModal, setManageFacultyModal] = useState({ isOpen: false, project: null, selectedFaculty: '' });
     const [aiModal, setAiModal] = useState({ open: false, loading: false, result: null });
-    const [stats, setStats] = useState({
+    const EMPTY_STATS = {
         totalProjects: 0,
         activeProjects: 0,
         pendingProjects: 0,
@@ -47,7 +47,8 @@ const AdminReports = () => {
         totalDisbursed: 0,
         totalFaculty: 0,
         centres: []
-    });
+    };
+    const [stats, setStats] = useState(EMPTY_STATS);
     const [allRequests, setAllRequests] = useState([]);
     const [loading, setLoading] = useState(true);
 
@@ -120,7 +121,10 @@ const AdminReports = () => {
                 setAllRequests(normalizedRequests);
             } catch (err) {
                 console.error("Error fetching report data:", err);
-                setStats(null);
+                // Never set stats to null — the render derives overviewStats/
+                // projectsByCentre from stats.* directly, so null would crash the
+                // whole Reports page. Fall back to zeroed (but shaped) stats.
+                setStats(EMPTY_STATS);
                 setAllRequests([]);
             } finally {
                 setLoading(false);

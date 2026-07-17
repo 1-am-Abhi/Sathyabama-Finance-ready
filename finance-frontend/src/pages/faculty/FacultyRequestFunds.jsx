@@ -39,7 +39,7 @@ const FacultyRequestFunds = () => {
 
   const openProofModal = (requestId) => {
     setProofFile(null);
-    setProofType('UTILIZATION_CERTIFICATE');
+    setProofType('BILL'); // default to Bill/Invoice — the item usually uploaded first
     setProofError('');
     setProofModal({ open: true, requestId });
   };
@@ -58,7 +58,9 @@ const FacultyRequestFunds = () => {
       fd.append('proofType', proofType);
       await apiClient.post(`/fund-requests/${proofModal.requestId}/proofs`, fd);
       if (refetchFundRequests) await refetchFundRequests();
-      setProofModal({ open: false, requestId: null });
+      // Keep the modal open so the faculty can add the OTHER required document.
+      // Verification needs BOTH a Bill/Invoice AND a Utilization Certificate; the
+      // checklist below updates from the refetched request. Clear the file only.
       setProofFile(null);
     } catch (err) {
       setProofError(
@@ -68,6 +70,19 @@ const FacultyRequestFunds = () => {
       setProofSubmitting(false);
     }
   };
+
+  // Live proof status for the request open in the modal (updates after each
+  // upload via refetch). Mirrors the backend's evaluateProofs() requirement:
+  // a Bill/Invoice AND a Utilization Certificate are both required to verify.
+  const proofModalRequest = (fundRequests || []).find(
+    (r) => (r._id || r.id) === proofModal.requestId
+  );
+  const uploadedProofTypes = (proofModalRequest?.documents || [])
+    .map((d) => String(d?.type || '').toUpperCase())
+    .filter(Boolean);
+  const hasBillOrInvoice = uploadedProofTypes.includes('BILL') || uploadedProofTypes.includes('INVOICE');
+  const hasUtilizationCertificate = uploadedProofTypes.includes('UTILIZATION_CERTIFICATE');
+  const proofsComplete = hasBillOrInvoice && hasUtilizationCertificate;
 
   const projectList = useMemo(() => projects || [], [projects]);
   const requestHistory = fundRequests || [];
@@ -115,7 +130,23 @@ const FacultyRequestFunds = () => {
   );
 
   // BUTTON LOGIC (FINAL) - Task 4
-  const canRequest = isPI && remainingAmount > 0;
+  // Mirror the backend state machine: a new installment cannot be requested while
+  // the selected project has an in-flight installment whose utilization has NOT
+  // yet been verified (pending approval, approved-awaiting-disbursement, or
+  // disbursed-awaiting-verification). This keeps the button in lockstep with the
+  // server, which returns 409 PREVIOUS_INSTALLMENT_UNVERIFIED otherwise.
+  const selectedProjectInstallments = (requestHistory || []).filter((r) => {
+    const rid = r.projectId || r.projectRef;
+    return (rid && rid === selectedProjectId) ||
+      (selectedProject?.title && r.projectTitle === selectedProject.title);
+  });
+  const hasUnverifiedInstallment = selectedProjectInstallments.some((r) => {
+    const status = String(r.status || '').toUpperCase();
+    if (['REJECTED', 'CANCELLED'].includes(status)) return false;
+    const verified = ['UTILIZATION_COMPLETED', 'SETTLEMENT_CLOSED'].includes(r.currentStage);
+    return !verified; // any non-terminal, non-verified installment blocks the next
+  });
+  const canRequest = isPI && remainingAmount > 0 && !hasUnverifiedInstallment;
 
   // ENSURE REAL API CALL (NO SILENT FAIL) - Task 2
   const handleSubmit = async () => {
@@ -254,16 +285,23 @@ const FacultyRequestFunds = () => {
               <Button
                 disabled={!canRequest}
                 onClick={() => setShowModal(true)}
-                className="px-8 py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg transition-colors font-semibold text-md shadow-md"
+                className="px-8 py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg transition-colors font-semibold text-md shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {!isPI
                   ? "PI Only"
                   : remainingAmount <= 0
                   ? "Budget Exhausted"
+                  : hasUnverifiedInstallment
+                  ? "Awaiting Verification"
                   : releasedAmount > 0
                   ? "Request Next Installment"
                   : "Request First Installment"}
               </Button>
+              {isPI && remainingAmount > 0 && hasUnverifiedInstallment && (
+                <p className="text-xs text-amber-600 dark:text-amber-400 mt-3 max-w-md mx-auto font-medium">
+                  Upload proofs (Bill/Invoice + Utilization Certificate) for your current installment and have Finance verify it before requesting the next one.
+                </p>
+              )}
             </div>
 
             {/* BOTTOM - Request History */}
@@ -400,8 +438,23 @@ const FacultyRequestFunds = () => {
           <div className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700 p-7 rounded-2xl w-full max-w-md space-y-5 shadow-2xl">
             <h3 className="font-bold text-xl text-gray-900 dark:text-white border-b border-gray-200 dark:border-slate-700 pb-3">Submit Utilization Proofs</h3>
             <p className="text-sm text-gray-500 dark:text-gray-400">
-              Upload utilization proof for this installment. Verified proofs are required before the next installment can be requested.
+              Finance requires <strong>both</strong> a Bill/Invoice <strong>and</strong> a Utilization Certificate before this installment can be verified and the next one requested.
             </p>
+
+            {/* Required-document checklist — mirrors the backend verification rule */}
+            <div className="rounded-xl border border-gray-200 dark:border-slate-800 bg-gray-50 dark:bg-slate-950 p-4 space-y-2">
+              <div className="flex items-center gap-2 text-sm">
+                <span className={hasBillOrInvoice ? 'text-emerald-600' : 'text-gray-400'}>{hasBillOrInvoice ? '✓' : '○'}</span>
+                <span className={hasBillOrInvoice ? 'font-semibold text-gray-900 dark:text-white' : 'text-gray-500'}>Bill / Invoice {hasBillOrInvoice && 'uploaded'}</span>
+              </div>
+              <div className="flex items-center gap-2 text-sm">
+                <span className={hasUtilizationCertificate ? 'text-emerald-600' : 'text-gray-400'}>{hasUtilizationCertificate ? '✓' : '○'}</span>
+                <span className={hasUtilizationCertificate ? 'font-semibold text-gray-900 dark:text-white' : 'text-gray-500'}>Utilization Certificate {hasUtilizationCertificate && 'uploaded'}</span>
+              </div>
+              {proofsComplete && (
+                <p className="text-xs text-emerald-600 font-semibold pt-1">All required proofs uploaded — Finance can now verify utilization.</p>
+              )}
+            </div>
 
             <div>
               <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">Proof Type</label>
@@ -433,9 +486,11 @@ const FacultyRequestFunds = () => {
             {proofError && <p className="text-red-600 dark:text-red-400 text-sm font-medium bg-red-50 dark:bg-red-950/40 px-4 py-3 rounded-xl border border-red-200 dark:border-red-900/50">{proofError}</p>}
 
             <div className="flex gap-3 mt-6 pt-2">
-              <Button onClick={() => setProofModal({ open: false, requestId: null })} variant="outline" className="flex-1 bg-white dark:bg-slate-800 border-gray-300 dark:border-slate-700 text-gray-700 dark:text-white hover:bg-gray-50 dark:hover:bg-slate-700 h-11 rounded-xl">Cancel</Button>
-              <Button onClick={handleProofSubmit} disabled={proofSubmitting} className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white h-11 rounded-xl shadow-md font-semibold">
-                {proofSubmitting ? "Uploading..." : "Upload Proof"}
+              <Button onClick={() => setProofModal({ open: false, requestId: null })} variant="outline" className="flex-1 bg-white dark:bg-slate-800 border-gray-300 dark:border-slate-700 text-gray-700 dark:text-white hover:bg-gray-50 dark:hover:bg-slate-700 h-11 rounded-xl">
+                {proofsComplete ? 'Done' : 'Close'}
+              </Button>
+              <Button onClick={handleProofSubmit} disabled={proofSubmitting || !proofFile} className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white h-11 rounded-xl shadow-md font-semibold disabled:opacity-50">
+                {proofSubmitting ? "Uploading..." : `Upload ${proofType.replace(/_/g, ' ')}`}
               </Button>
             </div>
           </div>
