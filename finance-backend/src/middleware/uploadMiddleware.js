@@ -46,9 +46,13 @@ const upload = multer({
 // immediately after upload.single()/upload.fields(). Failure to persist never
 // blocks the upload — the file still exists on local disk for the current
 // instance and the request succeeds.
-const persistUploads = async (req, res, next) => {
+const persistUploads = (req, res, next) => {
+  // Capture buffers synchronously (fast, local disk read), then persist to
+  // Postgres OFF the critical path. This keeps the DB BLOB write from holding a
+  // pool connection while the client waits — the document record itself is saved
+  // synchronously by the controller, so verification never depends on this.
+  const payloads = [];
   try {
-    const { UploadedFile } = require('../models');
     const collected = [];
     if (req.file) collected.push(req.file);
     if (Array.isArray(req.files)) collected.push(...req.files);
@@ -65,16 +69,18 @@ const persistUploads = async (req, res, next) => {
         try { buffer = fs.readFileSync(f.path); } catch (e) { continue; }
       }
       if (!buffer) continue;
-      await UploadedFile.upsert({
-        filename: f.filename,
-        mimetype: f.mimetype || null,
-        size: f.size || buffer.length,
-        data: buffer,
-      });
+      payloads.push({ filename: f.filename, mimetype: f.mimetype || null, size: f.size || buffer.length, data: buffer });
     }
   } catch (e) {
-    // Never fail the upload on a persistence hiccup; the record is still on disk.
-    try { require('../utils/logger').warn('[persistUploads] failed:', e.message); } catch (_) {}
+    try { require('../utils/logger').warn('[persistUploads] collect failed:', e.message); } catch (_) {}
+  }
+
+  // Fire-and-forget the durable-storage write; the disk copy serves the file in
+  // the meantime, and the record is already appended by the controller.
+  if (payloads.length) {
+    const { UploadedFile } = require('../models');
+    Promise.all(payloads.map((p) => UploadedFile.upsert(p)))
+      .catch((e) => { try { require('../utils/logger').warn('[persistUploads] async store failed:', e.message); } catch (_) {} });
   }
   next();
 };

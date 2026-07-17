@@ -28,9 +28,16 @@ const makeSequelizeOptions = () => ({
         keepAlive: true
     },
     pool: {
-        max: Number(process.env.DB_POOL_MAX || 2),
+        // A max of 2 connections was the root cause of proof uploads (and other
+        // writes) hanging until the request timeout: notification polling + the
+        // disbursement worker + concurrent users exhausted the pool, so the next
+        // query waited for a free connection and the request timed out (→ "UC NO").
+        // 10 is safely within Render's free-tier Postgres connection limit.
+        max: Number(process.env.DB_POOL_MAX || 10),
         min: Number(process.env.DB_POOL_MIN || 0),
-        acquire: Number(process.env.DB_POOL_ACQUIRE || 30000),
+        // Fail fast (8s) rather than hanging up to the request timeout if the pool
+        // is genuinely saturated — surfaces a clear error instead of a 30s stall.
+        acquire: Number(process.env.DB_POOL_ACQUIRE || 8000),
         idle: Number(process.env.DB_POOL_IDLE || 10000),
         evict: Number(process.env.DB_POOL_EVICT || 1000)
     },
