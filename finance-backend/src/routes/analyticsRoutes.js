@@ -154,4 +154,22 @@ router.get('/forecast-base', (req, res) => {
   });
 });
 
+// Faculty distribution stats — consumed by the admin FacultyAnalytics widget
+// (GET /analytics/faculty-stats). Previously missing → the widget silently
+// showed zeros.
+router.get('/faculty-stats', protect, asyncHandler(async (req, res) => {
+    const { User } = require('../models');
+    const faculty = await User.findAll({
+        where: { role: 'FACULTY' },
+        attributes: ['centre', 'researchCenterId', 'createdAt']
+    });
+    const byCentreMap = {};
+    faculty.forEach((f) => {
+        const key = f.centre || 'Unassigned';
+        byCentreMap[key] = (byCentreMap[key] || 0) + 1;
+    });
+    const byCentre = Object.entries(byCentreMap).map(([centre, count]) => ({ centre, count }));
+    return res.json({ success: true, data: { totalFaculty: faculty.length, byCentre, growth: [] } });
+}));
+
 module.exports = router;

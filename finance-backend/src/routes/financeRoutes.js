@@ -171,4 +171,21 @@ router.get('/function-requests', async (req, res) => {
     }
 });
 
+// Execute (disburse) an equipment fund request. The equipment-disbursements list
+// returns FundRequests tagged "Equipment"; executing one is a standard
+// disbursement, so this reuses the tested disburse pipeline. Previously this
+// route was missing, so the "Execute Payment" action 404'd.
+router.put(
+    '/equipment-disbursements/:id/execute',
+    protect,
+    authorize('FINANCE_OFFICER', 'ADMIN'),
+    sanitizeFinancialInput,
+    (req, res, next) => {
+        req.body.paymentMode = req.body.paymentMode || 'NEFT';
+        req.body.referenceId = req.body.referenceId || req.body.transactionId;
+        next();
+    },
+    fundRequestController.disburseFund
+);
+
 module.exports = router;
