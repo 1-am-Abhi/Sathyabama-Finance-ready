@@ -25,12 +25,20 @@ const safeNumber = (value) => {
     return Number.isFinite(numeric) ? numeric : 0;
 };
 
+// The backend's canonical fully-disbursed status is COMPLETED (the pipeline sets
+// it on full release); PARTIALLY_DISBURSED covers partial releases. The old list
+// only checked 'DISBURSED', so completed requests were mis-categorised as not-in-
+// workflow and their disbursement went unrecognised.
 const isApprovedWorkflowStatus = (status) =>
-    ['APPROVED', 'PENDING_DISBURSAL', 'DISBURSED'].includes(String(status || '').toUpperCase());
+    ['APPROVED', 'PENDING_DISBURSAL', 'PARTIALLY_DISBURSED', 'DISBURSED', 'COMPLETED'].includes(String(status || '').toUpperCase());
 
+// Disbursed = money actually released, derived from the SAME canonical signals
+// the backend exposes (paymentStatus / releasedAmount) plus status/stage.
 const isDisbursedRequest = (request) =>
-    String(request?.status || '').toUpperCase() === 'DISBURSED' ||
-    ['AMOUNT_DISBURSED', 'CHEQUE_RELEASED'].includes(String(request?.currentStage || '').toUpperCase()) ||
+    String(request?.paymentStatus || '').toUpperCase() === 'RELEASED' ||
+    Number(request?.releasedAmount || 0) > 0 ||
+    ['DISBURSED', 'COMPLETED', 'PARTIALLY_DISBURSED'].includes(String(request?.status || '').toUpperCase()) ||
+    ['AMOUNT_DISBURSED', 'CHEQUE_RELEASED', 'UTILIZATION_COMPLETED', 'SETTLEMENT_CLOSED'].includes(String(request?.currentStage || '').toUpperCase()) ||
     String(request?.chequeStatus || '').toUpperCase() === 'DISBURSED';
 
 const ApproveFundRequests = () => {
