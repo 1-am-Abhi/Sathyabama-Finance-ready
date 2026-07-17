@@ -19,6 +19,7 @@ const models = {
     JournalEntry: require('./JournalEntry'),
     Ledger: require('./Ledger'),
     LedgerSnapshot: require('./LedgerSnapshot'),
+    UploadedFile: require('./UploadedFile'),
     Notification: require('./Notification'),
     ODRequest: require('./ODRequest'),
     PFMSTransaction: require('./PFMSTransaction'),

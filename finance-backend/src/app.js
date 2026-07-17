@@ -78,6 +78,23 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 // production, configure Cloudinary (deps already present) so uploads return a
 // durable CDN URL instead of a local path.
 const pathModule = require('path');
+// Durable proof serving: try Postgres (survives Render's ephemeral filesystem)
+// first, then fall back to any file still on local disk (legacy uploads).
+app.get('/uploads/:filename', async (req, res, next) => {
+    try {
+        const { UploadedFile } = require('./models');
+        const record = await UploadedFile.findByPk(req.params.filename);
+        if (record && record.data) {
+            res.setHeader('Content-Type', record.mimetype || 'application/octet-stream');
+            res.setHeader('Content-Disposition', `inline; filename="${req.params.filename}"`);
+            res.setHeader('Cache-Control', 'private, max-age=86400');
+            return res.send(record.data);
+        }
+    } catch (e) {
+        logger.warn(`[uploads] DB lookup failed for ${req.params.filename}: ${e.message}`);
+    }
+    return next();
+});
 app.use('/uploads', require('express').static(pathModule.join(__dirname, '..', 'uploads')));
 
 const AlertService = require('./services/alertService');

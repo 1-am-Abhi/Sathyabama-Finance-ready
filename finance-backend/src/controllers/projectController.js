@@ -201,7 +201,12 @@ const getProjectDetails = asyncHandler(async (req, res) => {
         const d = new Date(v);
         return isNaN(d.getTime()) ? String(v).slice(0, 10) : d.toISOString().slice(0, 10);
     };
-    const startDate = dateOnly(plain.startDate);
+    const created = dateOnly(plain.createdAt);
+    // Start / sanction date fall back to the project's creation date so the API
+    // never serialises null (which the UI renders as N/A) for a project that
+    // demonstrably exists. End date / duration are only shown when real timeline
+    // data exists — they are never fabricated.
+    const startDate = dateOnly(plain.startDate) || created;
     const endDate = dateOnly(plain.endDate);
 
     return res.status(200).json({
@@ -215,9 +220,8 @@ const getProjectDetails = asyncHandler(async (req, res) => {
             utilizedBudget: releasedAmount,
             startDate,
             endDate,
-            // Sanction Date is the project start (date of sanction order). Fall back
-            // to the creation date so the UI never shows N/A when a project exists.
-            sanctionDate: startDate || dateOnly(plain.createdAt),
+            // Sanction Date is the project start (date of sanction order).
+            sanctionDate: startDate,
             sanctionedAmount: sanctionedBudget,
             releasedAmount,
             remainingAmount,
@@ -233,16 +237,17 @@ const createProject = asyncHandler(async (req, res) => {
     const orgId = req.user.organizationId;
     const {
         title, sanctionedBudget, fundingSource, description, centreId,
-        startDate, endDate, duration, projectType, publicationYear
+        startDate, endDate, duration, projectType, publicationYear, sanctionDate
     } = req.body;
 
     if (!title || safeNumber(sanctionedBudget) <= 0) {
         return res.status(400).json({ success: false, message: 'Title and valid budget are required', data: null });
     }
 
-    // Sanction/start date is what the faculty enters; the project end date is
-    // derived from the entered duration (in years) when not supplied explicitly.
-    const resolvedStart = startDate || null;
+    // Sanction/start date is what the faculty enters (accept either field name);
+    // the project end date is derived from the entered duration (in years) when
+    // not supplied explicitly.
+    const resolvedStart = startDate || sanctionDate || null;
     const resolvedEnd = computeProjectEndDate(resolvedStart, endDate, duration);
 
     const project = await Project.create({
@@ -309,7 +314,7 @@ const updateProject = asyncHandler(async (req, res) => {
 
     const {
         status, sanctionedBudget, fundingSource, description,
-        startDate, endDate, duration, projectType, publicationYear
+        startDate, endDate, duration, projectType, publicationYear, sanctionDate
     } = req.body;
 
     const statusChanged = status && status !== project.status;
@@ -319,11 +324,13 @@ const updateProject = asyncHandler(async (req, res) => {
     if (description) project.description = description;
     if (projectType) project.projectType = projectType;
     if (publicationYear) project.publicationYear = safeNumber(publicationYear);
-    // Update timeline fields; recompute endDate from duration when start changes.
-    if (startDate !== undefined) project.startDate = startDate || null;
-    if (startDate !== undefined || endDate !== undefined || duration !== undefined) {
+    // Update timeline fields (accept startDate or its sanctionDate alias);
+    // recompute endDate from duration when start changes.
+    const incomingStart = startDate !== undefined ? startDate : sanctionDate;
+    if (incomingStart !== undefined) project.startDate = incomingStart || null;
+    if (incomingStart !== undefined || endDate !== undefined || duration !== undefined) {
         const nextEnd = computeProjectEndDate(
-            startDate !== undefined ? startDate : project.startDate,
+            incomingStart !== undefined ? incomingStart : project.startDate,
             endDate,
             duration
         );

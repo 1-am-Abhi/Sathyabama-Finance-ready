@@ -41,4 +41,42 @@ const upload = multer({
   limits: { fileSize: 15 * 1024 * 1024 }, // 15 MB per file
 });
 
-module.exports = { upload, UPLOAD_DIR };
+// Persist just-uploaded files into Postgres so they survive Render's ephemeral
+// filesystem (fixes GET /uploads/<file> → 404 after redeploy). Place this
+// immediately after upload.single()/upload.fields(). Failure to persist never
+// blocks the upload — the file still exists on local disk for the current
+// instance and the request succeeds.
+const persistUploads = async (req, res, next) => {
+  try {
+    const { UploadedFile } = require('../models');
+    const collected = [];
+    if (req.file) collected.push(req.file);
+    if (Array.isArray(req.files)) collected.push(...req.files);
+    else if (req.files && typeof req.files === 'object') {
+      for (const key of Object.keys(req.files)) {
+        const v = req.files[key];
+        if (Array.isArray(v)) collected.push(...v);
+      }
+    }
+    for (const f of collected) {
+      if (!f || !f.filename) continue;
+      let buffer = f.buffer;
+      if (!buffer && f.path) {
+        try { buffer = fs.readFileSync(f.path); } catch (e) { continue; }
+      }
+      if (!buffer) continue;
+      await UploadedFile.upsert({
+        filename: f.filename,
+        mimetype: f.mimetype || null,
+        size: f.size || buffer.length,
+        data: buffer,
+      });
+    }
+  } catch (e) {
+    // Never fail the upload on a persistence hiccup; the record is still on disk.
+    try { require('../utils/logger').warn('[persistUploads] failed:', e.message); } catch (_) {}
+  }
+  next();
+};
+
+module.exports = { upload, persistUploads, UPLOAD_DIR };

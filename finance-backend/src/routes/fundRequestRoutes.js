@@ -6,7 +6,7 @@ const dbReady = require('../middleware/dbReady');
 const orgScope = require('../middleware/orgScope');
 const { validate, fundRequestSchema } = require('../utils/validation');
 const { sanitizeFinancialInput } = require('../middleware/inputSanitizer');
-const { upload } = require('../middleware/uploadMiddleware');
+const { upload, persistUploads } = require('../middleware/uploadMiddleware');
 const auditController = require('../controllers/auditController');
 
 // All routes require authentication
@@ -34,6 +34,7 @@ router.post(
     '/',
     authorize('FACULTY'),
     upload.single('bill'),
+    persistUploads,
     sanitizeFinancialInput,
     validate(fundRequestSchema),
     fundRequestController.createFundRequest
@@ -59,7 +60,7 @@ router.patch('/:id/reject',   authorize('ADMIN'), fundRequestController.rejectFu
  * Notifies: Faculty
  */
 router.patch('/:id/disburse', authorize('FINANCE_OFFICER'), sanitizeFinancialInput, fundRequestController.disburseFund);
-router.post('/:id/disburse', authorize('ADMIN', 'FINANCE_OFFICER'), upload.single('proof'), sanitizeFinancialInput, fundRequestController.disburseFund);
+router.post('/:id/disburse', authorize('ADMIN', 'FINANCE_OFFICER'), upload.single('proof'), persistUploads, sanitizeFinancialInput, fundRequestController.disburseFund);
 
 // ── Granular pipeline advancement (Finance / Faculty) ─────────────────────────
 // Retained for backward-compat with the stage-based pipeline UI
@@ -68,7 +69,7 @@ router.post('/:id/advance', authorize('FACULTY', 'FINANCE_OFFICER', 'ADMIN'), sa
 // ── Installment proof gating ──────────────────────────────────────────────────
 // Faculty uploads utilization proofs (bills/invoices/UC); Finance verifies them
 // before the next installment can be requested.
-router.post('/:id/proofs', authorize('FACULTY'), upload.single('proof'), sanitizeFinancialInput, fundRequestController.submitUtilizationProofs);
+router.post('/:id/proofs', authorize('FACULTY'), upload.single('proof'), persistUploads, sanitizeFinancialInput, fundRequestController.submitUtilizationProofs);
 router.post('/:id/verify-utilization', authorize('FINANCE_OFFICER', 'ADMIN'), sanitizeFinancialInput, fundRequestController.verifyUtilization);
 router.post('/:id/return-for-correction', authorize('FINANCE_OFFICER', 'ADMIN'), sanitizeFinancialInput, fundRequestController.returnForCorrection);
 
